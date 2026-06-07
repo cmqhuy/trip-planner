@@ -1117,7 +1117,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     .filter(Boolean) as Place[];
 
   const formatDisplayDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    if (!dateStr) return '';
+    const cleanDateStr = dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`;
+    return new Date(cleanDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   return (

@@ -4,6 +4,7 @@ import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { Compass } from 'lucide-react';
 import { DEFAULT_PLACE_GROUPS } from './utils/api';
+import { generateDatesRange } from './utils/dateUtils';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -65,22 +66,6 @@ export default function App() {
   const saveTrips = (updatedTrips: Trip[]) => {
     setTrips(updatedTrips);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTrips));
-  };
-
-  // Helper to generate ISO dates within a range (inclusive)
-  const generateDatesRange = (startStr: string, endStr: string): string[] => {
-    const dates: string[] = [];
-    const current = new Date(startStr);
-    const end = new Date(endStr);
-    
-    // Safety limit to avoid infinite loops if bad dates are input
-    let count = 0;
-    while (current <= end && count < 100) {
-      dates.push(current.toISOString().split('T')[0]);
-      current.setDate(current.getDate() + 1);
-      count++;
-    }
-    return dates;
   };
 
   const handleCreateTrip = (newTripData: Omit<Trip, 'id' | 'locations' | 'plans' | 'placeGroups'>) => {

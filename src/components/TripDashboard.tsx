@@ -33,7 +33,9 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
+    if (!dateStr) return '';
+    const cleanDateStr = dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`;
+    const d = new Date(cleanDateStr);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
