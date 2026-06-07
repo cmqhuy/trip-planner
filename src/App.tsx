@@ -32,9 +32,7 @@ export default function App() {
   const [googleToken, setGoogleToken] = useState<string | null>(null);
   const [googleFolderId, setGoogleFolderId] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
-  const [clientId, setClientId] = useState<string>(() => {
-    return localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID;
-  });
+  const clientId = localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID;
   const [conflictData, setConflictData] = useState<{ local: Trip[]; cloud: Trip[] } | null>(null);
 
   const syncTimeoutRef = useRef<any>(null);
