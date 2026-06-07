@@ -16,7 +16,6 @@ import {
   DEFAULT_CLIENT_ID 
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
-import SyncConflictModal from './components/SyncConflictModal';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -66,7 +65,6 @@ export default function App() {
   });
 
   const clientId = localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID;
-  const [conflictData, setConflictData] = useState<{ local: Trip[]; cloud: Trip[] } | null>(null);
 
   const syncTimeoutRef = useRef<any>(null);
 
@@ -162,28 +160,16 @@ export default function App() {
         const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
         const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
 
-        if (cloudTrips && cloudTrips.length > 0) {
-          if (localTrips.length === 0) {
-            // Local is empty: download cloud data
-            setTrips(cloudTrips);
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cloudTrips));
-            setSyncStatus('synced');
-          } else {
-            // Check if local and cloud are identical
-            const localString = JSON.stringify(localTrips);
-            const cloudString = JSON.stringify(cloudTrips);
-            if (localString === cloudString) {
-              setSyncStatus('synced');
-            } else {
-              // Conflict! Show modal
-              setConflictData({ local: localTrips, cloud: cloudTrips });
-            }
-          }
-        } else {
-          // Cloud is empty: upload local trips
-          await saveTripsToDrive(googleToken, googleFolderId, localTrips);
-          setSyncStatus('synced');
-        }
+        // Auto-merge local and cloud trips to sync both ends
+        const merged = mergeTrips(localTrips, cloudTrips || []);
+        
+        // Save merged result locally
+        setTrips(merged);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+
+        // Save merged result to Google Drive
+        await saveTripsToDrive(googleToken, googleFolderId, merged);
+        setSyncStatus('synced');
       } catch (e) {
         console.error('Initial Google Drive sync failed:', e);
         setSyncStatus('error');
@@ -285,33 +271,7 @@ export default function App() {
     }
   };
 
-  const handleResolveConflict = async (choice: 'merge' | 'cloud' | 'local') => {
-    if (!conflictData || !googleToken || !googleFolderId) return;
 
-    setSyncStatus('syncing');
-    try {
-      let resolvedTrips: Trip[] = [];
-      if (choice === 'merge') {
-        resolvedTrips = mergeTrips(conflictData.local, conflictData.cloud);
-      } else if (choice === 'cloud') {
-        resolvedTrips = conflictData.cloud;
-      } else if (choice === 'local') {
-        resolvedTrips = conflictData.local;
-      }
-
-      // Save locally
-      setTrips(resolvedTrips);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(resolvedTrips));
-
-      // Push to Drive
-      await saveTripsToDrive(googleToken, googleFolderId, resolvedTrips);
-      setSyncStatus('synced');
-      setConflictData(null);
-    } catch (e) {
-      console.error('Conflict resolution sync failed:', e);
-      setSyncStatus('error');
-    }
-  };
 
   const handleCreateTrip = (newTripData: Omit<Trip, 'id' | 'locations' | 'plans' | 'placeGroups'>) => {
     const tripId = `trip-${Date.now()}`;
@@ -414,14 +374,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Conflict Resolution Modal */}
-      {conflictData && (
-        <SyncConflictModal
-          localCount={conflictData.local.length}
-          cloudCount={conflictData.cloud.length}
-          onResolve={handleResolveConflict}
-        />
-      )}
     </div>
   );
 }
