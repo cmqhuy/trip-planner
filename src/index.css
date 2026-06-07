@@ -1063,3 +1063,80 @@ input:focus, textarea:focus, select:focus {
     display: none !important;
   }
 }
+
+/* Custom Premium Tooltips */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  border-width: 5px 5px 0;
+  border-style: solid;
+  border-color: rgba(15, 23, 42, 0.95) transparent transparent;
+  display: block;
+  width: 0;
+  z-index: 1001;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s ease-out;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-5px) scale(0.9);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-lg), 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  text-transform: none;
+  line-height: 1.2;
+}
+
+[data-tooltip]:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Position modifiers */
+[data-tooltip-position="bottom"]::before {
+  top: 125%;
+  bottom: auto;
+  border-width: 0 5px 5px;
+  border-color: transparent transparent rgba(15, 23, 42, 0.95);
+  transform: translateX(-50%) translateY(-4px);
+}
+[data-tooltip-position="bottom"]::after {
+  top: 125%;
+  bottom: auto;
+  transform: translateX(-50%) translateY(5px) scale(0.9);
+}
+[data-tooltip-position="bottom"]:hover::before {
+  transform: translateX(-50%) translateY(0);
+}
+[data-tooltip-position="bottom"]:hover::after {
+  transform: translateX(-50%) translateY(0) scale(1);
+}

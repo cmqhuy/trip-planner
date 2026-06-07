@@ -86,7 +86,8 @@ export default function GoogleAuthSection({
             <button 
               className="mini-icon-btn" 
               onClick={onManualSync} 
-              title="Sync Now" 
+              data-tooltip="Sync Now" 
+              data-tooltip-position="bottom"
               disabled={syncStatus === 'syncing'}
               style={{ padding: '4px', display: 'flex' }}
             >
@@ -96,7 +97,8 @@ export default function GoogleAuthSection({
             <button 
               className="mini-icon-btn" 
               onClick={onSignOut} 
-              title="Sign Out" 
+              data-tooltip="Sign Out" 
+              data-tooltip-position="bottom"
               style={{ padding: '4px', display: 'flex', color: 'var(--text-muted)' }}
             >
               <LogOut size={12} />
