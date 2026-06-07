@@ -1,9 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Trip, Plan, PlanDay } from './types';
 import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { DEFAULT_PLACE_GROUPS } from './utils/api';
 import { generateDatesRange } from './utils/dateUtils';
+import { 
+  loadGsiScript, 
+  initTokenClient, 
+  requestAccessToken, 
+  fetchGoogleUserInfo, 
+  getOrCreateTripPlannerFolder, 
+  fetchTripsFromDrive, 
+  saveTripsToDrive, 
+  mergeTrips, 
+  DEFAULT_CLIENT_ID 
+} from './utils/googleDrive';
+import GoogleAuthSection from './components/GoogleAuthSection';
+import SyncConflictModal from './components/SyncConflictModal';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -13,6 +26,18 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     return params.get('trip');
   });
+
+  // Google Integration States
+  const [googleUser, setGoogleUser] = useState<{ name: string; email: string; picture: string } | null>(null);
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [googleFolderId, setGoogleFolderId] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [clientId, setClientId] = useState<string>(() => {
+    return localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID;
+  });
+  const [conflictData, setConflictData] = useState<{ local: Trip[]; cloud: Trip[] } | null>(null);
+
+  const syncTimeoutRef = useRef<any>(null);
 
   // Load trips from LocalStorage on mount
   useEffect(() => {
@@ -25,6 +50,97 @@ export default function App() {
       }
     }
   }, []);
+
+  // Load GIS script and init token client when clientId changes
+  useEffect(() => {
+    if (!clientId) return;
+
+    loadGsiScript()
+      .then(() => {
+        try {
+          initTokenClient(
+            clientId,
+            (token) => {
+              setGoogleToken(token);
+            },
+            (err) => {
+              console.error('Google token request failed:', err);
+              setSyncStatus('error');
+            }
+          );
+        } catch (e) {
+          console.error('Failed to initialize token client:', e);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load Google Identity Services script:', err);
+      });
+  }, [clientId]);
+
+  // Load user profile & Drive folder when token is received
+  useEffect(() => {
+    if (!googleToken) return;
+
+    const loadCredentials = async () => {
+      setSyncStatus('syncing');
+      try {
+        const user = await fetchGoogleUserInfo(googleToken);
+        setGoogleUser(user);
+
+        const folderId = await getOrCreateTripPlannerFolder(googleToken);
+        setGoogleFolderId(folderId);
+      } catch (e) {
+        console.error('Failed to load Google credentials:', e);
+        setSyncStatus('error');
+      }
+    };
+
+    loadCredentials();
+  }, [googleToken]);
+
+  // Initial Sync Logic once folder is ready
+  useEffect(() => {
+    if (!googleToken || !googleFolderId) return;
+
+    const performInitialSync = async () => {
+      setSyncStatus('syncing');
+      try {
+        const cloudTrips = await fetchTripsFromDrive(googleToken, googleFolderId);
+        
+        // Load local trips
+        const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
+
+        if (cloudTrips && cloudTrips.length > 0) {
+          if (localTrips.length === 0) {
+            // Local is empty: download cloud data
+            setTrips(cloudTrips);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cloudTrips));
+            setSyncStatus('synced');
+          } else {
+            // Check if local and cloud are identical
+            const localString = JSON.stringify(localTrips);
+            const cloudString = JSON.stringify(cloudTrips);
+            if (localString === cloudString) {
+              setSyncStatus('synced');
+            } else {
+              // Conflict! Show modal
+              setConflictData({ local: localTrips, cloud: cloudTrips });
+            }
+          }
+        } else {
+          // Cloud is empty: upload local trips
+          await saveTripsToDrive(googleToken, googleFolderId, localTrips);
+          setSyncStatus('synced');
+        }
+      } catch (e) {
+        console.error('Initial Google Drive sync failed:', e);
+        setSyncStatus('error');
+      }
+    };
+
+    performInitialSync();
+  }, [googleToken, googleFolderId]);
 
   // Sync activeTripId with URL search parameters
   useEffect(() => {
@@ -61,17 +177,91 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Save trips to LocalStorage
+  // Save trips locally and automatically sync to Google Drive
   const saveTrips = (updatedTrips: Trip[]) => {
     setTrips(updatedTrips);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTrips));
+
+    if (googleToken && googleFolderId) {
+      setSyncStatus('syncing');
+
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+
+      syncTimeoutRef.current = setTimeout(async () => {
+        try {
+          await saveTripsToDrive(googleToken, googleFolderId, updatedTrips);
+          setSyncStatus('synced');
+        } catch (e) {
+          console.error('Automatic background sync failed:', e);
+          setSyncStatus('error');
+        }
+      }, 1000);
+    }
+  };
+
+  const handleSignIn = () => {
+    setSyncStatus('syncing');
+    try {
+      requestAccessToken();
+    } catch (e) {
+      console.error('Failed to request access token:', e);
+      setSyncStatus('error');
+    }
+  };
+
+  const handleSignOut = () => {
+    setGoogleUser(null);
+    setGoogleToken(null);
+    setGoogleFolderId(null);
+    setSyncStatus('idle');
+  };
+
+  const handleManualSync = async () => {
+    if (!googleToken || !googleFolderId) return;
+    setSyncStatus('syncing');
+    try {
+      await saveTripsToDrive(googleToken, googleFolderId, trips);
+      setSyncStatus('synced');
+    } catch (e) {
+      console.error('Manual sync failed:', e);
+      setSyncStatus('error');
+    }
+  };
+
+  const handleResolveConflict = async (choice: 'merge' | 'cloud' | 'local') => {
+    if (!conflictData || !googleToken || !googleFolderId) return;
+
+    setSyncStatus('syncing');
+    try {
+      let resolvedTrips: Trip[] = [];
+      if (choice === 'merge') {
+        resolvedTrips = mergeTrips(conflictData.local, conflictData.cloud);
+      } else if (choice === 'cloud') {
+        resolvedTrips = conflictData.cloud;
+      } else if (choice === 'local') {
+        resolvedTrips = conflictData.local;
+      }
+
+      // Save locally
+      setTrips(resolvedTrips);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(resolvedTrips));
+
+      // Push to Drive
+      await saveTripsToDrive(googleToken, googleFolderId, resolvedTrips);
+      setSyncStatus('synced');
+      setConflictData(null);
+    } catch (e) {
+      console.error('Conflict resolution sync failed:', e);
+      setSyncStatus('error');
+    }
   };
 
   const handleCreateTrip = (newTripData: Omit<Trip, 'id' | 'locations' | 'plans' | 'placeGroups'>) => {
     const tripId = `trip-${Date.now()}`;
     const dates = generateDatesRange(newTripData.startDate, newTripData.endDate);
     
-    // Pre-scaffold Days map
     const defaultDays: { [dateStr: string]: PlanDay } = {};
     dates.forEach(date => {
       defaultDays[date] = {
@@ -80,7 +270,6 @@ export default function App() {
       };
     });
 
-    // Create initial default plan
     const defaultPlan: Plan = {
       id: `plan-main-${Date.now()}`,
       name: 'Main Plan',
@@ -102,7 +291,7 @@ export default function App() {
     };
 
     saveTrips([...trips, newTrip]);
-    setActiveTripId(tripId); // Open new trip immediately
+    setActiveTripId(tripId);
   };
 
   const handleDeleteTrip = (id: string) => {
@@ -130,6 +319,13 @@ export default function App() {
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <GoogleAuthSection
+            user={googleUser}
+            syncStatus={syncStatus}
+            onSignIn={handleSignIn}
+            onSignOut={handleSignOut}
+            onManualSync={handleManualSync}
+          />
           <span 
             style={{ 
               fontSize: '11px', 
@@ -162,6 +358,15 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Conflict Resolution Modal */}
+      {conflictData && (
+        <SyncConflictModal
+          localCount={conflictData.local.length}
+          cloudCount={conflictData.cloud.length}
+          onResolve={handleResolveConflict}
+        />
+      )}
     </div>
   );
 }

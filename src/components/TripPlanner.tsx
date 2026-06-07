@@ -625,14 +625,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
           ...l,
           places: l.places.map(p => {
             if (p.id === editingPlace.id) {
+              const placeLat = isNaN(latVal) ? p.lat : latVal;
+              const placeLng = isNaN(lngVal) ? p.lng : lngVal;
               return {
                 ...p,
                 title: editPlaceTitle.trim(),
                 description: editPlaceDesc.trim(),
                 openingHours: editPlaceHours.trim() || undefined,
-                lat: isNaN(latVal) ? p.lat : latVal,
-                lng: isNaN(lngVal) ? p.lng : lngVal,
-                mapsLink: editPlaceMapsLink.trim() || undefined,
+                lat: placeLat,
+                lng: placeLng,
+                mapsLink: editPlaceMapsLink.trim() || buildMapsLink(editPlaceTitle.trim(), placeLat, placeLng, l.city),
                 placeGroupId: editPlaceGroupId,
                 notes: editPlaceNotes,
                 photoUrl: editPlacePhotoUrl.trim() || undefined
@@ -1088,17 +1090,19 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     if (!customPlaceTitle.trim() || !catalogLocation) return;
 
     const customId = `custom-place-${Date.now()}`;
+    const placeLat = parseFloat(customPlaceLat) || catalogLocation.lat + (Math.random() - 0.5) * 0.01;
+    const placeLng = parseFloat(customPlaceLng) || catalogLocation.lng + (Math.random() - 0.5) * 0.01;
     const newPlace: Place = {
       id: customId,
       title: customPlaceTitle.trim(),
       description: customPlaceDesc.trim() || 'Custom attraction',
       openingHours: customPlaceHours.trim() || '24/7',
-      lat: parseFloat(customPlaceLat) || catalogLocation.lat + (Math.random() - 0.5) * 0.01,
-      lng: parseFloat(customPlaceLng) || catalogLocation.lng + (Math.random() - 0.5) * 0.01,
+      lat: placeLat,
+      lng: placeLng,
       placeGroupId: customPlaceGroupId,
       notes: customPlaceNotes.trim(),
       photoUrl: customPlacePhotoUrl.trim() || undefined,
-      mapsLink: customPlaceMapsLink.trim() || undefined
+      mapsLink: customPlaceMapsLink.trim() || buildMapsLink(customPlaceTitle.trim(), placeLat, placeLng, catalogLocation.city)
     };
 
     const updatedLocations = trip.locations.map(l => {
@@ -2157,7 +2161,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         fontSize: '11px', 
                         fontWeight: 600, 
                         color: locColor, 
-                        marginTop: '4px', 
+                        marginTop: '2px', 
                         textOverflow: 'ellipsis', 
                         overflow: 'hidden', 
                         maxWidth: '90px', 
