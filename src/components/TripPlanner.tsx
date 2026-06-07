@@ -771,7 +771,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   // ----------------------------------------------------
   // List of scheduled Place objects for the active day
   const scheduledPlaces: Place[] = (activeDay?.placeIds || [])
-    .map(id => activeLocation?.places.find(p => p.id === id))
+    .map(id => {
+      for (const loc of trip.locations) {
+        const p = loc.places.find(place => place.id === id);
+        if (p) return p;
+      }
+      return undefined;
+    })
     .filter(Boolean) as Place[];
 
   const formatDisplayDate = (dateStr: string) => {
@@ -910,7 +916,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                 background: 'rgba(255,255,255,0.05)', 
                                 display: 'flex', 
                                 alignItems: 'center', 
-                                justifyStyle: 'center',
                                 justifyContent: 'center'
                               }}
                             >
@@ -1301,7 +1306,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               <div className="day-timeline">
                 {scheduledPlaces.map((place, index) => (
                   <div key={`${place.id}-${index}`} className="timeline-item">
-                    <div className="timeline-dot" style={{ backgroundColor: activeLocation?.placeGroups?.find(g => g.id === place.placeGroupId)?.color || '#6b7280' }} />
+                    <div className="timeline-dot" style={{ backgroundColor: trip.locations.flatMap(l => l.placeGroups).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }} />
                     
                     <div className="timeline-card glass-panel" onClick={() => setActivePlaceId(place.id)}>
                       <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>
