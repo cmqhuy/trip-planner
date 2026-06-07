@@ -125,7 +125,7 @@ export default function App() {
       {/* Premium Header */}
       <header className="app-header glass-panel" style={{ borderRadius: '0', borderWidth: '0 0 1px 0' }}>
         <div className="logo-section">
-          <img src="logo.png" alt="Logo" style={{ width: '28px', height: '28px', objectFit: 'contain', mixBlendMode: 'screen' }} />
+          <img src="logo.png" alt="Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           <h1>Trip Planner</h1>
         </div>
         
