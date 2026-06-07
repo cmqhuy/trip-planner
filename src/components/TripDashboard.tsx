@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import type { Trip } from '../types';
-import { Calendar, Layers, Map, Trash2, Plus, X } from 'lucide-react';
+import { Calendar, Layers, Map, Trash2, Plus, X, Cloud } from 'lucide-react';
 
 interface TripDashboardProps {
   trips: Trip[];
   onCreateTrip: (trip: Omit<Trip, 'id' | 'locations' | 'plans' | 'placeGroups'>) => void;
   onDeleteTrip: (id: string) => void;
   onSelectTrip: (id: string) => void;
+  isGoogleSignedIn?: boolean;
 }
 
-export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSelectTrip }: TripDashboardProps) {
+export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSelectTrip, isGoogleSignedIn }: TripDashboardProps) {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -105,7 +106,12 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
             >
               <div className="trip-card-top">
                 <div>
-                  <h3>{trip.name}</h3>
+                  <h3 className="flex-align" style={{ gap: '6px' }}>
+                    {trip.name}
+                    {isGoogleSignedIn && (
+                      <Cloud size={14} style={{ color: '#34d399' }} title="Synced to Google Drive" />
+                    )}
+                  </h3>
                   <div className="trip-card-dates">
                     <Calendar size={13} />
                     <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>

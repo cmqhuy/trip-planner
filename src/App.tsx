@@ -214,6 +214,19 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Prevent tab close/refresh if there is active syncing to Google Drive
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (syncStatus === 'syncing') {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes syncing to Google Drive. Please wait for the sync to finish before leaving.';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [syncStatus]);
+
   // Save trips locally and automatically sync to Google Drive
   const saveTrips = (updatedTrips: Trip[]) => {
     setTrips(updatedTrips);
@@ -370,6 +383,7 @@ export default function App() {
             onCreateTrip={handleCreateTrip}
             onDeleteTrip={handleDeleteTrip}
             onSelectTrip={setActiveTripId}
+            isGoogleSignedIn={googleUser !== null}
           />
         )}
       </main>
