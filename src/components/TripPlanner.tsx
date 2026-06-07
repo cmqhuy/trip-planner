@@ -56,6 +56,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   const [locationQuery, setLocationQuery] = useState('');
   const [locationSuggestions, setLocationSuggestions] = useState<Omit<Location, 'places' | 'placeGroups'>[]>([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  
+  // Add Location Modal state
+  const [showAddLocationModal, setShowAddLocationModal] = useState(false);
+  const [addLocationForDay, setAddLocationForDay] = useState(false);
 
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeSuggestions, setPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
@@ -199,6 +203,51 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     onUpdateTrip({
       ...trip,
       locations: updatedLocations
+    });
+
+    setSelectedCatalogLocId(existingLoc.id);
+    setLocationQuery('');
+    setLocationSuggestions([]);
+  };
+
+  const handleAddNewLocationForDay = (loc: Omit<Location, 'places' | 'placeGroups'>) => {
+    let existingLoc = trip.locations.find(
+      l => l.city.toLowerCase() === loc.city.toLowerCase() && 
+           l.country.toLowerCase() === loc.country.toLowerCase()
+    );
+
+    let updatedLocations = [...trip.locations];
+
+    if (!existingLoc) {
+      const newLoc: Location = {
+        ...loc,
+        places: [],
+        placeGroups: [...DEFAULT_PLACE_GROUPS]
+      };
+      updatedLocations.push(newLoc);
+      existingLoc = newLoc;
+    }
+
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id === activePlan.id) {
+        return {
+          ...p,
+          days: {
+            ...p.days,
+            [activeDayStr]: {
+              ...p.days[activeDayStr],
+              locationId: existingLoc!.id
+            }
+          }
+        };
+      }
+      return p;
+    });
+
+    onUpdateTrip({
+      ...trip,
+      locations: updatedLocations,
+      plans: updatedPlans
     });
 
     setSelectedCatalogLocId(existingLoc.id);
@@ -802,36 +851,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             Catalog
           </h3>
 
-          {/* Autocomplete Search to add Location to Catalog */}
-          <div className="catalog-search-container" style={{ marginTop: '12px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
-              <input 
-                type="text" 
-                placeholder="Add city to trip..." 
-                value={locationQuery}
-                onChange={(e) => setLocationQuery(e.target.value)}
-                style={{ paddingLeft: '32px', fontSize: '13px', height: '36px' }}
-              />
-              {isSearchingLocation && (
-                <div style={{ position: 'absolute', right: '10px', top: '10px', fontSize: '10px', color: 'var(--text-muted)' }}>Loading...</div>
-              )}
-            </div>
-            {locationSuggestions.length > 0 && (
-              <div className="autocomplete-dropdown" style={{ top: '100%' }}>
-                {locationSuggestions.map(loc => (
-                  <div 
-                    key={loc.id} 
-                    className="autocomplete-item"
-                    onClick={() => handleAddNewLocationToCatalog(loc)}
-                  >
-                    {loc.city}{loc.state ? `, ${loc.state}` : ''}, {loc.country}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          
           {/* Catalog Location Selector */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '12px' }}>
             <select
@@ -844,15 +863,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <option key={loc.id} value={loc.id}>{getFormattedLocationName(loc)}</option>
               ))}
             </select>
-            {catalogLocation && (
-              <button 
-                className="btn-primary flex-align"
-                style={{ padding: '6px 10px', fontSize: '11px', gap: '4px', height: '32px' }}
-                onClick={() => setShowCustomPlaceModal(true)}
-              >
-                <Plus size={12} /> Place
-              </button>
-            )}
+            <button 
+              className="btn-primary flex-align"
+              style={{ padding: '6px 10px', fontSize: '11px', gap: '4px', height: '32px' }}
+              onClick={() => {
+                setAddLocationForDay(false);
+                setShowAddLocationModal(true);
+              }}
+            >
+              <Plus size={12} /> Location
+            </button>
           </div>
         </div>
 
@@ -1136,7 +1156,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 </div>
               </div>
 
-              <div className="flex-align">
+              <div className="flex-align" style={{ gap: '8px' }}>
                 <select
                   value={activeDay?.locationId || ''}
                   onChange={(e) => handleSetDayLocation(e.target.value)}
@@ -1154,6 +1174,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     <option key={l.id} value={l.id}>{getFormattedLocationName(l)}</option>
                   ))}
                 </select>
+                <button 
+                  className="btn-primary flex-align"
+                  style={{ padding: '8px 12px', fontSize: '13px', gap: '4px', height: '38px', borderRadius: '8px' }}
+                  onClick={() => {
+                    setAddLocationForDay(true);
+                    setShowAddLocationModal(true);
+                  }}
+                >
+                  <Plus size={14} /> Location
+                </button>
               </div>
             </div>
 
@@ -1696,6 +1726,69 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <button type="submit" className="btn-primary">Save Changes</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Add Location Modal */}
+      {showAddLocationModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{addLocationForDay ? 'Add Location for Day' : 'Add Location to Trip'}</h3>
+              <button className="modal-close" onClick={() => {
+                setShowAddLocationModal(false);
+                setLocationQuery('');
+                setLocationSuggestions([]);
+              }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="form-group" style={{ position: 'relative' }}>
+              <label>Search City / Location</label>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  placeholder="e.g. Rome, Tokyo, New York..." 
+                  value={locationQuery}
+                  onChange={(e) => setLocationQuery(e.target.value)}
+                  style={{ paddingLeft: '32px' }}
+                  autoFocus
+                />
+                {isSearchingLocation && (
+                  <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Loading...</div>
+                )}
+              </div>
+              
+              {locationSuggestions.length > 0 && (
+                <div className="autocomplete-dropdown" style={{ position: 'absolute', width: '100%', top: '100%' }}>
+                  {locationSuggestions.map(loc => (
+                    <div 
+                      key={loc.id} 
+                      className="autocomplete-item"
+                      onClick={() => {
+                        if (addLocationForDay) {
+                          handleAddNewLocationForDay(loc);
+                        } else {
+                          handleAddNewLocationToCatalog(loc);
+                        }
+                        setShowAddLocationModal(false);
+                      }}
+                    >
+                      {loc.city}{loc.state ? `, ${loc.state}` : ''}, {loc.country}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="modal-actions" style={{ marginTop: '40px' }}>
+              <button type="button" className="btn-secondary" onClick={() => {
+                setShowAddLocationModal(false);
+                setLocationQuery('');
+                setLocationSuggestions([]);
+              }}>Cancel</button>
+            </div>
           </div>
         </div>
       )}

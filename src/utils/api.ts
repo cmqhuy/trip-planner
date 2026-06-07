@@ -127,13 +127,7 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
   try {
     const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&featuretype=settlement&limit=8`;
     
-    // We set a User-Agent header as required by OSM terms of service
-    const response = await fetch(osmUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'TripPlannerWebApp/1.0 (contact: support@tripplannerwebapp.example.com)'
-      }
-    });
+    const response = await fetch(osmUrl);
 
     if (!response.ok) throw new Error('OSM geocoding failed');
     
@@ -219,12 +213,7 @@ export async function searchPlacesNearLocation(query: string, location: { city: 
     const searchQuery = `${query}, ${location.city}`;
     const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10`;
     
-    const response = await fetch(osmUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'TripPlannerWebApp/1.0 (contact: support@tripplannerwebapp.example.com)'
-      }
-    });
+    const response = await fetch(osmUrl);
 
     if (!response.ok) throw new Error('OSM place search failed');
     const data = await response.json();
