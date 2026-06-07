@@ -262,6 +262,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   // Edit Location Modal state
   const [showEditLocationModal, setShowEditLocationModal] = useState(false);
   const [editLocColor, setEditLocColor] = useState('#6366f1');
+  const [draggedLocationIndex, setDraggedLocationIndex] = useState<number | null>(null);
 
   // Trigger search on location query changes
   useEffect(() => {
@@ -482,21 +483,29 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     handleDeleteLocation(catalogLocation.id);
   };
 
-  const handleMoveLocationOrder = (locId: string, direction: 'up' | 'down') => {
-    const idx = trip.locations.findIndex(l => l.id === locId);
-    if (idx === -1) return;
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= trip.locations.length) return;
+  const handleDragStart = (index: number) => {
+    setDraggedLocationIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (index: number) => {
+    if (draggedLocationIndex === null || draggedLocationIndex === index) return;
 
     const updatedLocations = [...trip.locations];
-    const temp = updatedLocations[idx];
-    updatedLocations[idx] = updatedLocations[targetIdx];
-    updatedLocations[targetIdx] = temp;
+    const draggedItem = updatedLocations[draggedLocationIndex];
+
+    updatedLocations.splice(draggedLocationIndex, 1);
+    updatedLocations.splice(index, 0, draggedItem);
 
     onUpdateTrip({
       ...trip,
       locations: updatedLocations
     });
+
+    setDraggedLocationIndex(null);
   };
 
   const handleSetDayLocation = (locId: string) => {
@@ -2348,26 +2357,51 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>Order in Trip / Catalog</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    className="btn-secondary flex-align"
-                    disabled={trip.locations.findIndex(l => l.id === catalogLocation.id) === 0}
-                    onClick={() => handleMoveLocationOrder(catalogLocation.id, 'up')}
-                    style={{ flex: 1, padding: '6px 12px', fontSize: '12px', gap: '4px', justifyContent: 'center', opacity: trip.locations.findIndex(l => l.id === catalogLocation.id) === 0 ? 0.4 : 1 }}
-                  >
-                    <ChevronUp size={14} /> Move Up
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary flex-align"
-                    disabled={trip.locations.findIndex(l => l.id === catalogLocation.id) === trip.locations.length - 1}
-                    onClick={() => handleMoveLocationOrder(catalogLocation.id, 'down')}
-                    style={{ flex: 1, padding: '6px 12px', fontSize: '12px', gap: '4px', justifyContent: 'center', opacity: trip.locations.findIndex(l => l.id === catalogLocation.id) === trip.locations.length - 1 ? 0.4 : 1 }}
-                  >
-                    <ChevronDown size={14} /> Move Down
-                  </button>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>Drag & Drop to Reorder Locations</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'var(--bg-dark)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+                  {trip.locations.map((loc, idx) => {
+                    const isCurrent = loc.id === catalogLocation.id;
+                    const isDragging = idx === draggedLocationIndex;
+                    return (
+                      <div
+                        key={loc.id}
+                        draggable
+                        onDragStart={() => handleDragStart(idx)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(idx)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          background: isCurrent ? 'var(--accent-primary-glow)' : 'rgba(255,255,255,0.03)',
+                          border: isCurrent ? '1px solid var(--accent-primary)' : '1px solid var(--border-glass)',
+                          borderRadius: '6px',
+                          cursor: 'grab',
+                          opacity: isDragging ? 0.4 : 1,
+                          transition: 'all 0.15s ease',
+                          userSelect: 'none',
+                          textTransform: 'none'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
+                        onMouseLeave={(e) => e.currentTarget.style.borderColor = isCurrent ? 'var(--accent-primary)' : 'var(--border-glass)'}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                          <span style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center' }}>
+                            ☰
+                          </span>
+                          <span style={{ fontSize: '16px' }}>{getLocIcon(loc)}</span>
+                          <span style={{ fontSize: '13px', fontWeight: isCurrent ? 600 : 400, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {getFormattedLocationName(loc)}
+                          </span>
+                          {isCurrent && (
+                            <span style={{ fontSize: '10px', background: 'var(--accent-primary)', color: '#fff', padding: '2px 6px', borderRadius: '4px', marginLeft: 'auto', fontWeight: 600 }}>
+                              Active
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
