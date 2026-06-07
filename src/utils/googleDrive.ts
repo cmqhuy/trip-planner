@@ -152,98 +152,161 @@ export async function getOrCreateTripPlannerFolder(accessToken: string): Promise
 }
 
 /**
- * Searches for trips.json inside a folder.
- */
-async function findTripsFile(accessToken: string, folderId: string): Promise<string | null> {
-  const query = `name = 'trips.json' and '${folderId}' in parents and trashed = false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  if (!response.ok) {
-    throw new Error('Failed to find trips file');
-  }
-  const data = await response.json();
-  return data.files && data.files.length > 0 ? data.files[0].id : null;
-}
-
-/**
- * Fetches the trips.json contents from Google Drive.
+ * Fetches all individual trip-*.json files from the Google Drive trip_planner folder.
  */
 export async function fetchTripsFromDrive(accessToken: string, folderId: string): Promise<Trip[] | null> {
-  const fileId = await findTripsFile(accessToken, folderId);
-  if (!fileId) {
-    return null;
-  }
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const query = `'${folderId}' in parents and trashed = false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name)`;
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
   if (!response.ok) {
-    throw new Error('Failed to download trips file');
+    throw new Error('Failed to list files on Google Drive');
   }
-  return response.json();
+  const data = await response.json();
+  const files = data.files || [];
+  
+  // Filter for trip-*.json files
+  const tripFiles = files.filter((f: any) => f.name.startsWith('trip-') && f.name.endsWith('.json'));
+  if (tripFiles.length === 0) {
+    return [];
+  }
+
+  // Fetch each file in parallel
+  const tripPromises = tripFiles.map(async (file: any) => {
+    try {
+      const mediaUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
+      const res = await fetch(mediaUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!res.ok) {
+        console.error(`Failed to download trip file ${file.name} (${file.id})`);
+        return null;
+      }
+      return await res.json() as Trip;
+    } catch (err) {
+      console.error(`Error downloading/parsing trip file ${file.name}:`, err);
+      return null;
+    }
+  });
+
+  const trips = await Promise.all(tripPromises);
+  // Filter out any failed downloads or invalid files
+  return trips.filter((t): t is Trip => t !== null && typeof t === 'object' && typeof t.id === 'string');
 }
 
 /**
- * Saves/updates the trips.json file in the specified folder.
+ * Saves/updates individual trip files on Google Drive, and deletes any orphaned ones.
  */
-export async function saveTripsToDrive(accessToken: string, folderId: string, trips: Trip[]): Promise<string> {
-  let fileId = await findTripsFile(accessToken, folderId);
-  const contentString = JSON.stringify(trips, null, 2);
-  
-  if (fileId) {
-    const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: contentString,
-    });
-    if (!response.ok) {
-      throw new Error('Failed to update trips file on Google Drive');
-    }
-    return fileId;
-  } else {
-    // Two-step file creation
-    const createUrl = 'https://www.googleapis.com/drive/v3/files';
-    const createResponse = await fetch(createUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: 'trips.json',
-        parents: [folderId],
-      }),
-    });
-    if (!createResponse.ok) {
-      throw new Error('Failed to create trips file metadata on Google Drive');
-    }
-    const createData = await createResponse.json();
-    const newFileId = createData.id;
-
-    const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media`;
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: contentString,
-    });
-    if (!uploadResponse.ok) {
-      throw new Error('Failed to upload trips content to Google Drive');
-    }
-    return newFileId;
+export async function saveTripsToDrive(accessToken: string, folderId: string, trips: Trip[]): Promise<void> {
+  // 1. List existing files in the folder
+  const query = `'${folderId}' in parents and trashed = false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name)`;
+  const listResponse = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!listResponse.ok) {
+    throw new Error('Failed to list files on Google Drive during save');
   }
+  const listData = await listResponse.json();
+  const existingFiles = listData.files || [];
+
+  // Filter for trip-*.json files and map name -> id
+  const existingTripFilesMap = new Map<string, string>();
+  existingFiles.forEach((f: any) => {
+    if (f.name.startsWith('trip-') && f.name.endsWith('.json')) {
+      existingTripFilesMap.set(f.name, f.id);
+    }
+  });
+
+  // 2. Determine filenames for active trips
+  const activeFilenames = new Set<string>();
+
+  // Helper function to create/update a single trip file
+  const savePromises = trips.map(async (trip) => {
+    const filename = `trip-${trip.id}.json`;
+    activeFilenames.add(filename);
+    const contentString = JSON.stringify(trip, null, 2);
+    const existingFileId = existingTripFilesMap.get(filename);
+
+    if (existingFileId) {
+      // Update existing file
+      const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`;
+      const response = await fetch(uploadUrl, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: contentString,
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update trip file ${filename} on Google Drive`);
+      }
+    } else {
+      // Create metadata first
+      const createUrl = 'https://www.googleapis.com/drive/v3/files';
+      const createResponse = await fetch(createUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: filename,
+          parents: [folderId],
+        }),
+      });
+      if (!createResponse.ok) {
+        throw new Error(`Failed to create trip file metadata ${filename} on Google Drive`);
+      }
+      const createData = await createResponse.json();
+      const newFileId = createData.id;
+
+      // Upload content
+      const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media`;
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: contentString,
+      });
+      if (!uploadResponse.ok) {
+        throw new Error(`Failed to upload trip content for ${filename} to Google Drive`);
+      }
+    }
+  });
+
+  // 3. Find files to delete (those in existingTripFilesMap but not in activeFilenames)
+  const deletePromises: Promise<void>[] = [];
+  existingTripFilesMap.forEach((fileId, filename) => {
+    if (!activeFilenames.has(filename)) {
+      const deleteUrl = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+      deletePromises.push(
+        fetch(deleteUrl, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }).then(async (response) => {
+          if (!response.ok) {
+            console.error(`Failed to delete orphaned trip file ${filename} (${fileId})`);
+          }
+        })
+      );
+    }
+  });
+
+  // Wait for all saves and deletions to finish
+  await Promise.all([...savePromises, ...deletePromises]);
 }
 
 /**
