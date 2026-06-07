@@ -45,7 +45,7 @@ export function initTokenClient(
 
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: clientId,
-    scope: 'https://www.googleapis.com/auth/drive.file',
+    scope: 'https://www.googleapis.com/auth/drive.file email profile openid',
     callback: (response: any) => {
       if (response.error) {
         if (onError) onError(response);
