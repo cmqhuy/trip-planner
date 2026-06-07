@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import type { Trip, Plan, PlanDay } from './types';
 import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
-import { Compass } from 'lucide-react';
 import { DEFAULT_PLACE_GROUPS } from './utils/api';
 import { generateDatesRange } from './utils/dateUtils';
 
@@ -126,7 +125,7 @@ export default function App() {
       {/* Premium Header */}
       <header className="app-header glass-panel" style={{ borderRadius: '0', borderWidth: '0 0 1px 0' }}>
         <div className="logo-section">
-          <Compass size={24} style={{ color: 'var(--accent-primary)' }} />
+          <img src="logo.png" alt="Logo" style={{ width: '28px', height: '28px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px var(--accent-primary-glow))' }} />
           <h1>Trip Planner</h1>
         </div>
         
