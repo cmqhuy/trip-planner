@@ -259,6 +259,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     onConfirm: () => void;
   } | null>(null);
 
+  // Edit Location Modal state
+  const [showEditLocationModal, setShowEditLocationModal] = useState(false);
+  const [editLocColor, setEditLocColor] = useState('#6366f1');
+
   // Trigger search on location query changes
   useEffect(() => {
     if (locationQuery.trim().length < 2) {
@@ -458,6 +462,36 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       }
       return l;
     });
+
+    onUpdateTrip({
+      ...trip,
+      locations: updatedLocations
+    });
+  };
+
+  const handleSaveEditLocation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catalogLocation) return;
+    handleChangeLocationColor(catalogLocation.id, editLocColor);
+    setShowEditLocationModal(false);
+  };
+
+  const handleEditLocationDelete = () => {
+    if (!catalogLocation) return;
+    setShowEditLocationModal(false);
+    handleDeleteLocation(catalogLocation.id);
+  };
+
+  const handleMoveLocationOrder = (locId: string, direction: 'up' | 'down') => {
+    const idx = trip.locations.findIndex(l => l.id === locId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= trip.locations.length) return;
+
+    const updatedLocations = [...trip.locations];
+    const temp = updatedLocations[idx];
+    updatedLocations[idx] = updatedLocations[targetIdx];
+    updatedLocations[targetIdx] = temp;
 
     onUpdateTrip({
       ...trip,
@@ -1145,7 +1179,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             <select
               value={selectedCatalogLocId}
               onChange={(e) => setSelectedCatalogLocId(e.target.value)}
-              style={{ flex: 1, padding: '6px 10px', fontSize: '12px', background: 'var(--bg-dark)' }}
+              style={{ flex: 1, padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)' }}
             >
               {trip.locations.length === 0 && <option value="">No Locations Added</option>}
               {trip.locations.map(loc => (
@@ -1153,42 +1187,28 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               ))}
             </select>
             {catalogLocation && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center' }} title="Change location theme color">
-                  <input 
-                    type="color" 
-                    value={catalogLocation.color || '#6366f1'} 
-                    onChange={(e) => handleChangeLocationColor(catalogLocation.id, e.target.value)} 
-                    style={{ 
-                      padding: '0', 
-                      width: '28px', 
-                      height: '28px', 
-                      border: '1px solid var(--border-glass)', 
-                      borderRadius: '4px', 
-                      cursor: 'pointer',
-                      background: 'none'
-                    }} 
-                  />
-                </div>
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => handleDeleteLocation(catalogLocation.id)}
-                  title="Delete Location"
-                  style={{ color: 'var(--color-danger)', padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </>
+              <button 
+                className="mini-icon-btn" 
+                onClick={() => {
+                  setEditLocColor(catalogLocation.color || '#6366f1');
+                  setShowEditLocationModal(true);
+                }}
+                title="Edit Location Settings"
+                style={{ padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Edit2 size={14} />
+              </button>
             )}
             <button 
               className="btn-primary flex-align"
-              style={{ padding: '6px 10px', fontSize: '11px', gap: '4px', height: '32px' }}
+              style={{ padding: '6px', fontSize: '11px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               onClick={() => {
                 setAddLocationForDay(false);
                 setShowAddLocationModal(true);
               }}
+              title="Add Location"
             >
-              <Plus size={12} /> Location
+              <Plus size={14} />
             </button>
           </div>
         </div>
@@ -2284,6 +2304,89 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 Confirm
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Location Modal */}
+      {showEditLocationModal && catalogLocation && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Location</h3>
+              <button className="modal-close" onClick={() => setShowEditLocationModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditLocation}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>Location Name</label>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {getLocIcon(catalogLocation)} {getFormattedLocationName(catalogLocation)}
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>Theme Color</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input 
+                    type="color" 
+                    value={editLocColor} 
+                    onChange={e => setEditLocColor(e.target.value)} 
+                    style={{ 
+                      padding: '0', 
+                      width: '40px', 
+                      height: '40px', 
+                      border: '1px solid var(--border-glass)', 
+                      borderRadius: '4px', 
+                      cursor: 'pointer',
+                      background: 'none'
+                    }} 
+                  />
+                  <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{editLocColor}</span>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>Order in Trip / Catalog</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary flex-align"
+                    disabled={trip.locations.findIndex(l => l.id === catalogLocation.id) === 0}
+                    onClick={() => handleMoveLocationOrder(catalogLocation.id, 'up')}
+                    style={{ flex: 1, padding: '6px 12px', fontSize: '12px', gap: '4px', justifyContent: 'center', opacity: trip.locations.findIndex(l => l.id === catalogLocation.id) === 0 ? 0.4 : 1 }}
+                  >
+                    <ChevronUp size={14} /> Move Up
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary flex-align"
+                    disabled={trip.locations.findIndex(l => l.id === catalogLocation.id) === trip.locations.length - 1}
+                    onClick={() => handleMoveLocationOrder(catalogLocation.id, 'down')}
+                    style={{ flex: 1, padding: '6px 12px', fontSize: '12px', gap: '4px', justifyContent: 'center', opacity: trip.locations.findIndex(l => l.id === catalogLocation.id) === trip.locations.length - 1 ? 0.4 : 1 }}
+                  >
+                    <ChevronDown size={14} /> Move Down
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+                <button 
+                  type="button" 
+                  className="btn-secondary flex-align"
+                  style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.04)', gap: '4px' }}
+                  onClick={handleEditLocationDelete}
+                >
+                  <Trash2 size={14} /> Delete Location
+                </button>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" className="btn-secondary" onClick={() => setShowEditLocationModal(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary">Save</button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
