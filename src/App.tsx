@@ -8,7 +8,10 @@ const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
 export default function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [activeTripId, setActiveTripId] = useState<string | null>(null);
+  const [activeTripId, setActiveTripId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('trip');
+  });
 
   // Load trips from LocalStorage on mount
   useEffect(() => {
@@ -20,6 +23,41 @@ export default function App() {
         console.error('Failed to parse trips from LocalStorage:', e);
       }
     }
+  }, []);
+
+  // Sync activeTripId with URL search parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const currentTripParam = params.get('trip');
+    
+    if (activeTripId) {
+      if (currentTripParam !== activeTripId) {
+        params.set('trip', activeTripId);
+        params.delete('plan');
+        params.delete('day');
+        const newSearch = params.toString();
+        window.history.pushState({}, '', `${window.location.pathname}?${newSearch}`);
+      }
+    } else {
+      if (currentTripParam !== null) {
+        params.delete('trip');
+        params.delete('plan');
+        params.delete('day');
+        const newSearch = params.toString();
+        const newUrl = `${window.location.pathname}${newSearch ? '?' + newSearch : ''}`;
+        window.history.pushState({}, '', newUrl);
+      }
+    }
+  }, [activeTripId]);
+
+  // Listen to browser Back/Forward navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      setActiveTripId(params.get('trip'));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Save trips to LocalStorage

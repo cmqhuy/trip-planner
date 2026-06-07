@@ -17,18 +17,99 @@ interface TripPlannerProps {
 
 export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerProps) {
   // Plan State
-  const [activePlanId, setActivePlanId] = useState<string>(trip.plans[0]?.id || '');
+  const [activePlanId, setActivePlanId] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('plan') || trip.plans[0]?.id || '';
+  });
   const activePlan = trip.plans.find(p => p.id === activePlanId) || trip.plans[0];
 
   // Active Day State
   const daysList = Object.keys(activePlan?.days || {}).sort();
-  const [activeDayStr, setActiveDayStr] = useState<string>(daysList[0] || '');
+  const [activeDayStr, setActiveDayStr] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlDay = params.get('day');
+    return urlDay && daysList.includes(urlDay) ? urlDay : (daysList[0] || '');
+  });
   const activeDay = activePlan?.days[activeDayStr];
 
   // Selected Catalog Location ID (decoupled from day details)
   const [selectedCatalogLocId, setSelectedCatalogLocId] = useState<string>(
     activeDay?.locationId || (trip.locations.length > 0 ? trip.locations[0].id : '')
   );
+
+  // Sync plan and day when trip prop changes
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlPlanId = params.get('plan');
+    const defaultPlanId = trip.plans[0]?.id || '';
+    
+    let targetPlanId = urlPlanId && trip.plans.some(p => p.id === urlPlanId) ? urlPlanId : defaultPlanId;
+    setActivePlanId(targetPlanId);
+    
+    const plan = trip.plans.find(p => p.id === targetPlanId) || trip.plans[0];
+    const planDays = Object.keys(plan?.days || {}).sort();
+    const urlDay = params.get('day');
+    const targetDay = urlDay && planDays.includes(urlDay) ? urlDay : (planDays[0] || '');
+    setActiveDayStr(targetDay);
+  }, [trip.id]);
+
+  // Sync activePlanId and activeDayStr to URL query parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let changed = false;
+    
+    if (activePlanId) {
+      if (params.get('plan') !== activePlanId) {
+        params.set('plan', activePlanId);
+        changed = true;
+      }
+    } else {
+      if (params.has('plan')) {
+        params.delete('plan');
+        changed = true;
+      }
+    }
+    
+    if (activeDayStr) {
+      if (params.get('day') !== activeDayStr) {
+        params.set('day', activeDayStr);
+        changed = true;
+      }
+    } else {
+      if (params.has('day')) {
+        params.delete('day');
+        changed = true;
+      }
+    }
+    
+    if (changed) {
+      const newSearch = params.toString();
+      window.history.pushState({}, '', `${window.location.pathname}?${newSearch}`);
+    }
+  }, [activePlanId, activeDayStr]);
+
+  // Listen to browser Back/Forward navigation (popstate) for plan/day
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const urlPlanId = params.get('plan');
+      const urlDay = params.get('day');
+      
+      if (urlPlanId && urlPlanId !== activePlanId) {
+        const foundPlan = trip.plans.find(p => p.id === urlPlanId);
+        if (foundPlan) {
+          setActivePlanId(urlPlanId);
+        }
+      }
+      
+      if (urlDay && urlDay !== activeDayStr) {
+        setActiveDayStr(urlDay);
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activePlanId, activeDayStr, trip.plans]);
 
   // Sync catalog selection with active day's location changes
   useEffect(() => {
