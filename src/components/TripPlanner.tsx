@@ -7,6 +7,7 @@ import {
   Building, BookOpen, Clock, Check, Layers, X
 } from 'lucide-react';
 import { searchLocation, searchPlacesNearLocation, DEFAULT_PLACE_GROUPS } from '../utils/api';
+import { getDaysDiff, shiftDateString, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 
 const LOCATION_COLORS = [
@@ -245,6 +246,19 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   const [editGroupIcon, setEditGroupIcon] = useState('landmark');
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
 
+  // Edit Trip Modal state
+  const [showEditTripModal, setShowEditTripModal] = useState(false);
+  const [editTripName, setEditTripName] = useState('');
+  const [editTripStart, setEditTripStart] = useState('');
+  const [editTripEnd, setEditTripEnd] = useState('');
+
+  // Custom Confirmation Modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
   // Trigger search on location query changes
   useEffect(() => {
     if (locationQuery.trim().length < 2) {
@@ -392,46 +406,49 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   };
 
   const handleDeleteLocation = (locId: string) => {
-    if (!confirm('Are you sure you want to delete this location? This will remove all its places from the catalog and any day plans.')) return;
+    setConfirmModal({
+      title: 'Delete Location',
+      message: 'Are you sure you want to delete this location? This will remove all its places from the catalog and any day plans.',
+      onConfirm: () => {
+        // 1. Remove location from trip.locations
+        const updatedLocations = trip.locations.filter(l => l.id !== locId);
 
-    // 1. Remove location from trip.locations
-    const updatedLocations = trip.locations.filter(l => l.id !== locId);
+        // 2. Remove locationId from any plan days using it, and filter out places from the catalog
+        const updatedPlans = trip.plans.map(p => {
+          const updatedDays = { ...p.days };
+          Object.keys(updatedDays).forEach(dateStr => {
+            const day = updatedDays[dateStr];
+            const newDay = { ...day };
+            if (day.locationId === locId) {
+              newDay.locationId = undefined;
+            }
+            
+            // Remove scheduled places that belonged to the deleted location
+            const deletedLoc = trip.locations.find(l => l.id === locId);
+            if (deletedLoc) {
+              const deletedPlaceIds = new Set(deletedLoc.places.map(pl => pl.id));
+              newDay.placeIds = day.placeIds.filter(pid => !deletedPlaceIds.has(pid));
+            }
+            updatedDays[dateStr] = newDay;
+          });
 
-    // 2. Remove locationId from any plan days using it, and filter out places from the catalog
-    const updatedPlans = trip.plans.map(p => {
-      const updatedDays = { ...p.days };
-      Object.keys(updatedDays).forEach(dateStr => {
-        const day = updatedDays[dateStr];
-        const newDay = { ...day };
-        if (day.locationId === locId) {
-          newDay.locationId = undefined;
-        }
-        
-        // Remove scheduled places that belonged to the deleted location
-        const deletedLoc = trip.locations.find(l => l.id === locId);
-        if (deletedLoc) {
-          const deletedPlaceIds = new Set(deletedLoc.places.map(pl => pl.id));
-          newDay.placeIds = day.placeIds.filter(pid => !deletedPlaceIds.has(pid));
-        }
-        
-        updatedDays[dateStr] = newDay;
-      });
+          return {
+            ...p,
+            days: updatedDays
+          };
+        });
 
-      return {
-        ...p,
-        days: updatedDays
-      };
+        // 3. Reset selectedCatalogLocId to first available location
+        const remaining = updatedLocations[0]?.id || '';
+        setSelectedCatalogLocId(remaining);
+
+        onUpdateTrip({
+          ...trip,
+          locations: updatedLocations,
+          plans: updatedPlans
+        });
+      }
     });
-
-    onUpdateTrip({
-      ...trip,
-      locations: updatedLocations,
-      plans: updatedPlans
-    });
-
-    // 3. Reset selectedCatalogLocId to first available location
-    const remaining = updatedLocations[0]?.id || '';
-    setSelectedCatalogLocId(remaining);
   };
 
   const handleChangeLocationColor = (locId: string, newColor: string) => {
@@ -531,14 +548,18 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       alert('A trip must have at least one plan option.');
       return;
     }
-    if (confirm('Are you sure you want to delete this plan option?')) {
-      const remainingPlans = trip.plans.filter(p => p.id !== planId);
-      onUpdateTrip({
-        ...trip,
-        plans: remainingPlans
-      });
-      setActivePlanId(remainingPlans[0].id);
-    }
+    setConfirmModal({
+      title: 'Delete Plan Option',
+      message: 'Are you sure you want to delete this plan option?',
+      onConfirm: () => {
+        const remainingPlans = trip.plans.filter(p => p.id !== planId);
+        onUpdateTrip({
+          ...trip,
+          plans: remainingPlans
+        });
+        setActivePlanId(remainingPlans[0].id);
+      }
+    });
   };
 
   // ----------------------------------------------------
@@ -872,6 +893,67 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     });
   };
 
+  const handleEditTripStartChange = (newStart: string) => {
+    if (!newStart) return;
+    setEditTripStart(newStart);
+    
+    // Auto update end date preserving duration
+    if (editTripStart && editTripEnd) {
+      const duration = getDaysDiff(editTripStart, editTripEnd);
+      const newEnd = shiftDateString(newStart, duration);
+      setEditTripEnd(newEnd);
+    }
+  };
+
+  const handleEditTripEndChange = (newEnd: string) => {
+    if (!newEnd) return;
+    setEditTripEnd(newEnd);
+  };
+
+  const handleSaveEditTrip = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTripName.trim() || !editTripStart || !editTripEnd) return;
+    
+    if (new Date(editTripStart) > new Date(editTripEnd)) {
+      alert('Start date must be before or equal to end date.');
+      return;
+    }
+
+    const currentDuration = getDaysDiff(trip.startDate, trip.endDate) + 1;
+    const newDuration = getDaysDiff(editTripStart, editTripEnd) + 1;
+
+    const performSave = () => {
+      const currentDatesList = Object.keys(activePlan?.days || {}).sort();
+      const activeDayIndex = currentDatesList.indexOf(activeDayStr);
+
+      const updatedTrip = shiftTripDates(trip, editTripStart, editTripEnd);
+      updatedTrip.name = editTripName.trim();
+      
+      onUpdateTrip(updatedTrip);
+      setShowEditTripModal(false);
+
+      // Adjust active day string
+      const newPlanDays = Object.keys(updatedTrip.plans.find(p => p.id === activePlanId)?.days || {}).sort();
+      if (newPlanDays.length > 0) {
+        if (activeDayIndex >= 0 && activeDayIndex < newPlanDays.length) {
+          setActiveDayStr(newPlanDays[activeDayIndex]);
+        } else {
+          setActiveDayStr(newPlanDays[0]);
+        }
+      }
+    };
+
+    if (newDuration < currentDuration) {
+      setConfirmModal({
+        title: 'Shorten Trip Duration',
+        message: `Are you sure you want to shorten the trip? The last ${currentDuration - newDuration} day(s) of your plan will be permanently deleted.`,
+        onConfirm: performSave
+      });
+    } else {
+      performSave();
+    }
+  };
+
   // ----------------------------------------------------
   // Transportation Operations
   // ----------------------------------------------------
@@ -920,21 +1002,25 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   };
 
   const handleDeleteTransportation = (id: string) => {
-    if (confirm('Delete this transport booking?')) {
-      const updatedPlans = trip.plans.map(p => {
-        if (p.id === activePlan.id) {
-          return {
-            ...p,
-            transports: p.transports.filter(t => t.id !== id)
-          };
-        }
-        return p;
-      });
-      onUpdateTrip({
-        ...trip,
-        plans: updatedPlans
-      });
-    }
+    setConfirmModal({
+      title: 'Delete Transportation',
+      message: 'Delete this transport booking?',
+      onConfirm: () => {
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id === activePlan.id) {
+            return {
+              ...p,
+              transports: p.transports.filter(t => t.id !== id)
+            };
+          }
+          return p;
+        });
+        onUpdateTrip({
+          ...trip,
+          plans: updatedPlans
+        });
+      }
+    });
   };
 
   // Get transport active on a day
@@ -984,21 +1070,25 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   };
 
   const handleDeleteHotel = (id: string) => {
-    if (confirm('Delete this hotel reservation?')) {
-      const updatedPlans = trip.plans.map(p => {
-        if (p.id === activePlan.id) {
-          return {
-            ...p,
-            hotels: p.hotels.filter(h => h.id !== id)
-          };
-        }
-        return p;
-      });
-      onUpdateTrip({
-        ...trip,
-        plans: updatedPlans
-      });
-    }
+    setConfirmModal({
+      title: 'Delete Hotel Reservation',
+      message: 'Delete this hotel reservation?',
+      onConfirm: () => {
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id === activePlan.id) {
+            return {
+              ...p,
+              hotels: p.hotels.filter(h => h.id !== id)
+            };
+          }
+          return p;
+        });
+        onUpdateTrip({
+          ...trip,
+          plans: updatedPlans
+        });
+      }
+    });
   };
 
   // Get hotels overlapping with active day
@@ -1293,7 +1383,22 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
         <div className="itinerary-header">
           <div className="trip-meta-info">
             <div>
-              <h2 style={{ fontSize: '24px' }}>{trip.name}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: '24px' }}>{trip.name}</h2>
+                <button 
+                  className="mini-icon-btn" 
+                  onClick={() => {
+                    setEditTripName(trip.name);
+                    setEditTripStart(trip.startDate);
+                    setEditTripEnd(trip.endDate);
+                    setShowEditTripModal(true);
+                  }}
+                  title="Edit Trip Details"
+                  style={{ padding: '4px', opacity: 0.6 }}
+                >
+                  <Edit2 size={14} />
+                </button>
+              </div>
               <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px', display: 'flex', gap: '8px' }}>
                 <span>📅 {formatDisplayDate(trip.startDate)} - {formatDisplayDate(trip.endDate)}</span>
               </div>
@@ -2064,6 +2169,118 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 setLocationQuery('');
                 setLocationSuggestions([]);
               }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Trip Details Modal */}
+      {showEditTripModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Trip Details</h3>
+              <button className="modal-close" onClick={() => setShowEditTripModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditTrip}>
+              <div className="form-group">
+                <label>Trip Name</label>
+                <input 
+                  type="text" 
+                  value={editTripName} 
+                  onChange={e => setEditTripName(e.target.value)} 
+                  placeholder="e.g. Summer in Europe" 
+                  required 
+                  autoFocus 
+                />
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input 
+                    type="date" 
+                    value={editTripStart} 
+                    onChange={e => handleEditTripStartChange(e.target.value)} 
+                    required 
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>End Date</label>
+                  <input 
+                    type="date" 
+                    value={editTripEnd} 
+                    onChange={e => handleEditTripEndChange(e.target.value)} 
+                    required 
+                  />
+                </div>
+              </div>
+
+              {(() => {
+                const currentDuration = getDaysDiff(trip.startDate, trip.endDate) + 1;
+                const newDuration = (editTripStart && editTripEnd) ? getDaysDiff(editTripStart, editTripEnd) + 1 : currentDuration;
+                if (newDuration < currentDuration) {
+                  return (
+                    <div 
+                      style={{ 
+                        marginTop: '16px', 
+                        padding: '10px 12px', 
+                        background: 'rgba(239, 68, 68, 0.1)', 
+                        borderLeft: '3px solid var(--color-danger)', 
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        color: '#fca5a5',
+                        lineHeight: 1.4,
+                        textTransform: 'none'
+                      }}
+                    >
+                      ⚠️ Warning: The new duration is shorter ({newDuration} days) than the current one ({currentDuration} days). The last {currentDuration - newDuration} day(s) of your plans will be permanently deleted.
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              <div className="modal-actions" style={{ marginTop: '24px' }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowEditTripModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {confirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{confirmModal.title}</h3>
+              <button className="modal-close" onClick={() => setConfirmModal(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none' }}>
+              {confirmModal.message}
+            </div>
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

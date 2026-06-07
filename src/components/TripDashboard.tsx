@@ -14,6 +14,7 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,9 +113,11 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
                   className="trip-delete-btn" 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm(`Are you sure you want to delete "${trip.name}"?`)) {
-                      onDeleteTrip(trip.id);
-                    }
+                    setConfirmModal({
+                      title: 'Delete Trip',
+                      message: `Are you sure you want to delete "${trip.name}"? This action cannot be undone.`,
+                      onConfirm: () => onDeleteTrip(trip.id)
+                    });
                   }}
                 >
                   <Trash2 size={16} />
@@ -203,6 +206,38 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {confirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{confirmModal.title}</h3>
+              <button className="modal-close" onClick={() => setConfirmModal(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none' }}>
+              {confirmModal.message}
+            </div>
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
