@@ -2212,13 +2212,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   {dayLoc && (
                     <span 
                       style={{ 
-                        fontSize: '9px', 
+                        fontSize: '11px', 
                         fontWeight: 600, 
                         color: locColor, 
-                        marginTop: '2px', 
+                        marginTop: '4px', 
                         textOverflow: 'ellipsis', 
                         overflow: 'hidden', 
-                        maxWidth: '80px', 
+                        maxWidth: '90px', 
                         whiteSpace: 'nowrap' 
                       }}
                       title={getFormattedLocationName(dayLoc)}
