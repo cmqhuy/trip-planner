@@ -8,6 +8,7 @@ export interface Place {
   lng: number;
   placeGroupId?: string; // Links to PlaceGroup.id or 'new' or undefined
   notes?: string;        // Notes are shared across all plans in the trip
+  mapsLink?: string;     // Optional custom Google Maps link
 }
 
 export interface PlaceGroup {
