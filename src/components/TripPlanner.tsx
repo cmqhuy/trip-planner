@@ -1060,50 +1060,26 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   const handleAddPlaceFromDayTimeline = (place: Omit<Place, 'placeGroupId'>) => {
     if (!activeDayLocation) return;
 
-    const isAlreadyInCatalog = activeDayLocation.places.some(p => p.title.toLowerCase() === place.title.toLowerCase());
-    let updatedLocations = [...trip.locations];
+    // Ensure the catalog location matches the active day location so it is saved in the correct city
+    setSelectedCatalogLocId(activeDayLocation.id);
 
-    let placeId = place.id;
-    if (!isAlreadyInCatalog) {
-      const newPlace: Place = {
-        ...place,
-        placeGroupId: 'new'
-      };
-      updatedLocations = trip.locations.map(l => {
-        if (l.id === activeDayLocation.id) {
-          return {
-            ...l,
-            places: [...l.places, newPlace]
-          };
-        }
-        return l;
-      });
-      placeId = newPlace.id;
-    }
+    // Populate all details in the Add Place modal
+    setCustomPlaceTitle(place.title);
+    setCustomPlaceDesc(place.description || '');
+    setCustomPlaceHours(place.openingHours || '');
+    setCustomPlaceLat(place.lat.toString());
+    setCustomPlaceLng(place.lng.toString());
+    setCustomPlaceMapsLink(place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation.city));
+    setCustomPlacePhotoUrl(place.photoUrl || '');
+    setCustomPlaceNotes(place.notes || '');
 
-    const updatedPlans = trip.plans.map(p => {
-      if (p.id === activePlan.id) {
-        const currentPlaces = p.days[activeDayStr]?.placeIds || [];
-        return {
-          ...p,
-          days: {
-            ...p.days,
-            [activeDayStr]: {
-              ...p.days[activeDayStr],
-              placeIds: [...currentPlaces, placeId]
-            }
-          }
-        };
-      }
-      return p;
-    });
+    // Configure the modal to auto-schedule the place to the active day on save
+    setAutoScheduleOnActiveDay(true);
+    setCustomPlaceGroupId('new');
+    setShowCustomPlaceModal(true);
 
-    onUpdateTrip({
-      ...trip,
-      locations: updatedLocations,
-      plans: updatedPlans
-    });
-
+    // Clear search query and suggestion list
+    setPlaceQuery('');
     setPlaceSuggestions([]);
   };
 
@@ -1322,27 +1298,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     });
   };
 
-  // Re-group place inside catalog
-  const handleMovePlaceGroup = (placeId: string, groupId: string) => {
-    if (!catalogLocation) return;
-    const updatedLocations = trip.locations.map(l => {
-      if (l.id === catalogLocation.id) {
-        const updatedPlaces = l.places.map(p => {
-          if (p.id === placeId) {
-            return { ...p, placeGroupId: groupId };
-          }
-          return p;
-        });
-        return { ...l, places: updatedPlaces };
-      }
-      return l;
-    });
 
-    onUpdateTrip({
-      ...trip,
-      locations: updatedLocations
-    });
-  };
 
   // ----------------------------------------------------
   // Notes Editing (Shared at Trip / Location level)
@@ -2036,20 +1992,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                   </button>
                                 </div>
                               )}
-                            </div>
-
-                            {/* Categorize */}
-                            <div style={{ marginTop: '10px' }}>
-                              <select 
-                                value={place.placeGroupId || 'new'} 
-                                onChange={(e) => handleMovePlaceGroup(place.id, e.target.value)}
-                                style={{ padding: '4px 8px', fontSize: '11px', width: '100%', background: 'var(--bg-dark)' }}
-                              >
-                                <option value="new">Unassigned</option>
-                                {(trip.placeGroups || DEFAULT_PLACE_GROUPS).map(pg => (
-                                  <option key={pg.id} value={pg.id}>{pg.name}</option>
-                                ))}
-                              </select>
                             </div>
 
                             {/* Actions */}

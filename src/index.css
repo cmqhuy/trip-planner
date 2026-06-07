@@ -654,6 +654,7 @@ input:focus, textarea:focus, select:focus {
 .day-tab-date {
   font-size: 11px;
   color: var(--text-muted);
+  margin-top: 4px;
 }
 
 .active-day-details {
