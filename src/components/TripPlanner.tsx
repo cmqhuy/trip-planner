@@ -2207,8 +2207,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     background: isActive && dayLoc ? `${hexToRgba(locColor, 0.08)}` : undefined,
                   }}
                 >
-                  <span className="day-tab-num">Day {index + 1}</span>
-                  <span className="day-tab-date">{formatDisplayDate(dateStr).split(',')[1]}</span>
+                  <span className="day-tab-num">{formatDisplayDate(dateStr).split(',')[1]}</span>
+                  <span className="day-tab-date">Day {index + 1}</span>
                   {dayLoc && (
                     <span 
                       style={{ 
