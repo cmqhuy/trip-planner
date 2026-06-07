@@ -22,11 +22,11 @@ export interface Location {
   city: string;
   state?: string;
   country: string;
+  countryCode?: string; // 2-letter ISO code
   heroPhoto?: string;
   lat: number;
   lng: number;
   places: Place[];
-  placeGroups: PlaceGroup[];
   color?: string; // Hex color for color coding
 }
 
@@ -78,4 +78,5 @@ export interface Trip {
   endDate: string;   // YYYY-MM-DD
   locations: Location[];
   plans: Plan[];
+  placeGroups: PlaceGroup[]; // Trip-level categorized lists / place groups
 }

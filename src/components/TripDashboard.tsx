@@ -4,7 +4,7 @@ import { Calendar, Layers, Map, Trash2, Plus, X } from 'lucide-react';
 
 interface TripDashboardProps {
   trips: Trip[];
-  onCreateTrip: (trip: Omit<Trip, 'id' | 'locations' | 'plans'>) => void;
+  onCreateTrip: (trip: Omit<Trip, 'id' | 'locations' | 'plans' | 'placeGroups'>) => void;
   onDeleteTrip: (id: string) => void;
   onSelectTrip: (id: string) => void;
 }

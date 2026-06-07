@@ -3,6 +3,7 @@ import type { Trip, Plan, PlanDay } from './types';
 import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { Compass } from 'lucide-react';
+import { DEFAULT_PLACE_GROUPS } from './utils/api';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -82,7 +83,7 @@ export default function App() {
     return dates;
   };
 
-  const handleCreateTrip = (newTripData: Omit<Trip, 'id' | 'locations' | 'plans'>) => {
+  const handleCreateTrip = (newTripData: Omit<Trip, 'id' | 'locations' | 'plans' | 'placeGroups'>) => {
     const tripId = `trip-${Date.now()}`;
     const dates = generateDatesRange(newTripData.startDate, newTripData.endDate);
     
@@ -112,7 +113,8 @@ export default function App() {
       startDate: newTripData.startDate,
       endDate: newTripData.endDate,
       locations: [],
-      plans: [defaultPlan]
+      plans: [defaultPlan],
+      placeGroups: [...DEFAULT_PLACE_GROUPS]
     };
 
     saveTrips([...trips, newTrip]);

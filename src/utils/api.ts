@@ -13,6 +13,7 @@ const FALLBACK_CITIES = [
   {
     city: 'Paris',
     country: 'France',
+    countryCode: 'FR',
     lat: 48.8566,
     lng: 2.3522,
     heroPhoto: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=80',
@@ -27,6 +28,7 @@ const FALLBACK_CITIES = [
   {
     city: 'Rome',
     country: 'Italy',
+    countryCode: 'IT',
     lat: 41.9028,
     lng: 12.4964,
     heroPhoto: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=1200&q=80',
@@ -40,6 +42,7 @@ const FALLBACK_CITIES = [
   {
     city: 'Tokyo',
     country: 'Japan',
+    countryCode: 'JP',
     lat: 35.6762,
     lng: 139.6503,
     heroPhoto: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1200&q=80',
@@ -54,6 +57,7 @@ const FALLBACK_CITIES = [
     city: 'New York City',
     state: 'NY',
     country: 'United States',
+    countryCode: 'US',
     lat: 40.7128,
     lng: -74.0060,
     heroPhoto: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?auto=format&fit=crop&w=1200&q=80',
@@ -68,6 +72,7 @@ const FALLBACK_CITIES = [
     city: 'San Francisco',
     state: 'CA',
     country: 'United States',
+    countryCode: 'US',
     lat: 37.7749,
     lng: -122.4194,
     heroPhoto: 'https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?auto=format&fit=crop&w=1200&q=80',
@@ -102,7 +107,7 @@ export async function fetchWikipediaData(title: string): Promise<{ description: 
 
 
 // 2. Search Locations (cities) using OpenStreetMap Nominatim Geocoding API
-export async function searchLocation(query: string): Promise<Omit<Location, 'places' | 'placeGroups'>[]> {
+export async function searchLocation(query: string): Promise<Omit<Location, 'places'>[]> {
   if (!query || query.trim().length < 2) return [];
 
   const trimmed = query.trim().toLowerCase();
@@ -118,6 +123,7 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
     city: c.city,
     state: c.state,
     country: c.country,
+    countryCode: c.countryCode,
     heroPhoto: c.heroPhoto,
     lat: c.lat,
     lng: c.lng
@@ -157,6 +163,7 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
         city,
         state,
         country,
+        countryCode: addr.country_code ? addr.country_code.toUpperCase() : undefined,
         heroPhoto,
         lat,
         lng

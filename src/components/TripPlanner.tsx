@@ -28,6 +28,38 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const getCountryFlag = (countryCode?: string): string => {
+  if (!countryCode || countryCode.length !== 2) return '📍';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  try {
+    return String.fromCodePoint(...codePoints);
+  } catch (e) {
+    return '📍';
+  }
+};
+
+const getLocIcon = (loc?: Location) => {
+  if (!loc) return '📍';
+  if (loc.countryCode) {
+    return getCountryFlag(loc.countryCode);
+  }
+  const name = loc.country.toLowerCase();
+  if (name.includes('france')) return '🇫🇷';
+  if (name.includes('italy')) return '🇮🇹';
+  if (name.includes('japan')) return '🇯🇵';
+  if (name.includes('united states') || name === 'us' || name === 'usa') return '🇺🇸';
+  if (name.includes('vietnam') || name === 'vn') return '🇻🇳';
+  if (name.includes('united kingdom') || name === 'uk' || name === 'gb') return '🇬🇧';
+  if (name.includes('germany') || name === 'de') return '🇩🇪';
+  if (name.includes('spain') || name === 'es') return '🇪🇸';
+  if (name.includes('canada') || name === 'ca') return '🇨🇦';
+  if (name.includes('australia') || name === 'au') return '🇦🇺';
+  return '📍';
+};
+
 interface TripPlannerProps {
   trip: Trip;
   onBack: () => void;
@@ -154,7 +186,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
   // Autocomplete search states
   const [locationQuery, setLocationQuery] = useState('');
-  const [locationSuggestions, setLocationSuggestions] = useState<Omit<Location, 'places' | 'placeGroups'>[]>([]);
+  const [locationSuggestions, setLocationSuggestions] = useState<Omit<Location, 'places'>[]>([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   
   // Add Location Modal state
@@ -282,7 +314,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   // ----------------------------------------------------
   // Location Operations
   // ----------------------------------------------------
-  const handleAddNewLocationToCatalog = (loc: Omit<Location, 'places' | 'placeGroups'>) => {
+  const handleAddNewLocationToCatalog = (loc: Omit<Location, 'places'>) => {
     let existingLoc = trip.locations.find(
       l => l.city.toLowerCase() === loc.city.toLowerCase() && 
            l.country.toLowerCase() === loc.country.toLowerCase()
@@ -296,7 +328,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       const newLoc: Location = {
         ...loc,
         places: [],
-        placeGroups: [...DEFAULT_PLACE_GROUPS],
         color
       };
       updatedLocations.push(newLoc);
@@ -313,7 +344,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setLocationSuggestions([]);
   };
 
-  const handleAddNewLocationForDay = (loc: Omit<Location, 'places' | 'placeGroups'>) => {
+  const handleAddNewLocationForDay = (loc: Omit<Location, 'places'>) => {
     let existingLoc = trip.locations.find(
       l => l.city.toLowerCase() === loc.city.toLowerCase() && 
            l.country.toLowerCase() === loc.country.toLowerCase()
@@ -327,7 +358,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       const newLoc: Location = {
         ...loc,
         places: [],
-        placeGroups: [...DEFAULT_PLACE_GROUPS],
         color
       };
       updatedLocations.push(newLoc);
@@ -402,6 +432,20 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     // 3. Reset selectedCatalogLocId to first available location
     const remaining = updatedLocations[0]?.id || '';
     setSelectedCatalogLocId(remaining);
+  };
+
+  const handleChangeLocationColor = (locId: string, newColor: string) => {
+    const updatedLocations = trip.locations.map(l => {
+      if (l.id === locId) {
+        return { ...l, color: newColor };
+      }
+      return l;
+    });
+
+    onUpdateTrip({
+      ...trip,
+      locations: updatedLocations
+    });
   };
 
   const handleSetDayLocation = (locId: string) => {
@@ -757,7 +801,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   // ----------------------------------------------------
   const handleAddPlaceGroup = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGroupName.trim() || !catalogLocation) return;
+    if (!newGroupName.trim()) return;
 
     const newGroup: PlaceGroup = {
       id: `group-${Date.now()}`,
@@ -766,19 +810,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       icon: newGroupIcon
     };
 
-    const updatedLocations = trip.locations.map(l => {
-      if (l.id === catalogLocation.id) {
-        return {
-          ...l,
-          placeGroups: [...l.placeGroups, newGroup]
-        };
-      }
-      return l;
-    });
+    const currentGroups = trip.placeGroups || DEFAULT_PLACE_GROUPS;
 
     onUpdateTrip({
       ...trip,
-      locations: updatedLocations
+      placeGroups: [...currentGroups, newGroup]
     });
 
     setNewGroupName('');
@@ -795,33 +831,45 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
   const handleSaveEditPlaceGroup = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingGroup || !editGroupName.trim() || !catalogLocation) return;
+    if (!editingGroup || !editGroupName.trim()) return;
 
-    const updatedLocations = trip.locations.map(l => {
-      if (l.id === catalogLocation.id) {
-        const updatedGroups = l.placeGroups.map(pg => {
-          if (pg.id === editingGroup.id) {
-            return {
-              ...pg,
-              name: editGroupName,
-              color: editGroupColor,
-              icon: editGroupIcon
-            };
-          }
-          return pg;
-        });
-        return { ...l, placeGroups: updatedGroups };
+    const currentGroups = trip.placeGroups || DEFAULT_PLACE_GROUPS;
+    const updatedGroups = currentGroups.map(pg => {
+      if (pg.id === editingGroup.id) {
+        return {
+          ...pg,
+          name: editGroupName,
+          color: editGroupColor,
+          icon: editGroupIcon
+        };
       }
-      return l;
+      return pg;
     });
 
     onUpdateTrip({
       ...trip,
-      locations: updatedLocations
+      placeGroups: updatedGroups
     });
 
     setEditingGroup(null);
     setShowEditGroupModal(false);
+  };
+
+  const handleMoveGroupOrder = (index: number, direction: 'up' | 'down') => {
+    const currentGroups = [...(trip.placeGroups || DEFAULT_PLACE_GROUPS)];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= currentGroups.length) return;
+
+    // Swap elements
+    const temp = currentGroups[index];
+    currentGroups[index] = currentGroups[targetIndex];
+    currentGroups[targetIndex] = temp;
+
+    onUpdateTrip({
+      ...trip,
+      placeGroups: currentGroups
+    });
   };
 
   // ----------------------------------------------------
@@ -1009,18 +1057,36 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             >
               {trip.locations.length === 0 && <option value="">No Locations Added</option>}
               {trip.locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{getFormattedLocationName(loc)}</option>
+                <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc)}</option>
               ))}
             </select>
             {catalogLocation && (
-              <button 
-                className="mini-icon-btn" 
-                onClick={() => handleDeleteLocation(catalogLocation.id)}
-                title="Delete Location"
-                style={{ color: 'var(--color-danger)', padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Trash2 size={14} />
-              </button>
+              <>
+                <div style={{ display: 'flex', alignItems: 'center' }} title="Change location theme color">
+                  <input 
+                    type="color" 
+                    value={catalogLocation.color || '#6366f1'} 
+                    onChange={(e) => handleChangeLocationColor(catalogLocation.id, e.target.value)} 
+                    style={{ 
+                      padding: '0', 
+                      width: '28px', 
+                      height: '28px', 
+                      border: '1px solid var(--border-glass)', 
+                      borderRadius: '4px', 
+                      cursor: 'pointer',
+                      background: 'none'
+                    }} 
+                  />
+                </div>
+                <button 
+                  className="mini-icon-btn" 
+                  onClick={() => handleDeleteLocation(catalogLocation.id)}
+                  title="Delete Location"
+                  style={{ color: 'var(--color-danger)', padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
             )}
             <button 
               className="btn-primary flex-align"
@@ -1052,8 +1118,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
             {/* List by Groups */}
             {[
-              ...catalogLocation.placeGroups,
-              { id: 'new', name: 'New / Unassigned', color: '#6b7280', icon: 'map-pin' }
+              ...(trip.placeGroups || DEFAULT_PLACE_GROUPS).map((group, groupIdx, allGroups) => ({
+                ...group,
+                groupIdx,
+                isReorderable: true,
+                isFirst: groupIdx === 0,
+                isLast: groupIdx === allGroups.length - 1
+              })),
+              { id: 'new', name: 'New / Unassigned', color: '#6b7280', icon: 'map-pin', isReorderable: false, groupIdx: -1, isFirst: false, isLast: false }
             ].map(group => {
               const placesInGroup = catalogLocation.places.filter(p => p.placeGroupId === group.id);
               if (placesInGroup.length === 0 && group.id === 'new') return null; // Hide new section if empty
@@ -1065,11 +1137,31 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                       <span className="group-badge-dot" style={{ backgroundColor: group.color }} />
                       {group.name}
                     </span>
-                    <div className="flex-align">
-                      {group.id !== 'new' && (
-                        <button className="mini-icon-btn" onClick={() => startEditingGroup(group)} title="Edit Group" style={{ padding: '2px' }}>
-                          <Edit2 size={10} />
-                        </button>
+                    <div className="flex-align" style={{ gap: '4px' }}>
+                      {group.isReorderable && (
+                        <>
+                          <button 
+                            className="mini-icon-btn" 
+                            disabled={group.isFirst} 
+                            onClick={() => handleMoveGroupOrder(group.groupIdx!, 'up')} 
+                            title="Move Up" 
+                            style={{ opacity: group.isFirst ? 0.3 : 1, padding: '2px' }}
+                          >
+                            <ChevronUp size={12} />
+                          </button>
+                          <button 
+                            className="mini-icon-btn" 
+                            disabled={group.isLast} 
+                            onClick={() => handleMoveGroupOrder(group.groupIdx!, 'down')} 
+                            title="Move Down" 
+                            style={{ opacity: group.isLast ? 0.3 : 1, padding: '2px' }}
+                          >
+                            <ChevronDown size={12} />
+                          </button>
+                          <button className="mini-icon-btn" onClick={() => startEditingGroup(group as PlaceGroup)} title="Edit Group" style={{ padding: '2px' }}>
+                            <Edit2 size={10} />
+                          </button>
+                        </>
                       )}
                       <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
                         {placesInGroup.length}
@@ -1153,7 +1245,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                 style={{ padding: '4px 8px', fontSize: '11px', width: 'auto', background: 'var(--bg-dark)' }}
                               >
                                 <option value="new">Unassigned</option>
-                                {catalogLocation.placeGroups.map(pg => (
+                                {(trip.placeGroups || DEFAULT_PLACE_GROUPS).map(pg => (
                                   <option key={pg.id} value={pg.id}>{pg.name}</option>
                                 ))}
                               </select>
@@ -1303,7 +1395,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                       }}
                       title={getFormattedLocationName(dayLoc)}
                     >
-                      📍 {getFormattedLocationName(dayLoc)}
+                      {getLocIcon(dayLoc)} {getFormattedLocationName(dayLoc)}
                     </span>
                   )}
                 </button>
@@ -1325,7 +1417,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               }}
             >
               <div className="day-location-info">
-                <MapPin size={24} style={{ color: activeDayLocation?.color || 'var(--color-danger)' }} />
+                {activeDayLocation ? (
+                  <span style={{ fontSize: '24px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>
+                    {getLocIcon(activeDayLocation)}
+                  </span>
+                ) : (
+                  <MapPin size={24} style={{ color: 'var(--color-danger)' }} />
+                )}
                 <div>
                   <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Location</label>
                   <h3 style={{ fontSize: '18px', color: 'var(--text-primary)' }}>
@@ -1349,7 +1447,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 >
                   <option value="">Select Location...</option>
                   {trip.locations.map(l => (
-                    <option key={l.id} value={l.id}>{getFormattedLocationName(l)}</option>
+                    <option key={l.id} value={l.id}>{getLocIcon(l)} {getFormattedLocationName(l)}</option>
                   ))}
                 </select>
                 <button 
@@ -1514,7 +1612,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               <div className="day-timeline">
                 {scheduledPlaces.map((place, index) => (
                   <div key={`${place.id}-${index}`} className="timeline-item">
-                    <div className="timeline-dot" style={{ backgroundColor: trip.locations.flatMap(l => l.placeGroups).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }} />
+                    <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }} />
                     
                     <div className="timeline-card glass-panel" onClick={() => setActivePlaceId(place.id)}>
                       <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>
