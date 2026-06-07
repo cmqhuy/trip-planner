@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Transportation, Hotel } from '../types';
 import { 
-  ArrowLeft, MapPin, Plus, Trash2, Edit2, 
+  ArrowLeft, ArrowRight, MapPin, Plus, Trash2, Edit2, 
   ExternalLink, Navigation, ChevronUp, ChevronDown, 
   Search, Plane, Train, Bus, Car, Anchor, 
   Building, BookOpen, Clock, Check, Layers, X
@@ -262,6 +262,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   const [confirmModal, setConfirmModal] = useState<{
     title: string;
     message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isAlert?: boolean;
     onConfirm: () => void;
   } | null>(null);
 
@@ -286,9 +289,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   const [customPlaceSearchQuery, setCustomPlaceSearchQuery] = useState('');
   const [customPlaceSuggestions, setCustomPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
   const [isSearchingCustomPlace, setIsSearchingCustomPlace] = useState(false);
+  const [customPlacePhotoUrl, setCustomPlacePhotoUrl] = useState('');
+  const [customPlaceNotes, setCustomPlaceNotes] = useState('');
 
   // Drag and Drop place state
   const [draggedPlaceId, setDraggedPlaceId] = useState<string | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+  const [dragOverPlaceId, setDragOverPlaceId] = useState<string | null>(null);
+  const [dragOverLocationIndex, setDragOverLocationIndex] = useState<number | null>(null);
+  const [draggedDayPlaceIndex, setDraggedDayPlaceIndex] = useState<number | null>(null);
+  const [dragOverDayPlaceIndex, setDragOverDayPlaceIndex] = useState<number | null>(null);
 
   // Edit Place Modal state
   const [showEditPlaceModal, setShowEditPlaceModal] = useState(false);
@@ -304,6 +314,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   const [editPlaceSearchQuery, setEditPlaceSearchQuery] = useState('');
   const [editPlaceSuggestions, setEditPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
   const [isSearchingEditPlace, setIsSearchingEditPlace] = useState(false);
+  const [editPlacePhotoUrl, setEditPlacePhotoUrl] = useState('');
+
+  // Move Day Modal state
+  const [showMoveDayModal, setShowMoveDayModal] = useState(false);
+  const [moveDayTargetDate, setMoveDayTargetDate] = useState('');
+
+  // Mobile UI States
+  const [activeMobileTab, setActiveMobileTab] = useState<'catalog' | 'itinerary' | 'map'>('itinerary');
+  const [autoScheduleOnActiveDay, setAutoScheduleOnActiveDay] = useState(false);
+
 
   // Trigger search on location query changes
   useEffect(() => {
@@ -586,6 +606,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setEditPlaceMapsLink(place.mapsLink || '');
     setEditPlaceGroupId(place.placeGroupId || 'new');
     setEditPlaceNotes(place.notes || '');
+    setEditPlacePhotoUrl(place.photoUrl || '');
     setEditPlaceSearchQuery('');
     setEditPlaceSuggestions([]);
     setShowEditPlaceModal(true);
@@ -613,7 +634,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 lng: isNaN(lngVal) ? p.lng : lngVal,
                 mapsLink: editPlaceMapsLink.trim() || undefined,
                 placeGroupId: editPlaceGroupId,
-                notes: editPlaceNotes
+                notes: editPlaceNotes,
+                photoUrl: editPlacePhotoUrl.trim() || undefined
               };
             }
             return p;
@@ -709,6 +731,46 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setDraggedPlaceId(null);
   };
 
+  const handleDayPlaceDragStart = (index: number) => {
+    setDraggedDayPlaceIndex(index);
+  };
+
+  const handleDayPlaceDrop = (targetIndex: number) => {
+    if (draggedDayPlaceIndex === null || draggedDayPlaceIndex === targetIndex) return;
+
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id === activePlan.id) {
+        const currentPlaces = [...(p.days[activeDayStr]?.placeIds || [])];
+        const draggedItem = currentPlaces[draggedDayPlaceIndex];
+        
+        // Remove from old index
+        currentPlaces.splice(draggedDayPlaceIndex, 1);
+        // Insert at new index
+        currentPlaces.splice(targetIndex, 0, draggedItem);
+
+        return {
+          ...p,
+          days: {
+            ...p.days,
+            [activeDayStr]: {
+              ...p.days[activeDayStr],
+              placeIds: currentPlaces
+            }
+          }
+        };
+      }
+      return p;
+    });
+
+    onUpdateTrip({
+      ...trip,
+      plans: updatedPlans
+    });
+
+    setDraggedDayPlaceIndex(null);
+    setDragOverDayPlaceIndex(null);
+  };
+
   const handleEditLocationDelete = () => {
     if (!catalogLocation) return;
     setShowEditLocationModal(false);
@@ -760,6 +822,103 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     onUpdateTrip({
       ...trip,
       plans: updatedPlans
+    });
+  };
+
+  const handleMoveDayContents = (destDateStr: string) => {
+    if (!activeDayStr || !destDateStr || activeDayStr === destDateStr) return;
+    
+    const currentDayData = activePlan.days[activeDayStr];
+    if (!currentDayData) return;
+
+    const destDayData = activePlan.days[destDateStr];
+    const sourceLocId = currentDayData.locationId;
+    const destLocId = destDayData?.locationId;
+
+    const executeMove = () => {
+      const updatedPlans = trip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          const updatedDays = { ...p.days };
+          // Copy to destination day (and update locationId to match source day)
+          updatedDays[destDateStr] = {
+            ...updatedDays[destDateStr],
+            locationId: sourceLocId,
+            placeIds: [...(currentDayData.placeIds || [])]
+          };
+          // Clear source day
+          updatedDays[activeDayStr] = {
+            ...updatedDays[activeDayStr],
+            placeIds: []
+          };
+          return {
+            ...p,
+            days: updatedDays
+          };
+        }
+        return p;
+      });
+
+      onUpdateTrip({
+        ...trip,
+        plans: updatedPlans
+      });
+
+      // Switch to the destination day
+      setActiveDayStr(destDateStr);
+      setShowMoveDayModal(false);
+    };
+
+    if (sourceLocId !== destLocId) {
+      const sourceLoc = trip.locations.find(l => l.id === sourceLocId);
+      const destLoc = trip.locations.find(l => l.id === destLocId);
+      const sourceName = sourceLoc ? `${sourceLoc.city}, ${sourceLoc.country}` : 'Not Selected';
+      const destName = destLoc ? `${destLoc.city}, ${destLoc.country}` : 'Not Selected';
+
+      setConfirmModal({
+        title: 'Move Day Scheduled Places',
+        message: `Are you sure you want to move Day ${daysList.indexOf(activeDayStr) + 1} scheduled places to Day ${daysList.indexOf(destDateStr) + 1}? This will override all scheduled places on Day ${daysList.indexOf(destDateStr) + 1}.\n\n⚠️ Warning: The location of Day ${daysList.indexOf(activeDayStr) + 1} (${sourceName}) is different from Day ${daysList.indexOf(destDateStr) + 1} (${destName}). Proceeding will update Day ${daysList.indexOf(destDateStr) + 1}'s location to ${sourceName}.`,
+        confirmText: 'Move Places',
+        onConfirm: executeMove
+      });
+    } else {
+      setConfirmModal({
+        title: 'Move Day Scheduled Places',
+        message: `Are you sure you want to move Day ${daysList.indexOf(activeDayStr) + 1} scheduled places to Day ${daysList.indexOf(destDateStr) + 1}? This will override all scheduled places on Day ${daysList.indexOf(destDateStr) + 1}.`,
+        confirmText: 'Move Places',
+        onConfirm: executeMove
+      });
+    }
+  };
+
+  const handleClearDay = () => {
+    if (!activeDayStr) return;
+    
+    setConfirmModal({
+      title: 'Clear Day Places',
+      message: `Are you sure you want to clear all scheduled places from Day ${daysList.indexOf(activeDayStr) + 1}?`,
+      confirmText: 'Clear Day',
+      onConfirm: () => {
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id === activePlan.id) {
+            return {
+              ...p,
+              days: {
+                ...p.days,
+                [activeDayStr]: {
+                  ...p.days[activeDayStr],
+                  placeIds: []
+                }
+              }
+            };
+          }
+          return p;
+        });
+
+        onUpdateTrip({
+          ...trip,
+          plans: updatedPlans
+        });
+      }
     });
   };
 
@@ -820,7 +979,12 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
   const handleDeletePlan = (planId: string) => {
     if (trip.plans.length <= 1) {
-      alert('A trip must have at least one plan option.');
+      setConfirmModal({
+        title: 'Delete Plan Option',
+        message: 'A trip must have at least one plan option.',
+        isAlert: true,
+        onConfirm: () => {}
+      });
       return;
     }
     setConfirmModal({
@@ -956,7 +1120,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       lat: parseFloat(customPlaceLat) || catalogLocation.lat + (Math.random() - 0.5) * 0.01,
       lng: parseFloat(customPlaceLng) || catalogLocation.lng + (Math.random() - 0.5) * 0.01,
       placeGroupId: customPlaceGroupId,
-      notes: '',
+      notes: customPlaceNotes.trim(),
+      photoUrl: customPlacePhotoUrl.trim() || undefined,
       mapsLink: customPlaceMapsLink.trim() || undefined
     };
 
@@ -970,9 +1135,29 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       return l;
     });
 
+    let updatedPlans = trip.plans;
+    if (autoScheduleOnActiveDay && activePlan && activeDayStr) {
+      updatedPlans = trip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          const daysCopy = { ...p.days };
+          const dayData = daysCopy[activeDayStr] || { dateStr: activeDayStr, placeIds: [] };
+          daysCopy[activeDayStr] = {
+            ...dayData,
+            placeIds: [...dayData.placeIds, customId]
+          };
+          return {
+            ...p,
+            days: daysCopy
+          };
+        }
+        return p;
+      });
+    }
+
     onUpdateTrip({
       ...trip,
-      locations: updatedLocations
+      locations: updatedLocations,
+      plans: updatedPlans
     });
 
     setCustomPlaceTitle('');
@@ -982,7 +1167,58 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setCustomPlaceLng('');
     setCustomPlaceGroupId('new');
     setCustomPlaceMapsLink('');
+    setCustomPlacePhotoUrl('');
+    setCustomPlaceNotes('');
     setShowCustomPlaceModal(false);
+  };
+
+  const handleDeletePlace = (placeId: string) => {
+    if (!catalogLocation) return;
+    
+    setConfirmModal({
+      title: 'Delete Place from Catalog',
+      message: 'Are you sure you want to delete this place from the catalog? This will also remove it from all days in your plans.',
+      confirmText: 'Delete Place',
+      onConfirm: () => {
+        // Remove from the location's places
+        const updatedLocations = trip.locations.map(l => {
+          if (l.id === catalogLocation.id) {
+            return {
+              ...l,
+              places: l.places.filter(p => p.id !== placeId)
+            };
+          }
+          return l;
+        });
+
+        // Remove from all plan days
+        const updatedPlans = trip.plans.map(p => {
+          const updatedDays = { ...p.days };
+          Object.keys(updatedDays).forEach(dateStr => {
+            if (updatedDays[dateStr]?.placeIds) {
+              updatedDays[dateStr] = {
+                ...updatedDays[dateStr],
+                placeIds: updatedDays[dateStr].placeIds.filter(id => id !== placeId)
+              };
+            }
+          });
+          return {
+            ...p,
+            days: updatedDays
+          };
+        });
+
+        onUpdateTrip({
+          ...trip,
+          locations: updatedLocations,
+          plans: updatedPlans
+        });
+
+        if (activePlaceId === placeId) {
+          setActivePlaceId(undefined);
+        }
+      }
+    });
   };
 
   const handleRemovePlaceFromDay = (index: number) => {
@@ -1042,6 +1278,50 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     });
   };
 
+  const handleMoveCatalogPlace = (placeId: string, direction: 'up' | 'down') => {
+    if (!catalogLocation) return;
+    
+    const place = catalogLocation.places.find(p => p.id === placeId);
+    if (!place) return;
+    
+    const groupId = place.placeGroupId || 'new';
+    const placesInGroup = catalogLocation.places.filter(p => (p.placeGroupId || 'new') === groupId);
+    const indexInGroup = placesInGroup.findIndex(p => p.id === placeId);
+    if (indexInGroup === -1) return;
+    
+    let targetSibling: Place | null = null;
+    if (direction === 'up' && indexInGroup > 0) {
+      targetSibling = placesInGroup[indexInGroup - 1];
+    } else if (direction === 'down' && indexInGroup < placesInGroup.length - 1) {
+      targetSibling = placesInGroup[indexInGroup + 1];
+    }
+    
+    if (!targetSibling) return;
+    
+    const updatedLocations = trip.locations.map(l => {
+      if (l.id === catalogLocation.id) {
+        const placesCopy = [...l.places];
+        const idxA = placesCopy.findIndex(p => p.id === place.id);
+        const idxB = placesCopy.findIndex(p => p.id === targetSibling!.id);
+        if (idxA !== -1 && idxB !== -1) {
+          const temp = placesCopy[idxA];
+          placesCopy[idxA] = placesCopy[idxB];
+          placesCopy[idxB] = temp;
+        }
+        return {
+          ...l,
+          places: placesCopy
+        };
+      }
+      return l;
+    });
+    
+    onUpdateTrip({
+      ...trip,
+      locations: updatedLocations
+    });
+  };
+
   // Re-group place inside catalog
   const handleMovePlaceGroup = (placeId: string, groupId: string) => {
     if (!catalogLocation) return;
@@ -1073,9 +1353,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   };
 
   const savePlaceNotes = (placeId: string) => {
-    if (!catalogLocation) return;
     const updatedLocations = trip.locations.map(l => {
-      if (l.id === catalogLocation.id) {
+      if (l.places.some(p => p.id === placeId)) {
         const updatedPlaces = l.places.map(p => {
           if (p.id === placeId) {
             return { ...p, notes: tempNotes };
@@ -1193,7 +1472,12 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     if (!editTripName.trim() || !editTripStart || !editTripEnd) return;
     
     if (new Date(editTripStart) > new Date(editTripEnd)) {
-      alert('Start date must be before or equal to end date.');
+      setConfirmModal({
+        title: 'Invalid Dates',
+        message: 'Start date must be before or equal to end date.',
+        isAlert: true,
+        onConfirm: () => {}
+      });
       return;
     }
 
@@ -1425,7 +1709,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   return (
     <div className="planner-view">
       {/* LEFT PANEL: Catalog */}
-      <div className="catalog-panel">
+      <div className={`catalog-panel ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
         <div className="panel-header">
           <button 
             className="mini-icon-btn" 
@@ -1521,8 +1805,23 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <div 
                   key={group.id} 
                   className="place-group-section"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handlePlaceDropOnGroup(group.id)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (draggedPlaceId && dragOverGroupId !== group.id) {
+                      setDragOverGroupId(group.id);
+                    }
+                  }}
+                  onDragLeave={() => setDragOverGroupId(null)}
+                  onDrop={() => {
+                    handlePlaceDropOnGroup(group.id);
+                    setDragOverGroupId(null);
+                  }}
+                  style={{
+                    border: (dragOverGroupId === group.id && draggedPlaceId) ? '2px dashed var(--accent-primary)' : '2px dashed transparent',
+                    borderRadius: '8px',
+                    padding: '4px',
+                    transition: 'all 0.15s ease'
+                  }}
                 >
                   <div className="place-group-header">
                     <span className="place-group-title">
@@ -1540,6 +1839,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                           setCustomPlaceLng('');
                           setCustomPlaceGroupId(group.id);
                           setCustomPlaceMapsLink('');
+                          setAutoScheduleOnActiveDay(false);
                           setShowCustomPlaceModal(true);
                         }} 
                         title={`Add Place to ${group.name}`} 
@@ -1579,23 +1879,49 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   </div>
 
                   <div className="catalog-places-list" style={{ minHeight: '30px' }}>
-                    {placesInGroup.map(place => (
-                      <div 
-                        key={place.id} 
-                        className="catalog-place-card"
-                        draggable
-                        onDragStart={() => handlePlaceDragStart(place.id)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.stopPropagation();
-                          handlePlaceDropOnPlace(place.id, group.id);
-                        }}
-                        onClick={() => setActivePlaceId(place.id)}
-                        style={{ 
-                          borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
-                          cursor: 'grab'
-                        }}
-                      >
+                    {placesInGroup.map((place, placeIndexInGroup) => (
+                      <div key={place.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                        {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'var(--accent-primary)',
+                            borderRadius: '2px',
+                            boxShadow: '0 0 8px var(--accent-primary)',
+                            zIndex: 10,
+                            pointerEvents: 'none'
+                          }} />
+                        )}
+                        <div 
+                          className="catalog-place-card"
+                          draggable
+                          onDragStart={() => handlePlaceDragStart(place.id)}
+                          onDragEnd={() => {
+                            setDraggedPlaceId(null);
+                            setDragOverPlaceId(null);
+                            setDragOverGroupId(null);
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            if (draggedPlaceId && draggedPlaceId !== place.id && dragOverPlaceId !== place.id) {
+                              setDragOverPlaceId(place.id);
+                            }
+                          }}
+                          onDragLeave={() => setDragOverPlaceId(null)}
+                          onDrop={(e) => {
+                            e.stopPropagation();
+                            handlePlaceDropOnPlace(place.id, group.id);
+                            setDragOverPlaceId(null);
+                          }}
+                          onClick={() => setActivePlaceId(place.id)}
+                          style={{ 
+                            borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
+                            cursor: 'grab'
+                          }}
+                        >
                         <div className="place-card-header">
                           {place.photoUrl ? (
                             <img src={place.photoUrl} className="place-card-thumb" alt="" />
@@ -1619,6 +1945,33 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                 <Clock size={10} /> {place.openingHours}
                               </div>
                             )}
+                          </div>
+                          <div 
+                            style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignSelf: 'center', flexShrink: 0 }} 
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <button 
+                              className="mini-icon-btn" 
+                              disabled={placeIndexInGroup === 0} 
+                              onClick={() => handleMoveCatalogPlace(place.id, 'up')}
+                              style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1, padding: '2px' }}
+                              title="Move Up"
+                              draggable={false}
+                              onDragStart={e => e.stopPropagation()}
+                            >
+                              <ChevronUp size={12} />
+                            </button>
+                            <button 
+                              className="mini-icon-btn" 
+                              disabled={placeIndexInGroup === placesInGroup.length - 1} 
+                              onClick={() => handleMoveCatalogPlace(place.id, 'down')}
+                              style={{ opacity: placeIndexInGroup === placesInGroup.length - 1 ? 0.3 : 1, padding: '2px' }}
+                              title="Move Down"
+                              draggable={false}
+                              onDragStart={e => e.stopPropagation()}
+                            >
+                              <ChevronDown size={12} />
+                            </button>
                           </div>
                         </div>
 
@@ -1649,13 +2002,22 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                       resize: 'vertical'
                                     }}
                                   />
-                                  <button 
-                                    className="btn-primary flex-align" 
-                                    onClick={() => savePlaceNotes(place.id)} 
-                                    style={{ padding: '4px 8px', fontSize: '11px', alignSelf: 'flex-end', gap: '4px' }}
-                                  >
-                                    <Check size={12} /> Save Notes
-                                  </button>
+                                  <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
+                                    <button 
+                                      className="btn-secondary" 
+                                      onClick={() => setEditingPlaceNotesId(null)} 
+                                      style={{ padding: '4px 8px', fontSize: '11px' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button 
+                                      className="btn-primary flex-align" 
+                                      onClick={() => savePlaceNotes(place.id)} 
+                                      style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
+                                    >
+                                      <Check size={12} /> Save Notes
+                                    </button>
+                                  </div>
                                 </div>
                               ) : (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1692,40 +2054,41 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
                             {/* Actions */}
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginTop: '8px' }}>
+                              <a 
+                                href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="btn-secondary flex-align"
+                                style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                              >
+                                Map <ExternalLink size={10} />
+                              </a>
                               <button 
                                 className="btn-secondary flex-align"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleOpenEditPlace(place);
                                 }}
-                                style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
+                                style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', borderRadius: '8px', whiteSpace: 'nowrap' }}
                                 title="Edit Place Details"
                               >
                                 <Edit2 size={12} /> Edit
                               </button>
-                              <a 
-                                href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="btn-secondary flex-align"
-                                style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none' }}
-                              >
-                                Map <ExternalLink size={10} />
-                              </a>
                               <button 
                                 className="btn-primary" 
-                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '8px', whiteSpace: 'nowrap' }}
                                 onClick={() => {
                                   handleAddPlaceToDay(place);
                                 }}
                               >
-                                + Add Day
+                                + Add to Day
                               </button>
                             </div>
                           </div>
                         )}
                       </div>
-                    ))}
+                    </div>
+                  ))}
                   </div>
                 </div>
               );
@@ -1739,7 +2102,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       </div>
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}
-      <div className="itinerary-panel">
+      <div className={`itinerary-panel ${activeMobileTab === 'itinerary' ? 'mobile-active' : ''}`}>
         <div className="itinerary-header">
           <div className="trip-meta-info">
             <div>
@@ -2025,7 +2388,42 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               <div className="timeline-section-title flex-between">
                 <span className="flex-align"><Navigation size={16} /> Day Schedule</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="mini-icon-btn" onClick={() => setShowCustomPlaceModal(true)} title="Add Custom Place">
+                  <button 
+                    className="mini-icon-btn flex-align" 
+                    onClick={() => {
+                      const firstOtherDay = daysList.find(d => d !== activeDayStr) || '';
+                      setMoveDayTargetDate(firstOtherDay);
+                      setShowMoveDayModal(true);
+                    }} 
+                    title="Move Day Places"
+                    style={{ gap: '4px' }}
+                  >
+                    <ArrowRight size={14} /> Move Day
+                  </button>
+                  <button 
+                    className="mini-icon-btn flex-align" 
+                    onClick={handleClearDay} 
+                    title="Clear Day Places"
+                    style={{ gap: '4px', color: 'var(--color-danger)' }}
+                  >
+                    <Trash2 size={14} /> Clear Day
+                  </button>
+                  <button 
+                    className="mini-icon-btn flex-align" 
+                    onClick={() => {
+                      setCustomPlaceTitle('');
+                      setCustomPlaceDesc('');
+                      setCustomPlaceHours('');
+                      setCustomPlaceLat('');
+                      setCustomPlaceLng('');
+                      setCustomPlaceGroupId('new');
+                      setCustomPlaceMapsLink('');
+                      setAutoScheduleOnActiveDay(true);
+                      setShowCustomPlaceModal(true);
+                    }} 
+                    title="Add Custom Place"
+                    style={{ gap: '4px' }}
+                  >
                     <Plus size={14} /> Add Place
                   </button>
                 </div>
@@ -2075,107 +2473,194 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               {/* Timeline Cards */}
               <div className="day-timeline">
                 {scheduledPlaces.map((place, index) => (
-                  <div key={`${place.id}-${index}`} className="timeline-item">
-                    <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }} />
-                    
-                    <div className="timeline-card glass-panel" onClick={() => setActivePlaceId(place.id)}>
-                      <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>
-                        <div 
-                          style={{ 
-                            width: '24px', 
-                            height: '24px', 
-                            borderRadius: '50%', 
-                            background: 'rgba(255,255,255,0.08)',
-                            color: 'var(--text-primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            flexShrink: 0
-                          }}
-                        >
-                          {index + 1}
-                        </div>
-
-                        {/* Place Thumbnail Image */}
-                        {place.photoUrl ? (
-                          <img 
-                            src={place.photoUrl} 
-                            alt="" 
-                            style={{ 
-                              width: '36px', 
-                              height: '36px', 
-                              borderRadius: '6px', 
-                              objectFit: 'cover', 
-                              flexShrink: 0 
-                            }} 
-                          />
-                        ) : (
+                  <div 
+                    key={`${place.id}-${index}`} 
+                    style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                  >
+                    {dragOverDayPlaceIndex === index && draggedDayPlaceIndex !== index && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        left: 0,
+                        right: 0,
+                        height: '4px',
+                        background: 'var(--accent-primary)',
+                        borderRadius: '2px',
+                        boxShadow: '0 0 8px var(--accent-primary)',
+                        zIndex: 10,
+                        pointerEvents: 'none'
+                      }} />
+                    )}
+                    <div 
+                      className="timeline-item"
+                      draggable
+                      onDragStart={() => handleDayPlaceDragStart(index)}
+                      onDragEnd={() => {
+                        setDraggedDayPlaceIndex(null);
+                        setDragOverDayPlaceIndex(null);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggedDayPlaceIndex !== null && draggedDayPlaceIndex !== index && dragOverDayPlaceIndex !== index) {
+                          setDragOverDayPlaceIndex(index);
+                        }
+                      }}
+                      onDragLeave={() => setDragOverDayPlaceIndex(null)}
+                      onDrop={(e) => {
+                        e.stopPropagation();
+                        handleDayPlaceDrop(index);
+                        setDragOverDayPlaceIndex(null);
+                      }}
+                    >
+                      <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }} />
+                      
+                      <div className="timeline-card glass-panel" onClick={() => setActivePlaceId(place.id)} style={{ cursor: 'grab' }}>
+                        <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>
                           <div 
                             style={{ 
-                              width: '36px', 
-                              height: '36px', 
-                              borderRadius: '6px', 
-                              background: 'rgba(255,255,255,0.05)', 
-                              display: 'flex', 
-                              alignItems: 'center', 
+                              width: '24px', 
+                              height: '24px', 
+                              borderRadius: '50%', 
+                              background: 'rgba(255,255,255,0.08)',
+                              color: 'var(--text-primary)',
+                              display: 'flex',
+                              alignItems: 'center',
                               justifyContent: 'center',
+                              fontSize: '11px',
+                              fontWeight: 700,
                               flexShrink: 0
                             }}
                           >
-                            <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
+                            {index + 1}
                           </div>
-                        )}
 
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {place.title}
-                          </h4>
-                          <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
-                          </p>
-                          {place.notes && (
-                            <p style={{ 
-                              fontSize: '11px', 
-                              color: 'var(--accent-primary)', 
-                              fontStyle: 'italic', 
-                              marginTop: '4px',
-                              whiteSpace: 'pre-wrap',
-                              lineHeight: 1.3
-                            }}>
-                              📝 Note: {place.notes}
-                            </p>
+                          {/* Place Thumbnail Image */}
+                          {place.photoUrl ? (
+                            <img 
+                              src={place.photoUrl} 
+                              alt="" 
+                              style={{ 
+                                width: '36px', 
+                                height: '36px', 
+                                borderRadius: '6px', 
+                                objectFit: 'cover', 
+                                flexShrink: 0 
+                              }} 
+                            />
+                          ) : (
+                            <div 
+                              style={{ 
+                                width: '36px', 
+                                height: '36px', 
+                                borderRadius: '6px', 
+                                background: 'rgba(255,255,255,0.05)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}
+                            >
+                              <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
+                            </div>
                           )}
-                        </div>
-                      </div>
 
-                      <div className="flex-align" style={{ flexShrink: 0, gap: '4px' }} onClick={e => e.stopPropagation()}>
-                        {/* Custom order re-arranging */}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <button 
-                            className="mini-icon-btn" 
-                            disabled={index === 0} 
-                            onClick={() => handleMovePlaceOrder(index, 'up')}
-                            style={{ opacity: index === 0 ? 0.3 : 1, padding: '2px' }}
-                          >
-                            <ChevronUp size={14} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {place.title}
+                            </h4>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
+                            </p>
+                            {editingPlaceNotesId === place.id ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                <textarea 
+                                  value={tempNotes}
+                                  onChange={(e) => setTempNotes(e.target.value)}
+                                  placeholder="Add notes..."
+                                  rows={2}
+                                  style={{ 
+                                    padding: '6px', 
+                                    fontSize: '11px', 
+                                    width: '100%', 
+                                    background: 'var(--bg-dark)', 
+                                    border: '1px solid var(--border-glass)', 
+                                    color: 'var(--text-primary)',
+                                    borderRadius: '4px',
+                                    resize: 'vertical',
+                                    textTransform: 'none'
+                                  }}
+                                />
+                                <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
+                                  <button 
+                                    className="btn-secondary" 
+                                    onClick={() => setEditingPlaceNotesId(null)} 
+                                    style={{ padding: '2px 6px', fontSize: '10px' }}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button 
+                                    className="btn-primary flex-align" 
+                                    onClick={() => savePlaceNotes(place.id)} 
+                                    style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}
+                                  >
+                                    <Check size={10} /> Save
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                                <p style={{ 
+                                  fontSize: '11px', 
+                                  color: 'var(--accent-primary)', 
+                                  fontStyle: 'italic', 
+                                  whiteSpace: 'pre-wrap',
+                                  lineHeight: 1.3,
+                                  margin: 0,
+                                  flex: 1,
+                                  textTransform: 'none'
+                                }}>
+                                  {place.notes ? `📝 Note: ${place.notes}` : '📝 Add notes...'}
+                                </p>
+                                <button 
+                                  className="mini-icon-btn" 
+                                  onClick={() => startEditingNotes(place)} 
+                                  style={{ padding: '2px' }}
+                                  title="Edit Note"
+                                >
+                                  <Edit2 size={10} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex-align" style={{ flexShrink: 0, gap: '4px' }} onClick={e => e.stopPropagation()}>
+                          {/* Custom order re-arranging */}
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <button 
+                              className="mini-icon-btn" 
+                              disabled={index === 0} 
+                              onClick={() => handleMovePlaceOrder(index, 'up')}
+                              style={{ opacity: index === 0 ? 0.3 : 1, padding: '2px' }}
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button 
+                              className="mini-icon-btn" 
+                              disabled={index === scheduledPlaces.length - 1} 
+                              onClick={() => handleMovePlaceOrder(index, 'down')}
+                              style={{ opacity: index === scheduledPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                          </div>
+                          <button className="mini-icon-btn" onClick={() => handleOpenEditPlace(place)} title="Edit Place" style={{ padding: '4px' }}>
+                            <Edit2 size={14} />
                           </button>
-                          <button 
-                            className="mini-icon-btn" 
-                            disabled={index === scheduledPlaces.length - 1} 
-                            onClick={() => handleMovePlaceOrder(index, 'down')}
-                            style={{ opacity: index === scheduledPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
-                          >
-                            <ChevronDown size={14} />
+                          <button className="trip-delete-btn" onClick={() => handleRemovePlaceFromDay(index)}>
+                            <Trash2 size={14} />
                           </button>
                         </div>
-                        <button className="mini-icon-btn" onClick={() => handleOpenEditPlace(place)} title="Edit Place" style={{ padding: '4px' }}>
-                          <Edit2 size={14} />
-                        </button>
-                        <button className="trip-delete-btn" onClick={() => handleRemovePlaceFromDay(index)}>
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -2197,7 +2682,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       </div>
 
       {/* RIGHT PANEL: Interactive Leaflet Map */}
-      <div className="map-panel">
+      <div className={`map-panel ${activeMobileTab === 'map' ? 'mobile-active' : ''}`}>
         <MapComponent 
           places={scheduledPlaces} 
           activePlaceId={activePlaceId}
@@ -2205,6 +2690,31 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
           onMapClick={handleMapClick}
           previewMarker={previewMarker}
         />
+      </div>
+
+      {/* Mobile Tab Navigation */}
+      <div className="mobile-tab-nav">
+        <button 
+          className={`mobile-tab-btn ${activeMobileTab === 'catalog' ? 'active' : ''}`}
+          onClick={() => setActiveMobileTab('catalog')}
+        >
+          <BookOpen size={20} />
+          <span>Catalog</span>
+        </button>
+        <button 
+          className={`mobile-tab-btn ${activeMobileTab === 'itinerary' ? 'active' : ''}`}
+          onClick={() => setActiveMobileTab('itinerary')}
+        >
+          <Clock size={20} />
+          <span>Itinerary</span>
+        </button>
+        <button 
+          className={`mobile-tab-btn ${activeMobileTab === 'map' ? 'active' : ''}`}
+          onClick={() => setActiveMobileTab('map')}
+        >
+          <Navigation size={20} />
+          <span>Map</span>
+        </button>
       </div>
 
       {/* ----------------------------------------------------
@@ -2289,6 +2799,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         setCustomPlaceLat(sug.lat.toString());
                         setCustomPlaceLng(sug.lng.toString());
                         setCustomPlaceMapsLink(buildMapsLink(sug.title, sug.lat, sug.lng, catalogLocation?.city));
+                        setCustomPlacePhotoUrl(sug.photoUrl || '');
+                        setCustomPlaceNotes(sug.notes || '');
                         setCustomPlaceSearchQuery('');
                         setCustomPlaceSuggestions([]);
                       }}
@@ -2338,6 +2850,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               <div className="form-group">
                 <label>Google Maps Link (Optional)</label>
                 <input type="text" value={customPlaceMapsLink} onChange={e => setCustomPlaceMapsLink(e.target.value)} placeholder="e.g. https://maps.google.com/..." />
+              </div>
+              <div className="form-group">
+                <label>Hero Image Photo URL (Optional)</label>
+                <input type="text" value={customPlacePhotoUrl} onChange={e => setCustomPlacePhotoUrl(e.target.value)} placeholder="e.g. Unsplash URL..." />
+              </div>
+              <div className="form-group">
+                <label>Notes (Long Textbox)</label>
+                <textarea value={customPlaceNotes} onChange={e => setCustomPlaceNotes(e.target.value)} placeholder="Travel notes, tips, things to try..." rows={3} />
               </div>
               <div className="form-row">
                 <div className="form-group">
@@ -2416,6 +2936,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         setEditPlaceLat(sug.lat.toString());
                         setEditPlaceLng(sug.lng.toString());
                         setEditPlaceMapsLink(sug.mapsLink || buildMapsLink(sug.title, sug.lat, sug.lng, catalogLocation?.city));
+                        setEditPlacePhotoUrl(sug.photoUrl || '');
+                        setEditPlaceNotes(sug.notes || '');
                         setEditPlaceSearchQuery('');
                         setEditPlaceSuggestions([]);
                       }}
@@ -2470,6 +2992,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <input type="text" value={editPlaceMapsLink} onChange={e => setEditPlaceMapsLink(e.target.value)} placeholder="e.g. https://maps.google.com/..." />
               </div>
 
+              <div className="form-group">
+                <label>Hero Image Photo URL (Optional)</label>
+                <input type="text" value={editPlacePhotoUrl} onChange={e => setEditPlacePhotoUrl(e.target.value)} placeholder="e.g. Unsplash URL..." />
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Latitude</label>
@@ -2503,11 +3030,75 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 />
               </div>
 
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => { setShowEditPlaceModal(false); setEditingPlace(null); }}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Changes</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+                <button 
+                  type="button" 
+                  className="btn-secondary flex-align"
+                  style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.04)', gap: '4px' }}
+                  onClick={() => {
+                    if (editingPlace) {
+                      handleDeletePlace(editingPlace.id);
+                      setShowEditPlaceModal(false);
+                      setEditingPlace(null);
+                    }
+                  }}
+                >
+                  <Trash2 size={14} /> Delete Place
+                </button>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" className="btn-secondary" onClick={() => { setShowEditPlaceModal(false); setEditingPlace(null); }}>Cancel</button>
+                  <button type="submit" className="btn-primary">Save Changes</button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Move Day Modal */}
+      {showMoveDayModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Move Day Contents</h3>
+              <button className="modal-close" onClick={() => setShowMoveDayModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Move all scheduled places of <strong>Day {daysList.indexOf(activeDayStr) + 1}</strong> ({formatDisplayDate(activeDayStr).split(',')[1]}) to another day. This will override the destination day's scheduled places.
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label>Select Destination Day</label>
+              <select 
+                value={moveDayTargetDate} 
+                onChange={e => setMoveDayTargetDate(e.target.value)}
+                style={{ width: '100%', background: 'var(--bg-dark)' }}
+              >
+                {daysList.map((dateStr, index) => {
+                  if (dateStr === activeDayStr) return null;
+                  return (
+                    <option key={dateStr} value={dateStr}>
+                      Day {index + 1} ({formatDisplayDate(dateStr).split(',')[1]})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowMoveDayModal(false)}>Cancel</button>
+              <button 
+                className="btn-primary" 
+                onClick={() => handleMoveDayContents(moveDayTargetDate)}
+                disabled={!moveDayTargetDate}
+              >
+                Move Contents
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2892,23 +3483,28 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <X size={20} />
               </button>
             </div>
-            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none' }}>
+            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none', whiteSpace: 'pre-wrap' }}>
               {confirmModal.message}
             </div>
             <div className="modal-actions" style={{ marginTop: '20px' }}>
-              <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
-                Cancel
-              </button>
+              {!confirmModal.isAlert && (
+                <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
+                  {confirmModal.cancelText || 'Cancel'}
+                </button>
+              )}
               <button 
                 type="button" 
                 className="btn-primary" 
-                style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                style={{ 
+                  background: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)', 
+                  borderColor: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)' 
+                }}
                 onClick={() => {
                   confirmModal.onConfirm();
                   setConfirmModal(null);
                 }}
               >
-                Confirm
+                {confirmModal.confirmText || (confirmModal.isAlert ? 'OK' : 'Confirm')}
               </button>
             </div>
           </div>
@@ -3062,42 +3658,67 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   {trip.locations.map((loc, idx) => {
                     const isCurrent = loc.id === catalogLocation.id;
                     const isDragging = idx === draggedLocationIndex;
+                    const isDragOver = idx === dragOverLocationIndex && draggedLocationIndex !== idx;
                     return (
-                      <div
-                        key={loc.id}
-                        draggable
-                        onDragStart={() => handleDragStart(idx)}
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDrop(idx)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '8px 12px',
-                          background: isCurrent ? 'var(--accent-primary-glow)' : 'rgba(255,255,255,0.03)',
-                          border: isCurrent ? '1px solid var(--accent-primary)' : '1px solid var(--border-glass)',
-                          borderRadius: '6px',
-                          cursor: 'grab',
-                          opacity: isDragging ? 0.4 : 1,
-                          transition: 'all 0.15s ease',
-                          userSelect: 'none',
-                          textTransform: 'none'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
-                        onMouseLeave={(e) => e.currentTarget.style.borderColor = isCurrent ? 'var(--accent-primary)' : 'var(--border-glass)'}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                          <span style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center' }}>
-                            ☰
-                          </span>
-                          <span style={{ fontSize: '16px' }}>{getLocIcon(loc)}</span>
-                          <span style={{ fontSize: '13px', fontWeight: isCurrent ? 600 : 400, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            {getFormattedLocationName(loc)}
-                          </span>
-                          {isCurrent && (
-                            <span style={{ fontSize: '10px', background: 'var(--accent-primary)', color: '#fff', padding: '2px 6px', borderRadius: '4px', marginLeft: 'auto', fontWeight: 600 }}>
-                              Active
+                      <div key={loc.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                        {isDragOver && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '-5px',
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'var(--accent-primary)',
+                            borderRadius: '2px',
+                            boxShadow: '0 0 8px var(--accent-primary)',
+                            zIndex: 10,
+                            pointerEvents: 'none'
+                          }} />
+                        )}
+                        <div
+                          draggable
+                          onDragStart={() => handleDragStart(idx)}
+                          onDragEnter={() => setDragOverLocationIndex(idx)}
+                          onDragLeave={() => setDragOverLocationIndex(null)}
+                          onDragEnd={() => {
+                            setDraggedLocationIndex(null);
+                            setDragOverLocationIndex(null);
+                          }}
+                          onDragOver={handleDragOver}
+                          onDrop={() => {
+                            handleDrop(idx);
+                            setDragOverLocationIndex(null);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '8px 12px',
+                            background: isCurrent ? 'var(--accent-primary-glow)' : 'rgba(255,255,255,0.03)',
+                            border: isCurrent ? '1px solid var(--accent-primary)' : '1px solid var(--border-glass)',
+                            borderRadius: '6px',
+                            cursor: 'grab',
+                            opacity: isDragging ? 0.4 : 1,
+                            transition: 'all 0.15s ease',
+                            userSelect: 'none',
+                            textTransform: 'none'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
+                          onMouseLeave={(e) => e.currentTarget.style.borderColor = isCurrent ? 'var(--accent-primary)' : 'var(--border-glass)'}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                            <span style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center' }}>
+                              ☰
                             </span>
-                          )}
+                            <span style={{ fontSize: '16px' }}>{getLocIcon(loc)}</span>
+                            <span style={{ fontSize: '13px', fontWeight: isCurrent ? 600 : 400, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {getFormattedLocationName(loc)}
+                            </span>
+                            {isCurrent && (
+                              <span style={{ fontSize: '10px', background: 'var(--accent-primary)', color: '#fff', padding: '2px 6px', borderRadius: '4px', marginLeft: 'auto', fontWeight: 600 }}>
+                                Active
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
