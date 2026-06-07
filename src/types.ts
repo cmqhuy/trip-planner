@@ -27,6 +27,7 @@ export interface Location {
   lng: number;
   places: Place[];
   placeGroups: PlaceGroup[];
+  color?: string; // Hex color for color coding
 }
 
 export interface Transportation {

@@ -9,6 +9,25 @@ import {
 import { searchLocation, searchPlacesNearLocation, DEFAULT_PLACE_GROUPS } from '../utils/api';
 import MapComponent from './MapComponent';
 
+const LOCATION_COLORS = [
+  '#6366f1', // Indigo
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#f97316', // Orange
+  '#8b5cf6', // Violet
+  '#ef4444'  // Red
+];
+
+const hexToRgba = (hex: string, alpha: number) => {
+  if (!hex || !hex.startsWith('#') || hex.length !== 7) return `rgba(99, 102, 241, ${alpha})`;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 interface TripPlannerProps {
   trip: Trip;
   onBack: () => void;
@@ -272,10 +291,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     let updatedLocations = [...trip.locations];
 
     if (!existingLoc) {
+      const colorIndex = trip.locations.length % LOCATION_COLORS.length;
+      const color = LOCATION_COLORS[colorIndex];
       const newLoc: Location = {
         ...loc,
         places: [],
-        placeGroups: [...DEFAULT_PLACE_GROUPS]
+        placeGroups: [...DEFAULT_PLACE_GROUPS],
+        color
       };
       updatedLocations.push(newLoc);
       existingLoc = newLoc;
@@ -300,10 +322,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     let updatedLocations = [...trip.locations];
 
     if (!existingLoc) {
+      const colorIndex = trip.locations.length % LOCATION_COLORS.length;
+      const color = LOCATION_COLORS[colorIndex];
       const newLoc: Location = {
         ...loc,
         places: [],
-        placeGroups: [...DEFAULT_PLACE_GROUPS]
+        placeGroups: [...DEFAULT_PLACE_GROUPS],
+        color
       };
       updatedLocations.push(newLoc);
       existingLoc = newLoc;
@@ -334,6 +359,49 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setSelectedCatalogLocId(existingLoc.id);
     setLocationQuery('');
     setLocationSuggestions([]);
+  };
+
+  const handleDeleteLocation = (locId: string) => {
+    if (!confirm('Are you sure you want to delete this location? This will remove all its places from the catalog and any day plans.')) return;
+
+    // 1. Remove location from trip.locations
+    const updatedLocations = trip.locations.filter(l => l.id !== locId);
+
+    // 2. Remove locationId from any plan days using it, and filter out places from the catalog
+    const updatedPlans = trip.plans.map(p => {
+      const updatedDays = { ...p.days };
+      Object.keys(updatedDays).forEach(dateStr => {
+        const day = updatedDays[dateStr];
+        const newDay = { ...day };
+        if (day.locationId === locId) {
+          newDay.locationId = undefined;
+        }
+        
+        // Remove scheduled places that belonged to the deleted location
+        const deletedLoc = trip.locations.find(l => l.id === locId);
+        if (deletedLoc) {
+          const deletedPlaceIds = new Set(deletedLoc.places.map(pl => pl.id));
+          newDay.placeIds = day.placeIds.filter(pid => !deletedPlaceIds.has(pid));
+        }
+        
+        updatedDays[dateStr] = newDay;
+      });
+
+      return {
+        ...p,
+        days: updatedDays
+      };
+    });
+
+    onUpdateTrip({
+      ...trip,
+      locations: updatedLocations,
+      plans: updatedPlans
+    });
+
+    // 3. Reset selectedCatalogLocId to first available location
+    const remaining = updatedLocations[0]?.id || '';
+    setSelectedCatalogLocId(remaining);
   };
 
   const handleSetDayLocation = (locId: string) => {
@@ -944,6 +1012,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <option key={loc.id} value={loc.id}>{getFormattedLocationName(loc)}</option>
               ))}
             </select>
+            {catalogLocation && (
+              <button 
+                className="mini-icon-btn" 
+                onClick={() => handleDeleteLocation(catalogLocation.id)}
+                title="Delete Location"
+                style={{ color: 'var(--color-danger)', padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
             <button 
               className="btn-primary flex-align"
               style={{ padding: '6px 10px', fontSize: '11px', gap: '4px', height: '32px' }}
@@ -1193,6 +1271,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             {daysList.map((dateStr, index) => {
               const isActive = activeDayStr === dateStr;
               const dayLoc = trip.locations.find(l => l.id === activePlan.days[dateStr]?.locationId);
+              const locColor = dayLoc?.color || 'var(--accent-primary)';
               return (
                 <button 
                   key={dateStr} 
@@ -1201,12 +1280,30 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     setActiveDayStr(dateStr);
                     setActivePlaceId(undefined);
                   }}
+                  style={{
+                    borderTop: dayLoc ? `3px solid ${locColor}` : undefined,
+                    borderColor: isActive && dayLoc ? locColor : undefined,
+                    boxShadow: isActive && dayLoc ? `0 0 10px ${hexToRgba(locColor, 0.2)}` : undefined,
+                    background: isActive && dayLoc ? `${hexToRgba(locColor, 0.08)}` : undefined,
+                  }}
                 >
                   <span className="day-tab-num">Day {index + 1}</span>
                   <span className="day-tab-date">{formatDisplayDate(dateStr).split(',')[1]}</span>
                   {dayLoc && (
-                    <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--accent-primary)', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px', whiteSpace: 'nowrap' }}>
-                      🏁 {dayLoc.city}
+                    <span 
+                      style={{ 
+                        fontSize: '9px', 
+                        fontWeight: 600, 
+                        color: locColor, 
+                        marginTop: '2px', 
+                        textOverflow: 'ellipsis', 
+                        overflow: 'hidden', 
+                        maxWidth: '80px', 
+                        whiteSpace: 'nowrap' 
+                      }}
+                      title={getFormattedLocationName(dayLoc)}
+                    >
+                      📍 {getFormattedLocationName(dayLoc)}
                     </span>
                   )}
                 </button>
@@ -1223,12 +1320,12 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               className="day-location-picker glass-panel" 
               style={{ 
                 background: activeDayLocation?.heroPhoto 
-                  ? `linear-gradient(rgba(15,23,42,0.85), rgba(15,23,42,0.95)), url(${activeDayLocation.heroPhoto}) center/cover` 
-                  : 'rgba(30,41,59,0.2)' 
+                  ? `linear-gradient(rgba(15,23,42,0.4), ${hexToRgba(activeDayLocation.color || '#6366f1', 0.85)}), url(${activeDayLocation.heroPhoto}) center/cover` 
+                  : `linear-gradient(135deg, rgba(30,41,59,0.4), ${hexToRgba(activeDayLocation?.color || '#6366f1', 0.15)})` 
               }}
             >
               <div className="day-location-info">
-                <MapPin size={24} style={{ color: 'var(--color-danger)' }} />
+                <MapPin size={24} style={{ color: activeDayLocation?.color || 'var(--color-danger)' }} />
                 <div>
                   <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Location</label>
                   <h3 style={{ fontSize: '18px', color: 'var(--text-primary)' }}>
