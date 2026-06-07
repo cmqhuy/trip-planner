@@ -28,10 +28,43 @@ export default function App() {
   });
 
   // Google Integration States
-  const [googleUser, setGoogleUser] = useState<{ name: string; email: string; picture: string } | null>(null);
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
-  const [googleFolderId, setGoogleFolderId] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [googleUser, setGoogleUser] = useState<{ name: string; email: string; picture: string } | null>(() => {
+    const expiresAtStr = localStorage.getItem('google-token-expires-at');
+    if (expiresAtStr && Number(expiresAtStr) > Date.now()) {
+      const userStr = localStorage.getItem('google-user');
+      try {
+        return userStr ? JSON.parse(userStr) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [googleToken, setGoogleToken] = useState<string | null>(() => {
+    const expiresAtStr = localStorage.getItem('google-token-expires-at');
+    if (expiresAtStr && Number(expiresAtStr) > Date.now()) {
+      return localStorage.getItem('google-access-token');
+    }
+    return null;
+  });
+
+  const [googleFolderId, setGoogleFolderId] = useState<string | null>(() => {
+    const expiresAtStr = localStorage.getItem('google-token-expires-at');
+    if (expiresAtStr && Number(expiresAtStr) > Date.now()) {
+      return localStorage.getItem('google-folder-id');
+    }
+    return null;
+  });
+
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>(() => {
+    const expiresAtStr = localStorage.getItem('google-token-expires-at');
+    if (expiresAtStr && Number(expiresAtStr) > Date.now()) {
+      return 'synced';
+    }
+    return 'idle';
+  });
+
   const clientId = localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID;
   const [conflictData, setConflictData] = useState<{ local: Trip[]; cloud: Trip[] } | null>(null);
 
@@ -58,8 +91,11 @@ export default function App() {
         try {
           initTokenClient(
             clientId,
-            (token) => {
+            (token, expiresIn) => {
               setGoogleToken(token);
+              const expiresAt = Date.now() + expiresIn * 1000;
+              localStorage.setItem('google-access-token', token);
+              localStorage.setItem('google-token-expires-at', expiresAt.toString());
             },
             (err) => {
               console.error('Google token request failed:', err);
@@ -80,13 +116,30 @@ export default function App() {
     if (!googleToken) return;
 
     const loadCredentials = async () => {
+      // Check if we already have them locally and they are valid (to avoid redundant API fetches on mount refresh)
+      const cachedUser = localStorage.getItem('google-user');
+      const cachedFolder = localStorage.getItem('google-folder-id');
+      const cachedExpiresAt = localStorage.getItem('google-token-expires-at');
+
+      if (cachedUser && cachedFolder && cachedExpiresAt && Number(cachedExpiresAt) > Date.now()) {
+        try {
+          setGoogleUser(JSON.parse(cachedUser));
+          setGoogleFolderId(cachedFolder);
+          return;
+        } catch {
+          // fall through
+        }
+      }
+
       setSyncStatus('syncing');
       try {
         const user = await fetchGoogleUserInfo(googleToken);
         setGoogleUser(user);
+        localStorage.setItem('google-user', JSON.stringify(user));
 
         const folderId = await getOrCreateTripPlannerFolder(googleToken);
         setGoogleFolderId(folderId);
+        localStorage.setItem('google-folder-id', folderId);
       } catch (e) {
         console.error('Failed to load Google credentials:', e);
         setSyncStatus('error');
@@ -214,6 +267,10 @@ export default function App() {
     setGoogleToken(null);
     setGoogleFolderId(null);
     setSyncStatus('idle');
+    localStorage.removeItem('google-access-token');
+    localStorage.removeItem('google-token-expires-at');
+    localStorage.removeItem('google-user');
+    localStorage.removeItem('google-folder-id');
   };
 
   const handleManualSync = async () => {

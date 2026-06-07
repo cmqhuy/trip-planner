@@ -36,7 +36,7 @@ export function loadGsiScript(): Promise<void> {
  */
 export function initTokenClient(
   clientId: string,
-  onTokenReceived: (token: string) => void,
+  onTokenReceived: (token: string, expiresIn: number) => void,
   onError?: (error: any) => void
 ) {
   if (!window.google?.accounts?.oauth2) {
@@ -50,7 +50,7 @@ export function initTokenClient(
       if (response.error) {
         if (onError) onError(response);
       } else if (response.access_token) {
-        onTokenReceived(response.access_token);
+        onTokenReceived(response.access_token, response.expires_in || 3600);
       }
     },
   });
