@@ -145,7 +145,7 @@ export default function App() {
 
   const syncTimeoutRef = useRef<any>(null);
 
-  // Load trips from LocalStorage on mount
+  // Load trips from LocalStorage on mount and listen to storage events from other tabs
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
@@ -155,7 +155,41 @@ export default function App() {
         console.error('Failed to parse trips from LocalStorage:', e);
       }
     }
-  }, []);
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === LOCAL_STORAGE_KEY) {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            setTrips(parsed);
+            
+            // If the currently active trip was deleted in another tab, reset activeTripId
+            if (activeTripId && !parsed.some((t: Trip) => t.id === activeTripId)) {
+              setActiveTripId(null);
+            }
+          } catch (err) {
+            console.error('Failed to parse updated trips from storage event:', err);
+          }
+        } else {
+          setTrips([]);
+          setActiveTripId(null);
+        }
+      } else if (e.key === 'vacation-itineraries-sync-timestamps') {
+        if (e.newValue) {
+          try {
+            syncTimestampsRef.current = JSON.parse(e.newValue);
+          } catch (err) {
+            console.error('Failed to parse sync timestamps from storage event:', err);
+          }
+        } else {
+          syncTimestampsRef.current = {};
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [activeTripId]);
 
   // Load GIS script and init token client when clientId changes
   useEffect(() => {
