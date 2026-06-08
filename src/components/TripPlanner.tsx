@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Transportation, Hotel } from '../types';
 import { 
   ArrowLeft, ArrowRight, MapPin, Plus, Trash2, Edit2, 
@@ -84,6 +84,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     return params.get('plan') || trip.plans[0]?.id || '';
   });
   const activePlan = trip.plans.find(p => p.id === activePlanId) || trip.plans[0];
+
+  const daysTabsNavRef = useRef<HTMLDivElement>(null);
+  const lastScrollLeft = useRef<number>(0);
+
+  // Restore day switcher scroll position across plan transitions
+  useEffect(() => {
+    if (daysTabsNavRef.current) {
+      daysTabsNavRef.current.scrollLeft = lastScrollLeft.current;
+    }
+  }, [activePlanId]);
 
   // Active Day State
   const daysList = Object.keys(activePlan?.days || {}).sort();
@@ -644,6 +654,94 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setShowEditPlaceModal(true);
   };
 
+  // Unsaved changes detectors & modal close wrappers
+  const hasUnsavedAddLocationChanges = () => {
+    return locationQuery.trim() !== '';
+  };
+
+  const handleCloseAddLocation = () => {
+    if (hasUnsavedAddLocationChanges()) {
+      if (!window.confirm("You have unsaved changes. Discard changes?")) {
+        return;
+      }
+    }
+    setShowAddLocationModal(false);
+    setLocationQuery('');
+    setLocationSuggestions([]);
+  };
+
+  const hasUnsavedLocationChanges = () => {
+    if (!catalogLocation) return false;
+    return (
+      editLocColor !== (catalogLocation.color || '#6366f1') ||
+      editLocCity !== catalogLocation.city ||
+      editLocState !== (catalogLocation.state || '') ||
+      editLocCountry !== catalogLocation.country ||
+      editLocCountryCode !== (catalogLocation.countryCode || '') ||
+      editLocLat !== catalogLocation.lat.toString() ||
+      editLocLng !== catalogLocation.lng.toString() ||
+      editLocHeroPhoto !== (catalogLocation.heroPhoto || '')
+    );
+  };
+
+  const handleCloseEditLocation = () => {
+    if (hasUnsavedLocationChanges()) {
+      if (!window.confirm("You have unsaved changes. Discard changes?")) {
+        return;
+      }
+    }
+    setShowEditLocationModal(false);
+  };
+
+  const hasUnsavedAddPlaceChanges = () => {
+    return (
+      customPlaceTitle.trim() !== '' ||
+      customPlaceDesc.trim() !== '' ||
+      customPlaceHours.trim() !== '' ||
+      customPlacePhotoUrl.trim() !== '' ||
+      customPlaceNotes.trim() !== '' ||
+      customPlaceLat.trim() !== '' ||
+      customPlaceLng.trim() !== '' ||
+      customPlaceMapsLink.trim() !== ''
+    );
+  };
+
+  const handleCloseAddPlace = () => {
+    if (hasUnsavedAddPlaceChanges()) {
+      if (!window.confirm("You have unsaved changes. Discard changes?")) {
+        return;
+      }
+    }
+    setShowCustomPlaceModal(false);
+    setCustomPlaceSearchQuery('');
+    setCustomPlaceSuggestions([]);
+  };
+
+  const hasUnsavedEditPlaceChanges = () => {
+    if (!editingPlace) return false;
+    return (
+      editPlaceTitle !== editingPlace.title ||
+      editPlaceDesc !== (editingPlace.description || '') ||
+      editPlaceHours !== (editingPlace.openingHours || '') ||
+      editPlaceLat !== editingPlace.lat.toString() ||
+      editPlaceLng !== editingPlace.lng.toString() ||
+      editPlaceMapsLink !== (editingPlace.mapsLink || '') ||
+      editPlaceGroupId !== (editingPlace.placeGroupId || 'new') ||
+      editPlaceNotes !== (editingPlace.notes || '') ||
+      editPlacePhotoUrl !== (editingPlace.photoUrl || '')
+    );
+  };
+
+  const handleCloseEditPlace = () => {
+    if (hasUnsavedEditPlaceChanges()) {
+      if (!window.confirm("You have unsaved changes. Discard changes?")) {
+        return;
+      }
+    }
+    setShowEditPlaceModal(false);
+    setEditingPlace(null);
+  };
+
   const handleSaveEditPlace = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPlace || !editPlaceTitle.trim()) return;
@@ -1032,6 +1130,29 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
         });
         setActivePlanId(remainingPlans[0].id);
       }
+    });
+  };
+
+  const handleMovePlan = (direction: 'up' | 'down') => {
+    const index = trip.plans.findIndex(p => p.id === activePlanId);
+    if (index === -1) return;
+    
+    const newPlans = [...trip.plans];
+    if (direction === 'up' && index > 0) {
+      const temp = newPlans[index];
+      newPlans[index] = newPlans[index - 1];
+      newPlans[index - 1] = temp;
+    } else if (direction === 'down' && index < newPlans.length - 1) {
+      const temp = newPlans[index];
+      newPlans[index] = newPlans[index + 1];
+      newPlans[index + 1] = temp;
+    } else {
+      return;
+    }
+    
+    onUpdateTrip({
+      ...trip,
+      plans: newPlans
     });
   };
 
@@ -2120,16 +2241,44 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   className="plan-picker" 
                   value={activePlanId} 
                   onChange={(e) => {
-                    setActivePlanId(e.target.value);
+                    const nextPlanId = e.target.value;
+                    if (daysTabsNavRef.current) {
+                      lastScrollLeft.current = daysTabsNavRef.current.scrollLeft;
+                    }
+                    setActivePlanId(nextPlanId);
                     // Reset day string to first day of new plan if bounds differ
-                    const newPlanDays = Object.keys(trip.plans.find(p => p.id === e.target.value)?.days || {}).sort();
-                    if (newPlanDays.length > 0) setActiveDayStr(newPlanDays[0]);
+                    const newPlanDays = Object.keys(trip.plans.find(p => p.id === nextPlanId)?.days || {}).sort();
+                    if (newPlanDays.length > 0) {
+                      if (newPlanDays.includes(activeDayStr)) {
+                        // Keep current activeDayStr
+                      } else {
+                        setActiveDayStr(newPlanDays[0]);
+                      }
+                    }
                   }}
                 >
                   {trip.plans.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
+                <button 
+                  className="mini-icon-btn" 
+                  onClick={() => handleMovePlan('up')} 
+                  disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
+                  title="Move Plan Up"
+                  style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === 0 ? 0.3 : 1 }}
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <button 
+                  className="mini-icon-btn" 
+                  onClick={() => handleMovePlan('down')} 
+                  disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
+                  title="Move Plan Down"
+                  style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1 ? 0.3 : 1 }}
+                >
+                  <ChevronDown size={16} />
+                </button>
                 <button 
                   className="mini-icon-btn" 
                   onClick={() => {
@@ -2153,7 +2302,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
           </div>
 
           {/* Days selector tabs */}
-          <div className="days-tabs-nav">
+          <div ref={daysTabsNavRef} className="days-tabs-nav">
             {daysList.map((dateStr, index) => {
               const isActive = activeDayStr === dateStr;
               const dayLoc = trip.locations.find(l => l.id === activePlan.days[dateStr]?.locationId);
@@ -2174,7 +2323,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   }}
                 >
                   <span className="day-tab-num">{formatDisplayDate(dateStr).split(',')[1]}</span>
-                  <span className="day-tab-date">Day {index + 1}</span>
+                  <span className="day-tab-date">{formatDisplayDate(dateStr).split(',')[0]} • Day {index + 1}</span>
                   {dayLoc && (
                     <span 
                       style={{ 
@@ -2720,11 +2869,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
       {/* 2. Custom Place Modal */}
       {showCustomPlaceModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleCloseAddPlace}>
+          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Add Place</h3>
-              <button className="modal-close" onClick={() => { setShowCustomPlaceModal(false); setCustomPlaceSearchQuery(''); setCustomPlaceSuggestions([]); }}>
+              <button className="modal-close" onClick={handleCloseAddPlace}>
                 <X size={20} />
               </button>
             </div>
@@ -2748,7 +2897,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               
               {customPlaceSuggestions.length > 0 && (
                 <div style={{ 
-                  background: 'var(--bg-dark)', 
+                  background: 'var(--bg-panel)', 
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
                   border: '1px solid var(--border-glass)', 
                   borderRadius: '6px', 
                   marginTop: '6px', 
@@ -2790,29 +2941,31 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             </div>
 
             <form onSubmit={handleCreateCustomPlace}>
-              <PlaceFormFields
-                title={customPlaceTitle}
-                setTitle={setCustomPlaceTitle}
-                description={customPlaceDesc}
-                setDescription={setCustomPlaceDesc}
-                openingHours={customPlaceHours}
-                setOpeningHours={setCustomPlaceHours}
-                groupId={customPlaceGroupId}
-                setGroupId={setCustomPlaceGroupId}
-                mapsLink={customPlaceMapsLink}
-                setMapsLink={setCustomPlaceMapsLink}
-                photoUrl={customPlacePhotoUrl}
-                setPhotoUrl={setCustomPlacePhotoUrl}
-                notes={customPlaceNotes}
-                setNotes={setCustomPlaceNotes}
-                lat={customPlaceLat}
-                setLat={setCustomPlaceLat}
-                lng={customPlaceLng}
-                setLng={setCustomPlaceLng}
-                placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
-              />
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowCustomPlaceModal(false)}>Cancel</button>
+              <div className="modal-scroll-body">
+                <PlaceFormFields
+                  title={customPlaceTitle}
+                  setTitle={setCustomPlaceTitle}
+                  description={customPlaceDesc}
+                  setDescription={setCustomPlaceDesc}
+                  openingHours={customPlaceHours}
+                  setOpeningHours={setCustomPlaceHours}
+                  groupId={customPlaceGroupId}
+                  setGroupId={setCustomPlaceGroupId}
+                  mapsLink={customPlaceMapsLink}
+                  setMapsLink={setCustomPlaceMapsLink}
+                  photoUrl={customPlacePhotoUrl}
+                  setPhotoUrl={setCustomPlacePhotoUrl}
+                  notes={customPlaceNotes}
+                  setNotes={setCustomPlaceNotes}
+                  lat={customPlaceLat}
+                  setLat={setCustomPlaceLat}
+                  lng={customPlaceLng}
+                  setLng={setCustomPlaceLng}
+                  placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
+                />
+              </div>
+              <div className="modal-actions sticky">
+                <button type="button" className="btn-secondary" onClick={handleCloseAddPlace}>Cancel</button>
                 <button type="submit" className="btn-primary">Add Place</button>
               </div>
             </form>
@@ -2820,13 +2973,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
         </div>
       )}
 
-      {/* Edit Place Modal */}
+      {/* 3. Edit Place Modal */}
       {showEditPlaceModal && editingPlace && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleCloseEditPlace}>
+          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Edit Place Details</h3>
-              <button className="modal-close" onClick={() => { setShowEditPlaceModal(false); setEditingPlace(null); }}>
+              <button className="modal-close" onClick={handleCloseEditPlace}>
                 <X size={20} />
               </button>
             </div>
@@ -2850,7 +3003,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               
               {editPlaceSuggestions.length > 0 && (
                 <div style={{ 
-                  background: 'var(--bg-dark)', 
+                  background: 'var(--bg-panel)', 
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
                   border: '1px solid var(--border-glass)', 
                   borderRadius: '6px', 
                   marginTop: '6px', 
@@ -2892,29 +3047,31 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             </div>
 
             <form onSubmit={handleSaveEditPlace}>
-              <PlaceFormFields
-                title={editPlaceTitle}
-                setTitle={setEditPlaceTitle}
-                description={editPlaceDesc}
-                setDescription={setEditPlaceDesc}
-                openingHours={editPlaceHours}
-                setOpeningHours={setEditPlaceHours}
-                groupId={editPlaceGroupId}
-                setGroupId={setEditPlaceGroupId}
-                mapsLink={editPlaceMapsLink}
-                setMapsLink={setEditPlaceMapsLink}
-                photoUrl={editPlacePhotoUrl}
-                setPhotoUrl={setEditPlacePhotoUrl}
-                notes={editPlaceNotes}
-                setNotes={setEditPlaceNotes}
-                lat={editPlaceLat}
-                setLat={setEditPlaceLat}
-                lng={editPlaceLng}
-                setLng={setEditPlaceLng}
-                placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
-              />
+              <div className="modal-scroll-body">
+                <PlaceFormFields
+                  title={editPlaceTitle}
+                  setTitle={setEditPlaceTitle}
+                  description={editPlaceDesc}
+                  setDescription={setEditPlaceDesc}
+                  openingHours={editPlaceHours}
+                  setOpeningHours={setEditPlaceHours}
+                  groupId={editPlaceGroupId}
+                  setGroupId={setEditPlaceGroupId}
+                  mapsLink={editPlaceMapsLink}
+                  setMapsLink={setEditPlaceMapsLink}
+                  photoUrl={editPlacePhotoUrl}
+                  setPhotoUrl={setEditPlacePhotoUrl}
+                  notes={editPlaceNotes}
+                  setNotes={setEditPlaceNotes}
+                  lat={editPlaceLat}
+                  setLat={setEditPlaceLat}
+                  lng={editPlaceLng}
+                  setLng={setEditPlaceLng}
+                  placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
+                />
+              </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+              <div className="modal-actions sticky" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button 
                   type="button" 
                   className="btn-secondary flex-align"
@@ -2931,7 +3088,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 </button>
                 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" className="btn-secondary" onClick={() => { setShowEditPlaceModal(false); setEditingPlace(null); }}>Cancel</button>
+                  <button type="button" className="btn-secondary" onClick={handleCloseEditPlace}>Cancel</button>
                   <button type="submit" className="btn-primary">Save Changes</button>
                 </div>
               </div>
@@ -3182,15 +3339,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
       {/* 7. Add Location Modal */}
       {showAddLocationModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onClick={handleCloseAddLocation}>
           <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{addLocationForDay ? 'Add Location for Day' : 'Add Location to Trip'}</h3>
-              <button className="modal-close" onClick={() => {
-                setShowAddLocationModal(false);
-                setLocationQuery('');
-                setLocationSuggestions([]);
-              }}>
+              <button className="modal-close" onClick={handleCloseAddLocation}>
                 <X size={20} />
               </button>
             </div>
@@ -3233,11 +3386,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               )}
             </div>
             <div className="modal-actions" style={{ marginTop: '40px' }}>
-              <button type="button" className="btn-secondary" onClick={() => {
-                setShowAddLocationModal(false);
-                setLocationQuery('');
-                setLocationSuggestions([]);
-              }}>Cancel</button>
+              <button type="button" className="btn-secondary" onClick={handleCloseAddLocation}>Cancel</button>
             </div>
           </div>
         </div>
@@ -3362,15 +3511,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
       {/* Edit Location Modal */}
       {showEditLocationModal && catalogLocation && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleCloseEditLocation}>
+          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Edit Location</h3>
-              <button className="modal-close" onClick={() => setShowEditLocationModal(false)}>
+              <button className="modal-close" onClick={handleCloseEditLocation}>
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleSaveEditLocation}>
+              <div className="modal-scroll-body">
               {/* Auto-Populate suggestions search */}
               <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
@@ -3390,7 +3540,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 
                 {editLocSuggestions.length > 0 && (
                   <div style={{ 
-                    background: 'var(--bg-dark)', 
+                    background: 'var(--bg-panel)', 
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
                     border: '1px solid var(--border-glass)', 
                     borderRadius: '6px', 
                     marginTop: '6px', 
@@ -3558,8 +3710,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   })}
                 </div>
               </div>
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+              <div className="modal-actions sticky" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button 
                   type="button" 
                   className="btn-secondary flex-align"
@@ -3570,7 +3723,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 </button>
                 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" className="btn-secondary" onClick={() => setShowEditLocationModal(false)}>Cancel</button>
+                  <button type="button" className="btn-secondary" onClick={handleCloseEditLocation}>Cancel</button>
                   <button type="submit" className="btn-primary">Save</button>
                 </div>
               </div>

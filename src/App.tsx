@@ -13,6 +13,7 @@ import {
   fetchTripsFromDrive, 
   saveTripsToDrive, 
   fetchSingleTripFromDrive,
+  checkIfTripDeletedOnDrive,
   DEFAULT_CLIENT_ID 
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
@@ -183,6 +184,32 @@ export default function App() {
       });
   }, [clientId]);
 
+  // Silent background token refresh for active session (only refreshes if session is currently active and within 5 mins of expiry)
+  useEffect(() => {
+    if (!googleToken) return;
+
+    const interval = setInterval(() => {
+      const expiresAtStr = localStorage.getItem('google-token-expires-at');
+      if (expiresAtStr) {
+        const expiresAt = Number(expiresAtStr);
+        const now = Date.now();
+        const timeRemaining = expiresAt - now;
+
+        // If the token is active but expires in less than 5 minutes, refresh it silently
+        if (timeRemaining > 0 && timeRemaining < 300000) {
+          console.log('Token expiring soon, requesting silent refresh...');
+          try {
+            requestAccessToken('');
+          } catch (e) {
+            console.error('Silent token refresh failed:', e);
+          }
+        }
+      }
+    }, 60000); // Check every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [googleToken]);
+
   // Load user profile & Drive folder when token is received
   useEffect(() => {
     if (!googleToken) return;
@@ -228,12 +255,21 @@ export default function App() {
     const performInitialSync = async () => {
       setSyncStatus('syncing');
       try {
-        const cloudTrips = await fetchTripsFromDrive(googleToken, googleFolderId) || [];
+        const syncResult = await fetchTripsFromDrive(googleToken, googleFolderId);
+        const cloudTrips = syncResult?.activeTrips || [];
+        const cloudDeletedTripIds = syncResult?.deletedTripIds || [];
         fetchedCloudTripsRef.current = cloudTrips;
         
         // Load local trips
         const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
-        const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
+        let localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
+
+        // Apply cloud deletions locally
+        if (cloudDeletedTripIds.length > 0) {
+          localTrips = localTrips.filter(t => !cloudDeletedTripIds.includes(t.id));
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(localTrips));
+          setTrips(localTrips);
+        }
 
         // Detect conflicts and silently pull changes
         const conflicts = detectConflictsAndMerge(
@@ -332,7 +368,19 @@ export default function App() {
 
       try {
         const cloudTrip = await fetchSingleTripFromDrive(googleToken, googleFolderId, activeTripId);
-        if (!cloudTrip) return;
+        if (!cloudTrip) {
+          const isDeletedOnDrive = await checkIfTripDeletedOnDrive(googleToken, googleFolderId, activeTripId);
+          if (isDeletedOnDrive) {
+            const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+            const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
+            const updatedLocalTrips = localTrips.filter(t => t.id !== activeTripId);
+            setTrips(updatedLocalTrips);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLocalTrips));
+            setActiveTripId(null);
+            alert('This trip was deleted on another device.');
+          }
+          return;
+        }
 
         // Find current local active trip
         const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -487,12 +535,21 @@ export default function App() {
     if (!googleToken || !googleFolderId) return;
     setSyncStatus('syncing');
     try {
-      const cloudTrips = await fetchTripsFromDrive(googleToken, googleFolderId) || [];
+      const syncResult = await fetchTripsFromDrive(googleToken, googleFolderId);
+      const cloudTrips = syncResult?.activeTrips || [];
+      const cloudDeletedTripIds = syncResult?.deletedTripIds || [];
       fetchedCloudTripsRef.current = cloudTrips;
+
+      let currentTrips = [...trips];
+      if (cloudDeletedTripIds.length > 0) {
+        currentTrips = currentTrips.filter(t => !cloudDeletedTripIds.includes(t.id));
+        setTrips(currentTrips);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(currentTrips));
+      }
 
       // Detect conflicts and silently pull changes
       const conflicts = detectConflictsAndMerge(
-        trips,
+        currentTrips,
         cloudTrips,
         syncTimestampsRef.current,
         (updated) => {
@@ -508,7 +565,7 @@ export default function App() {
         return;
       }
 
-      const currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
       await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
       
       // Mark all saved trips as synced

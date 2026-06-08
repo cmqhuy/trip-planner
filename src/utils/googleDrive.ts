@@ -59,11 +59,11 @@ export function initTokenClient(
 /**
  * Requests an access token from Google (shows consent/login popup if needed).
  */
-export function requestAccessToken() {
+export function requestAccessToken(prompt: string = 'consent') {
   if (!tokenClient) {
     throw new Error('Token client not initialized');
   }
-  tokenClient.requestAccessToken({ prompt: 'consent' });
+  tokenClient.requestAccessToken({ prompt });
 }
 
 /**
@@ -154,7 +154,15 @@ export async function getOrCreateTripPlannerFolder(accessToken: string): Promise
 /**
  * Fetches all individual trip-*.json files from the Google Drive trip_planner folder.
  */
-export async function fetchTripsFromDrive(accessToken: string, folderId: string): Promise<Trip[] | null> {
+export interface FetchTripsResult {
+  activeTrips: Trip[];
+  deletedTripIds: string[];
+}
+
+export async function fetchTripsFromDrive(
+  accessToken: string,
+  folderId: string
+): Promise<FetchTripsResult | null> {
   const query = `'${folderId}' in parents and trashed = false`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name)`;
   const response = await fetch(url, {
@@ -168,13 +176,20 @@ export async function fetchTripsFromDrive(accessToken: string, folderId: string)
   const data = await response.json();
   const files = data.files || [];
   
-  // Filter for trip-*.json files
+  // Extract deleted trip IDs
+  const deletedTripIds = files
+    .filter((f: any) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
+    .map((f: any) => {
+      return f.name.replace('[Deleted] trip-', '').replace('.json', '');
+    });
+
+  // Filter for active trip-*.json files
   const tripFiles = files.filter((f: any) => f.name.startsWith('trip-') && f.name.endsWith('.json'));
   if (tripFiles.length === 0) {
-    return [];
+    return { activeTrips: [], deletedTripIds };
   }
 
-  // Fetch each file in parallel
+  // Fetch each active file in parallel
   const tripPromises = tripFiles.map(async (file: any) => {
     try {
       const mediaUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
@@ -196,7 +211,9 @@ export async function fetchTripsFromDrive(accessToken: string, folderId: string)
 
   const trips = await Promise.all(tripPromises);
   // Filter out any failed downloads or invalid files
-  return trips.filter((t): t is Trip => t !== null && typeof t === 'object' && typeof t.id === 'string');
+  const activeTrips = trips.filter((t): t is Trip => t !== null && typeof t === 'object' && typeof t.id === 'string');
+  
+  return { activeTrips, deletedTripIds };
 }
 
 /**
@@ -289,16 +306,20 @@ export async function saveTripsToDrive(accessToken: string, folderId: string, tr
   const deletePromises: Promise<void>[] = [];
   existingTripFilesMap.forEach((fileId, filename) => {
     if (!activeFilenames.has(filename)) {
-      const deleteUrl = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+      const renameUrl = `https://www.googleapis.com/drive/v3/files/${fileId}`;
       deletePromises.push(
-        fetch(deleteUrl, {
-          method: 'DELETE',
+        fetch(renameUrl, {
+          method: 'PATCH',
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            name: `[Deleted] ${filename}`
+          })
         }).then(async (response) => {
           if (!response.ok) {
-            console.error(`Failed to delete orphaned trip file ${filename} (${fileId})`);
+            console.error(`Failed to mark trip file ${filename} as deleted (${fileId})`);
           }
         })
       );
@@ -373,4 +394,30 @@ export function mergeTrips(localTrips: Trip[], cloudTrips: Trip[]): Trip[] {
   });
 
   return Array.from(mergedMap.values());
+}
+
+/**
+ * Checks if a trip file marked with [Deleted] prefix exists on Google Drive.
+ */
+export async function checkIfTripDeletedOnDrive(
+  accessToken: string,
+  folderId: string,
+  tripId: string
+): Promise<boolean> {
+  const filename = tripId.startsWith('trip-') ? `[Deleted] ${tripId}.json` : `[Deleted] trip-${tripId}.json`;
+  const query = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`;
+  
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return (data.files || []).length > 0;
+  } catch {
+    return false;
+  }
 }

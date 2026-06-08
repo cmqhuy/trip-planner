@@ -98,16 +98,18 @@ describe('googleDrive api operations', () => {
       json: async () => createMockTrip('2', 'Trip 2'),
     } as Response);
 
-    const trips = await fetchTripsFromDrive('token', 'folder');
+    const result = await fetchTripsFromDrive('token', 'folder');
 
-    expect(trips).toHaveLength(2);
-    expect(trips?.[0].id).toBe('1');
-    expect(trips?.[1].id).toBe('2');
+    expect(result?.activeTrips).toHaveLength(2);
+    expect(result?.activeTrips?.[0].id).toBe('1');
+    expect(result?.activeTrips?.[1].id).toBe('2');
+    expect(result?.deletedTripIds).toEqual([]);
 
     // Verify first call (list query)
     expect(mockFetch.mock.calls[0][0]).toContain('https://www.googleapis.com/drive/v3/files?q=');
     // Verify subsequent media calls
     expect(mockFetch.mock.calls[1][0]).toBe('https://www.googleapis.com/drive/v3/files/file-1?alt=media');
+    // Note: since list contains mock files, mockFetch.mock.calls[2] is the second active media request
     expect(mockFetch.mock.calls[2][0]).toBe('https://www.googleapis.com/drive/v3/files/file-2?alt=media');
   });
 
@@ -149,7 +151,7 @@ describe('googleDrive api operations', () => {
       json: async () => ({}),
     } as Response);
 
-    // Response for deleting file-2 (DELETE)
+    // Response for renaming file-2 (PATCH delete mark)
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({}),
@@ -177,10 +179,11 @@ describe('googleDrive api operations', () => {
     expect(uploadCall).toBeDefined();
     expect(uploadCall?.[1]?.method).toBe('PATCH');
 
-    // Call 4: DELETE for orphaned trip-2
+    // Call 4: PATCH rename for orphaned trip-2
     const deleteCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files/file-2');
     expect(deleteCall).toBeDefined();
-    expect(deleteCall?.[1]?.method).toBe('DELETE');
+    expect(deleteCall?.[1]?.method).toBe('PATCH');
+    expect(JSON.parse(deleteCall?.[1]?.body as string).name).toBe('[Deleted] trip-2.json');
   });
 
   test('fetchSingleTripFromDrive queries by name and downloads content', async () => {
