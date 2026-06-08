@@ -109,7 +109,9 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
                   <h3 className="flex-align" style={{ gap: '6px' }}>
                     {trip.name}
                     {isGoogleSignedIn && (
-                      <Cloud size={14} style={{ color: '#34d399' }} title="Synced to Google Drive" />
+                      <span title="Synced to Google Drive" style={{ display: 'inline-flex' }}>
+                        <Cloud size={14} style={{ color: '#34d399' }} />
+                      </span>
                     )}
                   </h3>
                   <div className="trip-card-dates">
