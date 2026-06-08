@@ -230,7 +230,7 @@ export async function saveTripsToDrive(accessToken: string, folderId: string, tr
 
   // Helper function to create/update a single trip file
   const savePromises = trips.map(async (trip) => {
-    const filename = `trip-${trip.id}.json`;
+    const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
     activeFilenames.add(filename);
     const contentString = JSON.stringify(trip, null, 2);
     const existingFileId = existingTripFilesMap.get(filename);
