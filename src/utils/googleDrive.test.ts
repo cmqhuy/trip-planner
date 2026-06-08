@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mergeTrips, fetchTripsFromDrive, saveTripsToDrive } from './googleDrive';
+import { mergeTrips, fetchTripsFromDrive, saveTripsToDrive, fetchSingleTripFromDrive } from './googleDrive';
 import type { Trip } from '../types';
 
 describe('googleDrive mergeTrips tests', () => {
@@ -181,5 +181,34 @@ describe('googleDrive api operations', () => {
     const deleteCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files/file-2');
     expect(deleteCall).toBeDefined();
     expect(deleteCall?.[1]?.method).toBe('DELETE');
+  });
+
+  test('fetchSingleTripFromDrive queries by name and downloads content', async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    // 1. Search file by name call
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        files: [{ id: 'file-123' }],
+      }),
+    } as Response);
+
+    // 2. Fetch media contents call
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => createMockTrip('123', 'Trip 123'),
+    } as Response);
+
+    const trip = await fetchSingleTripFromDrive('token', 'folder', '123');
+
+    expect(trip).toBeDefined();
+    expect(trip?.id).toBe('123');
+    expect(trip?.name).toBe('Trip 123');
+
+    // Check query URL contains the filename search
+    expect(decodeURIComponent(mockFetch.mock.calls[0][0] as string)).toContain("name = 'trip-123.json'");
+    // Check media URL
+    expect(mockFetch.mock.calls[1][0]).toBe('https://www.googleapis.com/drive/v3/files/file-123?alt=media');
   });
 });

@@ -310,6 +310,45 @@ export async function saveTripsToDrive(accessToken: string, folderId: string, tr
 }
 
 /**
+ * Fetches a single trip file by name from Google Drive.
+ */
+export async function fetchSingleTripFromDrive(
+  accessToken: string,
+  folderId: string,
+  tripId: string
+): Promise<Trip | null> {
+  const filename = tripId.startsWith('trip-') ? `${tripId}.json` : `trip-${tripId}.json`;
+  const query = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
+  const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`;
+  
+  const listRes = await fetch(listUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!listRes.ok) {
+    throw new Error(`Failed to find trip file ${filename} on Google Drive`);
+  }
+  const listData = await listRes.json();
+  const files = listData.files || [];
+  if (files.length === 0) {
+    return null;
+  }
+  const fileId = files[0].id;
+
+  const mediaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const contentRes = await fetch(mediaUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!contentRes.ok) {
+    throw new Error(`Failed to download trip content for ${filename}`);
+  }
+  return contentRes.json();
+}
+
+/**
  * Merges two arrays of trips. If a trip exists in both arrays (same ID),
  * the version from the cloud is preferred.
  */

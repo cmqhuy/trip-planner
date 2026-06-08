@@ -13,6 +13,7 @@ import {
   fetchTripsFromDrive, 
   saveTripsToDrive, 
   mergeTrips, 
+  fetchSingleTripFromDrive,
   DEFAULT_CLIENT_ID 
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
@@ -270,6 +271,42 @@ export default function App() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [syncStatus]);
+
+  // Poll Google Drive for the active trip every 30s
+  useEffect(() => {
+    if (!googleToken || !googleFolderId || !activeTripId) return;
+
+    const pollInterval = setInterval(async () => {
+      if (pendingConflicts.length > 0 || syncStatus === 'syncing') return;
+
+      try {
+        const cloudTrip = await fetchSingleTripFromDrive(googleToken, googleFolderId, activeTripId);
+        if (!cloudTrip) return;
+
+        // Find current local active trip
+        const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
+        const localTrip = localTrips.find(t => t.id === activeTripId);
+
+        if (localTrip && !tripsAreEqual(localTrip, cloudTrip)) {
+          const localTime = localTrip.updatedAt || 0;
+          const cloudTime = cloudTrip.updatedAt || 0;
+
+          // If the cloud version is newer, trigger a conflict dialog
+          if (cloudTime > localTime || localTime === 0 || cloudTime === 0) {
+            setPendingConflicts(prev => {
+              if (prev.some(c => c.tripId === activeTripId)) return prev;
+              return [...prev, { tripId: activeTripId, localTrip, cloudTrip }];
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error polling active trip from Google Drive:', err);
+      }
+    }, 30000);
+
+    return () => clearInterval(pollInterval);
+  }, [googleToken, googleFolderId, activeTripId, pendingConflicts, syncStatus]);
 
   // Save trips locally and automatically sync to Google Drive
   const saveTrips = (updatedTrips: Trip[]) => {
