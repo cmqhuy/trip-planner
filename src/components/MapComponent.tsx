@@ -91,13 +91,24 @@ export default function MapComponent({
       const group = placeGroups.find(g => g.id === place.placeGroupId);
       const groupColor = group?.color || '#6366f1';
 
+      const svgMap: Record<string, string> = {
+        'landmark': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><path d="m12 2-10 9h20z"/><path d="M12 11v7"/></svg>`,
+        'utensils': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
+        'shopping-bag': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+        'camera': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+        'map-pin': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+        'heart': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>`
+      };
+      const svgIcon = svgMap[group?.icon || ''] || svgMap['map-pin'];
+
       // Styled marker showing sequence number and category color
       const icon = L.divIcon({
         className: 'custom-map-marker-container',
         html: `
           <div style="
-            width: 30px;
-            height: 30px;
+            position: relative;
+            width: 32px;
+            height: 32px;
             background: ${groupColor};
             border: 2px solid #ffffff;
             border-radius: 50%;
@@ -106,18 +117,35 @@ export default function MapComponent({
             justify-content: center;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 12px ${groupColor};
             color: #ffffff;
-            font-size: 11px;
-            font-weight: 700;
-            font-family: sans-serif;
             transition: all 0.2s ease-in-out;
             ${activePlaceId === place.id ? 'transform: scale(1.25); border-color: #f59e0b; box-shadow: 0 0 20px #f59e0b;' : ''}
           ">
-            ${index + 1}
+            ${svgIcon}
+            <!-- Small sequence number badge on top-right -->
+            <div style="
+              position: absolute;
+              top: -6px;
+              right: -6px;
+              background: #ffffff;
+              color: #0b0f19;
+              border: 1px solid ${groupColor};
+              border-radius: 50%;
+              width: 14px;
+              height: 14px;
+              font-size: 9px;
+              font-weight: 800;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            ">
+              ${index + 1}
+            </div>
           </div>
         `,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
-        popupAnchor: [0, -15]
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16]
       });
 
       const mapsLink = place.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.title)}`;

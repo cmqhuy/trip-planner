@@ -5,7 +5,8 @@ import {
   ExternalLink, Navigation, ChevronUp, ChevronDown, 
   Search, Plane, Train, Bus, Car, Anchor, 
   Building, BookOpen, Clock, Check, Layers, X,
-  Calendar, FileText
+  Calendar, FileText, Landmark, Utensils, ShoppingBag,
+  Camera, Heart
 } from 'lucide-react';
 import { searchLocation, searchPlacesNearLocation, DEFAULT_PLACE_GROUPS } from '../utils/api';
 import { getDaysDiff, shiftDateString, shiftTripDates } from '../utils/dateUtils';
@@ -401,6 +402,18 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   // Mobile UI States
   const [activeMobileTab, setActiveMobileTab] = useState<'catalog' | 'itinerary' | 'map'>('itinerary');
   const [autoScheduleOnActiveDay, setAutoScheduleOnActiveDay] = useState(false);
+  const [hideAllocatedPlaces, setHideAllocatedPlaces] = useState(false);
+
+  const getCategoryIconComponent = (iconName: string, size = 12, className?: string, style?: React.CSSProperties) => {
+    switch (iconName) {
+      case 'landmark': return <Landmark size={size} className={className} style={style} />;
+      case 'utensils': return <Utensils size={size} className={className} style={style} />;
+      case 'shopping-bag': return <ShoppingBag size={size} className={className} style={style} />;
+      case 'camera': return <Camera size={size} className={className} style={style} />;
+      case 'heart': return <Heart size={size} className={className} style={style} />;
+      default: return <MapPin size={size} className={className} style={style} />;
+    }
+  };
 
 
   // Trigger search on location query changes
@@ -1975,15 +1988,26 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             {/* Catalog Group Management */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Groups</span>
-              <button 
-                className="mini-icon-btn" 
-                onClick={() => setShowGroupModal(true)} 
-                data-tooltip="Add Custom Category"
-                data-tooltip-position="bottom"
-                style={{ color: 'var(--accent-secondary)' }}
-              >
-                <Plus size={14} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none', gap: '4px' }}>
+                  <input
+                    type="checkbox"
+                    checked={hideAllocatedPlaces}
+                    onChange={(e) => setHideAllocatedPlaces(e.target.checked)}
+                    style={{ margin: 0, width: '13px', height: '13px', accentColor: 'var(--accent-primary)', minHeight: 'auto', cursor: 'pointer' }}
+                  />
+                  Hide Allocated
+                </label>
+                <button 
+                  className="mini-icon-btn" 
+                  onClick={() => setShowGroupModal(true)} 
+                  data-tooltip="Add Custom Category"
+                  data-tooltip-position="bottom"
+                  style={{ color: 'var(--accent-secondary)', padding: '2px' }}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
             </div>
 
             {/* List by Groups */}
@@ -1998,7 +2022,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               { id: 'new', name: 'New / Unassigned', color: '#6b7280', icon: 'map-pin', isReorderable: false, groupIdx: -1, isFirst: false, isLast: false }
             ].map(group => {
               const placesInGroup = catalogLocation.places.filter(p => p.placeGroupId === group.id);
-              if (placesInGroup.length === 0 && group.id === 'new') return null; // Hide new section if empty
+              const filteredPlaces = placesInGroup.filter(p => {
+                if (!hideAllocatedPlaces) return true;
+                return !Object.values(activePlan.days).some(day => day.placeIds.includes(p.id));
+              });
+              if (filteredPlaces.length === 0 && (group.id === 'new' || hideAllocatedPlaces)) return null; // Hide new section if empty
 
               return (
                 <div 
@@ -2072,13 +2100,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         </>
                       )}
                       <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
-                        {placesInGroup.length}
+                        {filteredPlaces.length}
                       </span>
                     </div>
                   </div>
 
                   <div className="catalog-places-list" style={{ minHeight: '30px' }}>
-                    {placesInGroup.map((place, placeIndexInGroup) => (
+                    {filteredPlaces.map((place, placeIndexInGroup) => (
                       <div key={place.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
                         {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
                           <div style={{
@@ -2137,10 +2165,39 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                               <MapPin size={16} />
                             </div>
                           )}
-                          <div className="place-card-info">
-                            <h4 className="place-card-title">{place.title}</h4>
+                          <div className="place-card-info" style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '6px' }}>
+                              <h4 className="place-card-title" style={{ margin: 0, flex: 1, minWidth: 0 }}>{place.title}</h4>
+                              {(() => {
+                                const allocatedDays = Object.keys(activePlan.days)
+                                  .filter(dateStr => activePlan.days[dateStr].placeIds.includes(place.id))
+                                  .sort();
+                                if (allocatedDays.length === 0) return null;
+                                return (
+                                  <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                                    {allocatedDays.map(dateStr => (
+                                      <span 
+                                        key={dateStr} 
+                                        style={{
+                                          fontSize: '9px',
+                                          fontWeight: 600,
+                                          padding: '2px 5px',
+                                          borderRadius: '4px',
+                                          background: 'rgba(99, 102, 241, 0.15)',
+                                          color: '#a78bfa',
+                                          border: '1px solid rgba(139, 92, 246, 0.2)',
+                                          whiteSpace: 'nowrap'
+                                        }}
+                                      >
+                                        {formatDisplayDate(dateStr).split(',')[1]?.trim() || dateStr}
+                                      </span>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                             {place.openingHours && (
-                              <div className="place-card-hours">
+                              <div className="place-card-hours" style={{ marginTop: '2px' }}>
                                 <Clock size={10} /> {place.openingHours}
                               </div>
                             )}
@@ -2162,9 +2219,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                             </button>
                             <button 
                               className="mini-icon-btn" 
-                              disabled={placeIndexInGroup === placesInGroup.length - 1} 
+                              disabled={placeIndexInGroup === filteredPlaces.length - 1} 
                               onClick={() => handleMoveCatalogPlace(place.id, 'down')}
-                              style={{ opacity: placeIndexInGroup === placesInGroup.length - 1 ? 0.3 : 1, padding: '2px' }}
+                              style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
                               data-tooltip="Move Down"
                               draggable={false}
                               onDragStart={e => e.stopPropagation()}
@@ -2431,8 +2488,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     background: isActive ? 'var(--accent-primary-glow)' : 'rgba(255, 255, 255, 0.03)',
                   }}
                 >
-                  <span className="day-tab-num">{formatDisplayDate(dateStr).split(',')[1]}</span>
-                  <span className="day-tab-date">{formatDisplayDate(dateStr).split(',')[0]} • Day {index + 1}</span>
+                  <span className="day-tab-num">
+                    {formatDisplayDate(dateStr).split(',')[0]} • {formatDisplayDate(dateStr).split(',')[1]?.trim()}
+                  </span>
+                  <span className="day-tab-date">Day {index + 1}</span>
                   {dayLoc && (
                     <span 
                       style={{ 
@@ -2736,7 +2795,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         setDragOverDayPlaceIndex(null);
                       }}
                     >
-                      <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }} />
+                      <div 
+                        className="timeline-dot" 
+                        style={{ 
+                          backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' 
+                        }}
+                      >
+                        {(() => {
+                          const group = (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId);
+                          return getCategoryIconComponent(group?.icon || 'map-pin', 12, undefined, { color: '#ffffff' });
+                        })()}
+                      </div>
                       
                       <div className="timeline-card glass-panel" onClick={() => setActivePlaceId(place.id)} style={{ cursor: 'grab' }}>
                         <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>

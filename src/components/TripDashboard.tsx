@@ -73,7 +73,7 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
     <div className="dashboard-view">
       <div className="dashboard-header">
         <div>
-          <h2>My Vacations</h2>
+          <h2>My Trips</h2>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
             Plan your itineraries, route options, and travel details in one place.
           </p>
@@ -100,7 +100,7 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
           <div>
             <h3 style={{ fontSize: '20px', marginBottom: '6px' }}>No Trips Planned Yet</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-              Get started by creating your first vacation project.
+              Get started by creating your first trip project.
             </p>
           </div>
           <button className="btn-primary" onClick={() => setShowModal(true)}>
@@ -119,9 +119,9 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
               <div className="trip-card-top">
                 <div>
                   <h3 className="flex-align" style={{ gap: '6px' }}>
-                    {trip.name}
+                    <span>{trip.name}</span>
                     {isGoogleSignedIn && (
-                      <span data-tooltip="Synced to Google Drive" style={{ display: 'inline-flex' }}>
+                      <span data-tooltip="Synced to Google Drive" style={{ display: 'inline-flex', marginLeft: '4px' }}>
                         <Cloud size={14} style={{ color: '#34d399' }} />
                       </span>
                     )}

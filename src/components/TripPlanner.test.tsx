@@ -107,7 +107,7 @@ describe('TripPlanner Component', () => {
     expect(screen.getAllByText('Louvre Museum').length).toBeGreaterThan(0);
 
     // Should show active day header details
-    expect(screen.getByText(/Day 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Wed/i, { selector: '.day-tab-num' })).toBeInTheDocument();
   });
 
   it('calls onUpdateTrip with updated order when reordering places in timeline via ChevronDown', () => {
