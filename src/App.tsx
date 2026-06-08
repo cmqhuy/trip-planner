@@ -12,7 +12,6 @@ import {
   getOrCreateTripPlannerFolder, 
   fetchTripsFromDrive, 
   saveTripsToDrive, 
-  mergeTrips, 
   fetchSingleTripFromDrive,
   DEFAULT_CLIENT_ID 
 } from './utils/googleDrive';
@@ -28,22 +27,53 @@ function tripsAreEqual(a: Trip, b: Trip): boolean {
   return cleanTrip(a) === cleanTrip(b);
 }
 
-function detectConflicts(localTrips: Trip[], cloudTrips: Trip[]): { tripId: string; localTrip: Trip; cloudTrip: Trip; }[] {
+function detectConflictsAndMerge(
+  localTrips: Trip[],
+  cloudTrips: Trip[],
+  syncTimestamps: Record<string, number>,
+  onSilentUpdate: (updatedTrips: Trip[]) => void
+): { tripId: string; localTrip: Trip; cloudTrip: Trip; }[] {
   const conflicts: { tripId: string; localTrip: Trip; cloudTrip: Trip; }[] = [];
+  let updatedLocalTrips = [...localTrips];
+  let localChanged = false;
+
   cloudTrips.forEach(cloudTrip => {
     const localTrip = localTrips.find(t => t.id === cloudTrip.id);
-    if (localTrip && !tripsAreEqual(localTrip, cloudTrip)) {
-      const localTime = localTrip.updatedAt || 0;
-      const cloudTime = cloudTrip.updatedAt || 0;
-      if (cloudTime > localTime || localTime === 0 || cloudTime === 0) {
-        conflicts.push({
-          tripId: cloudTrip.id,
-          localTrip,
-          cloudTrip
-        });
+    if (localTrip) {
+      if (!tripsAreEqual(localTrip, cloudTrip)) {
+        const localTime = localTrip.updatedAt || 0;
+        const cloudTime = cloudTrip.updatedAt || 0;
+        const lastSyncedTime = syncTimestamps[cloudTrip.id] || 0;
+
+        if (localTime === lastSyncedTime) {
+          // No local changes since last sync! Silently pull cloud version
+          updatedLocalTrips = updatedLocalTrips.map(t => t.id === cloudTrip.id ? cloudTrip : t);
+          syncTimestamps[cloudTrip.id] = cloudTime;
+          localChanged = true;
+        } else {
+          // Local changes exist! This is a conflict
+          conflicts.push({
+            tripId: cloudTrip.id,
+            localTrip,
+            cloudTrip
+          });
+        }
+      } else {
+        // Equal in content, make sure timestamp is marked as synced
+        syncTimestamps[cloudTrip.id] = cloudTrip.updatedAt || 0;
       }
+    } else {
+      // Exists in cloud but not locally: silently pull
+      updatedLocalTrips.push(cloudTrip);
+      syncTimestamps[cloudTrip.id] = cloudTrip.updatedAt || 0;
+      localChanged = true;
     }
   });
+
+  if (localChanged) {
+    onSilentUpdate(updatedLocalTrips);
+  }
+
   return conflicts;
 }
 
@@ -61,6 +91,14 @@ export default function App() {
     cloudTrip: Trip;
   }[]>([]);
   const fetchedCloudTripsRef = useRef<Trip[]>([]);
+  const syncTimestampsRef = useRef<Record<string, number>>((() => {
+    try {
+      const saved = localStorage.getItem('vacation-itineraries-sync-timestamps');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  })());
 
   // Google Integration States
   const [googleUser, setGoogleUser] = useState<{ name: string; email: string; picture: string } | null>(() => {
@@ -197,23 +235,36 @@ export default function App() {
         const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
         const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
 
-        // Detect conflicts
-        const conflicts = detectConflicts(localTrips, cloudTrips);
+        // Detect conflicts and silently pull changes
+        const conflicts = detectConflictsAndMerge(
+          localTrips,
+          cloudTrips,
+          syncTimestampsRef.current,
+          (updated) => {
+            setTrips(updated);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+          }
+        );
+        localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+
         if (conflicts.length > 0) {
           setPendingConflicts(conflicts);
           setSyncStatus('idle');
           return;
         }
 
-        // Auto-merge local and cloud trips to sync both ends
-        const merged = mergeTrips(localTrips, cloudTrips);
-        
-        // Save merged result locally
-        setTrips(merged);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+        // Get the latest merged list (silently pulled cloud trips are already included)
+        const currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
 
         // Save merged result to Google Drive
-        await saveTripsToDrive(googleToken, googleFolderId, merged);
+        await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+        
+        // Mark all saved trips as synced
+        currentTrips.forEach((trip: Trip) => {
+          syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
+        });
+        localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+
         setSyncStatus('synced');
       } catch (e) {
         console.error('Initial Google Drive sync failed:', e);
@@ -291,9 +342,18 @@ export default function App() {
         if (localTrip && !tripsAreEqual(localTrip, cloudTrip)) {
           const localTime = localTrip.updatedAt || 0;
           const cloudTime = cloudTrip.updatedAt || 0;
+          const lastSyncedTime = syncTimestampsRef.current[activeTripId] || 0;
 
-          // If the cloud version is newer, trigger a conflict dialog
-          if (cloudTime > localTime || localTime === 0 || cloudTime === 0) {
+          if (localTime === lastSyncedTime) {
+            // Silently pull!
+            const updatedLocalTrips = localTrips.map(t => t.id === activeTripId ? cloudTrip : t);
+            setTrips(updatedLocalTrips);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLocalTrips));
+            
+            syncTimestampsRef.current[activeTripId] = cloudTime;
+            localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+          } else {
+            // Real conflict!
             setPendingConflicts(prev => {
               if (prev.some(c => c.tripId === activeTripId)) return prev;
               return [...prev, { tripId: activeTripId, localTrip, cloudTrip }];
@@ -323,6 +383,11 @@ export default function App() {
       syncTimeoutRef.current = setTimeout(async () => {
         try {
           await saveTripsToDrive(googleToken, googleFolderId, updatedTrips);
+          // Mark all saved trips as synced
+          updatedTrips.forEach(trip => {
+            syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
+          });
+          localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
           setSyncStatus('synced');
         } catch (e) {
           console.error('Automatic background sync failed:', e);
@@ -366,14 +431,18 @@ export default function App() {
       if (!updatedTrips.some(t => t.id === activeConflict.tripId)) {
         updatedTrips.push(activeConflict.cloudTrip);
       }
+      syncTimestampsRef.current[activeConflict.tripId] = activeConflict.cloudTrip.updatedAt || 0;
     } else {
       // Overwrite cloud version: Keep local, but update timestamp to make it newer
+      const newTimestamp = Date.now();
       updatedTrips = updatedTrips.map(t => 
         t.id === activeConflict.tripId 
-          ? { ...t, updatedAt: Date.now() } 
+          ? { ...t, updatedAt: newTimestamp } 
           : t
       );
+      syncTimestampsRef.current[activeConflict.tripId] = newTimestamp;
     }
+    localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
 
     setTrips(updatedTrips);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTrips));
@@ -399,6 +468,13 @@ export default function App() {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalTrips));
 
         await saveTripsToDrive(googleToken!, googleFolderId!, finalTrips);
+        
+        // Mark all final trips as synced
+        finalTrips.forEach(trip => {
+          syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
+        });
+        localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+
         setSyncStatus('synced');
       } catch (e) {
         console.error('Failed to finalize sync after conflict resolution:', e);
@@ -414,15 +490,33 @@ export default function App() {
       const cloudTrips = await fetchTripsFromDrive(googleToken, googleFolderId) || [];
       fetchedCloudTripsRef.current = cloudTrips;
 
-      // Detect conflicts
-      const conflicts = detectConflicts(trips, cloudTrips);
+      // Detect conflicts and silently pull changes
+      const conflicts = detectConflictsAndMerge(
+        trips,
+        cloudTrips,
+        syncTimestampsRef.current,
+        (updated) => {
+          setTrips(updated);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+        }
+      );
+      localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+
       if (conflicts.length > 0) {
         setPendingConflicts(conflicts);
         setSyncStatus('idle');
         return;
       }
 
-      await saveTripsToDrive(googleToken, googleFolderId, trips);
+      const currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+      
+      // Mark all saved trips as synced
+      currentTrips.forEach((trip: Trip) => {
+        syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
+      });
+      localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+
       setSyncStatus('synced');
     } catch (e) {
       console.error('Manual sync failed:', e);
