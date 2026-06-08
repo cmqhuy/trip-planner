@@ -375,9 +375,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   const [draggedPlaceId, setDraggedPlaceId] = useState<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [dragOverPlaceId, setDragOverPlaceId] = useState<string | null>(null);
+  const [dragOverPlacePosition, setDragOverPlacePosition] = useState<'top' | 'bottom'>('top');
   const [dragOverLocationIndex, setDragOverLocationIndex] = useState<number | null>(null);
   const [draggedDayPlaceIndex, setDraggedDayPlaceIndex] = useState<number | null>(null);
   const [dragOverDayPlaceIndex, setDragOverDayPlaceIndex] = useState<number | null>(null);
+  const [dragOverDayPlacePosition, setDragOverDayPlacePosition] = useState<'top' | 'bottom'>('top');
 
   // Edit Place Modal state
   const [showEditPlaceModal, setShowEditPlaceModal] = useState(false);
@@ -918,14 +920,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
     const updatedLocations = trip.locations.map(l => {
       if (l.id === catalogLocation.id) {
+        const placesCopy = [...l.places];
+        const dragIndex = placesCopy.findIndex(p => p.id === draggedPlaceId);
+        if (dragIndex === -1) return l;
+
+        const [draggedPlace] = placesCopy.splice(dragIndex, 1);
+        draggedPlace.placeGroupId = targetGroupId;
+        placesCopy.push(draggedPlace);
+
         return {
           ...l,
-          places: l.places.map(p => {
-            if (p.id === draggedPlaceId) {
-              return { ...p, placeGroupId: targetGroupId };
-            }
-            return p;
-          })
+          places: placesCopy
         };
       }
       return l;
@@ -938,7 +943,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setDraggedPlaceId(null);
   };
 
-  const handlePlaceDropOnPlace = (targetPlaceId: string, targetGroupId: string) => {
+  const handlePlaceDropOnPlace = (targetPlaceId: string, targetGroupId: string, position: 'top' | 'bottom') => {
     if (!draggedPlaceId || !catalogLocation) return;
     if (draggedPlaceId === targetPlaceId) return;
 
@@ -955,7 +960,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
         if (targetIndex === -1) {
           placesCopy.push(draggedPlace);
         } else {
-          placesCopy.splice(targetIndex, 0, draggedPlace);
+          let insertIndex = targetIndex;
+          if (position === 'bottom') {
+            insertIndex = targetIndex + 1;
+          }
+          placesCopy.splice(insertIndex, 0, draggedPlace);
         }
 
         return {
@@ -977,18 +986,30 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setDraggedDayPlaceIndex(index);
   };
 
-  const handleDayPlaceDrop = (targetIndex: number) => {
-    if (draggedDayPlaceIndex === null || draggedDayPlaceIndex === targetIndex) return;
+  const handleDayPlaceDrop = (targetIndex: number, position: 'top' | 'bottom') => {
+    if (draggedDayPlaceIndex === null) return;
 
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
         const currentPlaces = [...(p.days[activeDayStr]?.placeIds || [])];
         const draggedItem = currentPlaces[draggedDayPlaceIndex];
         
+        let destIndex = targetIndex;
+        if (position === 'bottom') {
+          destIndex = targetIndex + 1;
+        }
+
         // Remove from old index
         currentPlaces.splice(draggedDayPlaceIndex, 1);
+        
+        // Calculate insertion index in the remaining list
+        let insertIndex = destIndex;
+        if (draggedDayPlaceIndex < destIndex) {
+          insertIndex = destIndex - 1;
+        }
+
         // Insert at new index
-        currentPlaces.splice(targetIndex, 0, draggedItem);
+        currentPlaces.splice(insertIndex, 0, draggedItem);
 
         return {
           ...p,
@@ -1013,11 +1034,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setDragOverDayPlaceIndex(null);
   };
 
-  const handleCatalogPlaceDropOnTimeline = (placeId: string, targetIndex: number) => {
+  const handleCatalogPlaceDropOnTimeline = (placeId: string, targetIndex: number, position: 'top' | 'bottom') => {
     const currentPlaceIds = [...(activePlan.days[activeDayStr]?.placeIds || [])];
     
+    let destIndex = targetIndex;
+    if (position === 'bottom') {
+      destIndex = targetIndex + 1;
+    }
+
     // Insert the place at the target index
-    currentPlaceIds.splice(targetIndex, 0, placeId);
+    currentPlaceIds.splice(destIndex, 0, placeId);
 
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
@@ -2058,7 +2084,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 if (!hideAllocatedPlaces) return true;
                 return !Object.values(activePlan.days).some(day => day.placeIds.includes(p.id));
               });
-              if (filteredPlaces.length === 0 && group.id === 'new') return null; // Hide new section if empty
+              if (placesInGroup.length === 0 && group.id === 'new') return null; // Hide new section if empty
 
               return (
                 <div 
@@ -2143,7 +2169,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
                           <div style={{
                             position: 'absolute',
-                            top: '-6px',
+                            top: dragOverPlacePosition === 'top' ? '-6px' : 'auto',
+                            bottom: dragOverPlacePosition === 'bottom' ? '-6px' : 'auto',
                             left: 0,
                             right: 0,
                             height: '4px',
@@ -2165,15 +2192,21 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                             setDragOverDayPlaceIndex(null);
                           }}
                           onDragOver={(e) => {
+                            if (!draggedPlaceId || draggedPlaceId === place.id) return;
                             e.preventDefault();
-                            if (draggedPlaceId && draggedPlaceId !== place.id && dragOverPlaceId !== place.id) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const relativeY = e.clientY - rect.top;
+                            const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
+                            
+                            if (dragOverPlaceId !== place.id || dragOverPlacePosition !== position) {
                               setDragOverPlaceId(place.id);
+                              setDragOverPlacePosition(position);
                             }
                           }}
                           onDragLeave={() => setDragOverPlaceId(null)}
                           onDrop={(e) => {
                             e.stopPropagation();
-                            handlePlaceDropOnPlace(place.id, group.id);
+                            handlePlaceDropOnPlace(place.id, group.id, dragOverPlacePosition);
                             setDragOverPlaceId(null);
                           }}
                           onClick={() => setActivePlaceId(place.id)}
@@ -2789,6 +2822,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               {/* Timeline Cards */}
               <div 
                 className="day-timeline"
+                style={{ minHeight: '60px' }}
                 onDragOver={(e) => {
                   if (draggedPlaceId || draggedDayPlaceIndex !== null) {
                     e.preventDefault();
@@ -2796,7 +2830,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 }}
                 onDrop={() => {
                   if (draggedPlaceId) {
-                    handleCatalogPlaceDropOnTimeline(draggedPlaceId, scheduledPlaces.length);
+                    handleCatalogPlaceDropOnTimeline(draggedPlaceId, scheduledPlaces.length, 'top');
+                  } else if (draggedDayPlaceIndex !== null) {
+                    handleDayPlaceDrop(scheduledPlaces.length - 1, 'bottom');
                   }
                 }}
               >
@@ -2805,10 +2841,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     key={`${place.id}-${index}`} 
                     style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
                   >
-                    {dragOverDayPlaceIndex === index && draggedDayPlaceIndex !== index && (
+                    {dragOverDayPlaceIndex === index && (
                       <div style={{
                         position: 'absolute',
-                        top: '-10px',
+                        top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto',
+                        bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto',
                         left: 0,
                         right: 0,
                         height: '4px',
@@ -2828,20 +2865,25 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         setDragOverDayPlaceIndex(null);
                       }}
                       onDragOver={(e) => {
+                        if (draggedDayPlaceIndex === index) return;
+                        if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
                         e.preventDefault();
-                        if (draggedDayPlaceIndex !== null && draggedDayPlaceIndex !== index && dragOverDayPlaceIndex !== index) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const relativeY = e.clientY - rect.top;
+                        const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
+                        
+                        if (dragOverDayPlaceIndex !== index || dragOverDayPlacePosition !== position) {
                           setDragOverDayPlaceIndex(index);
-                        } else if (draggedPlaceId && dragOverDayPlaceIndex !== index) {
-                          setDragOverDayPlaceIndex(index);
+                          setDragOverDayPlacePosition(position);
                         }
                       }}
                       onDragLeave={() => setDragOverDayPlaceIndex(null)}
                       onDrop={(e) => {
                         e.stopPropagation();
                         if (draggedDayPlaceIndex !== null) {
-                          handleDayPlaceDrop(index);
+                          handleDayPlaceDrop(index, dragOverDayPlacePosition);
                         } else if (draggedPlaceId) {
-                          handleCatalogPlaceDropOnTimeline(draggedPlaceId, index);
+                          handleCatalogPlaceDropOnTimeline(draggedPlaceId, index, dragOverDayPlacePosition);
                         }
                         setDragOverDayPlaceIndex(null);
                       }}
