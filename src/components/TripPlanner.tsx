@@ -1013,6 +1013,38 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setDragOverDayPlaceIndex(null);
   };
 
+  const handleCatalogPlaceDropOnTimeline = (placeId: string, targetIndex: number) => {
+    const currentPlaceIds = [...(activePlan.days[activeDayStr]?.placeIds || [])];
+    
+    // Insert the place at the target index
+    currentPlaceIds.splice(targetIndex, 0, placeId);
+
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id === activePlan.id) {
+        return {
+          ...p,
+          days: {
+            ...p.days,
+            [activeDayStr]: {
+              ...p.days[activeDayStr],
+              locationId: p.days[activeDayStr]?.locationId || catalogLocation?.id || trip.locations[0]?.id,
+              placeIds: currentPlaceIds
+            }
+          }
+        };
+      }
+      return p;
+    });
+
+    onUpdateTrip({
+      ...trip,
+      plans: updatedPlans
+    });
+
+    setDraggedPlaceId(null);
+    setDragOverDayPlaceIndex(null);
+  };
+
   const handleEditLocationDelete = () => {
     if (!catalogLocation) return;
     setShowEditLocationModal(false);
@@ -2026,7 +2058,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 if (!hideAllocatedPlaces) return true;
                 return !Object.values(activePlan.days).some(day => day.placeIds.includes(p.id));
               });
-              if (filteredPlaces.length === 0 && (group.id === 'new' || hideAllocatedPlaces)) return null; // Hide new section if empty
+              if (filteredPlaces.length === 0 && group.id === 'new') return null; // Hide new section if empty
 
               return (
                 <div 
@@ -2130,6 +2162,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                             setDraggedPlaceId(null);
                             setDragOverPlaceId(null);
                             setDragOverGroupId(null);
+                            setDragOverDayPlaceIndex(null);
                           }}
                           onDragOver={(e) => {
                             e.preventDefault();
@@ -2239,7 +2272,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                             {/* Notes Field (Shared at Trip level) */}
                             <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(99,102,241,0.04)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 4px 4px 0' }}>
                               <label style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                                <FileText size={11} /> Place Notes
+                                <FileText size={11} /> Notes
                               </label>
                               
                               {editingPlaceNotesId === place.id ? (
@@ -2754,7 +2787,19 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               )}
 
               {/* Timeline Cards */}
-              <div className="day-timeline">
+              <div 
+                className="day-timeline"
+                onDragOver={(e) => {
+                  if (draggedPlaceId || draggedDayPlaceIndex !== null) {
+                    e.preventDefault();
+                  }
+                }}
+                onDrop={() => {
+                  if (draggedPlaceId) {
+                    handleCatalogPlaceDropOnTimeline(draggedPlaceId, scheduledPlaces.length);
+                  }
+                }}
+              >
                 {scheduledPlaces.map((place, index) => (
                   <div 
                     key={`${place.id}-${index}`} 
@@ -2786,12 +2831,18 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         e.preventDefault();
                         if (draggedDayPlaceIndex !== null && draggedDayPlaceIndex !== index && dragOverDayPlaceIndex !== index) {
                           setDragOverDayPlaceIndex(index);
+                        } else if (draggedPlaceId && dragOverDayPlaceIndex !== index) {
+                          setDragOverDayPlaceIndex(index);
                         }
                       }}
                       onDragLeave={() => setDragOverDayPlaceIndex(null)}
                       onDrop={(e) => {
                         e.stopPropagation();
-                        handleDayPlaceDrop(index);
+                        if (draggedDayPlaceIndex !== null) {
+                          handleDayPlaceDrop(index);
+                        } else if (draggedPlaceId) {
+                          handleCatalogPlaceDropOnTimeline(draggedPlaceId, index);
+                        }
                         setDragOverDayPlaceIndex(null);
                       }}
                     >
