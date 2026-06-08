@@ -219,7 +219,7 @@ export async function fetchTripsFromDrive(
 /**
  * Saves/updates individual trip files on Google Drive, and deletes any orphaned ones.
  */
-export async function saveTripsToDrive(accessToken: string, folderId: string, trips: Trip[]): Promise<void> {
+export async function saveTripsToDrive(accessToken: string, folderId: string, trips: Trip[]): Promise<string[]> {
   // 1. List existing files in the folder
   const query = `'${folderId}' in parents and trashed = false`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name)`;
@@ -234,6 +234,14 @@ export async function saveTripsToDrive(accessToken: string, folderId: string, tr
   const listData = await listResponse.json();
   const existingFiles = listData.files || [];
 
+  // Extract deleted trip IDs from existing files
+  const deletedTripIds = existingFiles
+    .filter((f: any) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
+    .map((f: any) => f.name.replace('[Deleted] trip-', '').replace('.json', ''));
+
+  // Filter out any local trips that have been deleted in the cloud
+  const activeTripsToSave = trips.filter(t => !deletedTripIds.includes(t.id));
+
   // Filter for trip-*.json files and map name -> id
   const existingTripFilesMap = new Map<string, string>();
   existingFiles.forEach((f: any) => {
@@ -246,7 +254,7 @@ export async function saveTripsToDrive(accessToken: string, folderId: string, tr
   const activeFilenames = new Set<string>();
 
   // Helper function to create/update a single trip file
-  const savePromises = trips.map(async (trip) => {
+  const savePromises = activeTripsToSave.map(async (trip) => {
     const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
     activeFilenames.add(filename);
     const contentString = JSON.stringify(trip, null, 2);
@@ -328,6 +336,33 @@ export async function saveTripsToDrive(accessToken: string, folderId: string, tr
 
   // Wait for all saves and deletions to finish
   await Promise.all([...savePromises, ...deletePromises]);
+  return deletedTripIds;
+}
+
+/**
+ * Lightweight helper to fetch only the list of deleted trip IDs from Google Drive.
+ * This runs exactly 1 metadata listing API call instead of downloading files.
+ */
+export async function fetchDeletedTripIdsFromDrive(
+  accessToken: string,
+  folderId: string
+): Promise<string[]> {
+  const query = `'${folderId}' in parents and trashed = false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(name)`;
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error('Failed to list files on Google Drive for deletions check');
+  }
+  const data = await response.json();
+  const files = data.files || [];
+  
+  return files
+    .filter((f: any) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
+    .map((f: any) => f.name.replace('[Deleted] trip-', '').replace('.json', ''));
 }
 
 /**

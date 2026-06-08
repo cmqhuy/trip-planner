@@ -145,6 +145,42 @@ export default function App() {
 
   const syncTimeoutRef = useRef<any>(null);
 
+  const cleanUpDeletedTrips = (deletedIds: string[]) => {
+    if (!deletedIds || deletedIds.length === 0) return;
+
+    const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const currentLocal: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
+    const filteredLocal = currentLocal.filter(t => !deletedIds.includes(t.id));
+
+    let changed = filteredLocal.length !== currentLocal.length;
+
+    // Also clean up sync timestamps for deleted trips
+    let timestampsChanged = false;
+    deletedIds.forEach(id => {
+      if (syncTimestampsRef.current[id] !== undefined) {
+        delete syncTimestampsRef.current[id];
+        timestampsChanged = true;
+      }
+    });
+
+    if (timestampsChanged) {
+      localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+    }
+
+    if (changed) {
+      setTrips(filteredLocal);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filteredLocal));
+
+      setActiveTripId(currentId => {
+        if (currentId && deletedIds.includes(currentId)) {
+          setAppNotification({ title: 'Trip Deleted', message: 'This trip was deleted on another device.' });
+          return null;
+        }
+        return currentId;
+      });
+    }
+  };
+
   // Load trips from LocalStorage on mount and listen to storage events from other tabs
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -325,14 +361,14 @@ export default function App() {
           return;
         }
 
-        // Get the latest merged list (silently pulled cloud trips are already included)
-        const currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-
         // Save merged result to Google Drive
-        await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+        const currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        const deletedIds = await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+        cleanUpDeletedTrips(deletedIds);
         
         // Mark all saved trips as synced
-        currentTrips.forEach((trip: Trip) => {
+        const latestLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        latestLocal.forEach((trip: Trip) => {
           syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
         });
         localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
@@ -466,7 +502,8 @@ export default function App() {
 
       syncTimeoutRef.current = setTimeout(async () => {
         try {
-          await saveTripsToDrive(googleToken, googleFolderId, updatedTrips);
+          const deletedIds = await saveTripsToDrive(googleToken, googleFolderId, updatedTrips);
+          cleanUpDeletedTrips(deletedIds);
           // Mark all saved trips as synced
           updatedTrips.forEach(trip => {
             syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
@@ -551,10 +588,12 @@ export default function App() {
         setTrips(finalTrips);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalTrips));
 
-        await saveTripsToDrive(googleToken!, googleFolderId!, finalTrips);
+        const deletedIds = await saveTripsToDrive(googleToken!, googleFolderId!, finalTrips);
+        cleanUpDeletedTrips(deletedIds);
         
         // Mark all final trips as synced
-        finalTrips.forEach(trip => {
+        const latestLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        latestLocal.forEach((trip: Trip) => {
           syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
         });
         localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
@@ -602,10 +641,12 @@ export default function App() {
       }
 
       currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-      await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+      const deletedIds = await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+      cleanUpDeletedTrips(deletedIds);
       
       // Mark all saved trips as synced
-      currentTrips.forEach((trip: Trip) => {
+      const latestLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      latestLocal.forEach((trip: Trip) => {
         syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
       });
       localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
