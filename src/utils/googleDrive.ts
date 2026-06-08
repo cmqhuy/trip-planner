@@ -321,7 +321,16 @@ export function mergeTrips(localTrips: Trip[], cloudTrips: Trip[]): Trip[] {
   });
 
   cloudTrips.forEach(trip => {
-    mergedMap.set(trip.id, trip);
+    const local = mergedMap.get(trip.id);
+    if (!local) {
+      mergedMap.set(trip.id, trip);
+    } else {
+      const localTime = local.updatedAt || 0;
+      const cloudTime = trip.updatedAt || 0;
+      if (cloudTime >= localTime) {
+        mergedMap.set(trip.id, trip);
+      }
+    }
   });
 
   return Array.from(mergedMap.values());

@@ -34,6 +34,16 @@ describe('googleDrive mergeTrips tests', () => {
     expect(result[0].name).toBe('Paris (Cloud Name)');
   });
 
+  test('prefers version with newer updatedAt timestamp', () => {
+    const local = { ...createMockTrip('trip-1', 'Paris (Local Name)'), updatedAt: 1000 };
+    const cloud = { ...createMockTrip('trip-1', 'Paris (Cloud Name)'), updatedAt: 500 };
+
+    const result = mergeTrips([local], [cloud]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Paris (Local Name)');
+  });
+
   test('handles empty local or cloud lists gracefully', () => {
     const local = [createMockTrip('trip-1', 'Paris')];
     

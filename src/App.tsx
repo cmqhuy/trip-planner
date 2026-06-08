@@ -19,12 +19,47 @@ import GoogleAuthSection from './components/GoogleAuthSection';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
+function tripsAreEqual(a: Trip, b: Trip): boolean {
+  const cleanTrip = (t: Trip) => {
+    const { updatedAt, ...rest } = t as any;
+    return JSON.stringify(rest);
+  };
+  return cleanTrip(a) === cleanTrip(b);
+}
+
+function detectConflicts(localTrips: Trip[], cloudTrips: Trip[]): { tripId: string; localTrip: Trip; cloudTrip: Trip; }[] {
+  const conflicts: { tripId: string; localTrip: Trip; cloudTrip: Trip; }[] = [];
+  cloudTrips.forEach(cloudTrip => {
+    const localTrip = localTrips.find(t => t.id === cloudTrip.id);
+    if (localTrip && !tripsAreEqual(localTrip, cloudTrip)) {
+      const localTime = localTrip.updatedAt || 0;
+      const cloudTime = cloudTrip.updatedAt || 0;
+      if (cloudTime > localTime || localTime === 0 || cloudTime === 0) {
+        conflicts.push({
+          tripId: cloudTrip.id,
+          localTrip,
+          cloudTrip
+        });
+      }
+    }
+  });
+  return conflicts;
+}
+
 export default function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [activeTripId, setActiveTripId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('trip');
   });
+
+  // Conflict resolution states
+  const [pendingConflicts, setPendingConflicts] = useState<{
+    tripId: string;
+    localTrip: Trip;
+    cloudTrip: Trip;
+  }[]>([]);
+  const fetchedCloudTripsRef = useRef<Trip[]>([]);
 
   // Google Integration States
   const [googleUser, setGoogleUser] = useState<{ name: string; email: string; picture: string } | null>(() => {
@@ -154,14 +189,23 @@ export default function App() {
     const performInitialSync = async () => {
       setSyncStatus('syncing');
       try {
-        const cloudTrips = await fetchTripsFromDrive(googleToken, googleFolderId);
+        const cloudTrips = await fetchTripsFromDrive(googleToken, googleFolderId) || [];
+        fetchedCloudTripsRef.current = cloudTrips;
         
         // Load local trips
         const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
         const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
 
+        // Detect conflicts
+        const conflicts = detectConflicts(localTrips, cloudTrips);
+        if (conflicts.length > 0) {
+          setPendingConflicts(conflicts);
+          setSyncStatus('idle');
+          return;
+        }
+
         // Auto-merge local and cloud trips to sync both ends
-        const merged = mergeTrips(localTrips, cloudTrips || []);
+        const merged = mergeTrips(localTrips, cloudTrips);
         
         // Save merged result locally
         setTrips(merged);
@@ -272,10 +316,75 @@ export default function App() {
     localStorage.removeItem('google-folder-id');
   };
 
+  const handleResolveConflict = async (choice: 'cloud' | 'local') => {
+    if (pendingConflicts.length === 0) return;
+    const activeConflict = pendingConflicts[0];
+
+    let updatedTrips = [...trips];
+    if (choice === 'cloud') {
+      // Replaces the local version with the cloud version
+      updatedTrips = updatedTrips.map(t => 
+        t.id === activeConflict.tripId ? activeConflict.cloudTrip : t
+      );
+      if (!updatedTrips.some(t => t.id === activeConflict.tripId)) {
+        updatedTrips.push(activeConflict.cloudTrip);
+      }
+    } else {
+      // Overwrite cloud version: Keep local, but update timestamp to make it newer
+      updatedTrips = updatedTrips.map(t => 
+        t.id === activeConflict.tripId 
+          ? { ...t, updatedAt: Date.now() } 
+          : t
+      );
+    }
+
+    setTrips(updatedTrips);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTrips));
+
+    const nextConflicts = pendingConflicts.slice(1);
+    setPendingConflicts(nextConflicts);
+
+    if (nextConflicts.length === 0) {
+      setSyncStatus('syncing');
+      try {
+        const cloudTrips = fetchedCloudTripsRef.current || [];
+        
+        const finalTripsMap = new Map<string, Trip>();
+        updatedTrips.forEach(t => finalTripsMap.set(t.id, t));
+        cloudTrips.forEach(ct => {
+          if (!finalTripsMap.has(ct.id)) {
+            finalTripsMap.set(ct.id, ct);
+          }
+        });
+
+        const finalTrips = Array.from(finalTripsMap.values());
+        setTrips(finalTrips);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalTrips));
+
+        await saveTripsToDrive(googleToken!, googleFolderId!, finalTrips);
+        setSyncStatus('synced');
+      } catch (e) {
+        console.error('Failed to finalize sync after conflict resolution:', e);
+        setSyncStatus('error');
+      }
+    }
+  };
+
   const handleManualSync = async () => {
     if (!googleToken || !googleFolderId) return;
     setSyncStatus('syncing');
     try {
+      const cloudTrips = await fetchTripsFromDrive(googleToken, googleFolderId) || [];
+      fetchedCloudTripsRef.current = cloudTrips;
+
+      // Detect conflicts
+      const conflicts = detectConflicts(trips, cloudTrips);
+      if (conflicts.length > 0) {
+        setPendingConflicts(conflicts);
+        setSyncStatus('idle');
+        return;
+      }
+
       await saveTripsToDrive(googleToken, googleFolderId, trips);
       setSyncStatus('synced');
     } catch (e) {
@@ -315,7 +424,8 @@ export default function App() {
       endDate: newTripData.endDate,
       locations: [],
       plans: [defaultPlan],
-      placeGroups: [...DEFAULT_PLACE_GROUPS]
+      placeGroups: [...DEFAULT_PLACE_GROUPS],
+      updatedAt: Date.now()
     };
 
     saveTrips([...trips, newTrip]);
@@ -331,7 +441,8 @@ export default function App() {
   };
 
   const handleUpdateTrip = (updatedTrip: Trip) => {
-    const updated = trips.map(t => (t.id === updatedTrip.id ? updatedTrip : t));
+    const tripWithTimestamp = { ...updatedTrip, updatedAt: Date.now() };
+    const updated = trips.map(t => (t.id === updatedTrip.id ? tripWithTimestamp : t));
     saveTrips(updated);
   };
 
@@ -387,6 +498,138 @@ export default function App() {
           />
         )}
       </main>
+
+      {pendingConflicts.length > 0 && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '24px'
+          }}
+        >
+          <div 
+            className="glass-panel" 
+            style={{
+              maxWidth: '600px',
+              width: '100%',
+              padding: '32px',
+              borderRadius: '16px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px'
+            }}
+          >
+            <div style={{ textAlign: 'center' }}>
+              <div 
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#ef4444',
+                  marginBottom: '16px'
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: '600', color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
+                Trip Sync Conflict
+              </h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
+                We detected a conflict for the trip: <strong>{pendingConflicts[0].localTrip.name}</strong>. The version stored on Google Drive is newer or different than your local version.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <button 
+                onClick={() => handleResolveConflict('cloud')}
+                style={{
+                  textAlign: 'left',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  outline: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                  e.currentTarget.style.borderColor = 'var(--border-glass)';
+                }}
+              >
+                <div style={{ fontWeight: '600', color: '#6366f1', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Get Latest Version from Google Drive
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                  This will replace your local trip with the one on Google Drive. Choose this if you edited this trip on another device and want to load those changes. <strong>Note:</strong> Any local changes since the last sync will be lost.
+                </div>
+              </button>
+
+              <button 
+                onClick={() => handleResolveConflict('local')}
+                style={{
+                  textAlign: 'left',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  outline: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                  e.currentTarget.style.borderColor = 'var(--border-glass)';
+                }}
+              >
+                <div style={{ fontWeight: '600', color: '#34d399', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Override Google Drive Version
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                  This will keep your local trip and overwrite the version stored on Google Drive. Choose this if the current local version is the correct one. <strong>Note:</strong> This will replace the file in the cloud.
+                </div>
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Conflict 1 of {pendingConflicts.length}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

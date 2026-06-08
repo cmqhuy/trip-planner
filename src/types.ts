@@ -80,4 +80,5 @@ export interface Trip {
   locations: Location[];
   plans: Plan[];
   placeGroups: PlaceGroup[]; // Trip-level categorized lists / place groups
+  updatedAt?: number;        // Timestamp of last modification
 }
