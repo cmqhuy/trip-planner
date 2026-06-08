@@ -10,6 +10,10 @@ import { searchLocation, searchPlacesNearLocation, DEFAULT_PLACE_GROUPS } from '
 import { getDaysDiff, shiftDateString, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import MapPicker from './MapPicker';
+import ColorPalette from './ColorPalette';
+import ImagePreview from './ImagePreview';
+import GroupFormFields from './GroupFormFields';
+import PlaceFormFields from './PlaceFormFields';
 
 const LOCATION_COLORS = [
   '#6366f1', // Indigo
@@ -442,6 +446,20 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   // ----------------------------------------------------
   // Location Operations
   // ----------------------------------------------------
+  const openEditLocationModal = (loc: Location) => {
+    setEditLocColor(loc.color || '#6366f1');
+    setEditLocCity(loc.city);
+    setEditLocState(loc.state || '');
+    setEditLocCountry(loc.country);
+    setEditLocCountryCode(loc.countryCode || '');
+    setEditLocLat(loc.lat.toString());
+    setEditLocLng(loc.lng.toString());
+    setEditLocHeroPhoto(loc.heroPhoto || '');
+    setEditLocSearchQuery('');
+    setEditLocSuggestions([]);
+    setShowEditLocationModal(true);
+  };
+
   const handleAddNewLocationToCatalog = (loc: Omit<Location, 'places'>) => {
     let existingLoc = trip.locations.find(
       l => l.city.toLowerCase() === loc.city.toLowerCase() && 
@@ -449,6 +467,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     );
 
     let updatedLocations = [...trip.locations];
+    let isNew = false;
 
     if (!existingLoc) {
       const colorIndex = trip.locations.length % LOCATION_COLORS.length;
@@ -460,6 +479,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       };
       updatedLocations.push(newLoc);
       existingLoc = newLoc;
+      isNew = true;
     }
 
     onUpdateTrip({
@@ -470,6 +490,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setSelectedCatalogLocId(existingLoc.id);
     setLocationQuery('');
     setLocationSuggestions([]);
+
+    // Auto-open edit dialog for new locations so user can set color
+    if (isNew) {
+      setTimeout(() => openEditLocationModal(existingLoc!), 50);
+    }
   };
 
   const handleAddNewLocationForDay = (loc: Omit<Location, 'places'>) => {
@@ -479,6 +504,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     );
 
     let updatedLocations = [...trip.locations];
+    let isNew = false;
 
     if (!existingLoc) {
       const colorIndex = trip.locations.length % LOCATION_COLORS.length;
@@ -490,6 +516,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       };
       updatedLocations.push(newLoc);
       existingLoc = newLoc;
+      isNew = true;
     }
 
     const updatedPlans = trip.plans.map(p => {
@@ -517,6 +544,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     setSelectedCatalogLocId(existingLoc.id);
     setLocationQuery('');
     setLocationSuggestions([]);
+
+    // Auto-open edit dialog for new locations so user can set color
+    if (isNew) {
+      setTimeout(() => openEditLocationModal(existingLoc!), 50);
+    }
   };
 
   const handleDeleteLocation = (locId: string) => {
@@ -1699,19 +1731,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             {catalogLocation && (
               <button 
                 className="mini-icon-btn" 
-                onClick={() => {
-                  setEditLocColor(catalogLocation.color || '#6366f1');
-                  setEditLocCity(catalogLocation.city);
-                  setEditLocState(catalogLocation.state || '');
-                  setEditLocCountry(catalogLocation.country);
-                  setEditLocCountryCode(catalogLocation.countryCode || '');
-                  setEditLocLat(catalogLocation.lat.toString());
-                  setEditLocLng(catalogLocation.lng.toString());
-                  setEditLocHeroPhoto(catalogLocation.heroPhoto || '');
-                  setEditLocSearchQuery('');
-                  setEditLocSuggestions([]);
-                  setShowEditLocationModal(true);
-                }}
+                onClick={() => openEditLocationModal(catalogLocation)}
                 title="Edit Location Settings"
                 style={{ padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
@@ -2770,62 +2790,27 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             </div>
 
             <form onSubmit={handleCreateCustomPlace}>
-              <div className="form-group">
-                <label>Place Title</label>
-                <input type="text" value={customPlaceTitle} onChange={e => setCustomPlaceTitle(e.target.value)} placeholder="e.g. Eiffel Tower" required />
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <textarea value={customPlaceDesc} onChange={e => setCustomPlaceDesc(e.target.value)} placeholder="Short summary..." rows={2} />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Opening Hours</label>
-                  <input type="text" value={customPlaceHours} onChange={e => setCustomPlaceHours(e.target.value)} placeholder="e.g. 09:00 - 18:00" />
-                </div>
-                <div className="form-group">
-                  <label>Category Group</label>
-                  <select value={customPlaceGroupId} onChange={e => setCustomPlaceGroupId(e.target.value)}>
-                    <option value="new">Unassigned</option>
-                    {(trip.placeGroups || DEFAULT_PLACE_GROUPS).map(pg => (
-                      <option key={pg.id} value={pg.id}>{pg.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Google Maps Link (Optional)</label>
-                <input type="text" value={customPlaceMapsLink} onChange={e => setCustomPlaceMapsLink(e.target.value)} placeholder="e.g. https://maps.google.com/..." />
-              </div>
-              <div className="form-group">
-                <label>Hero Image Photo URL (Optional)</label>
-                <input type="text" value={customPlacePhotoUrl} onChange={e => setCustomPlacePhotoUrl(e.target.value)} placeholder="e.g. Unsplash URL..." />
-              </div>
-              <div className="form-group">
-                <label>Notes (Long Textbox)</label>
-                <textarea value={customPlaceNotes} onChange={e => setCustomPlaceNotes(e.target.value)} placeholder="Travel notes, tips, things to try..." rows={3} />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Latitude (Optional)</label>
-                  <input type="text" value={customPlaceLat} onChange={e => setCustomPlaceLat(e.target.value)} placeholder="e.g. 48.8584" />
-                </div>
-                <div className="form-group">
-                  <label>Longitude (Optional)</label>
-                  <input type="text" value={customPlaceLng} onChange={e => setCustomPlaceLng(e.target.value)} placeholder="e.g. 2.2945" />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>📍 Click on the map to set coordinates</label>
-                <MapPicker
-                  lat={parseFloat(customPlaceLat)}
-                  lng={parseFloat(customPlaceLng)}
-                  onPick={(lat, lng) => {
-                    setCustomPlaceLat(lat.toFixed(6));
-                    setCustomPlaceLng(lng.toFixed(6));
-                  }}
-                />
-              </div>
+              <PlaceFormFields
+                title={customPlaceTitle}
+                setTitle={setCustomPlaceTitle}
+                description={customPlaceDesc}
+                setDescription={setCustomPlaceDesc}
+                openingHours={customPlaceHours}
+                setOpeningHours={setCustomPlaceHours}
+                groupId={customPlaceGroupId}
+                setGroupId={setCustomPlaceGroupId}
+                mapsLink={customPlaceMapsLink}
+                setMapsLink={setCustomPlaceMapsLink}
+                photoUrl={customPlacePhotoUrl}
+                setPhotoUrl={setCustomPlacePhotoUrl}
+                notes={customPlaceNotes}
+                setNotes={setCustomPlaceNotes}
+                lat={customPlaceLat}
+                setLat={setCustomPlaceLat}
+                lng={customPlaceLng}
+                setLng={setCustomPlaceLng}
+                placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
+              />
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowCustomPlaceModal(false)}>Cancel</button>
                 <button type="submit" className="btn-primary">Add Place</button>
@@ -2907,74 +2892,27 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             </div>
 
             <form onSubmit={handleSaveEditPlace}>
-              <div className="form-group">
-                <label>Place Title</label>
-                <input type="text" value={editPlaceTitle} onChange={e => setEditPlaceTitle(e.target.value)} required />
-              </div>
-              
-              <div className="form-group">
-                <label>Description</label>
-                <textarea value={editPlaceDesc} onChange={e => setEditPlaceDesc(e.target.value)} rows={2} />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Opening Hours</label>
-                  <input type="text" value={editPlaceHours} onChange={e => setEditPlaceHours(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Category Group</label>
-                  <select value={editPlaceGroupId} onChange={e => setEditPlaceGroupId(e.target.value)}>
-                    <option value="new">Unassigned</option>
-                    {(trip.placeGroups || DEFAULT_PLACE_GROUPS).map(pg => (
-                      <option key={pg.id} value={pg.id}>{pg.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Google Maps Link</label>
-                <input type="text" value={editPlaceMapsLink} onChange={e => setEditPlaceMapsLink(e.target.value)} placeholder="e.g. https://maps.google.com/..." />
-              </div>
-
-              <div className="form-group">
-                <label>Hero Image Photo URL (Optional)</label>
-                <input type="text" value={editPlacePhotoUrl} onChange={e => setEditPlacePhotoUrl(e.target.value)} placeholder="e.g. Unsplash URL..." />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Latitude</label>
-                  <input type="text" value={editPlaceLat} onChange={e => setEditPlaceLat(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label>Longitude</label>
-                  <input type="text" value={editPlaceLng} onChange={e => setEditPlaceLng(e.target.value)} required />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Notes (Long Textbox)</label>
-                <textarea 
-                  value={editPlaceNotes} 
-                  onChange={e => setEditPlaceNotes(e.target.value)} 
-                  placeholder="Travel notes, tips, things to try..." 
-                  rows={3} 
-                />
-              </div>
-
-              <div className="form-group">
-                <label>📍 Click on the map to set coordinates</label>
-                <MapPicker
-                  lat={parseFloat(editPlaceLat)}
-                  lng={parseFloat(editPlaceLng)}
-                  onPick={(lat, lng) => {
-                    setEditPlaceLat(lat.toFixed(6));
-                    setEditPlaceLng(lng.toFixed(6));
-                  }}
-                />
-              </div>
+              <PlaceFormFields
+                title={editPlaceTitle}
+                setTitle={setEditPlaceTitle}
+                description={editPlaceDesc}
+                setDescription={setEditPlaceDesc}
+                openingHours={editPlaceHours}
+                setOpeningHours={setEditPlaceHours}
+                groupId={editPlaceGroupId}
+                setGroupId={setEditPlaceGroupId}
+                mapsLink={editPlaceMapsLink}
+                setMapsLink={setEditPlaceMapsLink}
+                photoUrl={editPlacePhotoUrl}
+                setPhotoUrl={setEditPlacePhotoUrl}
+                notes={editPlaceNotes}
+                setNotes={setEditPlaceNotes}
+                lat={editPlaceLat}
+                setLat={setEditPlaceLat}
+                lng={editPlaceLng}
+                setLng={setEditPlaceLng}
+                placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
+              />
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
                 <button 
@@ -3194,32 +3132,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               </button>
             </div>
             <form onSubmit={handleAddPlaceGroup}>
-              <div className="form-group">
-                <label>Group Name</label>
-                <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="e.g. Museums, Coffee Shops" required autoFocus />
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Color</label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input type="color" value={newGroupColor} onChange={e => setNewGroupColor(e.target.value)} style={{ padding: '0', width: '40px', height: '40px', border: 'none', borderRadius: '4px', cursor: 'pointer' }} />
-                    <span style={{ fontSize: '13px', fontFamily: 'monospace' }}>{newGroupColor}</span>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Icon Style</label>
-                  <select value={newGroupIcon} onChange={e => setNewGroupIcon(e.target.value)}>
-                    <option value="landmark">🏛️ Landmark</option>
-                    <option value="utensils">🍴 Restaurant / Food</option>
-                    <option value="shopping-bag">🛍️ Shopping</option>
-                    <option value="camera">📷 Photography</option>
-                    <option value="map-pin">📍 General</option>
-                    <option value="heart">💖 Favorite</option>
-                  </select>
-                </div>
-              </div>
+              <GroupFormFields 
+                name={newGroupName} 
+                setName={setNewGroupName} 
+                color={newGroupColor} 
+                setColor={setNewGroupColor} 
+                icon={newGroupIcon} 
+                setIcon={setNewGroupIcon} 
+              />
 
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowGroupModal(false)}>Cancel</button>
@@ -3241,32 +3161,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               </button>
             </div>
             <form onSubmit={handleSaveEditPlaceGroup}>
-              <div className="form-group">
-                <label>Group Name</label>
-                <input type="text" value={editGroupName} onChange={e => setEditGroupName(e.target.value)} placeholder="e.g. Attractions, Food" required autoFocus />
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Color</label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input type="color" value={editGroupColor} onChange={e => setEditGroupColor(e.target.value)} style={{ padding: '0', width: '40px', height: '40px', border: 'none', borderRadius: '4px', cursor: 'pointer' }} />
-                    <span style={{ fontSize: '13px', fontFamily: 'monospace' }}>{editGroupColor}</span>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Icon Style</label>
-                  <select value={editGroupIcon} onChange={e => setEditGroupIcon(e.target.value)}>
-                    <option value="landmark">🏛️ Landmark</option>
-                    <option value="utensils">🍴 Restaurant / Food</option>
-                    <option value="shopping-bag">🛍️ Shopping</option>
-                    <option value="camera">📷 Photography</option>
-                    <option value="map-pin">📍 General</option>
-                    <option value="heart">💖 Favorite</option>
-                  </select>
-                </div>
-              </div>
+              <GroupFormFields 
+                name={editGroupName} 
+                setName={setEditGroupName} 
+                color={editGroupColor} 
+                setColor={setEditGroupColor} 
+                icon={editGroupIcon} 
+                setIcon={setEditGroupIcon} 
+                placeholder="e.g. Attractions, Food"
+              />
 
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowEditGroupModal(false)}>Cancel</button>
@@ -3543,31 +3446,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Country Code (Optional)</label>
-                  <input type="text" value={editLocCountryCode} onChange={e => setEditLocCountryCode(e.target.value)} placeholder="e.g. US" />
-                </div>
-                <div className="form-group">
-                  <label>Theme Color</label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="color" 
-                      value={editLocColor} 
-                      onChange={e => setEditLocColor(e.target.value)} 
-                      style={{ 
-                        padding: '0', 
-                        width: '32px', 
-                        height: '32px', 
-                        border: '1px solid var(--border-glass)', 
-                        borderRadius: '4px', 
-                        cursor: 'pointer',
-                        background: 'none'
-                      }} 
-                    />
-                    <span style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{editLocColor}</span>
-                  </div>
-                </div>
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label>Country Code (Optional)</label>
+                <input type="text" value={editLocCountryCode} onChange={e => setEditLocCountryCode(e.target.value)} placeholder="e.g. US" style={{ maxWidth: '120px' }} />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label>Theme Color</label>
+                <ColorPalette value={editLocColor} onChange={setEditLocColor} />
               </div>
 
               <div className="form-row">
@@ -3584,6 +3470,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label>Hero Image Photo URL</label>
                 <input type="text" value={editLocHeroPhoto} onChange={e => setEditLocHeroPhoto(e.target.value)} placeholder="Unsplash URL..." />
+                <ImagePreview url={editLocHeroPhoto} alt="Hero image preview" />
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
