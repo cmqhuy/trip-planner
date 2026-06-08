@@ -50,7 +50,7 @@ export default function ColorPalette({ value, onChange }: ColorPaletteProps) {
                 flexShrink: 0,
                 padding: 0,
               }}
-              title={color}
+              data-tooltip={color}
             >
               {isSelected && <Check size={14} color="#fff" strokeWidth={3} />}
             </button>
@@ -75,7 +75,7 @@ export default function ColorPalette({ value, onChange }: ColorPaletteProps) {
             flexShrink: 0,
             padding: 0,
           }}
-          title="Custom color"
+          data-tooltip="Custom color"
         >
           {!isPreset && <Check size={14} color="#fff" strokeWidth={3} />}
         </button>

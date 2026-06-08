@@ -107,11 +107,11 @@ export default function PlaceFormFields({
           onChange={e => setPhotoUrl(e.target.value)} 
           placeholder="e.g. Unsplash URL..." 
         />
-        <ImagePreview url={photoUrl} alt="Place image preview" />
+        <ImagePreview url={photoUrl} alt="Place image preview" width={120} height={120} />
       </div>
 
       <div className="form-group">
-        <label>Notes (Long Textbox)</label>
+        <label>Notes</label>
         <textarea 
           value={notes} 
           onChange={e => setNotes(e.target.value)} 

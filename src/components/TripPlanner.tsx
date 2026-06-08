@@ -4,16 +4,15 @@ import {
   ArrowLeft, ArrowRight, MapPin, Plus, Trash2, Edit2, 
   ExternalLink, Navigation, ChevronUp, ChevronDown, 
   Search, Plane, Train, Bus, Car, Anchor, 
-  Building, BookOpen, Clock, Check, Layers, X
+  Building, BookOpen, Clock, Check, Layers, X,
+  Calendar, FileText
 } from 'lucide-react';
 import { searchLocation, searchPlacesNearLocation, DEFAULT_PLACE_GROUPS } from '../utils/api';
 import { getDaysDiff, shiftDateString, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
-import MapPicker from './MapPicker';
-import ColorPalette from './ColorPalette';
-import ImagePreview from './ImagePreview';
 import GroupFormFields from './GroupFormFields';
 import PlaceFormFields from './PlaceFormFields';
+import LocationFormFields from './LocationFormFields';
 
 const LOCATION_COLORS = [
   '#6366f1', // Indigo
@@ -93,6 +92,71 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
     if (daysTabsNavRef.current) {
       daysTabsNavRef.current.scrollLeft = lastScrollLeft.current;
     }
+  }, [activePlanId]);
+
+  // Handle horizontal scroll for the day switcher using middle mouse button and wheel scroll
+  useEffect(() => {
+    const el = daysTabsNavRef.current;
+    if (!el) return;
+
+    // 1. Wheel scroll mapping (vertical scroll wheel scrolls horizontally)
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollBy({
+          left: e.deltaY,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    // 2. Middle-mouse click and drag scrolling
+    let isDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 1) { // Middle mouse button
+        e.preventDefault(); // Prevent standard browser autoscroll icon
+        isDragging = true;
+        startX = e.clientX;
+        startScrollLeft = el.scrollLeft;
+        el.style.cursor = 'grabbing';
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      el.scrollLeft = startScrollLeft - dx;
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 1 && isDragging) {
+        isDragging = false;
+        el.style.cursor = '';
+      }
+    };
+
+    const handleAuxClick = (e: MouseEvent) => {
+      if (e.button === 1) {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    el.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    el.addEventListener('auxclick', handleAuxClick);
+
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      el.removeEventListener('auxclick', handleAuxClick);
+    };
   }, [activePlanId]);
 
   // Active Day State
@@ -661,13 +725,22 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
   const handleCloseAddLocation = () => {
     if (hasUnsavedAddLocationChanges()) {
-      if (!window.confirm("You have unsaved changes. Discard changes?")) {
-        return;
-      }
+      setConfirmModal({
+        title: "Unsaved Changes",
+        message: "You have unsaved changes. Discard changes?",
+        confirmText: "Discard",
+        cancelText: "Keep Editing",
+        onConfirm: () => {
+          setShowAddLocationModal(false);
+          setLocationQuery('');
+          setLocationSuggestions([]);
+        }
+      });
+    } else {
+      setShowAddLocationModal(false);
+      setLocationQuery('');
+      setLocationSuggestions([]);
     }
-    setShowAddLocationModal(false);
-    setLocationQuery('');
-    setLocationSuggestions([]);
   };
 
   const hasUnsavedLocationChanges = () => {
@@ -686,11 +759,18 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
   const handleCloseEditLocation = () => {
     if (hasUnsavedLocationChanges()) {
-      if (!window.confirm("You have unsaved changes. Discard changes?")) {
-        return;
-      }
+      setConfirmModal({
+        title: "Unsaved Changes",
+        message: "You have unsaved changes. Discard changes?",
+        confirmText: "Discard",
+        cancelText: "Keep Editing",
+        onConfirm: () => {
+          setShowEditLocationModal(false);
+        }
+      });
+    } else {
+      setShowEditLocationModal(false);
     }
-    setShowEditLocationModal(false);
   };
 
   const hasUnsavedAddPlaceChanges = () => {
@@ -708,13 +788,22 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
   const handleCloseAddPlace = () => {
     if (hasUnsavedAddPlaceChanges()) {
-      if (!window.confirm("You have unsaved changes. Discard changes?")) {
-        return;
-      }
+      setConfirmModal({
+        title: "Unsaved Changes",
+        message: "You have unsaved changes. Discard changes?",
+        confirmText: "Discard",
+        cancelText: "Keep Editing",
+        onConfirm: () => {
+          setShowCustomPlaceModal(false);
+          setCustomPlaceSearchQuery('');
+          setCustomPlaceSuggestions([]);
+        }
+      });
+    } else {
+      setShowCustomPlaceModal(false);
+      setCustomPlaceSearchQuery('');
+      setCustomPlaceSuggestions([]);
     }
-    setShowCustomPlaceModal(false);
-    setCustomPlaceSearchQuery('');
-    setCustomPlaceSuggestions([]);
   };
 
   const hasUnsavedEditPlaceChanges = () => {
@@ -734,12 +823,20 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
   const handleCloseEditPlace = () => {
     if (hasUnsavedEditPlaceChanges()) {
-      if (!window.confirm("You have unsaved changes. Discard changes?")) {
-        return;
-      }
+      setConfirmModal({
+        title: "Unsaved Changes",
+        message: "You have unsaved changes. Discard changes?",
+        confirmText: "Discard",
+        cancelText: "Keep Editing",
+        onConfirm: () => {
+          setShowEditPlaceModal(false);
+          setEditingPlace(null);
+        }
+      });
+    } else {
+      setShowEditPlaceModal(false);
+      setEditingPlace(null);
     }
-    setShowEditPlaceModal(false);
-    setEditingPlace(null);
   };
 
   const handleSaveEditPlace = (e: React.FormEvent) => {
@@ -1853,7 +1950,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
               <button 
                 className="mini-icon-btn" 
                 onClick={() => openEditLocationModal(catalogLocation)}
-                title="Edit Location Settings"
+                data-tooltip="Edit Location Settings"
                 style={{ padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <Edit2 size={14} />
@@ -1866,7 +1963,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 setAddLocationForDay(false);
                 setShowAddLocationModal(true);
               }}
-              title="Add Location"
+              data-tooltip="Add Location"
             >
               <Plus size={14} />
             </button>
@@ -1877,11 +1974,12 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
           <div className="catalog-content">
             {/* Catalog Group Management */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Categorized Lists</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Groups</span>
               <button 
                 className="mini-icon-btn" 
                 onClick={() => setShowGroupModal(true)} 
-                title="Add custom group"
+                data-tooltip="Add Custom Category"
+                data-tooltip-position="bottom"
                 style={{ color: 'var(--accent-secondary)' }}
               >
                 <Plus size={14} />
@@ -1943,7 +2041,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                           setAutoScheduleOnActiveDay(false);
                           setShowCustomPlaceModal(true);
                         }} 
-                        title={`Add Place to ${group.name}`} 
+                        data-tooltip={`Add Place to ${group.name}`} 
                         style={{ padding: '2px' }}
                       >
                         <Plus size={10} />
@@ -1954,7 +2052,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                             className="mini-icon-btn" 
                             disabled={group.isFirst} 
                             onClick={() => handleMoveGroupOrder(group.groupIdx!, 'up')} 
-                            title="Move Up" 
+                            data-tooltip="Move Up" 
                             style={{ opacity: group.isFirst ? 0.3 : 1, padding: '2px' }}
                           >
                             <ChevronUp size={12} />
@@ -1963,12 +2061,12 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                             className="mini-icon-btn" 
                             disabled={group.isLast} 
                             onClick={() => handleMoveGroupOrder(group.groupIdx!, 'down')} 
-                            title="Move Down" 
+                            data-tooltip="Move Down" 
                             style={{ opacity: group.isLast ? 0.3 : 1, padding: '2px' }}
                           >
                             <ChevronDown size={12} />
                           </button>
-                          <button className="mini-icon-btn" onClick={() => startEditingGroup(group as PlaceGroup)} title="Edit Group" style={{ padding: '2px' }}>
+                          <button className="mini-icon-btn" onClick={() => startEditingGroup(group as PlaceGroup)} data-tooltip="Edit Group" style={{ padding: '2px' }}>
                             <Edit2 size={10} />
                           </button>
                         </>
@@ -2056,7 +2154,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                               disabled={placeIndexInGroup === 0} 
                               onClick={() => handleMoveCatalogPlace(place.id, 'up')}
                               style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1, padding: '2px' }}
-                              title="Move Up"
+                              data-tooltip="Move Up"
                               draggable={false}
                               onDragStart={e => e.stopPropagation()}
                             >
@@ -2067,7 +2165,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                               disabled={placeIndexInGroup === placesInGroup.length - 1} 
                               onClick={() => handleMoveCatalogPlace(place.id, 'down')}
                               style={{ opacity: placeIndexInGroup === placesInGroup.length - 1 ? 0.3 : 1, padding: '2px' }}
-                              title="Move Down"
+                              data-tooltip="Move Down"
                               draggable={false}
                               onDragStart={e => e.stopPropagation()}
                             >
@@ -2078,12 +2176,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
 
                         {/* Expand Details if selected */}
                         {activePlaceId === place.id && (
-                          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>
+                          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }}>
                             <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.3 }}>{place.description}</p>
                             
                             {/* Notes Field (Shared at Trip level) */}
                             <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(99,102,241,0.04)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 4px 4px 0' }}>
-                              <label style={{ fontSize: '10px', color: 'var(--accent-primary)', fontWeight: 600, display: 'block', marginBottom: '2px' }}>Place Notes</label>
+                              <label style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                                <FileText size={11} /> Place Notes
+                              </label>
                               
                               {editingPlaceNotesId === place.id ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
@@ -2094,7 +2194,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                     rows={3}
                                     style={{ 
                                       padding: '6px', 
-                                      fontSize: '11px', 
+                                      fontSize: '13px', 
                                       width: '100%', 
                                       background: 'var(--bg-dark)', 
                                       border: '1px solid var(--border-glass)', 
@@ -2128,7 +2228,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                     whiteSpace: 'pre-wrap',
                                     display: 'block',
                                     width: '100%',
-                                    lineHeight: 1.3
+                                    lineHeight: 1.3,
+                                    fontSize: '13px'
                                   }}>
                                     {place.notes || 'No notes added yet.'}
                                   </span>
@@ -2157,7 +2258,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                   handleOpenEditPlace(place);
                                 }}
                                 style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', borderRadius: '8px', whiteSpace: 'nowrap' }}
-                                title="Edit Place Details"
+                                data-tooltip="Edit Place Details"
                               >
                                 <Edit2 size={12} /> Edit
                               </button>
@@ -2203,14 +2304,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     setEditTripEnd(trip.endDate);
                     setShowEditTripModal(true);
                   }}
-                  title="Edit Trip Details"
+                  data-tooltip="Edit Trip Details"
                   style={{ padding: '4px', opacity: 0.6 }}
                 >
                   <Edit2 size={14} />
                 </button>
               </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px', display: 'flex', gap: '8px' }}>
-                <span>📅 {formatDisplayDate(trip.startDate)} - {formatDisplayDate(trip.endDate)}</span>
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px', display: 'flex', gap: '8px' }}>
+                <span className="flex-align" style={{ gap: '6px' }}>
+                  <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                  {formatDisplayDate(trip.startDate)} - {formatDisplayDate(trip.endDate)}
+                </span>
               </div>
             </div>
             
@@ -2227,10 +2331,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     if (e.key === 'Escape') setIsRenamingPlan(false);
                   }}
                 />
-                <button className="mini-icon-btn" onClick={handleRenamePlan} title="Save Name" style={{ color: 'var(--color-success)', padding: '4px' }}>
+                <button className="mini-icon-btn" onClick={handleRenamePlan} data-tooltip="Save Name" style={{ color: 'var(--color-success)', padding: '4px' }}>
                   <Check size={14} />
                 </button>
-                <button className="mini-icon-btn" onClick={() => setIsRenamingPlan(false)} title="Cancel" style={{ color: 'var(--text-muted)', padding: '4px' }}>
+                <button className="mini-icon-btn" onClick={() => setIsRenamingPlan(false)} data-tooltip="Cancel" style={{ color: 'var(--text-muted)', padding: '4px' }}>
                   <X size={14} />
                 </button>
               </div>
@@ -2265,7 +2369,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   className="mini-icon-btn" 
                   onClick={() => handleMovePlan('up')} 
                   disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
-                  title="Move Plan Up"
+                  data-tooltip="Move Plan Up"
                   style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === 0 ? 0.3 : 1 }}
                 >
                   <ChevronUp size={16} />
@@ -2274,7 +2378,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   className="mini-icon-btn" 
                   onClick={() => handleMovePlan('down')} 
                   disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
-                  title="Move Plan Down"
+                  data-tooltip="Move Plan Down"
                   style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1 ? 0.3 : 1 }}
                 >
                   <ChevronDown size={16} />
@@ -2285,15 +2389,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     setIsRenamingPlan(true);
                     setEditPlanName(activePlan.name);
                   }} 
-                  title="Rename Plan"
+                  data-tooltip="Rename Plan"
                 >
                   <Edit2 size={14} />
                 </button>
-                <button className="mini-icon-btn" onClick={() => setShowNewPlanModal(true)} title="Add Plan">
+                <button className="mini-icon-btn" onClick={() => setShowNewPlanModal(true)} data-tooltip="Add Plan">
                   <Plus size={16} />
                 </button>
                 {trip.plans.length > 1 && (
-                  <button className="mini-icon-btn" onClick={() => handleDeletePlan(activePlan.id)} title="Delete Plan" style={{ color: 'var(--color-danger)' }}>
+                  <button className="mini-icon-btn" onClick={() => handleDeletePlan(activePlan.id)} data-tooltip="Delete Plan" style={{ color: 'var(--color-danger)' }}>
                     <Trash2 size={15} />
                   </button>
                 )}
@@ -2302,7 +2406,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
           </div>
 
           {/* Days selector tabs */}
-          <div ref={daysTabsNavRef} className="days-tabs-nav">
+          <div ref={daysTabsNavRef} key={activePlanId} className="days-tabs-nav">
             {daysList.map((dateStr, index) => {
               const isActive = activeDayStr === dateStr;
               const dayLoc = trip.locations.find(l => l.id === activePlan.days[dateStr]?.locationId);
@@ -2315,11 +2419,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     setActiveDayStr(dateStr);
                     setActivePlaceId(undefined);
                   }}
-                  style={{
-                    borderTop: dayLoc ? `3px solid ${locColor}` : undefined,
-                    borderColor: isActive && dayLoc ? locColor : undefined,
-                    boxShadow: isActive && dayLoc ? `0 0 10px ${hexToRgba(locColor, 0.2)}` : undefined,
-                    background: isActive && dayLoc ? `${hexToRgba(locColor, 0.08)}` : undefined,
+                  style={dayLoc ? {
+                    borderTop: `3px solid ${locColor}`,
+                    borderColor: isActive ? locColor : 'rgba(255, 255, 255, 0.08)',
+                    boxShadow: isActive ? `0 0 10px ${hexToRgba(locColor, 0.2)}` : 'none',
+                    background: isActive ? `${hexToRgba(locColor, 0.08)}` : 'rgba(255, 255, 255, 0.03)',
+                  } : {
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderColor: isActive ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.08)',
+                    boxShadow: isActive ? '0 0 10px rgba(99, 102, 241, 0.1)' : 'none',
+                    background: isActive ? 'var(--accent-primary-glow)' : 'rgba(255, 255, 255, 0.03)',
                   }}
                 >
                   <span className="day-tab-num">{formatDisplayDate(dateStr).split(',')[1]}</span>
@@ -2510,15 +2619,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                       setMoveDayTargetDate(firstOtherDay);
                       setShowMoveDayModal(true);
                     }} 
-                    title="Move Day Places"
+                    data-tooltip="Move Places To Another Day"
                     style={{ gap: '4px' }}
                   >
                     <ArrowRight size={14} /> Move Day
                   </button>
                   <button 
-                    className="mini-icon-btn flex-align" 
+                    className="mini-icon-btn" 
                     onClick={handleClearDay} 
-                    title="Clear Day Places"
+                    data-tooltip="Clear All Places"
                     style={{ gap: '4px', color: 'var(--color-danger)' }}
                   >
                     <Trash2 size={14} /> Clear Day
@@ -2536,7 +2645,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                       setAutoScheduleOnActiveDay(true);
                       setShowCustomPlaceModal(true);
                     }} 
-                    title="Add Custom Place"
+                    data-tooltip="Add New Place"
                     style={{ gap: '4px' }}
                   >
                     <Plus size={14} /> Add Place
@@ -2680,10 +2789,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                           )}
 
                           <div style={{ minWidth: 0, flex: 1 }}>
-                            <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {place.title}
                             </h4>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                               {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
                             </p>
                             {editingPlaceNotesId === place.id ? (
@@ -2695,7 +2804,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                   rows={2}
                                   style={{ 
                                     padding: '6px', 
-                                    fontSize: '11px', 
+                                    fontSize: '13px', 
                                     width: '100%', 
                                     background: 'var(--bg-dark)', 
                                     border: '1px solid var(--border-glass)', 
@@ -2724,23 +2833,27 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                               </div>
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                <p style={{ 
-                                  fontSize: '11px', 
-                                  color: 'var(--accent-primary)', 
+                                <div style={{ 
+                                  fontSize: '13px', 
+                                  color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', 
                                   fontStyle: 'italic', 
                                   whiteSpace: 'pre-wrap',
                                   lineHeight: 1.3,
                                   margin: 0,
                                   flex: 1,
-                                  textTransform: 'none'
+                                  textTransform: 'none',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '6px'
                                 }}>
-                                  {place.notes ? `📝 Note: ${place.notes}` : '📝 Add notes...'}
-                                </p>
+                                  <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                                  <span>{place.notes || 'Add notes...'}</span>
+                                </div>
                                 <button 
                                   className="mini-icon-btn" 
                                   onClick={() => startEditingNotes(place)} 
                                   style={{ padding: '2px' }}
-                                  title="Edit Note"
+                                  data-tooltip="Edit Note"
                                 >
                                   <Edit2 size={10} />
                                 </button>
@@ -2769,7 +2882,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                               <ChevronDown size={14} />
                             </button>
                           </div>
-                          <button className="mini-icon-btn" onClick={() => handleOpenEditPlace(place)} title="Edit Place" style={{ padding: '4px' }}>
+                          <button className="mini-icon-btn" onClick={() => handleOpenEditPlace(place)} data-tooltip="Edit Place" style={{ padding: '4px' }}>
                             <Edit2 size={14} />
                           </button>
                           <button className="trip-delete-btn" onClick={() => handleRemovePlaceFromDay(index)}>
@@ -2879,7 +2992,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             </div>
 
             {/* Suggestions Search / Auto-Populate */}
-            <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
+            <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
               <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
               <div style={{ position: 'relative', marginTop: '6px' }}>
                 <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
@@ -2985,7 +3098,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             </div>
             
             {/* Suggestions Search / Auto-Populate */}
-            <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
+            <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
               <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
               <div style={{ position: 'relative', marginTop: '6px' }}>
                 <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
@@ -3512,205 +3625,106 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
       {/* Edit Location Modal */}
       {showEditLocationModal && catalogLocation && (
         <div className="modal-overlay" onClick={handleCloseEditLocation}>
-          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Edit Location</h3>
               <button className="modal-close" onClick={handleCloseEditLocation}>
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSaveEditLocation}>
-              <div className="modal-scroll-body">
-              {/* Auto-Populate suggestions search */}
-              <div className="form-group" style={{ marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
-                <div style={{ position: 'relative' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    placeholder="Search city to auto-fill fields..." 
-                    value={editLocSearchQuery}
-                    onChange={(e) => setEditLocSearchQuery(e.target.value)}
-                    style={{ paddingLeft: '32px' }}
-                  />
-                  {isSearchingEditLoc && (
-                    <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
-                  )}
-                </div>
-                
-                {editLocSuggestions.length > 0 && (
-                  <div style={{ 
-                    background: 'var(--bg-panel)', 
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    border: '1px solid var(--border-glass)', 
-                    borderRadius: '6px', 
-                    marginTop: '6px', 
-                    maxHeight: '150px', 
-                    overflowY: 'auto' 
-                  }}>
-                    {editLocSuggestions.map((sug) => (
-                      <div 
-                        key={sug.id} 
-                        onClick={() => {
-                          setEditLocCity(sug.city);
-                          setEditLocState(sug.state || '');
-                          setEditLocCountry(sug.country);
-                          setEditLocCountryCode(sug.countryCode || '');
-                          setEditLocLat(sug.lat.toString());
-                          setEditLocLng(sug.lng.toString());
-                          setEditLocHeroPhoto(sug.heroPhoto || '');
-                          setEditLocSearchQuery('');
-                          setEditLocSuggestions([]);
-                        }}
-                        style={{ 
-                          padding: '8px 12px', 
-                          cursor: 'pointer', 
-                          borderBottom: '1px solid rgba(255,255,255,0.03)', 
-                          fontSize: '12px' 
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {getLocIcon(sug as Location)} {sug.city}, {sug.country}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+
+            {/* Auto-Populate suggestions search */}
+            <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
+              <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
+              <div style={{ position: 'relative', marginTop: '6px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  placeholder="Search city to auto-fill fields..." 
+                  value={editLocSearchQuery}
+                  onChange={(e) => setEditLocSearchQuery(e.target.value)}
+                  style={{ paddingLeft: '32px' }}
+                />
+                {isSearchingEditLoc && (
+                  <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
                 )}
               </div>
-
-              {/* Editable Fields */}
-              <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label>City Name</label>
-                <input type="text" value={editLocCity} onChange={e => setEditLocCity(e.target.value)} required />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>State/Region (Optional)</label>
-                  <input type="text" value={editLocState} onChange={e => setEditLocState(e.target.value)} />
+              
+              {editLocSuggestions.length > 0 && (
+                <div style={{ 
+                  background: 'var(--bg-panel)', 
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid var(--border-glass)', 
+                  borderRadius: '6px', 
+                  marginTop: '6px', 
+                  maxHeight: '150px', 
+                  overflowY: 'auto' 
+                }}>
+                  {editLocSuggestions.map((sug) => (
+                    <div 
+                      key={sug.id} 
+                      onClick={() => {
+                        setEditLocCity(sug.city);
+                        setEditLocState(sug.state || '');
+                        setEditLocCountry(sug.country);
+                        setEditLocCountryCode(sug.countryCode || '');
+                        setEditLocLat(sug.lat.toString());
+                        setEditLocLng(sug.lng.toString());
+                        setEditLocHeroPhoto(sug.heroPhoto || '');
+                        setEditLocSearchQuery('');
+                        setEditLocSuggestions([]);
+                      }}
+                      style={{ 
+                        padding: '8px 12px', 
+                        cursor: 'pointer', 
+                        borderBottom: '1px solid rgba(255,255,255,0.03)', 
+                        fontSize: '12px' 
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {getLocIcon(sug as Location)} {sug.city}, {sug.country}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="form-group">
-                  <label>Country</label>
-                  <input type="text" value={editLocCountry} onChange={e => setEditLocCountry(e.target.value)} required />
-                </div>
-              </div>
+              )}
+            </div>
 
-              <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label>Country Code (Optional)</label>
-                <input type="text" value={editLocCountryCode} onChange={e => setEditLocCountryCode(e.target.value)} placeholder="e.g. US" style={{ maxWidth: '120px' }} />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label>Theme Color</label>
-                <ColorPalette value={editLocColor} onChange={setEditLocColor} />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Latitude</label>
-                  <input type="text" value={editLocLat} onChange={e => setEditLocLat(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label>Longitude</label>
-                  <input type="text" value={editLocLng} onChange={e => setEditLocLng(e.target.value)} required />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>Hero Image Photo URL</label>
-                <input type="text" value={editLocHeroPhoto} onChange={e => setEditLocHeroPhoto(e.target.value)} placeholder="Unsplash URL..." />
-                <ImagePreview url={editLocHeroPhoto} alt="Hero image preview" />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>📍 Click on the map to set coordinates</label>
-                <MapPicker
-                  lat={parseFloat(editLocLat)}
-                  lng={parseFloat(editLocLng)}
-                  onPick={(lat, lng) => {
-                    setEditLocLat(lat.toFixed(6));
-                    setEditLocLng(lng.toFixed(6));
-                  }}
+            <form onSubmit={handleSaveEditLocation}>
+              <div className="modal-scroll-body">
+                <LocationFormFields
+                  city={editLocCity}
+                  setCity={setEditLocCity}
+                  stateVal={editLocState}
+                  setStateVal={setEditLocState}
+                  country={editLocCountry}
+                  setCountry={setEditLocCountry}
+                  countryCode={editLocCountryCode}
+                  setCountryCode={setEditLocCountryCode}
+                  color={editLocColor}
+                  setColor={setEditLocColor}
+                  lat={editLocLat}
+                  setLat={setEditLocLat}
+                  lng={editLocLng}
+                  setLng={setEditLocLng}
+                  heroPhoto={editLocHeroPhoto}
+                  setHeroPhoto={setEditLocHeroPhoto}
+                  locations={trip.locations}
+                  currentLocationId={catalogLocation.id}
+                  draggedLocationIndex={draggedLocationIndex}
+                  setDraggedLocationIndex={setDraggedLocationIndex}
+                  dragOverLocationIndex={dragOverLocationIndex}
+                  setDragOverLocationIndex={setDragOverLocationIndex}
+                  handleDragStart={handleDragStart}
+                  handleDragOver={handleDragOver}
+                  handleDrop={handleDrop}
+                  getLocIcon={getLocIcon}
+                  getFormattedLocationName={getFormattedLocationName}
                 />
               </div>
-
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>Drag & Drop to Reorder Locations</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'var(--bg-dark)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-                  {trip.locations.map((loc, idx) => {
-                    const isCurrent = loc.id === catalogLocation.id;
-                    const isDragging = idx === draggedLocationIndex;
-                    const isDragOver = idx === dragOverLocationIndex && draggedLocationIndex !== idx;
-                    return (
-                      <div key={loc.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                        {isDragOver && (
-                          <div style={{
-                            position: 'absolute',
-                            top: '-5px',
-                            left: 0,
-                            right: 0,
-                            height: '4px',
-                            background: 'var(--accent-primary)',
-                            borderRadius: '2px',
-                            boxShadow: '0 0 8px var(--accent-primary)',
-                            zIndex: 10,
-                            pointerEvents: 'none'
-                          }} />
-                        )}
-                        <div
-                          draggable
-                          onDragStart={() => handleDragStart(idx)}
-                          onDragEnter={() => setDragOverLocationIndex(idx)}
-                          onDragLeave={() => setDragOverLocationIndex(null)}
-                          onDragEnd={() => {
-                            setDraggedLocationIndex(null);
-                            setDragOverLocationIndex(null);
-                          }}
-                          onDragOver={handleDragOver}
-                          onDrop={() => {
-                            handleDrop(idx);
-                            setDragOverLocationIndex(null);
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '8px 12px',
-                            background: isCurrent ? 'var(--accent-primary-glow)' : 'rgba(255,255,255,0.03)',
-                            border: isCurrent ? '1px solid var(--accent-primary)' : '1px solid var(--border-glass)',
-                            borderRadius: '6px',
-                            cursor: 'grab',
-                            opacity: isDragging ? 0.4 : 1,
-                            transition: 'all 0.15s ease',
-                            userSelect: 'none',
-                            textTransform: 'none'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
-                          onMouseLeave={(e) => e.currentTarget.style.borderColor = isCurrent ? 'var(--accent-primary)' : 'var(--border-glass)'}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                            <span style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center' }}>
-                              ☰
-                            </span>
-                            <span style={{ fontSize: '16px' }}>{getLocIcon(loc)}</span>
-                            <span style={{ fontSize: '13px', fontWeight: isCurrent ? 600 : 400, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              {getFormattedLocationName(loc)}
-                            </span>
-                            {isCurrent && (
-                              <span style={{ fontSize: '10px', background: 'var(--accent-primary)', color: '#fff', padding: '2px 6px', borderRadius: '4px', marginLeft: 'auto', fontWeight: 600 }}>
-                                Active
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
 
               <div className="modal-actions sticky" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button 

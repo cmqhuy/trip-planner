@@ -79,6 +79,7 @@ export default function CategoryGroupSelect({ value, onChange, placeGroups }: Ca
             zIndex: 999,
             background: 'var(--bg-panel)',
             backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid var(--border-glass)',
             borderRadius: '8px',
             maxHeight: '200px',

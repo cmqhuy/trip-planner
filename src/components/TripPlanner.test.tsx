@@ -228,7 +228,7 @@ describe('TripPlanner Component', () => {
     const handleUpdateTrip = vi.fn();
     const handleBack = vi.fn();
 
-    render(
+    const { container } = render(
       <TripPlanner
         trip={mockTrip}
         onBack={handleBack}
@@ -237,8 +237,9 @@ describe('TripPlanner Component', () => {
     );
 
     // Click "+ Place" or "Add Custom Place" icon button
-    const addCustomPlaceBtn = screen.getByTitle('Add Custom Place');
-    fireEvent.click(addCustomPlaceBtn);
+    const addCustomPlaceBtn = container.querySelector('[data-tooltip="Add New Place"]');
+    expect(addCustomPlaceBtn).not.toBeNull();
+    fireEvent.click(addCustomPlaceBtn!);
 
     const customPlaceModal = screen.getByRole('heading', { name: 'Add Place', level: 3 }).closest('.modal-content');
     expect(customPlaceModal).toBeInTheDocument();
@@ -271,7 +272,7 @@ describe('TripPlanner Component', () => {
     const handleUpdateTrip = vi.fn();
     const handleBack = vi.fn();
 
-    render(
+    const { container } = render(
       <TripPlanner
         trip={mockTrip}
         onBack={handleBack}
@@ -280,7 +281,7 @@ describe('TripPlanner Component', () => {
     );
 
     // Find and click the edit button for "Eiffel Tower" inside the day schedule
-    const editPlaceBtns = screen.getAllByTitle('Edit Place');
+    const editPlaceBtns = container.querySelectorAll('[data-tooltip="Edit Place"]');
     expect(editPlaceBtns.length).toBeGreaterThan(0);
     fireEvent.click(editPlaceBtns[0]); // first one is Eiffel Tower
 
@@ -324,13 +325,13 @@ describe('TripPlanner Component', () => {
       />
     );
 
-    const catalogPanel = screen.getByText('Categorized Lists').closest('.catalog-panel');
+    const catalogPanel = screen.getByText('Groups').closest('.catalog-panel');
     expect(catalogPanel).toBeInTheDocument();
 
     const eiffelCard = screen.getAllByText('Eiffel Tower').find(el => el.closest('.catalog-panel'))?.closest('.catalog-place-card');
     expect(eiffelCard).toBeDefined();
 
-    const downBtn = eiffelCard?.querySelector('button[title="Move Down"]');
+    const downBtn = eiffelCard?.querySelector('button[data-tooltip="Move Down"]');
     expect(downBtn).toBeDefined();
     expect(downBtn).not.toBeDisabled();
 
@@ -347,7 +348,7 @@ describe('TripPlanner Component', () => {
     const handleUpdateTrip = vi.fn();
     const handleBack = vi.fn();
 
-    render(
+    const { container } = render(
       <TripPlanner
         trip={mockTrip}
         onBack={handleBack}
@@ -355,8 +356,9 @@ describe('TripPlanner Component', () => {
       />
     );
 
-    const addTimelinePlaceBtn = screen.getByTitle('Add Custom Place');
-    fireEvent.click(addTimelinePlaceBtn);
+    const addTimelinePlaceBtn = container.querySelector('[data-tooltip="Add New Place"]');
+    expect(addTimelinePlaceBtn).not.toBeNull();
+    fireEvent.click(addTimelinePlaceBtn!);
 
     const customPlaceModal = screen.getByRole('heading', { name: 'Add Place', level: 3 }).closest('.modal-content');
     expect(customPlaceModal).toBeInTheDocument();

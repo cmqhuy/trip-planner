@@ -4,6 +4,7 @@ import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { DEFAULT_PLACE_GROUPS } from './utils/api';
 import { generateDatesRange } from './utils/dateUtils';
+import { X } from 'lucide-react';
 import { 
   loadGsiScript, 
   initTokenClient, 
@@ -91,6 +92,7 @@ export default function App() {
     localTrip: Trip;
     cloudTrip: Trip;
   }[]>([]);
+  const [appNotification, setAppNotification] = useState<{ title: string; message: string } | null>(null);
   const fetchedCloudTripsRef = useRef<Trip[]>([]);
   const syncTimestampsRef = useRef<Record<string, number>>((() => {
     try {
@@ -377,7 +379,7 @@ export default function App() {
             setTrips(updatedLocalTrips);
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLocalTrips));
             setActiveTripId(null);
-            alert('This trip was deleted on another device.');
+            setAppNotification({ title: 'Trip Deleted', message: 'This trip was deleted on another device.' });
           }
           return;
         }
@@ -814,6 +816,32 @@ export default function App() {
             
             <div style={{ display: 'flex', justifyContent: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
               Conflict 1 of {pendingConflicts.length}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appNotification && (
+        <div className="modal-overlay" onClick={() => setAppNotification(null)}>
+          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{appNotification.title}</h3>
+              <button className="modal-close" onClick={() => setAppNotification(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none' }}>
+              {appNotification.message}
+            </div>
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                style={{ background: 'var(--accent-primary)', borderColor: 'var(--accent-primary)' }}
+                onClick={() => setAppNotification(null)}
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>

@@ -96,16 +96,21 @@ describe('TripDashboard Component', () => {
     const startInput = screen.getByLabelText('Start Date');
     const endInput = screen.getByLabelText('End Date');
 
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    
     fireEvent.change(nameInput, { target: { value: 'Japan 2026' } });
     fireEvent.change(startInput, { target: { value: '2026-05-15' } });
     fireEvent.change(endInput, { target: { value: '2026-05-10' } }); // end before start
     
     fireEvent.submit(screen.getByRole('button', { name: 'Create Trip' }));
     
-    expect(alertSpy).toHaveBeenCalledWith('Start date must be before or equal to end date.');
+    // Check that custom validation modal is rendered
+    expect(screen.getByRole('heading', { name: 'Invalid Dates', level: 3 })).toBeInTheDocument();
+    expect(screen.getByText('Start date must be before or equal to end date.')).toBeInTheDocument();
     expect(handleCreate).not.toHaveBeenCalled();
+
+    // Dismiss the modal
+    const okBtn = screen.getByRole('button', { name: 'OK' });
+    fireEvent.click(okBtn);
+    expect(screen.queryByRole('heading', { name: 'Invalid Dates', level: 3 })).not.toBeInTheDocument();
 
     // Fix dates and submit
     fireEvent.change(endInput, { target: { value: '2026-05-20' } });
@@ -118,7 +123,6 @@ describe('TripDashboard Component', () => {
     });
 
     expect(screen.queryByRole('heading', { name: 'Create Trip', level: 3 })).not.toBeInTheDocument();
-    alertSpy.mockRestore();
   });
 
   it('opens delete confirmation modal and calls onDeleteTrip on confirm', () => {

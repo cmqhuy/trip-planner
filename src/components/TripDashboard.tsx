@@ -15,14 +15,26 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    isAlert?: boolean;
+    confirmText?: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !startDate || !endDate) return;
 
     if (new Date(startDate) > new Date(endDate)) {
-      alert('Start date must be before or equal to end date.');
+      setConfirmModal({
+        title: 'Invalid Dates',
+        message: 'Start date must be before or equal to end date.',
+        isAlert: true,
+        confirmText: 'OK',
+        onConfirm: () => {}
+      });
       return;
     }
 
@@ -109,7 +121,7 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
                   <h3 className="flex-align" style={{ gap: '6px' }}>
                     {trip.name}
                     {isGoogleSignedIn && (
-                      <span title="Synced to Google Drive" style={{ display: 'inline-flex' }}>
+                      <span data-tooltip="Synced to Google Drive" style={{ display: 'inline-flex' }}>
                         <Cloud size={14} style={{ color: '#34d399' }} />
                       </span>
                     )}
@@ -221,7 +233,7 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
       )}
 
       {confirmModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
           <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{confirmModal.title}</h3>
@@ -233,19 +245,24 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
               {confirmModal.message}
             </div>
             <div className="modal-actions" style={{ marginTop: '20px' }}>
-              <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
-                Cancel
-              </button>
+              {!confirmModal.isAlert && (
+                <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
+                  Cancel
+                </button>
+              )}
               <button 
                 type="button" 
                 className="btn-primary" 
-                style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                style={{ 
+                  background: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)', 
+                  borderColor: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)' 
+                }}
                 onClick={() => {
                   confirmModal.onConfirm();
                   setConfirmModal(null);
                 }}
               >
-                Delete
+                {confirmModal.confirmText || (confirmModal.isAlert ? 'OK' : 'Delete')}
               </button>
             </div>
           </div>

@@ -5,9 +5,10 @@ interface ImagePreviewProps {
   url: string;
   alt?: string;
   height?: number;
+  width?: number;
 }
 
-export default function ImagePreview({ url, alt = 'Preview', height = 120 }: ImagePreviewProps) {
+export default function ImagePreview({ url, alt = 'Preview', height = 120, width }: ImagePreviewProps) {
   const [hasError, setHasError] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -22,6 +23,7 @@ export default function ImagePreview({ url, alt = 'Preview', height = 120 }: Ima
         border: '1px solid var(--border-glass)',
         background: 'rgba(0,0,0,0.2)',
         height: `${height}px`,
+        width: width ? `${width}px` : '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
