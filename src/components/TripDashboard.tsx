@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Trip } from '../types';
-import { Calendar, Layers, Map, Trash2, Plus, X, Cloud } from 'lucide-react';
+import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2 } from 'lucide-react';
+import { shiftTripDates } from '../utils/dateUtils';
 
 interface TripDashboardProps {
   trips: Trip[];
@@ -8,9 +9,21 @@ interface TripDashboardProps {
   onDeleteTrip: (id: string) => void;
   onSelectTrip: (id: string) => void;
   isGoogleSignedIn?: boolean;
+  onShareTrip?: (trip: Trip) => void;
+  onLeaveTrip?: (trip: Trip) => void;
+  onUpdateTrip?: (trip: Trip) => void;
 }
 
-export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSelectTrip, isGoogleSignedIn }: TripDashboardProps) {
+export default function TripDashboard({ 
+  trips, 
+  onCreateTrip, 
+  onDeleteTrip, 
+  onSelectTrip, 
+  isGoogleSignedIn,
+  onShareTrip,
+  onLeaveTrip,
+  onUpdateTrip
+}: TripDashboardProps) {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -22,6 +35,23 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
     confirmText?: string;
     onConfirm: () => void;
   } | null>(null);
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+
+  const handleOpenCreateModal = () => {
+    setEditingTrip(null);
+    setName('');
+    setStartDate('');
+    setEndDate('');
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setEditingTrip(null);
+    setName('');
+    setStartDate('');
+    setEndDate('');
+    setShowModal(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +68,15 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
       return;
     }
 
-    onCreateTrip({ name, startDate, endDate });
+    if (editingTrip) {
+      const updatedTrip = shiftTripDates(editingTrip, startDate, endDate);
+      updatedTrip.name = name;
+      onUpdateTrip && onUpdateTrip(updatedTrip);
+    } else {
+      onCreateTrip({ name, startDate, endDate });
+    }
+    
+    setEditingTrip(null);
     setName('');
     setStartDate('');
     setEndDate('');
@@ -78,7 +116,7 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
             Plan your itineraries, route options, and travel details in one place.
           </p>
         </div>
-        <button className="btn-primary flex-align" onClick={() => setShowModal(true)}>
+        <button className="btn-primary flex-align" onClick={handleOpenCreateModal}>
           <Plus size={18} /> New Trip
         </button>
       </div>
@@ -103,7 +141,7 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
               Get started by creating your first trip project.
             </p>
           </div>
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
+          <button className="btn-primary" onClick={handleOpenCreateModal}>
             Plan A Trip
           </button>
         </div>
@@ -118,35 +156,94 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
             >
               <div className="trip-card-top">
                 <div>
-                  <h3 className="flex-align" style={{ gap: '6px' }}>
+                  <h3 className="flex-align" style={{ gap: '6px', flexWrap: 'wrap' }}>
                     <span>{trip.name}</span>
-                    {isGoogleSignedIn && (
+                    {isGoogleSignedIn && trip.driveFileId && (
                       <span data-tooltip="Synced to Google Drive" style={{ display: 'inline-flex', marginLeft: '4px' }}>
                         <Cloud size={14} style={{ color: '#34d399' }} />
                       </span>
                     )}
+                    {trip.shared && (
+                      <span data-tooltip="Shared Trip" style={{ display: 'inline-flex', marginLeft: '4px' }}>
+                        <Users size={14} style={{ color: '#60a5fa' }} />
+                      </span>
+                    )}
+                    {trip.isOwner === false && (
+                      <span 
+                        style={{ 
+                          fontSize: '9px', 
+                          padding: '2px 6px', 
+                          borderRadius: '4px', 
+                          background: 'rgba(96, 165, 250, 0.15)', 
+                          color: '#60a5fa', 
+                          marginLeft: '6px',
+                          fontWeight: 600
+                        }}
+                      >
+                        {trip.canEdit === false ? 'Viewer' : 'Editor'}
+                      </span>
+                    )}
                   </h3>
-                  <div className="trip-card-dates">
+                  <div className="trip-card-dates" style={{ marginTop: '4px' }}>
                     <Calendar size={13} />
                     <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>
                   </div>
                 </div>
-                <button 
-                  className="trip-delete-btn" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmModal({
-                      title: 'Delete Trip',
-                      message: `Are you sure you want to delete "${trip.name}"? This action cannot be undone.`,
-                      onConfirm: () => onDeleteTrip(trip.id)
-                    });
-                  }}
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                  {trip.isOwner === false ? (
+                    <button 
+                      className="trip-delete-btn" 
+                      style={{ 
+                        color: '#ef4444',
+                        width: '28px',
+                        height: '28px',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px'
+                      }}
+                      onClick={() => {
+                        setConfirmModal({
+                          title: 'Leave Trip',
+                          message: `Are you sure you want to leave the shared trip "${trip.name}"? You will lose access to it.`,
+                          onConfirm: () => onLeaveTrip && onLeaveTrip(trip)
+                        });
+                      }}
+                      data-tooltip="Leave Trip"
+                    >
+                      <LogOut size={16} />
+                    </button>
+                  ) : (
+                    <button 
+                      className="trip-delete-btn" 
+                      style={{ 
+                        width: '28px',
+                        height: '28px',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px'
+                      }}
+                      onClick={() => {
+                        setConfirmModal({
+                          title: 'Delete Trip',
+                          message: trip.shared 
+                            ? `This trip is shared with other users. Deleting it will remove access for everyone. Are you sure you want to delete "${trip.name}"?`
+                            : `Are you sure you want to delete "${trip.name}"? This action cannot be undone.`,
+                          onConfirm: () => onDeleteTrip(trip.id)
+                        });
+                      }}
+                      data-tooltip="Delete Trip"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="trip-card-bottom">
+              <div className="trip-card-bottom" style={{ marginBottom: trip.isOwner !== false ? '12px' : '0' }}>
                 <div className="trip-card-stats">
                   <span className="flex-align">
                     <Layers size={12} /> {trip.plans.length} {trip.plans.length === 1 ? 'Plan' : 'Plans'}
@@ -167,6 +264,59 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
                   {calculateDays(trip.startDate, trip.endDate)}
                 </div>
               </div>
+
+              {trip.isOwner !== false && (
+                <div 
+                  className="trip-card-actions" 
+                  onClick={e => e.stopPropagation()} 
+                  style={{ 
+                    display: 'flex', 
+                    gap: '8px', 
+                    paddingTop: '12px', 
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)' 
+                  }}
+                >
+                  <button 
+                    className="btn-secondary flex-align"
+                    style={{ 
+                      flex: 1, 
+                      padding: '6px 12px', 
+                      fontSize: '12px', 
+                      height: '30px', 
+                      justifyContent: 'center', 
+                      gap: '6px',
+                      borderRadius: '6px'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTrip(trip);
+                      setName(trip.name);
+                      setStartDate(trip.startDate);
+                      setEndDate(trip.endDate);
+                      setShowModal(true);
+                    }}
+                  >
+                    <Edit2 size={13} /> Edit
+                  </button>
+                  {isGoogleSignedIn && trip.driveFileId && (
+                    <button 
+                      className="btn-secondary flex-align"
+                      style={{ 
+                        flex: 1, 
+                        padding: '6px 12px', 
+                        fontSize: '12px', 
+                        height: '30px', 
+                        justifyContent: 'center', 
+                        gap: '6px',
+                        borderRadius: '6px'
+                      }}
+                      onClick={() => onShareTrip && onShareTrip(trip)}
+                    >
+                      <Share2 size={13} /> Share
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -176,8 +326,8 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
         <div className="modal-overlay">
           <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Create Trip</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
+              <h3>{editingTrip ? 'Edit Trip' : 'Create Trip'}</h3>
+              <button className="modal-close" onClick={handleCloseModal}>
                 <X size={20} />
               </button>
             </div>
@@ -220,11 +370,11 @@ export default function TripDashboard({ trips, onCreateTrip, onDeleteTrip, onSel
               </div>
 
               <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                <button type="button" className="btn-secondary" onClick={handleCloseModal}>
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary">
-                  Create Trip
+                  {editingTrip ? 'Save Changes' : 'Create Trip'}
                 </button>
               </div>
             </form>

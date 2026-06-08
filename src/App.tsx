@@ -15,9 +15,11 @@ import {
   saveTripsToDrive, 
   fetchSingleTripFromDrive,
   checkIfTripDeletedOnDrive,
+  leaveSharedTripFile,
   DEFAULT_CLIENT_ID 
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
+import ShareTripModal from './components/ShareTripModal';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -85,6 +87,9 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     return params.get('trip');
   });
+
+  // Share trip modal state
+  const [shareModalTrip, setShareModalTrip] = useState<Trip | null>(null);
 
   // Conflict resolution states
   const [pendingConflicts, setPendingConflicts] = useState<{
@@ -363,8 +368,24 @@ export default function App() {
 
         // Save merged result to Google Drive
         const currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        const deletedIds = await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
-        cleanUpDeletedTrips(deletedIds);
+        const { deletedTripIds, driveFileIds } = await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+        cleanUpDeletedTrips(deletedTripIds);
+
+        // Update local trips with their returned driveFileIds
+        let hasUpdates = false;
+        const mappedTrips = currentTrips.map((trip: Trip) => {
+          const fileId = driveFileIds[trip.id];
+          if (fileId && trip.driveFileId !== fileId) {
+            hasUpdates = true;
+            return { ...trip, driveFileId: fileId };
+          }
+          return trip;
+        });
+
+        if (hasUpdates) {
+          setTrips(mappedTrips);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mappedTrips));
+        }
         
         // Mark all saved trips as synced
         const latestLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
@@ -502,10 +523,27 @@ export default function App() {
 
       syncTimeoutRef.current = setTimeout(async () => {
         try {
-          const deletedIds = await saveTripsToDrive(googleToken, googleFolderId, updatedTrips);
-          cleanUpDeletedTrips(deletedIds);
+          const { deletedTripIds, driveFileIds } = await saveTripsToDrive(googleToken, googleFolderId, updatedTrips);
+          cleanUpDeletedTrips(deletedTripIds);
+          
+          // Update local trips with their returned driveFileIds
+          let hasUpdates = false;
+          const mappedTrips = updatedTrips.map(trip => {
+            const fileId = driveFileIds[trip.id];
+            if (fileId && trip.driveFileId !== fileId) {
+              hasUpdates = true;
+              return { ...trip, driveFileId: fileId };
+            }
+            return trip;
+          });
+
+          if (hasUpdates) {
+            setTrips(mappedTrips);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mappedTrips));
+          }
+
           // Mark all saved trips as synced
-          updatedTrips.forEach(trip => {
+          mappedTrips.forEach(trip => {
             syncTimestampsRef.current[trip.id] = trip.updatedAt || 0;
           });
           localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
@@ -529,6 +567,11 @@ export default function App() {
   };
 
   const handleSignOut = () => {
+    // Filter out shared trips (isOwner === false) on sign out
+    const filteredTrips = trips.filter(t => t.isOwner !== false);
+    setTrips(filteredTrips);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filteredTrips));
+
     setGoogleUser(null);
     setGoogleToken(null);
     setGoogleFolderId(null);
@@ -588,8 +631,24 @@ export default function App() {
         setTrips(finalTrips);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalTrips));
 
-        const deletedIds = await saveTripsToDrive(googleToken!, googleFolderId!, finalTrips);
-        cleanUpDeletedTrips(deletedIds);
+        const { deletedTripIds, driveFileIds } = await saveTripsToDrive(googleToken!, googleFolderId!, finalTrips);
+        cleanUpDeletedTrips(deletedTripIds);
+
+        // Update local trips with their returned driveFileIds
+        let hasUpdates = false;
+        const mappedTrips = finalTrips.map(trip => {
+          const fileId = driveFileIds[trip.id];
+          if (fileId && trip.driveFileId !== fileId) {
+            hasUpdates = true;
+            return { ...trip, driveFileId: fileId };
+          }
+          return trip;
+        });
+
+        if (hasUpdates) {
+          setTrips(mappedTrips);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mappedTrips));
+        }
         
         // Mark all final trips as synced
         const latestLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
@@ -641,8 +700,24 @@ export default function App() {
       }
 
       currentTrips = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-      const deletedIds = await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
-      cleanUpDeletedTrips(deletedIds);
+      const { deletedTripIds, driveFileIds } = await saveTripsToDrive(googleToken, googleFolderId, currentTrips);
+      cleanUpDeletedTrips(deletedTripIds);
+
+      // Update local trips with their returned driveFileIds
+      let hasUpdates = false;
+      const mappedTrips = currentTrips.map((trip: Trip) => {
+        const fileId = driveFileIds[trip.id];
+        if (fileId && trip.driveFileId !== fileId) {
+          hasUpdates = true;
+          return { ...trip, driveFileId: fileId };
+        }
+        return trip;
+      });
+
+      if (hasUpdates) {
+        setTrips(mappedTrips);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mappedTrips));
+      }
       
       // Mark all saved trips as synced
       const latestLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
@@ -711,6 +786,43 @@ export default function App() {
     saveTrips(updated);
   };
 
+  const handleLeaveTrip = async (trip: Trip) => {
+    if (!googleToken || !trip.driveFileId || !googleUser) return;
+    
+    setSyncStatus('syncing');
+    try {
+      await leaveSharedTripFile(googleToken, trip.driveFileId, googleUser.email);
+      
+      // Clean up local storage and state for this trip
+      const updated = trips.filter(t => t.id !== trip.id);
+      setTrips(updated);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+      
+      // Remove sync timestamp
+      if (syncTimestampsRef.current[trip.id] !== undefined) {
+        delete syncTimestampsRef.current[trip.id];
+        localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+      }
+
+      if (activeTripId === trip.id) {
+        setActiveTripId(null);
+      }
+      
+      setAppNotification({ 
+        title: 'Left Shared Trip', 
+        message: `You successfully left the shared trip: "${trip.name}".` 
+      });
+      setSyncStatus('synced');
+    } catch (err: any) {
+      console.error('Failed to leave shared trip:', err);
+      setSyncStatus('error');
+      setAppNotification({
+        title: 'Error Leaving Trip',
+        message: err.message || 'An error occurred while trying to leave the shared trip. You may need to remove it from your Google Drive web UI.'
+      });
+    }
+  };
+
   const activeTrip = trips.find(t => t.id === activeTripId);
 
   return (
@@ -752,6 +864,7 @@ export default function App() {
             trip={activeTrip}
             onBack={() => setActiveTripId(null)}
             onUpdateTrip={handleUpdateTrip}
+            onShareTrip={setShareModalTrip}
           />
         ) : (
           <TripDashboard 
@@ -760,6 +873,9 @@ export default function App() {
             onDeleteTrip={handleDeleteTrip}
             onSelectTrip={setActiveTripId}
             isGoogleSignedIn={googleUser !== null}
+            onShareTrip={setShareModalTrip}
+            onLeaveTrip={handleLeaveTrip}
+            onUpdateTrip={handleUpdateTrip}
           />
         )}
       </main>
@@ -920,6 +1036,14 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {shareModalTrip && googleToken && (
+        <ShareTripModal
+          trip={shareModalTrip}
+          accessToken={googleToken}
+          onClose={() => setShareModalTrip(null)}
+        />
       )}
 
     </div>

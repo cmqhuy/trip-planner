@@ -6,7 +6,7 @@ import {
   Search, Plane, Train, Bus, Car, Anchor, 
   Building, BookOpen, Clock, Check, Layers, X,
   Calendar, FileText, Landmark, Utensils, ShoppingBag,
-  Camera, Heart
+  Camera, Heart, Share2
 } from 'lucide-react';
 import { searchLocation, searchPlacesNearLocation, DEFAULT_PLACE_GROUPS } from '../utils/api';
 import { getDaysDiff, shiftDateString, shiftTripDates } from '../utils/dateUtils';
@@ -75,9 +75,11 @@ interface TripPlannerProps {
   trip: Trip;
   onBack: () => void;
   onUpdateTrip: (updatedTrip: Trip) => void;
+  onShareTrip?: (trip: Trip) => void;
+  isGoogleSignedIn?: boolean;
 }
 
-export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerProps) {
+export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, isGoogleSignedIn }: TripPlannerProps) {
   // Plan State
   const [activePlanId, setActivePlanId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -898,6 +900,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
   };
 
   const handleMapClick = (lat: number, lng: number) => {
+    if (trip.canEdit === false) return;
     if (showEditPlaceModal) {
       setEditPlaceLat(lat.toFixed(6));
       setEditPlaceLng(lng.toFixed(6));
@@ -2017,7 +2020,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc)}</option>
               ))}
             </select>
-            {catalogLocation && (
+            {catalogLocation && trip.canEdit !== false && (
               <button 
                 className="mini-icon-btn" 
                 onClick={() => openEditLocationModal(catalogLocation)}
@@ -2027,17 +2030,19 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 <Edit2 size={14} />
               </button>
             )}
-            <button 
-              className="btn-primary flex-align"
-              style={{ padding: '6px', fontSize: '11px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onClick={() => {
-                setAddLocationForDay(false);
-                setShowAddLocationModal(true);
-              }}
-              data-tooltip="Add Location"
-            >
-              <Plus size={14} />
-            </button>
+            {trip.canEdit !== false && (
+              <button 
+                className="btn-primary flex-align"
+                style={{ padding: '6px', fontSize: '11px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => {
+                  setAddLocationForDay(false);
+                  setShowAddLocationModal(true);
+                }}
+                data-tooltip="Add Location"
+              >
+                <Plus size={14} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -2056,15 +2061,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                   />
                   Hide Allocated
                 </label>
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => setShowGroupModal(true)} 
-                  data-tooltip="Add Custom Category"
-                  data-tooltip-position="bottom"
-                  style={{ color: 'var(--accent-secondary)', padding: '2px' }}
-                >
-                  <Plus size={14} />
-                </button>
+                {trip.canEdit !== false && (
+                  <button 
+                    className="mini-icon-btn" 
+                    onClick={() => setShowGroupModal(true)} 
+                    data-tooltip="Add Custom Category"
+                    data-tooltip-position="bottom"
+                    style={{ color: 'var(--accent-secondary)', padding: '2px' }}
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2114,25 +2121,27 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                       {group.name}
                     </span>
                     <div className="flex-align" style={{ gap: '4px' }}>
-                      <button 
-                        className="mini-icon-btn" 
-                        onClick={() => {
-                          setCustomPlaceTitle('');
-                          setCustomPlaceDesc('');
-                          setCustomPlaceHours('');
-                          setCustomPlaceLat('');
-                          setCustomPlaceLng('');
-                          setCustomPlaceGroupId(group.id);
-                          setCustomPlaceMapsLink('');
-                          setAutoScheduleOnActiveDay(false);
-                          setShowCustomPlaceModal(true);
-                        }} 
-                        data-tooltip={`Add Place to ${group.name}`} 
-                        style={{ padding: '2px' }}
-                      >
-                        <Plus size={10} />
-                      </button>
-                      {group.isReorderable && (
+                      {trip.canEdit !== false && (
+                        <button 
+                          className="mini-icon-btn" 
+                          onClick={() => {
+                            setCustomPlaceTitle('');
+                            setCustomPlaceDesc('');
+                            setCustomPlaceHours('');
+                            setCustomPlaceLat('');
+                            setCustomPlaceLng('');
+                            setCustomPlaceGroupId(group.id);
+                            setCustomPlaceMapsLink('');
+                            setAutoScheduleOnActiveDay(false);
+                            setShowCustomPlaceModal(true);
+                          }} 
+                          data-tooltip={`Add Place to ${group.name}`} 
+                          style={{ padding: '2px' }}
+                        >
+                          <Plus size={10} />
+                        </button>
+                      )}
+                      {group.isReorderable && trip.canEdit !== false && (
                         <>
                           <button 
                             className="mini-icon-btn" 
@@ -2183,7 +2192,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         )}
                         <div 
                           className="catalog-place-card"
-                          draggable
+                          draggable={trip.canEdit !== false}
                           onDragStart={() => handlePlaceDragStart(place.id)}
                           onDragEnd={() => {
                             setDraggedPlaceId(null);
@@ -2268,33 +2277,35 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                               </div>
                             )}
                           </div>
-                          <div 
-                            style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignSelf: 'center', flexShrink: 0 }} 
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <button 
-                              className="mini-icon-btn" 
-                              disabled={placeIndexInGroup === 0} 
-                              onClick={() => handleMoveCatalogPlace(place.id, 'up')}
-                              style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1, padding: '2px' }}
-                              data-tooltip="Move Up"
-                              draggable={false}
-                              onDragStart={e => e.stopPropagation()}
+                          {trip.canEdit !== false && (
+                            <div 
+                              style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignSelf: 'center', flexShrink: 0 }} 
+                              onClick={e => e.stopPropagation()}
                             >
-                              <ChevronUp size={12} />
-                            </button>
-                            <button 
-                              className="mini-icon-btn" 
-                              disabled={placeIndexInGroup === filteredPlaces.length - 1} 
-                              onClick={() => handleMoveCatalogPlace(place.id, 'down')}
-                              style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
-                              data-tooltip="Move Down"
-                              draggable={false}
-                              onDragStart={e => e.stopPropagation()}
-                            >
-                              <ChevronDown size={12} />
-                            </button>
-                          </div>
+                              <button 
+                                className="mini-icon-btn" 
+                                disabled={placeIndexInGroup === 0} 
+                                onClick={() => handleMoveCatalogPlace(place.id, 'up')}
+                                style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1, padding: '2px' }}
+                                data-tooltip="Move Up"
+                                draggable={false}
+                                onDragStart={e => e.stopPropagation()}
+                              >
+                                <ChevronUp size={12} />
+                              </button>
+                              <button 
+                                className="mini-icon-btn" 
+                                disabled={placeIndexInGroup === filteredPlaces.length - 1} 
+                                onClick={() => handleMoveCatalogPlace(place.id, 'down')}
+                                style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
+                                data-tooltip="Move Down"
+                                draggable={false}
+                                onDragStart={e => e.stopPropagation()}
+                              >
+                                <ChevronDown size={12} />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Expand Details if selected */}
@@ -2308,7 +2319,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                 <FileText size={11} /> Notes
                               </label>
                               
-                              {editingPlaceNotesId === place.id ? (
+                              {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
                                   <textarea 
                                     value={tempNotes}
@@ -2356,9 +2367,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                   }}>
                                     {place.notes || 'No notes added yet.'}
                                   </span>
-                                  <button className="mini-icon-btn" onClick={() => startEditingNotes(place)} style={{ padding: '2px' }}>
-                                    <Edit2 size={10} />
-                                  </button>
+                                  {trip.canEdit !== false && (
+                                    <button className="mini-icon-btn" onClick={() => startEditingNotes(place)} style={{ padding: '2px' }}>
+                                      <Edit2 size={10} />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -2374,26 +2387,30 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                               >
                                 Map <ExternalLink size={10} />
                               </a>
-                              <button 
-                                className="btn-secondary flex-align"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenEditPlace(place);
-                                }}
-                                style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', borderRadius: '8px', whiteSpace: 'nowrap' }}
-                                data-tooltip="Edit Place Details"
-                              >
-                                <Edit2 size={12} /> Edit
-                              </button>
-                              <button 
-                                className="btn-primary" 
-                                style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '8px', whiteSpace: 'nowrap' }}
-                                onClick={() => {
-                                  handleAddPlaceToDay(place);
-                                }}
-                              >
-                                + Add to Day
-                              </button>
+                              {trip.canEdit !== false && (
+                                <>
+                                  <button 
+                                    className="btn-secondary flex-align"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditPlace(place);
+                                    }}
+                                    style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                    data-tooltip="Edit Place Details"
+                                  >
+                                    <Edit2 size={12} /> Edit
+                                  </button>
+                                  <button 
+                                    className="btn-primary" 
+                                    style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                    onClick={() => {
+                                      handleAddPlaceToDay(place);
+                                    }}
+                                  >
+                                    + Add to Day
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         )}
@@ -2417,21 +2434,48 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
         <div className="itinerary-header">
           <div className="trip-meta-info">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '24px' }}>{trip.name}</h2>
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => {
-                    setEditTripName(trip.name);
-                    setEditTripStart(trip.startDate);
-                    setEditTripEnd(trip.endDate);
-                    setShowEditTripModal(true);
-                  }}
-                  data-tooltip="Edit Trip Details"
-                  style={{ padding: '4px', opacity: 0.6 }}
-                >
-                  <Edit2 size={14} />
-                </button>
+                {trip.isOwner !== false && (
+                  <button 
+                    className="mini-icon-btn" 
+                    onClick={() => {
+                      setEditTripName(trip.name);
+                      setEditTripStart(trip.startDate);
+                      setEditTripEnd(trip.endDate);
+                      setShowEditTripModal(true);
+                    }}
+                    data-tooltip="Edit Trip Details"
+                    style={{ padding: '4px', opacity: 0.6 }}
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                )}
+                {isGoogleSignedIn && trip.isOwner !== false && trip.driveFileId && (
+                  <button 
+                    className="mini-icon-btn" 
+                    onClick={() => onShareTrip && onShareTrip(trip)}
+                    data-tooltip="Share Itinerary"
+                    style={{ padding: '4px', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Share2 size={14} />
+                  </button>
+                )}
+                {trip.isOwner === false && (
+                  <span 
+                    style={{ 
+                      fontSize: '10px', 
+                      padding: '2px 8px', 
+                      borderRadius: '99px', 
+                      background: 'rgba(96, 165, 250, 0.15)', 
+                      color: '#60a5fa', 
+                      fontWeight: 600,
+                      textTransform: 'none'
+                    }}
+                  >
+                    {trip.canEdit === false ? 'Viewer Mode' : 'Editor Mode'}
+                  </span>
+                )}
               </div>
               <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px', display: 'flex', gap: '8px' }}>
                 <span className="flex-align" style={{ gap: '6px' }}>
@@ -2488,41 +2532,45 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => handleMovePlan('up')} 
-                  disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
-                  data-tooltip="Move Plan Up"
-                  style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === 0 ? 0.3 : 1 }}
-                >
-                  <ChevronUp size={16} />
-                </button>
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => handleMovePlan('down')} 
-                  disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
-                  data-tooltip="Move Plan Down"
-                  style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1 ? 0.3 : 1 }}
-                >
-                  <ChevronDown size={16} />
-                </button>
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => {
-                    setIsRenamingPlan(true);
-                    setEditPlanName(activePlan.name);
-                  }} 
-                  data-tooltip="Rename Plan"
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button className="mini-icon-btn" onClick={() => setShowNewPlanModal(true)} data-tooltip="Add Plan">
-                  <Plus size={16} />
-                </button>
-                {trip.plans.length > 1 && (
-                  <button className="mini-icon-btn" onClick={() => handleDeletePlan(activePlan.id)} data-tooltip="Delete Plan" style={{ color: 'var(--color-danger)' }}>
-                    <Trash2 size={15} />
-                  </button>
+                {trip.canEdit !== false && (
+                  <>
+                    <button 
+                      className="mini-icon-btn" 
+                      onClick={() => handleMovePlan('up')} 
+                      disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
+                      data-tooltip="Move Plan Up"
+                      style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === 0 ? 0.3 : 1 }}
+                    >
+                      <ChevronUp size={16} />
+                    </button>
+                    <button 
+                      className="mini-icon-btn" 
+                      onClick={() => handleMovePlan('down')} 
+                      disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
+                      data-tooltip="Move Plan Down"
+                      style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1 ? 0.3 : 1 }}
+                    >
+                      <ChevronDown size={16} />
+                    </button>
+                    <button 
+                      className="mini-icon-btn" 
+                      onClick={() => {
+                        setIsRenamingPlan(true);
+                        setEditPlanName(activePlan.name);
+                      }} 
+                      data-tooltip="Rename Plan"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button className="mini-icon-btn" onClick={() => setShowNewPlanModal(true)} data-tooltip="Add Plan">
+                      <Plus size={16} />
+                    </button>
+                    {trip.plans.length > 1 && (
+                      <button className="mini-icon-btn" onClick={() => handleDeletePlan(activePlan.id)} data-tooltip="Delete Plan" style={{ color: 'var(--color-danger)' }}>
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -2608,44 +2656,48 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                 </div>
               </div>
 
-              <div className="flex-align" style={{ gap: '8px' }}>
-                <select
-                  value={activeDay?.locationId || ''}
-                  onChange={(e) => handleSetDayLocation(e.target.value)}
-                  style={{ 
-                    padding: '8px 12px', 
-                    fontSize: '13px', 
-                    background: 'rgba(15,23,42,0.8)', 
-                    width: 'auto', 
-                    border: '1px solid var(--border-glass)', 
-                    borderRadius: '8px' 
-                  }}
-                >
-                  <option value="">Select Location...</option>
-                  {trip.locations.map(l => (
-                    <option key={l.id} value={l.id}>{getLocIcon(l)} {getFormattedLocationName(l)}</option>
-                  ))}
-                </select>
-                <button 
-                  className="btn-primary flex-align"
-                  style={{ padding: '8px 12px', fontSize: '13px', gap: '4px', height: '38px', borderRadius: '8px' }}
-                  onClick={() => {
-                    setAddLocationForDay(true);
-                    setShowAddLocationModal(true);
-                  }}
-                >
-                  <Plus size={14} /> Location
-                </button>
-              </div>
+              {trip.canEdit !== false && (
+                <div className="flex-align" style={{ gap: '8px' }}>
+                  <select
+                    value={activeDay?.locationId || ''}
+                    onChange={(e) => handleSetDayLocation(e.target.value)}
+                    style={{ 
+                      padding: '8px 12px', 
+                      fontSize: '13px', 
+                      background: 'rgba(15,23,42,0.8)', 
+                      width: 'auto', 
+                      border: '1px solid var(--border-glass)', 
+                      borderRadius: '8px' 
+                    }}
+                  >
+                    <option value="">Select Location...</option>
+                    {trip.locations.map(l => (
+                      <option key={l.id} value={l.id}>{getLocIcon(l)} {getFormattedLocationName(l)}</option>
+                    ))}
+                  </select>
+                  <button 
+                    className="btn-primary flex-align"
+                    style={{ padding: '8px 12px', fontSize: '13px', gap: '4px', height: '38px', borderRadius: '8px' }}
+                    onClick={() => {
+                      setAddLocationForDay(true);
+                      setShowAddLocationModal(true);
+                    }}
+                  >
+                    <Plus size={14} /> Location
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 2. Hotel reservations overlapping this day */}
             <div>
               <div className="timeline-section-title flex-between">
                 <span className="flex-align"><Building size={16} /> Hotel Stays</span>
-                <button className="mini-icon-btn" onClick={() => setShowHotelModal(true)} style={{ color: 'var(--color-success)' }}>
-                  <Plus size={14} /> Add Hotel
-                </button>
+                {trip.canEdit !== false && (
+                  <button className="mini-icon-btn" onClick={() => setShowHotelModal(true)} style={{ color: 'var(--color-success)' }}>
+                    <Plus size={14} /> Add Hotel
+                  </button>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -2663,9 +2715,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         </p>
                       </div>
                     </div>
-                    <button className="trip-delete-btn" onClick={() => handleDeleteHotel(h.id)}>
-                      <Trash2 size={14} />
-                    </button>
+                    {trip.canEdit !== false && (
+                      <button className="trip-delete-btn" onClick={() => handleDeleteHotel(h.id)}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
 
@@ -2679,9 +2733,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             <div>
               <div className="timeline-section-title flex-between">
                 <span className="flex-align"><Plane size={16} /> Transit Schedule</span>
-                <button className="mini-icon-btn" onClick={() => setShowTransportModal(true)} style={{ color: 'var(--color-warning)' }}>
-                  <Plus size={14} /> Add Transit
-                </button>
+                {trip.canEdit !== false && (
+                  <button className="mini-icon-btn" onClick={() => setShowTransportModal(true)} style={{ color: 'var(--color-warning)' }}>
+                    <Plus size={14} /> Add Transit
+                  </button>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -2719,9 +2775,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                           </div>
                         </div>
                       </div>
-                      <button className="trip-delete-btn" onClick={() => handleDeleteTransportation(t.id)}>
-                        <Trash2 size={14} />
-                      </button>
+                      {trip.canEdit !== false && (
+                        <button className="trip-delete-btn" onClick={() => handleDeleteTransportation(t.id)}>
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -2736,50 +2794,52 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
             <div>
               <div className="timeline-section-title flex-between">
                 <span className="flex-align"><Navigation size={16} /> Day Schedule</span>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
-                    className="mini-icon-btn flex-align" 
-                    onClick={() => {
-                      const firstOtherDay = daysList.find(d => d !== activeDayStr) || '';
-                      setMoveDayTargetDate(firstOtherDay);
-                      setShowMoveDayModal(true);
-                    }} 
-                    data-tooltip="Move Places To Another Day"
-                    style={{ gap: '4px' }}
-                  >
-                    <ArrowRight size={14} /> Move Day
-                  </button>
-                  <button 
-                    className="mini-icon-btn" 
-                    onClick={handleClearDay} 
-                    data-tooltip="Clear All Places"
-                    style={{ gap: '4px', color: 'var(--color-danger)' }}
-                  >
-                    <Trash2 size={14} /> Clear Day
-                  </button>
-                  <button 
-                    className="mini-icon-btn flex-align" 
-                    onClick={() => {
-                      setCustomPlaceTitle('');
-                      setCustomPlaceDesc('');
-                      setCustomPlaceHours('');
-                      setCustomPlaceLat('');
-                      setCustomPlaceLng('');
-                      setCustomPlaceGroupId('new');
-                      setCustomPlaceMapsLink('');
-                      setAutoScheduleOnActiveDay(true);
-                      setShowCustomPlaceModal(true);
-                    }} 
-                    data-tooltip="Add New Place"
-                    style={{ gap: '4px' }}
-                  >
-                    <Plus size={14} /> Add Place
-                  </button>
-                </div>
+                {trip.canEdit !== false && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="mini-icon-btn flex-align" 
+                      onClick={() => {
+                        const firstOtherDay = daysList.find(d => d !== activeDayStr) || '';
+                        setMoveDayTargetDate(firstOtherDay);
+                        setShowMoveDayModal(true);
+                      }} 
+                      data-tooltip="Move Places To Another Day"
+                      style={{ gap: '4px' }}
+                    >
+                      <ArrowRight size={14} /> Move Day
+                    </button>
+                    <button 
+                      className="mini-icon-btn" 
+                      onClick={handleClearDay} 
+                      data-tooltip="Clear All Places"
+                      style={{ gap: '4px', color: 'var(--color-danger)' }}
+                    >
+                      <Trash2 size={14} /> Clear Day
+                    </button>
+                    <button 
+                      className="mini-icon-btn flex-align" 
+                      onClick={() => {
+                        setCustomPlaceTitle('');
+                        setCustomPlaceDesc('');
+                        setCustomPlaceHours('');
+                        setCustomPlaceLat('');
+                        setCustomPlaceLng('');
+                        setCustomPlaceGroupId('new');
+                        setCustomPlaceMapsLink('');
+                        setAutoScheduleOnActiveDay(true);
+                        setShowCustomPlaceModal(true);
+                      }} 
+                      data-tooltip="Add New Place"
+                      style={{ gap: '4px' }}
+                    >
+                      <Plus size={14} /> Add Place
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Smart Place search suggestions input */}
-              {activeDayLocation ? (
+              {activeDayLocation && trip.canEdit !== false ? (
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
                   <div style={{ position: 'relative' }}>
                     <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
@@ -2857,8 +2917,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                       }} />
                     )}
                     <div 
-                      className="timeline-item"
-                      draggable
+                      className="timeline-card glass-panel" 
+                      draggable={trip.canEdit !== false}
                       onDragStart={() => handleDayPlaceDragStart(index)}
                       onDragEnd={() => {
                         setDraggedDayPlaceIndex(null);
@@ -2887,6 +2947,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         }
                         setDragOverDayPlaceIndex(null);
                       }}
+                      onClick={() => setActivePlaceId(place.id)}
                     >
                       <div 
                         className="timeline-dot" 
@@ -2900,117 +2961,117 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                         })()}
                       </div>
                       
-                      <div className="timeline-card glass-panel" onClick={() => setActivePlaceId(place.id)} style={{ cursor: 'grab' }}>
-                        <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: 'grab' }}>
+                        <div 
+                          style={{ 
+                            width: '24px', 
+                            height: '24px', 
+                            borderRadius: '50%', 
+                            background: 'rgba(255,255,255,0.08)',
+                            color: 'var(--text-primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            flexShrink: 0
+                          }}
+                        >
+                          {index + 1}
+                        </div>
+
+                        {/* Place Thumbnail Image */}
+                        {place.photoUrl ? (
+                          <img 
+                            src={place.photoUrl} 
+                            alt="" 
+                            style={{ 
+                              width: '36px', 
+                              height: '36px', 
+                              borderRadius: '6px', 
+                              objectFit: 'cover', 
+                              flexShrink: 0 
+                            }} 
+                          />
+                        ) : (
                           <div 
                             style={{ 
-                              width: '24px', 
-                              height: '24px', 
-                              borderRadius: '50%', 
-                              background: 'rgba(255,255,255,0.08)',
-                              color: 'var(--text-primary)',
-                              display: 'flex',
-                              alignItems: 'center',
+                              width: '36px', 
+                              height: '36px', 
+                              borderRadius: '6px', 
+                              background: 'rgba(255,255,255,0.05)', 
+                              display: 'flex', 
+                              alignItems: 'center', 
                               justifyContent: 'center',
-                              fontSize: '11px',
-                              fontWeight: 700,
                               flexShrink: 0
                             }}
                           >
-                            {index + 1}
+                            <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
                           </div>
+                        )}
 
-                          {/* Place Thumbnail Image */}
-                          {place.photoUrl ? (
-                            <img 
-                              src={place.photoUrl} 
-                              alt="" 
-                              style={{ 
-                                width: '36px', 
-                                height: '36px', 
-                                borderRadius: '6px', 
-                                objectFit: 'cover', 
-                                flexShrink: 0 
-                              }} 
-                            />
-                          ) : (
-                            <div 
-                              style={{ 
-                                width: '36px', 
-                                height: '36px', 
-                                borderRadius: '6px', 
-                                background: 'rgba(255,255,255,0.05)', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}
-                            >
-                              <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
-                            </div>
-                          )}
-
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {place.title}
-                            </h4>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                              {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
-                            </p>
-                            {editingPlaceNotesId === place.id ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                                <textarea 
-                                  value={tempNotes}
-                                  onChange={(e) => setTempNotes(e.target.value)}
-                                  placeholder="Add notes..."
-                                  rows={2}
-                                  style={{ 
-                                    padding: '6px', 
-                                    fontSize: '13px', 
-                                    width: '100%', 
-                                    background: 'var(--bg-dark)', 
-                                    border: '1px solid var(--border-glass)', 
-                                    color: 'var(--text-primary)',
-                                    borderRadius: '4px',
-                                    resize: 'vertical',
-                                    textTransform: 'none'
-                                  }}
-                                />
-                                <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
-                                  <button 
-                                    className="btn-secondary" 
-                                    onClick={() => setEditingPlaceNotesId(null)} 
-                                    style={{ padding: '2px 6px', fontSize: '10px' }}
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button 
-                                    className="btn-primary flex-align" 
-                                    onClick={() => savePlaceNotes(place.id)} 
-                                    style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}
-                                  >
-                                    <Check size={10} /> Save
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                <div style={{ 
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {place.title}
+                          </h4>
+                          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                            {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
+                          </p>
+                          {editingPlaceNotesId === place.id ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                              <textarea 
+                                value={tempNotes}
+                                onChange={(e) => setTempNotes(e.target.value)}
+                                placeholder="Add notes..."
+                                rows={2}
+                                style={{ 
+                                  padding: '6px', 
                                   fontSize: '13px', 
-                                  color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', 
-                                  fontStyle: 'italic', 
-                                  whiteSpace: 'pre-wrap',
-                                  lineHeight: 1.3,
-                                  margin: 0,
-                                  flex: 1,
-                                  textTransform: 'none',
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: '6px'
-                                }}>
-                                  <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                                  <span>{place.notes || 'Add notes...'}</span>
-                                </div>
+                                  width: '100%', 
+                                  background: 'var(--bg-dark)', 
+                                  border: '1px solid var(--border-glass)', 
+                                  color: 'var(--text-primary)',
+                                  borderRadius: '4px',
+                                  resize: 'vertical',
+                                  textTransform: 'none'
+                                }}
+                              />
+                              <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
+                                <button 
+                                  className="btn-secondary" 
+                                  onClick={() => setEditingPlaceNotesId(null)} 
+                                  style={{ padding: '2px 6px', fontSize: '10px' }}
+                                >
+                                  Cancel
+                                </button>
+                                <button 
+                                  className="btn-primary flex-align" 
+                                  onClick={() => savePlaceNotes(place.id)} 
+                                  style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}
+                                >
+                                  <Check size={10} /> Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                              <div style={{ 
+                                fontSize: '13px', 
+                                color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', 
+                                fontStyle: 'italic', 
+                                whiteSpace: 'pre-wrap',
+                                lineHeight: 1.3,
+                                margin: 0,
+                                flex: 1,
+                                textTransform: 'none',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '6px'
+                              }}>
+                                <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                                <span>{place.notes || 'Add notes...'}</span>
+                              </div>
+                              {trip.canEdit !== false && (
                                 <button 
                                   className="mini-icon-btn" 
                                   onClick={() => startEditingNotes(place)} 
@@ -3019,42 +3080,44 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip }: TripPlannerP
                                 >
                                   <Edit2 size={10} />
                                 </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex-align" style={{ flexShrink: 0, gap: '4px' }} onClick={e => e.stopPropagation()}>
-                          {/* Custom order re-arranging */}
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <button 
-                              className="mini-icon-btn" 
-                              disabled={index === 0} 
-                              onClick={() => handleMovePlaceOrder(index, 'up')}
-                              style={{ opacity: index === 0 ? 0.3 : 1, padding: '2px' }}
-                            >
-                              <ChevronUp size={14} />
-                            </button>
-                            <button 
-                              className="mini-icon-btn" 
-                              disabled={index === scheduledPlaces.length - 1} 
-                              onClick={() => handleMovePlaceOrder(index, 'down')}
-                              style={{ opacity: index === scheduledPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
-                            >
-                              <ChevronDown size={14} />
-                            </button>
-                          </div>
-                          <button className="mini-icon-btn" onClick={() => handleOpenEditPlace(place)} data-tooltip="Edit Place" style={{ padding: '4px' }}>
-                            <Edit2 size={14} />
-                          </button>
-                          <button className="trip-delete-btn" onClick={() => handleRemovePlaceFromDay(index)}>
-                            <Trash2 size={14} />
-                          </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                        {trip.canEdit !== false && (
+                          <div className="flex-align" style={{ flexShrink: 0, gap: '4px' }} onClick={e => e.stopPropagation()}>
+                            {/* Custom order re-arranging */}
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <button 
+                                className="mini-icon-btn" 
+                                disabled={index === 0} 
+                                onClick={() => handleMovePlaceOrder(index, 'up')}
+                                style={{ opacity: index === 0 ? 0.3 : 1, padding: '2px' }}
+                              >
+                                <ChevronUp size={14} />
+                              </button>
+                              <button 
+                                className="mini-icon-btn" 
+                                disabled={index === scheduledPlaces.length - 1} 
+                                onClick={() => handleMovePlaceOrder(index, 'down')}
+                                style={{ opacity: index === scheduledPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                            </div>
+                            <button className="mini-icon-btn" onClick={() => handleOpenEditPlace(place)} data-tooltip="Edit Place" style={{ padding: '4px' }}>
+                              <Edit2 size={14} />
+                            </button>
+                            <button className="trip-delete-btn" onClick={() => handleRemovePlaceFromDay(index)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
                 {scheduledPlaces.length === 0 && (
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '6px' }}>

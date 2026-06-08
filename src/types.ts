@@ -81,4 +81,9 @@ export interface Trip {
   plans: Plan[];
   placeGroups: PlaceGroup[]; // Trip-level categorized lists / place groups
   updatedAt?: number;        // Timestamp of last modification
+  driveFileId?: string;      // Google Drive file ID
+  ownerEmail?: string;       // Email of the owner
+  isOwner?: boolean;         // True if the current user is the owner
+  canEdit?: boolean;         // True if the current user has edit permission
+  shared?: boolean;          // True if the trip is shared with others
 }
