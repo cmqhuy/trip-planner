@@ -4,7 +4,6 @@ import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { DEFAULT_PLACE_GROUPS } from './utils/api';
 import { generateDatesRange } from './utils/dateUtils';
-import { X } from 'lucide-react';
 import { 
   loadGsiScript, 
   initTokenClient, 
@@ -20,6 +19,7 @@ import {
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
 import ShareTripModal from './components/ShareTripModal';
+import ConfirmationModal from './components/ConfirmationModal';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -880,163 +880,29 @@ export default function App() {
         )}
       </main>
 
-      {pendingConflicts.length > 0 && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(16px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: '24px'
-          }}
-        >
-          <div 
-            className="glass-panel" 
-            style={{
-              maxWidth: '600px',
-              width: '100%',
-              padding: '32px',
-              borderRadius: '16px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '24px'
-            }}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div 
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  color: '#ef4444',
-                  marginBottom: '16px'
-                }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-              </div>
-              <h2 style={{ fontSize: '20px', fontWeight: '600', color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
-                Trip Sync Conflict
-              </h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
-                We detected a conflict for the trip: <strong>{pendingConflicts[0].localTrip.name}</strong>. The version stored on Google Drive is newer or different than your local version.
-              </p>
-            </div>
+      <ConfirmationModal
+        isOpen={pendingConflicts.length > 0}
+        title={`Trip Sync Conflict (Conflict 1 of ${pendingConflicts.length})`}
+        message={`We detected a conflict for the trip: "${pendingConflicts[0]?.localTrip.name}". The version stored on Google Drive is newer or different than your local version.
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <button 
-                onClick={() => handleResolveConflict('cloud')}
-                style={{
-                  textAlign: 'left',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid var(--border-glass)',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  outline: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                  e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                  e.currentTarget.style.borderColor = 'var(--border-glass)';
-                }}
-              >
-                <div style={{ fontWeight: '600', color: '#6366f1', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  Get Latest Version from Google Drive
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                  This will replace your local trip with the one on Google Drive. Choose this if you edited this trip on another device and want to load those changes. <strong>Note:</strong> Any local changes since the last sync will be lost.
-                </div>
-              </button>
+Choose 'Get Cloud Version' to replace your local trip with the one on Google Drive (any local unsynced changes will be lost).
 
-              <button 
-                onClick={() => handleResolveConflict('local')}
-                style={{
-                  textAlign: 'left',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid var(--border-glass)',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  outline: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                  e.currentTarget.style.borderColor = 'rgba(52, 211, 153, 0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                  e.currentTarget.style.borderColor = 'var(--border-glass)';
-                }}
-              >
-                <div style={{ fontWeight: '600', color: '#34d399', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  Override Google Drive Version
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                  This will keep your local trip and overwrite the version stored on Google Drive. Choose this if the current local version is the correct one. <strong>Note:</strong> This will replace the file in the cloud.
-                </div>
-              </button>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-              Conflict 1 of {pendingConflicts.length}
-            </div>
-          </div>
-        </div>
-      )}
+Choose 'Override Cloud' to keep your local trip and overwrite the version stored on Google Drive (this will replace the cloud file).`}
+        confirmText="Get Cloud Version"
+        cancelText="Override Cloud"
+        onConfirm={() => handleResolveConflict('cloud')}
+        onCancel={() => handleResolveConflict('local')}
+      />
 
-      {appNotification && (
-        <div className="modal-overlay" onClick={() => setAppNotification(null)}>
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{appNotification.title}</h3>
-              <button className="modal-close" onClick={() => setAppNotification(null)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none' }}>
-              {appNotification.message}
-            </div>
-            <div className="modal-actions" style={{ marginTop: '20px' }}>
-              <button 
-                type="button" 
-                className="btn-primary" 
-                style={{ background: 'var(--accent-primary)', borderColor: 'var(--accent-primary)' }}
-                onClick={() => setAppNotification(null)}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={appNotification !== null}
+        title={appNotification?.title || ''}
+        message={appNotification?.message || ''}
+        isAlert={true}
+        confirmText="OK"
+        onConfirm={() => setAppNotification(null)}
+        onCancel={() => setAppNotification(null)}
+      />
 
       {shareModalTrip && googleToken && (
         <ShareTripModal

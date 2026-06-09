@@ -8,12 +8,21 @@ import {
   Calendar, FileText, Landmark, Utensils, ShoppingBag,
   Camera, Heart, Share2
 } from 'lucide-react';
-import { searchLocation, searchPlacesNearLocation, DEFAULT_PLACE_GROUPS } from '../utils/api';
-import { getDaysDiff, shiftDateString, shiftTripDates } from '../utils/dateUtils';
+import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
+import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
-import GroupFormFields from './GroupFormFields';
-import PlaceFormFields from './PlaceFormFields';
-import LocationFormFields from './LocationFormFields';
+
+// Extracted Modals
+import ConfirmationModal from './ConfirmationModal';
+import NewPlanModal from './NewPlanModal';
+import MoveDayModal from './MoveDayModal';
+import EditTripModal from './EditTripModal';
+import AddLocationModal from './AddLocationModal';
+import LocationModal from './LocationModal';
+import GroupModal from './GroupModal';
+import TransportModal from './TransportModal';
+import HotelModal from './HotelModal';
+import PlaceModal from './PlaceModal';
 
 const LOCATION_COLORS = [
   '#6366f1', // Indigo
@@ -34,42 +43,7 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const buildMapsLink = (title: string, _lat: number, _lng: number, city?: string) => {
-  const query = city ? `${title}, ${city}` : title;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-};
 
-const getCountryFlag = (countryCode?: string): string => {
-  if (!countryCode || countryCode.length !== 2) return '📍';
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char => 127397 + char.charCodeAt(0));
-  try {
-    return String.fromCodePoint(...codePoints);
-  } catch (e) {
-    return '📍';
-  }
-};
-
-const getLocIcon = (loc?: Location) => {
-  if (!loc) return '📍';
-  if (loc.countryCode) {
-    return getCountryFlag(loc.countryCode);
-  }
-  const name = loc.country.toLowerCase();
-  if (name.includes('france')) return '🇫🇷';
-  if (name.includes('italy')) return '🇮🇹';
-  if (name.includes('japan')) return '🇯🇵';
-  if (name.includes('united states') || name === 'us' || name === 'usa') return '🇺🇸';
-  if (name.includes('vietnam') || name === 'vn') return '🇻🇳';
-  if (name.includes('united kingdom') || name === 'uk' || name === 'gb') return '🇬🇧';
-  if (name.includes('germany') || name === 'de') return '🇩🇪';
-  if (name.includes('spain') || name === 'es') return '🇪🇸';
-  if (name.includes('canada') || name === 'ca') return '🇨🇦';
-  if (name.includes('australia') || name === 'au') return '🇦🇺';
-  return '📍';
-};
 
 interface TripPlannerProps {
   trip: Trip;
@@ -266,55 +240,28 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // UI Control States
   const [activePlaceId, setActivePlaceId] = useState<string | undefined>(undefined);
   const [showNewPlanModal, setShowNewPlanModal] = useState(false);
-  const [newPlanName, setNewPlanName] = useState('');
   
   // Plan renaming state
   const [isRenamingPlan, setIsRenamingPlan] = useState(false);
   const [editPlanName, setEditPlanName] = useState('');
 
-  // Autocomplete search states
-  const [locationQuery, setLocationQuery] = useState('');
-  const [locationSuggestions, setLocationSuggestions] = useState<Omit<Location, 'places'>[]>([]);
-  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
-  
   // Add Location Modal state
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
   const [addLocationForDay, setAddLocationForDay] = useState(false);
 
-  const [placeQuery, setPlaceQuery] = useState('');
-  const [placeSuggestions, setPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
-  const [isSearchingPlace, setIsSearchingPlace] = useState(false);
-
   // Custom Place Modal
   const [showCustomPlaceModal, setShowCustomPlaceModal] = useState(false);
-  const [customPlaceTitle, setCustomPlaceTitle] = useState('');
-  const [customPlaceDesc, setCustomPlaceDesc] = useState('');
-  const [customPlaceHours, setCustomPlaceHours] = useState('');
-  const [customPlaceLat, setCustomPlaceLat] = useState('');
-  const [customPlaceLng, setCustomPlaceLng] = useState('');
 
   // Transportation Modal
   const [showTransportModal, setShowTransportModal] = useState(false);
-  const [transportType, setTransportType] = useState<Transportation['type']>('flight');
-  const [depLoc, setDepLoc] = useState('');
-  const [arrLoc, setArrLoc] = useState('');
-  const [depDate, setDepDate] = useState('');
-  const [depTime, setDepTime] = useState('');
-  const [depTz, setDepTz] = useState('Local');
-  const [arrDate, setArrDate] = useState('');
-  const [arrTime, setArrTime] = useState('');
-  const [arrTz, setArrTz] = useState('Local');
-  const [transitCarrier, setTransitCarrier] = useState('');
-  const [transitCode, setTransitCode] = useState('');
-  const [transitNotes, setTransitNotes] = useState('');
 
   // Hotel Modal
   const [showHotelModal, setShowHotelModal] = useState(false);
-  const [hotelName, setHotelName] = useState('');
-  const [hotelAddress, setHotelAddress] = useState('');
-  const [hotelCheckIn, setHotelCheckIn] = useState('');
-  const [hotelCheckOut, setHotelCheckOut] = useState('');
-  const [hotelNotes, setHotelNotes] = useState('');
+
+  // Day timeline search state
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeSuggestions, setPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
+  const [isSearchingPlace, setIsSearchingPlace] = useState(false);
 
   // Note editing state for catalog places
   const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
@@ -322,22 +269,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
   // PlaceGroup Edit Modal
   const [showGroupModal, setShowGroupModal] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupColor, setNewGroupColor] = useState('#ef4444');
-  const [newGroupIcon, setNewGroupIcon] = useState('landmark');
-
-  // Edit PlaceGroup Modal State
   const [editingGroup, setEditingGroup] = useState<PlaceGroup | null>(null);
-  const [editGroupName, setEditGroupName] = useState('');
-  const [editGroupColor, setEditGroupColor] = useState('#ef4444');
-  const [editGroupIcon, setEditGroupIcon] = useState('landmark');
-  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
 
   // Edit Trip Modal state
   const [showEditTripModal, setShowEditTripModal] = useState(false);
-  const [editTripName, setEditTripName] = useState('');
-  const [editTripStart, setEditTripStart] = useState('');
-  const [editTripEnd, setEditTripEnd] = useState('');
 
   // Custom Confirmation Modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -351,34 +286,12 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
   // Edit Location Modal state
   const [showEditLocationModal, setShowEditLocationModal] = useState(false);
-  const [editLocColor, setEditLocColor] = useState('#6366f1');
-  const [editLocCity, setEditLocCity] = useState('');
-  const [editLocState, setEditLocState] = useState('');
-  const [editLocCountry, setEditLocCountry] = useState('');
-  const [editLocCountryCode, setEditLocCountryCode] = useState('');
-  const [editLocLat, setEditLocLat] = useState('');
-  const [editLocLng, setEditLocLng] = useState('');
-  const [editLocHeroPhoto, setEditLocHeroPhoto] = useState('');
-  const [editLocSearchQuery, setEditLocSearchQuery] = useState('');
-  const [editLocSuggestions, setEditLocSuggestions] = useState<Omit<Location, 'places'>[]>([]);
-  const [isSearchingEditLoc, setIsSearchingEditLoc] = useState(false);
-  const [draggedLocationIndex, setDraggedLocationIndex] = useState<number | null>(null);
-
-  // Custom Place Modal additions
-  const [customPlaceGroupId, setCustomPlaceGroupId] = useState('new');
-  const [customPlaceMapsLink, setCustomPlaceMapsLink] = useState('');
-  const [customPlaceSearchQuery, setCustomPlaceSearchQuery] = useState('');
-  const [customPlaceSuggestions, setCustomPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
-  const [isSearchingCustomPlace, setIsSearchingCustomPlace] = useState(false);
-  const [customPlacePhotoUrl, setCustomPlacePhotoUrl] = useState('');
-  const [customPlaceNotes, setCustomPlaceNotes] = useState('');
 
   // Drag and Drop place state
   const [draggedPlaceId, setDraggedPlaceId] = useState<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [dragOverPlaceId, setDragOverPlaceId] = useState<string | null>(null);
   const [dragOverPlacePosition, setDragOverPlacePosition] = useState<'top' | 'bottom'>('top');
-  const [dragOverLocationIndex, setDragOverLocationIndex] = useState<number | null>(null);
   const [draggedDayPlaceIndex, setDraggedDayPlaceIndex] = useState<number | null>(null);
   const [dragOverDayPlaceIndex, setDragOverDayPlaceIndex] = useState<number | null>(null);
   const [dragOverDayPlacePosition, setDragOverDayPlacePosition] = useState<'top' | 'bottom'>('top');
@@ -386,73 +299,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // Edit Place Modal state
   const [showEditPlaceModal, setShowEditPlaceModal] = useState(false);
   const [editingPlace, setEditingPlace] = useState<Place | null>(null);
-  const [editPlaceTitle, setEditPlaceTitle] = useState('');
-  const [editPlaceDesc, setEditPlaceDesc] = useState('');
-  const [editPlaceHours, setEditPlaceHours] = useState('');
-  const [editPlaceLat, setEditPlaceLat] = useState('');
-  const [editPlaceLng, setEditPlaceLng] = useState('');
-  const [editPlaceMapsLink, setEditPlaceMapsLink] = useState('');
-  const [editPlaceGroupId, setEditPlaceGroupId] = useState('new');
-  const [editPlaceNotes, setEditPlaceNotes] = useState('');
-  const [editPlaceSearchQuery, setEditPlaceSearchQuery] = useState('');
-  const [editPlaceSuggestions, setEditPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
-  const [isSearchingEditPlace, setIsSearchingEditPlace] = useState(false);
-  const [editPlacePhotoUrl, setEditPlacePhotoUrl] = useState('');
 
   // Move Day Modal state
   const [showMoveDayModal, setShowMoveDayModal] = useState(false);
-  const [moveDayTargetDate, setMoveDayTargetDate] = useState('');
 
   // Mobile UI States
   const [activeMobileTab, setActiveMobileTab] = useState<'catalog' | 'itinerary' | 'map'>('itinerary');
   const [autoScheduleOnActiveDay, setAutoScheduleOnActiveDay] = useState(false);
   const [hideAllocatedPlaces, setHideAllocatedPlaces] = useState(false);
 
-  const getCategoryIconComponent = (iconName: string, size = 12, className?: string, style?: React.CSSProperties) => {
-    switch (iconName) {
-      case 'landmark': return <Landmark size={size} className={className} style={style} />;
-      case 'utensils': return <Utensils size={size} className={className} style={style} />;
-      case 'shopping-bag': return <ShoppingBag size={size} className={className} style={style} />;
-      case 'camera': return <Camera size={size} className={className} style={style} />;
-      case 'heart': return <Heart size={size} className={className} style={style} />;
-      default: return <MapPin size={size} className={className} style={style} />;
-    }
-  };
-
-
-  // Trigger search on location query changes
-  useEffect(() => {
-    if (locationQuery.trim().length < 2) {
-      setLocationSuggestions([]);
-      return;
-    }
-    const delayDebounce = setTimeout(async () => {
-      setIsSearchingLocation(true);
-      const results = await searchLocation(locationQuery);
-      setLocationSuggestions(results);
-      setIsSearchingLocation(false);
-    }, 450);
-
-    return () => clearTimeout(delayDebounce);
-  }, [locationQuery]);
-
-  // Trigger search on edit location query changes
-  useEffect(() => {
-    if (editLocSearchQuery.trim().length < 2) {
-      setEditLocSuggestions([]);
-      return;
-    }
-    const delayDebounce = setTimeout(async () => {
-      setIsSearchingEditLoc(true);
-      const results = await searchLocation(editLocSearchQuery);
-      setEditLocSuggestions(results);
-      setIsSearchingEditLoc(false);
-    }, 450);
-
-    return () => clearTimeout(delayDebounce);
-  }, [editLocSearchQuery]);
-
-  // Trigger search on place query changes
+  // Trigger search on place query changes (Day timeline inline search)
   useEffect(() => {
     if (placeQuery.trim().length < 2 || !activeDayLocation) {
       setPlaceSuggestions([]);
@@ -468,89 +324,24 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     return () => clearTimeout(delayDebounce);
   }, [placeQuery, activeDayLocation]);
 
-  // Trigger search on edit place query changes
-  useEffect(() => {
-    if (editPlaceSearchQuery.trim().length < 2 || !catalogLocation) {
-      setEditPlaceSuggestions([]);
-      return;
+  const getCategoryIconComponent = (iconName: string, size = 12, className?: string, style?: React.CSSProperties) => {
+    switch (iconName) {
+      case 'landmark': return <Landmark size={size} className={className} style={style} />;
+      case 'utensils': return <Utensils size={size} className={className} style={style} />;
+      case 'shopping-bag': return <ShoppingBag size={size} className={className} style={style} />;
+      case 'camera': return <Camera size={size} className={className} style={style} />;
+      case 'heart': return <Heart size={size} className={className} style={style} />;
+      default: return <MapPin size={size} className={className} style={style} />;
     }
-    const delayDebounce = setTimeout(async () => {
-      setIsSearchingEditPlace(true);
-      const results = await searchPlacesNearLocation(editPlaceSearchQuery, catalogLocation);
-      setEditPlaceSuggestions(results);
-      setIsSearchingEditPlace(false);
-    }, 450);
-
-    return () => clearTimeout(delayDebounce);
-  }, [editPlaceSearchQuery, catalogLocation]);
-
-  // Trigger search on custom (add) place query changes
-  useEffect(() => {
-    if (customPlaceSearchQuery.trim().length < 2 || !catalogLocation) {
-      setCustomPlaceSuggestions([]);
-      return;
-    }
-    const delayDebounce = setTimeout(async () => {
-      setIsSearchingCustomPlace(true);
-      const results = await searchPlacesNearLocation(customPlaceSearchQuery, catalogLocation);
-      setCustomPlaceSuggestions(results);
-      setIsSearchingCustomPlace(false);
-    }, 450);
-
-    return () => clearTimeout(delayDebounce);
-  }, [customPlaceSearchQuery, catalogLocation]);
-
-  // Sync dates with modals when active day changes
-  useEffect(() => {
-    if (activeDayStr) {
-      setDepDate(activeDayStr);
-      setArrDate(activeDayStr);
-      setHotelCheckIn(activeDayStr);
-      setHotelCheckOut(activeDayStr);
-    }
-  }, [activeDayStr]);
+  };
 
   if (!activePlan) return null;
 
-  // ----------------------------------------------------
-  // Dynamic Location Naming Logic
-  // ----------------------------------------------------
-  const getFormattedLocationName = (loc: Location) => {
-    const countries = new Set(trip.locations.map(l => l.country.toLowerCase()));
-    const isMultiCountry = countries.size > 1;
 
-    if (isMultiCountry) {
-      return `${loc.city}, ${loc.country}`;
-    }
-
-    const isUS = trip.locations.every(l => l.country.toLowerCase().includes('united states') || l.country.toLowerCase() === 'us');
-    if (isUS) {
-      const states = new Set(trip.locations.map(l => l.state?.toLowerCase()).filter(Boolean));
-      if (states.size > 1 && loc.state) {
-        return `${loc.city}, ${loc.state}`;
-      }
-    }
-
-    return loc.city;
-  };
 
   // ----------------------------------------------------
   // Location Operations
   // ----------------------------------------------------
-  const openEditLocationModal = (loc: Location) => {
-    setEditLocColor(loc.color || '#6366f1');
-    setEditLocCity(loc.city);
-    setEditLocState(loc.state || '');
-    setEditLocCountry(loc.country);
-    setEditLocCountryCode(loc.countryCode || '');
-    setEditLocLat(loc.lat.toString());
-    setEditLocLng(loc.lng.toString());
-    setEditLocHeroPhoto(loc.heroPhoto || '');
-    setEditLocSearchQuery('');
-    setEditLocSuggestions([]);
-    setShowEditLocationModal(true);
-  };
-
   const handleAddNewLocationToCatalog = (loc: Omit<Location, 'places'>) => {
     let existingLoc = trip.locations.find(
       l => l.city.toLowerCase() === loc.city.toLowerCase() && 
@@ -579,12 +370,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     });
 
     setSelectedCatalogLocId(existingLoc.id);
-    setLocationQuery('');
-    setLocationSuggestions([]);
 
     // Auto-open edit dialog for new locations so user can set color
     if (isNew) {
-      setTimeout(() => openEditLocationModal(existingLoc!), 50);
+      setTimeout(() => setShowEditLocationModal(true), 50);
     }
   };
 
@@ -633,12 +422,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     });
 
     setSelectedCatalogLocId(existingLoc.id);
-    setLocationQuery('');
-    setLocationSuggestions([]);
 
     // Auto-open edit dialog for new locations so user can set color
     if (isNew) {
-      setTimeout(() => openEditLocationModal(existingLoc!), 50);
+      setTimeout(() => setShowEditLocationModal(true), 50);
     }
   };
 
@@ -688,25 +475,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     });
   };
 
-  const handleSaveEditLocation = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!catalogLocation || !editLocCity.trim() || !editLocCountry.trim()) return;
-
-    const latVal = parseFloat(editLocLat);
-    const lngVal = parseFloat(editLocLng);
+  const handleSaveEditLocation = (locData: Partial<Location>) => {
+    if (!catalogLocation) return;
 
     const updatedLocations = trip.locations.map(l => {
       if (l.id === catalogLocation.id) {
         return {
           ...l,
-          city: editLocCity.trim(),
-          state: editLocState.trim() || undefined,
-          country: editLocCountry.trim(),
-          countryCode: editLocCountryCode.trim().toUpperCase() || undefined,
-          lat: isNaN(latVal) ? l.lat : latVal,
-          lng: isNaN(lngVal) ? l.lng : lngVal,
-          heroPhoto: editLocHeroPhoto.trim() || undefined,
-          color: editLocColor
+          ...locData
         };
       }
       return l;
@@ -721,147 +497,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
   const handleOpenEditPlace = (place: Place) => {
     setEditingPlace(place);
-    setEditPlaceTitle(place.title);
-    setEditPlaceDesc(place.description || '');
-    setEditPlaceHours(place.openingHours || '');
-    setEditPlaceLat(place.lat.toString());
-    setEditPlaceLng(place.lng.toString());
-    setEditPlaceMapsLink(place.mapsLink || '');
-    setEditPlaceGroupId(place.placeGroupId || 'new');
-    setEditPlaceNotes(place.notes || '');
-    setEditPlacePhotoUrl(place.photoUrl || '');
-    setEditPlaceSearchQuery('');
-    setEditPlaceSuggestions([]);
     setShowEditPlaceModal(true);
   };
 
-  // Unsaved changes detectors & modal close wrappers
-  const hasUnsavedAddLocationChanges = () => {
-    return locationQuery.trim() !== '';
-  };
-
-  const handleCloseAddLocation = () => {
-    if (hasUnsavedAddLocationChanges()) {
-      setConfirmModal({
-        title: "Unsaved Changes",
-        message: "You have unsaved changes. Discard changes?",
-        confirmText: "Discard",
-        cancelText: "Keep Editing",
-        onConfirm: () => {
-          setShowAddLocationModal(false);
-          setLocationQuery('');
-          setLocationSuggestions([]);
-        }
-      });
-    } else {
-      setShowAddLocationModal(false);
-      setLocationQuery('');
-      setLocationSuggestions([]);
-    }
-  };
-
-  const hasUnsavedLocationChanges = () => {
-    if (!catalogLocation) return false;
-    return (
-      editLocColor !== (catalogLocation.color || '#6366f1') ||
-      editLocCity !== catalogLocation.city ||
-      editLocState !== (catalogLocation.state || '') ||
-      editLocCountry !== catalogLocation.country ||
-      editLocCountryCode !== (catalogLocation.countryCode || '') ||
-      editLocLat !== catalogLocation.lat.toString() ||
-      editLocLng !== catalogLocation.lng.toString() ||
-      editLocHeroPhoto !== (catalogLocation.heroPhoto || '')
-    );
-  };
-
-  const handleCloseEditLocation = () => {
-    if (hasUnsavedLocationChanges()) {
-      setConfirmModal({
-        title: "Unsaved Changes",
-        message: "You have unsaved changes. Discard changes?",
-        confirmText: "Discard",
-        cancelText: "Keep Editing",
-        onConfirm: () => {
-          setShowEditLocationModal(false);
-        }
-      });
-    } else {
-      setShowEditLocationModal(false);
-    }
-  };
-
-  const hasUnsavedAddPlaceChanges = () => {
-    return (
-      customPlaceTitle.trim() !== '' ||
-      customPlaceDesc.trim() !== '' ||
-      customPlaceHours.trim() !== '' ||
-      customPlacePhotoUrl.trim() !== '' ||
-      customPlaceNotes.trim() !== '' ||
-      customPlaceLat.trim() !== '' ||
-      customPlaceLng.trim() !== '' ||
-      customPlaceMapsLink.trim() !== ''
-    );
-  };
-
-  const handleCloseAddPlace = () => {
-    if (hasUnsavedAddPlaceChanges()) {
-      setConfirmModal({
-        title: "Unsaved Changes",
-        message: "You have unsaved changes. Discard changes?",
-        confirmText: "Discard",
-        cancelText: "Keep Editing",
-        onConfirm: () => {
-          setShowCustomPlaceModal(false);
-          setCustomPlaceSearchQuery('');
-          setCustomPlaceSuggestions([]);
-        }
-      });
-    } else {
-      setShowCustomPlaceModal(false);
-      setCustomPlaceSearchQuery('');
-      setCustomPlaceSuggestions([]);
-    }
-  };
-
-  const hasUnsavedEditPlaceChanges = () => {
-    if (!editingPlace) return false;
-    return (
-      editPlaceTitle !== editingPlace.title ||
-      editPlaceDesc !== (editingPlace.description || '') ||
-      editPlaceHours !== (editingPlace.openingHours || '') ||
-      editPlaceLat !== editingPlace.lat.toString() ||
-      editPlaceLng !== editingPlace.lng.toString() ||
-      editPlaceMapsLink !== (editingPlace.mapsLink || '') ||
-      editPlaceGroupId !== (editingPlace.placeGroupId || 'new') ||
-      editPlaceNotes !== (editingPlace.notes || '') ||
-      editPlacePhotoUrl !== (editingPlace.photoUrl || '')
-    );
-  };
-
-  const handleCloseEditPlace = () => {
-    if (hasUnsavedEditPlaceChanges()) {
-      setConfirmModal({
-        title: "Unsaved Changes",
-        message: "You have unsaved changes. Discard changes?",
-        confirmText: "Discard",
-        cancelText: "Keep Editing",
-        onConfirm: () => {
-          setShowEditPlaceModal(false);
-          setEditingPlace(null);
-        }
-      });
-    } else {
-      setShowEditPlaceModal(false);
-      setEditingPlace(null);
-    }
-  };
-
-  const handleSaveEditPlace = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingPlace || !editPlaceTitle.trim()) return;
-
-    const latVal = parseFloat(editPlaceLat);
-    const lngVal = parseFloat(editPlaceLng);
+  const handleSaveEditPlace = (placeData: Omit<Place, 'id'>) => {
+    if (!editingPlace) return;
 
     const updatedLocations = trip.locations.map(l => {
       if (l.places.some(p => p.id === editingPlace.id)) {
@@ -869,19 +509,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           ...l,
           places: l.places.map(p => {
             if (p.id === editingPlace.id) {
-              const placeLat = isNaN(latVal) ? p.lat : latVal;
-              const placeLng = isNaN(lngVal) ? p.lng : lngVal;
               return {
                 ...p,
-                title: editPlaceTitle.trim(),
-                description: editPlaceDesc.trim(),
-                openingHours: editPlaceHours.trim() || undefined,
-                lat: placeLat,
-                lng: placeLng,
-                mapsLink: editPlaceMapsLink.trim() || buildMapsLink(editPlaceTitle.trim(), placeLat, placeLng, l.city),
-                placeGroupId: editPlaceGroupId,
-                notes: editPlaceNotes,
-                photoUrl: editPlacePhotoUrl.trim() || undefined
+                ...placeData
               };
             }
             return p;
@@ -899,18 +529,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     setEditingPlace(null);
   };
 
-  const handleMapClick = (lat: number, lng: number) => {
-    if (trip.canEdit === false) return;
-    if (showEditPlaceModal) {
-      setEditPlaceLat(lat.toFixed(6));
-      setEditPlaceLng(lng.toFixed(6));
-    } else if (showCustomPlaceModal) {
-      setCustomPlaceLat(lat.toFixed(6));
-      setCustomPlaceLng(lng.toFixed(6));
-    } else if (showEditLocationModal) {
-      setEditLocLat(lat.toFixed(6));
-      setEditLocLng(lng.toFixed(6));
-    }
+  const handleMapClick = (_lat: number, _lng: number) => {
+    // No-op. Modals now use their own self-contained MapPicker components.
   };
 
   // Drag and Drop place handlers
@@ -1074,36 +694,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     setDragOverDayPlaceIndex(null);
   };
 
-  const handleEditLocationDelete = () => {
-    if (!catalogLocation) return;
-    setShowEditLocationModal(false);
-    handleDeleteLocation(catalogLocation.id);
-  };
 
-  const handleDragStart = (index: number) => {
-    setDraggedLocationIndex(index);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (index: number) => {
-    if (draggedLocationIndex === null || draggedLocationIndex === index) return;
-
-    const updatedLocations = [...trip.locations];
-    const draggedItem = updatedLocations[draggedLocationIndex];
-
-    updatedLocations.splice(draggedLocationIndex, 1);
-    updatedLocations.splice(index, 0, draggedItem);
-
-    onUpdateTrip({
-      ...trip,
-      locations: updatedLocations
-    });
-
-    setDraggedLocationIndex(null);
-  };
 
   const handleSetDayLocation = (locId: string) => {
     const updatedPlans = trip.plans.map(p => {
@@ -1228,9 +819,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // ----------------------------------------------------
   // Plan Operations
   // ----------------------------------------------------
-  const handleCreatePlan = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPlanName.trim()) return;
+  const handleCreatePlan = (planName: string) => {
+    if (!planName.trim()) return;
 
     const newPlanId = `plan-${Date.now()}`;
     const clonedDays: { [dateStr: string]: PlanDay } = {};
@@ -1244,7 +834,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
     const newPlan: Plan = {
       id: newPlanId,
-      name: newPlanName,
+      name: planName,
       startDate: trip.startDate,
       endDate: trip.endDate,
       days: clonedDays,
@@ -1258,7 +848,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     });
 
     setActivePlanId(newPlanId);
-    setNewPlanName('');
     setShowNewPlanModal(false);
   };
 
@@ -1389,19 +978,24 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     // Ensure the catalog location matches the active day location so it is saved in the correct city
     setSelectedCatalogLocId(activeDayLocation.id);
 
-    // Populate all details in the Add Place modal
-    setCustomPlaceTitle(place.title);
-    setCustomPlaceDesc(place.description || '');
-    setCustomPlaceHours(place.openingHours || '');
-    setCustomPlaceLat(place.lat.toString());
-    setCustomPlaceLng(place.lng.toString());
-    setCustomPlaceMapsLink(place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation.city));
-    setCustomPlacePhotoUrl(place.photoUrl || '');
-    setCustomPlaceNotes(place.notes || '');
+    // Create a temporary Place object to pass to PlaceModal
+    const tempPlace: Place = {
+      id: `new-temp-${Date.now()}`,
+      title: place.title,
+      description: place.description || '',
+      openingHours: place.openingHours || '',
+      lat: place.lat,
+      lng: place.lng,
+      placeGroupId: 'other',
+      notes: place.notes || '',
+      photoUrl: place.photoUrl || '',
+      mapsLink: place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation.city)
+    };
+
+    setEditingPlace(tempPlace);
 
     // Configure the modal to auto-schedule the place to the active day on save
     setAutoScheduleOnActiveDay(true);
-    setCustomPlaceGroupId('new');
     setShowCustomPlaceModal(true);
 
     // Clear search query and suggestion list
@@ -1409,24 +1003,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     setPlaceSuggestions([]);
   };
 
-  const handleCreateCustomPlace = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customPlaceTitle.trim() || !catalogLocation) return;
+  const handleCreateCustomPlace = (placeData: Omit<Place, 'id'>) => {
+    if (!catalogLocation) return;
 
     const customId = `custom-place-${Date.now()}`;
-    const placeLat = parseFloat(customPlaceLat) || catalogLocation.lat + (Math.random() - 0.5) * 0.01;
-    const placeLng = parseFloat(customPlaceLng) || catalogLocation.lng + (Math.random() - 0.5) * 0.01;
     const newPlace: Place = {
       id: customId,
-      title: customPlaceTitle.trim(),
-      description: customPlaceDesc.trim() || 'Custom attraction',
-      openingHours: customPlaceHours.trim() || '24/7',
-      lat: placeLat,
-      lng: placeLng,
-      placeGroupId: customPlaceGroupId,
-      notes: customPlaceNotes.trim(),
-      photoUrl: customPlacePhotoUrl.trim() || undefined,
-      mapsLink: customPlaceMapsLink.trim() || buildMapsLink(customPlaceTitle.trim(), placeLat, placeLng, catalogLocation.city)
+      ...placeData
     };
 
     const updatedLocations = trip.locations.map(l => {
@@ -1464,15 +1047,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       plans: updatedPlans
     });
 
-    setCustomPlaceTitle('');
-    setCustomPlaceDesc('');
-    setCustomPlaceHours('');
-    setCustomPlaceLat('');
-    setCustomPlaceLng('');
-    setCustomPlaceGroupId('new');
-    setCustomPlaceMapsLink('');
-    setCustomPlacePhotoUrl('');
-    setCustomPlaceNotes('');
     setShowCustomPlaceModal(false);
   };
 
@@ -1661,60 +1235,45 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // ----------------------------------------------------
   // Custom Groups Operations
   // ----------------------------------------------------
-  const handleAddPlaceGroup = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newGroupName.trim()) return;
-
-    const newGroup: PlaceGroup = {
-      id: `group-${Date.now()}`,
-      name: newGroupName,
-      color: newGroupColor,
-      icon: newGroupIcon
-    };
-
+  const handleSavePlaceGroup = (groupData: { name: string; color: string; icon: string }) => {
     const currentGroups = trip.placeGroups || DEFAULT_PLACE_GROUPS;
 
-    onUpdateTrip({
-      ...trip,
-      placeGroups: [...currentGroups, newGroup]
-    });
+    if (editingGroup) {
+      // Edit mode
+      const updatedGroups = currentGroups.map(pg => {
+        if (pg.id === editingGroup.id) {
+          return {
+            ...pg,
+            ...groupData
+          };
+        }
+        return pg;
+      });
 
-    setNewGroupName('');
+      onUpdateTrip({
+        ...trip,
+        placeGroups: updatedGroups
+      });
+      setEditingGroup(null);
+    } else {
+      // Create mode
+      const newGroup: PlaceGroup = {
+        id: `group-${Date.now()}`,
+        ...groupData
+      };
+
+      onUpdateTrip({
+        ...trip,
+        placeGroups: [...currentGroups, newGroup]
+      });
+    }
+
     setShowGroupModal(false);
   };
 
   const startEditingGroup = (group: PlaceGroup) => {
     setEditingGroup(group);
-    setEditGroupName(group.name);
-    setEditGroupColor(group.color);
-    setEditGroupIcon(group.icon);
-    setShowEditGroupModal(true);
-  };
-
-  const handleSaveEditPlaceGroup = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingGroup || !editGroupName.trim()) return;
-
-    const currentGroups = trip.placeGroups || DEFAULT_PLACE_GROUPS;
-    const updatedGroups = currentGroups.map(pg => {
-      if (pg.id === editingGroup.id) {
-        return {
-          ...pg,
-          name: editGroupName,
-          color: editGroupColor,
-          icon: editGroupIcon
-        };
-      }
-      return pg;
-    });
-
-    onUpdateTrip({
-      ...trip,
-      placeGroups: updatedGroups
-    });
-
-    setEditingGroup(null);
-    setShowEditGroupModal(false);
+    setShowGroupModal(true);
   };
 
   const handleMoveGroupOrder = (index: number, direction: 'up' | 'down') => {
@@ -1734,28 +1293,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     });
   };
 
-  const handleEditTripStartChange = (newStart: string) => {
-    if (!newStart) return;
-    setEditTripStart(newStart);
+  const handleSaveEditTrip = (name: string, startDate: string, endDate: string) => {
+    if (!name.trim() || !startDate || !endDate) return;
     
-    // Auto update end date preserving duration
-    if (editTripStart && editTripEnd) {
-      const duration = getDaysDiff(editTripStart, editTripEnd);
-      const newEnd = shiftDateString(newStart, duration);
-      setEditTripEnd(newEnd);
-    }
-  };
-
-  const handleEditTripEndChange = (newEnd: string) => {
-    if (!newEnd) return;
-    setEditTripEnd(newEnd);
-  };
-
-  const handleSaveEditTrip = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editTripName.trim() || !editTripStart || !editTripEnd) return;
-    
-    if (new Date(editTripStart) > new Date(editTripEnd)) {
+    if (new Date(startDate) > new Date(endDate)) {
       setConfirmModal({
         title: 'Invalid Dates',
         message: 'Start date must be before or equal to end date.',
@@ -1766,14 +1307,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     }
 
     const currentDuration = getDaysDiff(trip.startDate, trip.endDate) + 1;
-    const newDuration = getDaysDiff(editTripStart, editTripEnd) + 1;
+    const newDuration = getDaysDiff(startDate, endDate) + 1;
 
     const performSave = () => {
       const currentDatesList = Object.keys(activePlan?.days || {}).sort();
       const activeDayIndex = currentDatesList.indexOf(activeDayStr);
 
-      const updatedTrip = shiftTripDates(trip, editTripStart, editTripEnd);
-      updatedTrip.name = editTripName.trim();
+      const updatedTrip = shiftTripDates(trip, startDate, endDate);
+      updatedTrip.name = name.trim();
       
       onUpdateTrip(updatedTrip);
       setShowEditTripModal(false);
@@ -1803,24 +1344,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // ----------------------------------------------------
   // Transportation Operations
   // ----------------------------------------------------
-  const handleAddTransportation = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!depLoc.trim() || !arrLoc.trim() || !depDate || !depTime || !arrDate || !arrTime) return;
-
+  const handleAddTransportation = (transportData: Omit<Transportation, 'id'>) => {
     const newTransport: Transportation = {
       id: `transport-${Date.now()}`,
-      type: transportType,
-      departureLocationName: depLoc,
-      arrivalLocationName: arrLoc,
-      departureDate: depDate,
-      departureTime: depTime,
-      departureTimezone: depTz,
-      arrivalDate: arrDate,
-      arrivalTime: arrTime,
-      arrivalTimezone: arrTz,
-      carrier: transitCarrier,
-      transitCode: transitCode,
-      notes: transitNotes
+      ...transportData
     };
 
     const updatedPlans = trip.plans.map(p => {
@@ -1838,12 +1365,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       plans: updatedPlans
     });
 
-    // Reset Form
-    setDepLoc('');
-    setArrLoc('');
-    setTransitCarrier('');
-    setTransitCode('');
-    setTransitNotes('');
     setShowTransportModal(false);
   };
 
@@ -1880,17 +1401,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // ----------------------------------------------------
   // Hotel Operations
   // ----------------------------------------------------
-  const handleAddHotel = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!hotelName.trim() || !hotelCheckIn || !hotelCheckOut) return;
-
+  const handleAddHotel = (hotelData: Omit<Hotel, 'id'>) => {
     const newHotel: Hotel = {
       id: `hotel-${Date.now()}`,
-      name: hotelName,
-      address: hotelAddress,
-      checkInDate: hotelCheckIn,
-      checkOutDate: hotelCheckOut,
-      notes: hotelNotes
+      ...hotelData
     };
 
     const updatedPlans = trip.plans.map(p => {
@@ -1908,10 +1422,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       plans: updatedPlans
     });
 
-    // Reset Form
-    setHotelName('');
-    setHotelAddress('');
-    setHotelNotes('');
     setShowHotelModal(false);
   };
 
@@ -1953,24 +1463,12 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // ----------------------------------------------------
   // Real-time map preview marker for coordinate pin dropping
   let previewMarker: { lat: number; lng: number } | undefined = undefined;
-  if (showEditPlaceModal && editPlaceLat && editPlaceLng) {
-    const lat = parseFloat(editPlaceLat);
-    const lng = parseFloat(editPlaceLng);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      previewMarker = { lat, lng };
-    }
-  } else if (showCustomPlaceModal && customPlaceLat && customPlaceLng) {
-    const lat = parseFloat(customPlaceLat);
-    const lng = parseFloat(customPlaceLng);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      previewMarker = { lat, lng };
-    }
-  } else if (showEditLocationModal && editLocLat && editLocLng) {
-    const lat = parseFloat(editLocLat);
-    const lng = parseFloat(editLocLng);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      previewMarker = { lat, lng };
-    }
+  if (showEditPlaceModal && editingPlace) {
+    previewMarker = { lat: editingPlace.lat, lng: editingPlace.lng };
+  } else if (showCustomPlaceModal && editingPlace) {
+    previewMarker = { lat: editingPlace.lat, lng: editingPlace.lng };
+  } else if (showEditLocationModal && catalogLocation) {
+    previewMarker = { lat: catalogLocation.lat, lng: catalogLocation.lng };
   }
 
   // List of scheduled Place objects for the active day
@@ -2017,13 +1515,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
             >
               {trip.locations.length === 0 && <option value="">No Locations Added</option>}
               {trip.locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc)}</option>
+                <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc, trip.locations)}</option>
               ))}
             </select>
             {catalogLocation && trip.canEdit !== false && (
               <button 
                 className="mini-icon-btn" 
-                onClick={() => openEditLocationModal(catalogLocation)}
+                onClick={() => setShowEditLocationModal(true)}
                 data-tooltip="Edit Location Settings"
                 style={{ padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
@@ -2125,13 +1623,18 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         <button 
                           className="mini-icon-btn" 
                           onClick={() => {
-                            setCustomPlaceTitle('');
-                            setCustomPlaceDesc('');
-                            setCustomPlaceHours('');
-                            setCustomPlaceLat('');
-                            setCustomPlaceLng('');
-                            setCustomPlaceGroupId(group.id);
-                            setCustomPlaceMapsLink('');
+                            setEditingPlace({
+                              id: `new-temp-${Date.now()}`,
+                              title: '',
+                              description: '',
+                              openingHours: '',
+                              lat: catalogLocation?.lat || 0,
+                              lng: catalogLocation?.lng || 0,
+                              placeGroupId: group.id,
+                              notes: '',
+                              photoUrl: '',
+                              mapsLink: ''
+                            });
                             setAutoScheduleOnActiveDay(false);
                             setShowCustomPlaceModal(true);
                           }} 
@@ -2439,12 +1942,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 {trip.isOwner !== false && (
                   <button 
                     className="mini-icon-btn" 
-                    onClick={() => {
-                      setEditTripName(trip.name);
-                      setEditTripStart(trip.startDate);
-                      setEditTripEnd(trip.endDate);
-                      setShowEditTripModal(true);
-                    }}
+                    onClick={() => setShowEditTripModal(true)}
                     data-tooltip="Edit Trip Details"
                     style={{ padding: '4px', opacity: 0.6 }}
                   >
@@ -2618,9 +2116,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         maxWidth: '90px', 
                         whiteSpace: 'nowrap' 
                       }}
-                      title={getFormattedLocationName(dayLoc)}
+                      title={getFormattedLocationName(dayLoc, trip.locations)}
                     >
-                      {getLocIcon(dayLoc)} {getFormattedLocationName(dayLoc)}
+                      {getLocIcon(dayLoc)} {getFormattedLocationName(dayLoc, trip.locations)}
                     </span>
                   )}
                 </button>
@@ -2651,7 +2149,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 )}
                 <div>
                   <h3 style={{ fontSize: '18px', color: 'var(--text-primary)' }}>
-                    {activeDayLocation ? getFormattedLocationName(activeDayLocation) : 'Not Selected'}
+                    {activeDayLocation ? getFormattedLocationName(activeDayLocation, trip.locations) : 'Not Selected'}
                   </h3>
                 </div>
               </div>
@@ -2672,7 +2170,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   >
                     <option value="">Select Location...</option>
                     {trip.locations.map(l => (
-                      <option key={l.id} value={l.id}>{getLocIcon(l)} {getFormattedLocationName(l)}</option>
+                      <option key={l.id} value={l.id}>{getLocIcon(l)} {getFormattedLocationName(l, trip.locations)}</option>
                     ))}
                   </select>
                   <button 
@@ -2798,11 +2296,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button 
                       className="mini-icon-btn flex-align" 
-                      onClick={() => {
-                        const firstOtherDay = daysList.find(d => d !== activeDayStr) || '';
-                        setMoveDayTargetDate(firstOtherDay);
-                        setShowMoveDayModal(true);
-                      }} 
+                      onClick={() => setShowMoveDayModal(true)} 
                       data-tooltip="Move Places To Another Day"
                       style={{ gap: '4px' }}
                     >
@@ -2819,13 +2313,18 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                     <button 
                       className="mini-icon-btn flex-align" 
                       onClick={() => {
-                        setCustomPlaceTitle('');
-                        setCustomPlaceDesc('');
-                        setCustomPlaceHours('');
-                        setCustomPlaceLat('');
-                        setCustomPlaceLng('');
-                        setCustomPlaceGroupId('new');
-                        setCustomPlaceMapsLink('');
+                        setEditingPlace({
+                          id: `new-temp-${Date.now()}`,
+                          title: '',
+                          description: '',
+                          openingHours: '',
+                          lat: activeDayLocation?.lat || catalogLocation?.lat || 0,
+                          lng: activeDayLocation?.lng || catalogLocation?.lng || 0,
+                          placeGroupId: 'other',
+                          notes: '',
+                          photoUrl: '',
+                          mapsLink: ''
+                        });
                         setAutoScheduleOnActiveDay(true);
                         setShowCustomPlaceModal(true);
                       }} 
@@ -3175,800 +2674,133 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
          ---------------------------------------------------- */}
 
       {/* 1. New Plan Modal */}
-      {showNewPlanModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create Plan Option</h3>
-              <button className="modal-close" onClick={() => setShowNewPlanModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleCreatePlan}>
-              <div className="form-group">
-                <label>Plan Name</label>
-                <input 
-                  type="text" 
-                  value={newPlanName} 
-                  onChange={e => setNewPlanName(e.target.value)} 
-                  placeholder="e.g. Route Option B, Low Cost Option" 
-                  required 
-                  autoFocus
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowNewPlanModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Create Plan</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      <NewPlanModal
+        isOpen={showNewPlanModal}
+        onClose={() => setShowNewPlanModal(false)}
+        onSave={handleCreatePlan}
+      />
+
+      {/* 2. Move Day Modal */}
+      <MoveDayModal
+        isOpen={showMoveDayModal}
+        onClose={() => setShowMoveDayModal(false)}
+        activeDayLabel={`Day ${daysList.indexOf(activeDayStr) + 1} (${formatDisplayDate(activeDayStr).split(',')[1]?.trim() || activeDayStr})`}
+        daysOptions={daysList
+          .filter(d => d !== activeDayStr)
+          .map(d => ({
+            value: d,
+            label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`
+          }))}
+        onConfirmMove={handleMoveDayContents}
+      />
+
+      {/* 3. Edit Trip Details Modal */}
+      <EditTripModal
+        isOpen={showEditTripModal}
+        onClose={() => setShowEditTripModal(false)}
+        trip={trip}
+        onSave={handleSaveEditTrip}
+      />
+
+      {/* 4. Add Location Modal */}
+      <AddLocationModal
+        isOpen={showAddLocationModal}
+        onClose={() => setShowAddLocationModal(false)}
+        title={addLocationForDay ? 'Add Location for Day' : 'Add Location to Trip'}
+        onSelect={(loc) => {
+          if (addLocationForDay) {
+            handleAddNewLocationForDay(loc);
+          } else {
+            handleAddNewLocationToCatalog(loc);
+          }
+          setShowAddLocationModal(false);
+        }}
+      />
+
+      {/* 5. Location Modal (Edit Location) */}
+      {catalogLocation && (
+        <LocationModal
+          isOpen={showEditLocationModal}
+          onClose={() => setShowEditLocationModal(false)}
+          location={catalogLocation}
+          allLocations={trip.locations}
+          onSave={handleSaveEditLocation}
+          onDelete={() => handleDeleteLocation(catalogLocation.id)}
+          onReorderLocations={(updatedLocs) => {
+            onUpdateTrip({
+              ...trip,
+              locations: updatedLocs
+            });
+          }}
+        />
       )}
 
-      {/* 2. Custom Place Modal */}
-      {showCustomPlaceModal && (
-        <div className="modal-overlay" onClick={handleCloseAddPlace}>
-          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Add Place</h3>
-              <button className="modal-close" onClick={handleCloseAddPlace}>
-                <X size={20} />
-              </button>
-            </div>
+      {/* 6. Place Modal (Add / Edit Place) */}
+      <PlaceModal
+        isOpen={showCustomPlaceModal || showEditPlaceModal}
+        onClose={() => {
+          setShowCustomPlaceModal(false);
+          setShowEditPlaceModal(false);
+          setEditingPlace(null);
+        }}
+        place={editingPlace}
+        catalogLocation={catalogLocation}
+        placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
+        onSave={(placeData) => {
+          const isEdit = !!(editingPlace && !editingPlace.id.startsWith('new-temp-'));
+          if (isEdit) {
+            handleSaveEditPlace(placeData);
+          } else {
+            handleCreateCustomPlace(placeData);
+          }
+        }}
+        onDelete={editingPlace && !editingPlace.id.startsWith('new-temp-') ? handleDeletePlace : undefined}
+      />
 
-            {/* Suggestions Search / Auto-Populate */}
-            <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-              <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
-              <div style={{ position: 'relative', marginTop: '6px' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  placeholder="Search place suggestions to auto-fill..." 
-                  value={customPlaceSearchQuery}
-                  onChange={(e) => setCustomPlaceSearchQuery(e.target.value)}
-                  style={{ paddingLeft: '32px' }}
-                />
-                {isSearchingCustomPlace && (
-                  <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
-                )}
-              </div>
-              
-              {customPlaceSuggestions.length > 0 && (
-                <div style={{ 
-                  background: 'var(--bg-panel)', 
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid var(--border-glass)', 
-                  borderRadius: '6px', 
-                  marginTop: '6px', 
-                  maxHeight: '150px', 
-                  overflowY: 'auto' 
-                }}>
-                  {customPlaceSuggestions.map((sug) => (
-                    <div 
-                      key={sug.id} 
-                      onClick={() => {
-                        setCustomPlaceTitle(sug.title);
-                        setCustomPlaceDesc(sug.description || '');
-                        setCustomPlaceHours(sug.openingHours || '');
-                        setCustomPlaceLat(sug.lat.toString());
-                        setCustomPlaceLng(sug.lng.toString());
-                        setCustomPlaceMapsLink(buildMapsLink(sug.title, sug.lat, sug.lng, catalogLocation?.city));
-                        setCustomPlacePhotoUrl(sug.photoUrl || '');
-                        setCustomPlaceNotes(sug.notes || '');
-                        setCustomPlaceSearchQuery('');
-                        setCustomPlaceSuggestions([]);
-                      }}
-                      style={{ 
-                        padding: '8px 12px', 
-                        cursor: 'pointer', 
-                        borderBottom: '1px solid rgba(255,255,255,0.03)', 
-                        fontSize: '12px' 
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{sug.title}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {sug.description}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+      {/* 7. Group Modal */}
+      <GroupModal
+        isOpen={showGroupModal}
+        onClose={() => {
+          setShowGroupModal(false);
+          setEditingGroup(null);
+        }}
+        group={editingGroup}
+        onSave={handleSavePlaceGroup}
+      />
 
-            <form onSubmit={handleCreateCustomPlace}>
-              <div className="modal-scroll-body">
-                <PlaceFormFields
-                  title={customPlaceTitle}
-                  setTitle={setCustomPlaceTitle}
-                  description={customPlaceDesc}
-                  setDescription={setCustomPlaceDesc}
-                  openingHours={customPlaceHours}
-                  setOpeningHours={setCustomPlaceHours}
-                  groupId={customPlaceGroupId}
-                  setGroupId={setCustomPlaceGroupId}
-                  mapsLink={customPlaceMapsLink}
-                  setMapsLink={setCustomPlaceMapsLink}
-                  photoUrl={customPlacePhotoUrl}
-                  setPhotoUrl={setCustomPlacePhotoUrl}
-                  notes={customPlaceNotes}
-                  setNotes={setCustomPlaceNotes}
-                  lat={customPlaceLat}
-                  setLat={setCustomPlaceLat}
-                  lng={customPlaceLng}
-                  setLng={setCustomPlaceLng}
-                  placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
-                />
-              </div>
-              <div className="modal-actions sticky">
-                <button type="button" className="btn-secondary" onClick={handleCloseAddPlace}>Cancel</button>
-                <button type="submit" className="btn-primary">Add Place</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 8. Transport Modal */}
+      <TransportModal
+        isOpen={showTransportModal}
+        onClose={() => setShowTransportModal(false)}
+        tripStartDate={trip.startDate}
+        tripEndDate={trip.endDate}
+        onSave={handleAddTransportation}
+      />
 
-      {/* 3. Edit Place Modal */}
-      {showEditPlaceModal && editingPlace && (
-        <div className="modal-overlay" onClick={handleCloseEditPlace}>
-          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Edit Place Details</h3>
-              <button className="modal-close" onClick={handleCloseEditPlace}>
-                <X size={20} />
-              </button>
-            </div>
-            
-            {/* Suggestions Search / Auto-Populate */}
-            <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-              <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
-              <div style={{ position: 'relative', marginTop: '6px' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  placeholder="Search place suggestions to auto-fill..." 
-                  value={editPlaceSearchQuery}
-                  onChange={(e) => setEditPlaceSearchQuery(e.target.value)}
-                  style={{ paddingLeft: '32px' }}
-                />
-                {isSearchingEditPlace && (
-                  <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
-                )}
-              </div>
-              
-              {editPlaceSuggestions.length > 0 && (
-                <div style={{ 
-                  background: 'var(--bg-panel)', 
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid var(--border-glass)', 
-                  borderRadius: '6px', 
-                  marginTop: '6px', 
-                  maxHeight: '150px', 
-                  overflowY: 'auto' 
-                }}>
-                  {editPlaceSuggestions.map((sug) => (
-                    <div 
-                      key={sug.id} 
-                      onClick={() => {
-                        setEditPlaceTitle(sug.title);
-                        setEditPlaceDesc(sug.description || '');
-                        setEditPlaceHours(sug.openingHours || '');
-                        setEditPlaceLat(sug.lat.toString());
-                        setEditPlaceLng(sug.lng.toString());
-                        setEditPlaceMapsLink(sug.mapsLink || buildMapsLink(sug.title, sug.lat, sug.lng, catalogLocation?.city));
-                        setEditPlacePhotoUrl(sug.photoUrl || '');
-                        setEditPlaceNotes(sug.notes || '');
-                        setEditPlaceSearchQuery('');
-                        setEditPlaceSuggestions([]);
-                      }}
-                      style={{ 
-                        padding: '8px 12px', 
-                        cursor: 'pointer', 
-                        borderBottom: '1px solid rgba(255,255,255,0.03)', 
-                        fontSize: '12px' 
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{sug.title}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {sug.description}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+      {/* 9. Hotel Modal */}
+      <HotelModal
+        isOpen={showHotelModal}
+        onClose={() => setShowHotelModal(false)}
+        tripStartDate={trip.startDate}
+        tripEndDate={trip.endDate}
+        onSave={handleAddHotel}
+      />
 
-            <form onSubmit={handleSaveEditPlace}>
-              <div className="modal-scroll-body">
-                <PlaceFormFields
-                  title={editPlaceTitle}
-                  setTitle={setEditPlaceTitle}
-                  description={editPlaceDesc}
-                  setDescription={setEditPlaceDesc}
-                  openingHours={editPlaceHours}
-                  setOpeningHours={setEditPlaceHours}
-                  groupId={editPlaceGroupId}
-                  setGroupId={setEditPlaceGroupId}
-                  mapsLink={editPlaceMapsLink}
-                  setMapsLink={setEditPlaceMapsLink}
-                  photoUrl={editPlacePhotoUrl}
-                  setPhotoUrl={setEditPlacePhotoUrl}
-                  notes={editPlaceNotes}
-                  setNotes={setEditPlaceNotes}
-                  lat={editPlaceLat}
-                  setLat={setEditPlaceLat}
-                  lng={editPlaceLng}
-                  setLng={setEditPlaceLng}
-                  placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
-                />
-              </div>
-
-              <div className="modal-actions sticky" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button 
-                  type="button" 
-                  className="btn-secondary flex-align"
-                  style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.04)', gap: '4px' }}
-                  onClick={() => {
-                    if (editingPlace) {
-                      handleDeletePlace(editingPlace.id);
-                      setShowEditPlaceModal(false);
-                      setEditingPlace(null);
-                    }
-                  }}
-                >
-                  <Trash2 size={14} /> Delete Place
-                </button>
-                
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" className="btn-secondary" onClick={handleCloseEditPlace}>Cancel</button>
-                  <button type="submit" className="btn-primary">Save Changes</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Move Day Modal */}
-      {showMoveDayModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Move Day Contents</h3>
-              <button className="modal-close" onClick={() => setShowMoveDayModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Move all scheduled places of <strong>Day {daysList.indexOf(activeDayStr) + 1}</strong> ({formatDisplayDate(activeDayStr).split(',')[1]}) to another day. This will override the destination day's scheduled places.
-            </div>
-
-            <div className="form-group" style={{ marginBottom: '20px' }}>
-              <label>Select Destination Day</label>
-              <select 
-                value={moveDayTargetDate} 
-                onChange={e => setMoveDayTargetDate(e.target.value)}
-                style={{ width: '100%', background: 'var(--bg-dark)' }}
-              >
-                {daysList.map((dateStr, index) => {
-                  if (dateStr === activeDayStr) return null;
-                  return (
-                    <option key={dateStr} value={dateStr}>
-                      Day {index + 1} ({formatDisplayDate(dateStr).split(',')[1]})
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => setShowMoveDayModal(false)}>Cancel</button>
-              <button 
-                className="btn-primary" 
-                onClick={() => handleMoveDayContents(moveDayTargetDate)}
-                disabled={!moveDayTargetDate}
-              >
-                Move Contents
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Transportation Modal */}
-      {showTransportModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Schedule Transportation</h3>
-              <button className="modal-close" onClick={() => setShowTransportModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleAddTransportation}>
-              <div className="form-group">
-                <label>Type</label>
-                <select value={transportType} onChange={e => setTransportType(e.target.value as any)}>
-                  <option value="flight">✈️ Flight</option>
-                  <option value="train">🚆 Train</option>
-                  <option value="bus">🚌 Bus</option>
-                  <option value="car">🚗 Car Rental / Drive</option>
-                  <option value="ferry">🛳️ Ferry</option>
-                  <option value="other">🗺️ Other</option>
-                </select>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Departure Location</label>
-                  <input type="text" value={depLoc} onChange={e => setDepLoc(e.target.value)} placeholder="e.g. Paris CDG Airport" required />
-                </div>
-                <div className="form-group">
-                  <label>Arrival Location</label>
-                  <input type="text" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Rome FCO Airport" required />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Departure Date</label>
-                  <input type="date" value={depDate} onChange={e => setDepDate(e.target.value)} min={trip.startDate} max={trip.endDate} required />
-                </div>
-                <div className="form-group">
-                  <label>Arrival Date</label>
-                  <input type="date" value={arrDate} onChange={e => setArrDate(e.target.value)} min={depDate || trip.startDate} max={trip.endDate} required />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Departure Time</label>
-                  <input type="time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label>Arrival Time</label>
-                  <input type="time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Departure Timezone</label>
-                  <input type="text" value={depTz} onChange={e => setDepTz(e.target.value)} placeholder="e.g. GMT+1, CET" required />
-                </div>
-                <div className="form-group">
-                  <label>Arrival Timezone</label>
-                  <input type="text" value={arrTz} onChange={e => setArrTz(e.target.value)} placeholder="e.g. GMT+9, JST" required />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Carrier / Operator (Optional)</label>
-                  <input type="text" value={transitCarrier} onChange={e => setTransitCarrier(e.target.value)} placeholder="e.g. Air France" />
-                </div>
-                <div className="form-group">
-                  <label>Transit Code / Flight No (Optional)</label>
-                  <input type="text" value={transitCode} onChange={e => setTransitCode(e.target.value)} placeholder="e.g. AF1234" />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Notes (Optional)</label>
-                <textarea value={transitNotes} onChange={e => setTransitNotes(e.target.value)} placeholder="Gate, booking reference, details..." rows={2} />
-              </div>
-
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowTransportModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Add Transport</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Hotel Stay Modal */}
-      {showHotelModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Hotel Stay Planner</h3>
-              <button className="modal-close" onClick={() => setShowHotelModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleAddHotel}>
-              <div className="form-group">
-                <label>Hotel Name</label>
-                <input type="text" value={hotelName} onChange={e => setHotelName(e.target.value)} placeholder="e.g. Hilton Roma" required />
-              </div>
-              <div className="form-group">
-                <label>Address (Optional)</label>
-                <input type="text" value={hotelAddress} onChange={e => setHotelAddress(e.target.value)} placeholder="e.g. Via Alberto, Rome" />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Check-In Date</label>
-                  <input type="date" value={hotelCheckIn} onChange={e => setHotelCheckIn(e.target.value)} min={trip.startDate} max={trip.endDate} required />
-                </div>
-                <div className="form-group">
-                  <label>Check-Out Date</label>
-                  <input type="date" value={hotelCheckOut} onChange={e => setHotelCheckOut(e.target.value)} min={hotelCheckIn || trip.startDate} max={trip.endDate} required />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Notes (Optional)</label>
-                <textarea value={hotelNotes} onChange={e => setHotelNotes(e.target.value)} placeholder="Booking reference, room details..." rows={2} />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowHotelModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Stay</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Custom Group Modal */}
-      {showGroupModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create Custom Group</h3>
-              <button className="modal-close" onClick={() => setShowGroupModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleAddPlaceGroup}>
-              <GroupFormFields 
-                name={newGroupName} 
-                setName={setNewGroupName} 
-                color={newGroupColor} 
-                setColor={setNewGroupColor} 
-                icon={newGroupIcon} 
-                setIcon={setNewGroupIcon} 
-              />
-
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowGroupModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Add Group</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Edit Group Modal */}
-      {showEditGroupModal && editingGroup && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Edit Group</h3>
-              <button className="modal-close" onClick={() => setShowEditGroupModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveEditPlaceGroup}>
-              <GroupFormFields 
-                name={editGroupName} 
-                setName={setEditGroupName} 
-                color={editGroupColor} 
-                setColor={setEditGroupColor} 
-                icon={editGroupIcon} 
-                setIcon={setEditGroupIcon} 
-                placeholder="e.g. Attractions, Food"
-              />
-
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowEditGroupModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 7. Add Location Modal */}
-      {showAddLocationModal && (
-        <div className="modal-overlay" onClick={handleCloseAddLocation}>
-          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{addLocationForDay ? 'Add Location for Day' : 'Add Location to Trip'}</h3>
-              <button className="modal-close" onClick={handleCloseAddLocation}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="form-group" style={{ position: 'relative' }}>
-              <label>Search City / Location</label>
-              <div style={{ position: 'relative' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  placeholder="e.g. Rome, Tokyo, New York..." 
-                  value={locationQuery}
-                  onChange={(e) => setLocationQuery(e.target.value)}
-                  style={{ paddingLeft: '32px' }}
-                  autoFocus
-                />
-                {isSearchingLocation && (
-                  <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Loading...</div>
-                )}
-              </div>
-              
-              {locationSuggestions.length > 0 && (
-                <div className="autocomplete-dropdown" style={{ position: 'absolute', width: '100%', top: '100%' }}>
-                  {locationSuggestions.map(loc => (
-                    <div 
-                      key={loc.id} 
-                      className="autocomplete-item"
-                      onClick={() => {
-                        if (addLocationForDay) {
-                          handleAddNewLocationForDay(loc);
-                        } else {
-                          handleAddNewLocationToCatalog(loc);
-                        }
-                        setShowAddLocationModal(false);
-                      }}
-                    >
-                      {loc.city}{loc.state ? `, ${loc.state}` : ''}, {loc.country}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="modal-actions" style={{ marginTop: '40px' }}>
-              <button type="button" className="btn-secondary" onClick={handleCloseAddLocation}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Trip Details Modal */}
-      {showEditTripModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Edit Trip Details</h3>
-              <button className="modal-close" onClick={() => setShowEditTripModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveEditTrip}>
-              <div className="form-group">
-                <label>Trip Name</label>
-                <input 
-                  type="text" 
-                  value={editTripName} 
-                  onChange={e => setEditTripName(e.target.value)} 
-                  placeholder="e.g. Summer in Europe" 
-                  required 
-                  autoFocus 
-                />
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input 
-                    type="date" 
-                    value={editTripStart} 
-                    onChange={e => handleEditTripStartChange(e.target.value)} 
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>End Date</label>
-                  <input 
-                    type="date" 
-                    value={editTripEnd} 
-                    onChange={e => handleEditTripEndChange(e.target.value)} 
-                    required 
-                  />
-                </div>
-              </div>
-
-              {(() => {
-                const currentDuration = getDaysDiff(trip.startDate, trip.endDate) + 1;
-                const newDuration = (editTripStart && editTripEnd) ? getDaysDiff(editTripStart, editTripEnd) + 1 : currentDuration;
-                if (newDuration < currentDuration) {
-                  return (
-                    <div 
-                      style={{ 
-                        marginTop: '16px', 
-                        padding: '10px 12px', 
-                        background: 'rgba(239, 68, 68, 0.1)', 
-                        borderLeft: '3px solid var(--color-danger)', 
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        color: '#fca5a5',
-                        lineHeight: 1.4,
-                        textTransform: 'none'
-                      }}
-                    >
-                      ⚠️ Warning: The new duration is shorter ({newDuration} days) than the current one ({currentDuration} days). The last {currentDuration - newDuration} day(s) of your plans will be permanently deleted.
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              <div className="modal-actions" style={{ marginTop: '24px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setShowEditTripModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Confirmation Modal */}
+      {/* 10. Confirmation Modal */}
       {confirmModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{confirmModal.title}</h3>
-              <button className="modal-close" onClick={() => setConfirmModal(null)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none', whiteSpace: 'pre-wrap' }}>
-              {confirmModal.message}
-            </div>
-            <div className="modal-actions" style={{ marginTop: '20px' }}>
-              {!confirmModal.isAlert && (
-                <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
-                  {confirmModal.cancelText || 'Cancel'}
-                </button>
-              )}
-              <button 
-                type="button" 
-                className="btn-primary" 
-                style={{ 
-                  background: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)', 
-                  borderColor: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)' 
-                }}
-                onClick={() => {
-                  confirmModal.onConfirm();
-                  setConfirmModal(null);
-                }}
-              >
-                {confirmModal.confirmText || (confirmModal.isAlert ? 'OK' : 'Confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Location Modal */}
-      {showEditLocationModal && catalogLocation && (
-        <div className="modal-overlay" onClick={handleCloseEditLocation}>
-          <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Edit Location</h3>
-              <button className="modal-close" onClick={handleCloseEditLocation}>
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Auto-Populate suggestions search */}
-            <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-              <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
-              <div style={{ position: 'relative', marginTop: '6px' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  placeholder="Search city to auto-fill fields..." 
-                  value={editLocSearchQuery}
-                  onChange={(e) => setEditLocSearchQuery(e.target.value)}
-                  style={{ paddingLeft: '32px' }}
-                />
-                {isSearchingEditLoc && (
-                  <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
-                )}
-              </div>
-              
-              {editLocSuggestions.length > 0 && (
-                <div style={{ 
-                  background: 'var(--bg-panel)', 
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid var(--border-glass)', 
-                  borderRadius: '6px', 
-                  marginTop: '6px', 
-                  maxHeight: '150px', 
-                  overflowY: 'auto' 
-                }}>
-                  {editLocSuggestions.map((sug) => (
-                    <div 
-                      key={sug.id} 
-                      onClick={() => {
-                        setEditLocCity(sug.city);
-                        setEditLocState(sug.state || '');
-                        setEditLocCountry(sug.country);
-                        setEditLocCountryCode(sug.countryCode || '');
-                        setEditLocLat(sug.lat.toString());
-                        setEditLocLng(sug.lng.toString());
-                        setEditLocHeroPhoto(sug.heroPhoto || '');
-                        setEditLocSearchQuery('');
-                        setEditLocSuggestions([]);
-                      }}
-                      style={{ 
-                        padding: '8px 12px', 
-                        cursor: 'pointer', 
-                        borderBottom: '1px solid rgba(255,255,255,0.03)', 
-                        fontSize: '12px' 
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {getLocIcon(sug as Location)} {sug.city}, {sug.country}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <form onSubmit={handleSaveEditLocation}>
-              <div className="modal-scroll-body">
-                <LocationFormFields
-                  city={editLocCity}
-                  setCity={setEditLocCity}
-                  stateVal={editLocState}
-                  setStateVal={setEditLocState}
-                  country={editLocCountry}
-                  setCountry={setEditLocCountry}
-                  countryCode={editLocCountryCode}
-                  setCountryCode={setEditLocCountryCode}
-                  color={editLocColor}
-                  setColor={setEditLocColor}
-                  lat={editLocLat}
-                  setLat={setEditLocLat}
-                  lng={editLocLng}
-                  setLng={setEditLocLng}
-                  heroPhoto={editLocHeroPhoto}
-                  setHeroPhoto={setEditLocHeroPhoto}
-                  locations={trip.locations}
-                  currentLocationId={catalogLocation.id}
-                  draggedLocationIndex={draggedLocationIndex}
-                  setDraggedLocationIndex={setDraggedLocationIndex}
-                  dragOverLocationIndex={dragOverLocationIndex}
-                  setDragOverLocationIndex={setDragOverLocationIndex}
-                  handleDragStart={handleDragStart}
-                  handleDragOver={handleDragOver}
-                  handleDrop={handleDrop}
-                  getLocIcon={getLocIcon}
-                  getFormattedLocationName={getFormattedLocationName}
-                />
-              </div>
-
-              <div className="modal-actions sticky" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button 
-                  type="button" 
-                  className="btn-secondary flex-align"
-                  style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.04)', gap: '4px' }}
-                  onClick={handleEditLocationDelete}
-                >
-                  <Trash2 size={14} /> Delete Location
-                </button>
-                
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" className="btn-secondary" onClick={handleCloseEditLocation}>Cancel</button>
-                  <button type="submit" className="btn-primary">Save</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ConfirmationModal
+          isOpen={!!confirmModal}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText={confirmModal.confirmText}
+          cancelText={confirmModal.cancelText}
+          isAlert={confirmModal.isAlert}
+          onConfirm={() => {
+            confirmModal.onConfirm();
+            setConfirmModal(null);
+          }}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
     </div>
   );

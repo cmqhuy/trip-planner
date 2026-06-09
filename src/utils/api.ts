@@ -286,3 +286,59 @@ export async function searchPlacesNearLocation(query: string, location: { city: 
     return localResults;
   }
 }
+
+export const getCountryFlag = (countryCode?: string): string => {
+  if (!countryCode || countryCode.length !== 2) return '📍';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  try {
+    return String.fromCodePoint(...codePoints);
+  } catch (e) {
+    return '📍';
+  }
+};
+
+export const getLocIcon = (loc?: Location) => {
+  if (!loc) return '📍';
+  if (loc.countryCode) {
+    return getCountryFlag(loc.countryCode);
+  }
+  const name = loc.country.toLowerCase();
+  if (name.includes('france')) return '🇫🇷';
+  if (name.includes('italy')) return '🇮🇹';
+  if (name.includes('japan')) return '🇯🇵';
+  if (name.includes('united states') || name === 'us' || name === 'usa') return '🇺🇸';
+  if (name.includes('vietnam') || name === 'vn') return '🇻🇳';
+  if (name.includes('united kingdom') || name === 'uk' || name === 'gb') return '🇬🇧';
+  if (name.includes('germany') || name === 'de') return '🇩🇪';
+  if (name.includes('spain') || name === 'es') return '🇪🇸';
+  if (name.includes('canada') || name === 'ca') return '🇨🇦';
+  if (name.includes('australia') || name === 'au') return '🇦🇺';
+  return '📍';
+};
+
+export const buildMapsLink = (title: string, _lat: number, _lng: number, city?: string) => {
+  const query = city ? `${title}, ${city}` : title;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+};
+
+export const getFormattedLocationName = (loc: Location, allLocations: Location[]) => {
+  const countries = new Set(allLocations.map(l => l.country.toLowerCase()));
+  const isMultiCountry = countries.size > 1;
+
+  if (isMultiCountry) {
+    return `${loc.city}, ${loc.country}`;
+  }
+
+  const isUS = allLocations.every(l => l.country.toLowerCase().includes('united states') || l.country.toLowerCase() === 'us');
+  if (isUS) {
+    const states = new Set(allLocations.map(l => l.state?.toLowerCase()).filter(Boolean));
+    if (states.size > 1 && loc.state) {
+      return `${loc.city}, ${loc.state}`;
+    }
+  }
+
+  return loc.city;
+};

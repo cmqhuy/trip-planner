@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Trip } from '../types';
 import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2 } from 'lucide-react';
 import { shiftTripDates } from '../utils/dateUtils';
+import ConfirmationModal from './ConfirmationModal';
 
 interface TripDashboardProps {
   trips: Trip[];
@@ -207,6 +208,7 @@ export default function TripDashboard({
                         setConfirmModal({
                           title: 'Leave Trip',
                           message: `Are you sure you want to leave the shared trip "${trip.name}"? You will lose access to it.`,
+                          confirmText: 'Leave',
                           onConfirm: () => onLeaveTrip && onLeaveTrip(trip)
                         });
                       }}
@@ -232,6 +234,7 @@ export default function TripDashboard({
                           message: trip.shared 
                             ? `This trip is shared with other users. Deleting it will remove access for everyone. Are you sure you want to delete "${trip.name}"?`
                             : `Are you sure you want to delete "${trip.name}"? This action cannot be undone.`,
+                          confirmText: 'Delete',
                           onConfirm: () => onDeleteTrip(trip.id)
                         });
                       }}
@@ -382,42 +385,18 @@ export default function TripDashboard({
         </div>
       )}
 
-      {confirmModal && (
-        <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
-          <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{confirmModal.title}</h3>
-              <button className="modal-close" onClick={() => setConfirmModal(null)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div style={{ padding: '16px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', textTransform: 'none' }}>
-              {confirmModal.message}
-            </div>
-            <div className="modal-actions" style={{ marginTop: '20px' }}>
-              {!confirmModal.isAlert && (
-                <button type="button" className="btn-secondary" onClick={() => setConfirmModal(null)}>
-                  Cancel
-                </button>
-              )}
-              <button 
-                type="button" 
-                className="btn-primary" 
-                style={{ 
-                  background: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)', 
-                  borderColor: confirmModal.isAlert ? 'var(--accent-primary)' : 'var(--color-danger)' 
-                }}
-                onClick={() => {
-                  confirmModal.onConfirm();
-                  setConfirmModal(null);
-                }}
-              >
-                {confirmModal.confirmText || (confirmModal.isAlert ? 'OK' : 'Delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={confirmModal !== null}
+        title={confirmModal?.title || ''}
+        message={confirmModal?.message || ''}
+        isAlert={confirmModal?.isAlert}
+        confirmText={confirmModal?.confirmText}
+        onConfirm={() => {
+          confirmModal?.onConfirm();
+          setConfirmModal(null);
+        }}
+        onCancel={() => setConfirmModal(null)}
+      />
     </div>
   );
 }
