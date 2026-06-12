@@ -2084,6 +2084,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                 onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
                                 canEdit={trip.canEdit !== false}
                                 isGenerating={placeGeneratingIds.has(place.id)}
+                                layoutMode="single-col"
                               />
 
                               {/* Actions */}
@@ -2904,6 +2905,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                             onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
                             canEdit={trip.canEdit !== false}
                             isGenerating={placeGeneratingIds.has(place.id)}
+                            layoutMode="adaptive-2-col"
                           />
 
                           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px', gap: '6px' }}>

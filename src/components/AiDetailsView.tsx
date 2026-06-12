@@ -7,13 +7,15 @@ interface AiDetailsViewProps {
   onGenerate?: () => void;
   canEdit?: boolean;
   isGenerating?: boolean;
+  layoutMode?: 'single-col' | 'adaptive-2-col';
 }
 
 export default function AiDetailsView({
   place,
   onGenerate,
   canEdit = true,
-  isGenerating = false
+  isGenerating = false,
+  layoutMode = 'single-col'
 }: AiDetailsViewProps) {
   const hasAiDetails = place.aiDetails && Object.keys(place.aiDetails).length > 0;
 
@@ -88,7 +90,7 @@ export default function AiDetailsView({
           </span>
         </div>
       ) : hasAiDetails ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className={layoutMode === 'adaptive-2-col' ? 'ai-details-grid' : 'ai-details-list'}>
           {AI_DETAIL_FIELDS.map(field => {
             const content = place.aiDetails?.[field.key];
             if (!content || !content.trim()) return null;

@@ -1445,6 +1445,24 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: #a5b4fc;
 }
 
+.ai-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .ai-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ai-detail-block {
   display: flex;
   flex-direction: column;

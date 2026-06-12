@@ -161,20 +161,21 @@ export class GeminiService {
       fieldsPrompt.push(`- "${field.key}": ${field.instruction}`);
     }
 
-    const promptText = `You are a professional local travel planner and guide. Provide detailed insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
+    const promptText = `You are a professional local travel planner and guide. Provide concise, high-value insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
 ${places.map(p => `- ID: "${p.id}", Place Title: "${p.title}" (Description: "${p.description || 'N/A'}")`).join('\n')}
 
-For each place, fill in the following details (return detailed, specific paragraph descriptions for each field, do NOT give short one-word or simple answers):
+For each place, fill in the details below.
+IMPORTANT: Keep each field's description brief and highly readable (2 to 3 concise sentences or a short bulleted list of 2-3 items. Do NOT write long paragraphs or verbose essays):
 ${fieldsPrompt.join('\n')}
 
 IMPORTANT DIRECTIONS REQUIREMENT:
-If a place is a broad, generic area or neighborhood (such as Shinjuku, Shibuya, Myeongdong, Soho, etc.), the "directions" field MUST specify a concrete arrival point (e.g. which station, exit, or street corner to arrive at) and where the primary attractions/sights are centered within that area.
+If a place is a broad, generic area or neighborhood (such as Shinjuku, Shibuya, Myeongdong, Soho, etc.), the "directions" field MUST specify a concrete arrival point (e.g. which station, exit, or street corner to arrive at) in a single concise sentence.
 
 IMPORTANT STORY REQUIREMENT:
-The "what_special" field must cover the story, history, romance, pop-culture/movie connections, or unique features that make the place special.
+The "what_special" field must briefly cover the key story, history, romance, or unique feature that makes the place special (no fluff).
 
 IMPORTANT PRO-TIPS REQUIREMENT:
-Provide actionable gotchas, etiquette, scams to avoid, best spots for photos, or local secrets.
+Provide 2-3 short, actionable gotchas, etiquette tips, or local secrets.
 
 Ensure the returned JSON lists the exact "id" for each place so it can be matched.`;
 
