@@ -40,8 +40,8 @@ export const AI_DETAIL_FIELDS: AiDetailField[] = [
     key: 'area_guide',
     label: "Area Guide & Main Streets",
     icon: 'Compass',
-    instruction: "For neighborhoods, shopping districts, or large parks/trails (like Shibuya, Hongdae, Philosopher's Path): detail the best station exits, main walking streets, and key landmark/shop clusters. For smaller spots, list immediate surrounding attractions.",
-    placeholder: "e.g. Arrive at Hongik Univ. Exit 9, walk down Hongdae Walking Street for busking, street food, and retail..."
+    instruction: "For neighborhoods, shopping districts, or large parks/trails (like Shibuya, Hongdae, Myeong-dong, or Bukchon Hanok Village): detail the best station exits, main walking streets, and key landmark/shop clusters. For smaller spots, list immediate surrounding attractions.",
+    placeholder: "e.g. Arrive at Myeong-dong Station Exit 6, walk down Myeong-dong Main Street for street food, cosmetics shops, and retail..."
   },
   {
     key: 'pro_tips',
@@ -182,7 +182,7 @@ export class GeminiService {
     // Add suggested coordinates list
     properties['suggestedMarkers'] = {
       type: 'ARRAY',
-      description: 'Suggested key spots, street segments, or landmarks inside or near this place (especially if it is an area/neighborhood/trail like Shibuya, Hongdae, or Philosopher\'s Path). Return empty array if not applicable.',
+      description: 'Suggested key spots, street segments, or landmarks inside or near this place (especially if it is an area/neighborhood/trail like Shibuya, Hongdae, Myeong-dong, or Bukchon Hanok Village). Return empty array if not applicable.',
       items: {
         type: 'OBJECT',
         properties: {
@@ -208,9 +208,9 @@ IMPORTANT DIRECTIONS REQUIREMENT:
 If a place is a broad, generic area or neighborhood (such as Shinjuku, Shibuya, Myeongdong, Soho, etc.), the "directions" field MUST specify a concrete arrival point (e.g. which station, exit, or street corner to arrive at) in a single concise sentence.
 
 IMPORTANT AREA MAP MARKERS REQUIREMENT:
-For neighborhoods, trails, or large areas (e.g. Shibuya, Hongdae, Philosopher's Path), you MUST generate a list of 2-5 key spots, street points, or famous landmarks in the "suggestedMarkers" array.
+For neighborhoods, trails, or large areas (e.g. Shibuya, Hongdae, Myeong-dong, or Bukchon Hanok Village), you MUST generate a list of 2-5 key spots, street points, or famous landmarks in the "suggestedMarkers" array.
 For example, for "Hongdae": suggest coordinates for the main busking/shopping street, and a famous store or exit.
-For Philosopher's Path: suggest coordinates for the start and end points and a famous temple along the path.
+For Myeong-dong or Bukchon Hanok Village: suggest coordinates for the main shopping/walking street/path and key landmarks (e.g. Myeongdong Cathedral, Bukchon viewpoints).
 Ensure the coordinates (lat/lng) are highly accurate and geographically near the main place's coordinates (shown above).
 Return an empty array if the place is a small, single-coordinate point of interest where sub-markers are not useful.
 
