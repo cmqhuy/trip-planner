@@ -152,6 +152,10 @@ input, textarea, select {
   width: 100%;
 }
 
+textarea {
+  resize: none;
+}
+
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent-primary);
@@ -1483,4 +1487,29 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
   }
 }
+
+/* Wide place details modal styling */
+.modal-content.place-modal-content {
+  max-width: 950px;
+  width: 90%;
+}
+
+.place-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .modal-content.place-modal-content {
+    width: 95%;
+    padding: 16px;
+  }
+  .place-form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 

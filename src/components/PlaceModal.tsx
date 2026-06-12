@@ -181,7 +181,7 @@ export default function PlaceModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content glass-panel scrollable place-modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{isEdit ? 'Edit Place Details' : 'Add Place'}</h3>
           <button className="modal-close" onClick={onClose}>

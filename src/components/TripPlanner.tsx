@@ -1921,7 +1921,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                             handlePlaceDropOnPlace(place.id, group.id, dragOverPlacePosition);
                             setDragOverPlaceId(null);
                           }}
-                          onClick={() => setActivePlaceId(place.id)}
+                          onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
                           style={{ 
                             borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
                             cursor: 'grab'
@@ -2016,13 +2016,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                             <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }} onClick={e => e.stopPropagation()}>
                               {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
                               
-                              <AiDetailsView
-                                place={place}
-                                onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
-                                canEdit={trip.canEdit !== false}
-                                isGenerating={placeGeneratingIds.has(place.id)}
-                              />
-
                               {/* Notes Field (Shared at Trip level) */}
                               <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(99,102,241,0.04)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 4px 4px 0' }}>
                                 <label style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
@@ -2072,8 +2065,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                       whiteSpace: 'pre-wrap',
                                       display: 'block',
                                       width: '100%',
-                                      lineHeight: 1.3,
-                                      fontSize: '13px'
+                                      lineHeight: 1.4,
+                                      fontSize: '12.5px'
                                     }}>
                                       {place.notes || 'No notes added yet.'}
                                     </span>
@@ -2085,6 +2078,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                   </div>
                                 )}
                               </div>
+
+                              <AiDetailsView
+                                place={place}
+                                onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
+                                canEdit={trip.canEdit !== false}
+                                isGenerating={placeGeneratingIds.has(place.id)}
+                              />
 
                               {/* Actions */}
                               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginTop: '8px' }}>
@@ -2699,7 +2699,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         }
                         setDragOverDayPlaceIndex(null);
                       }}
-                      onClick={() => setActivePlaceId(place.id)}
+                      onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
                       style={{
                         flexDirection: 'column',
                         alignItems: 'stretch',
@@ -2816,11 +2816,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                                 <div style={{ 
-                                  fontSize: '13px', 
+                                  fontSize: '12.5px', 
                                   color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', 
                                   fontStyle: 'italic', 
                                   whiteSpace: 'pre-wrap',
-                                  lineHeight: 1.3,
+                                  lineHeight: 1.4,
                                   margin: 0,
                                   flex: 1,
                                   textTransform: 'none',
