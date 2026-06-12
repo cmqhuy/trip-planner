@@ -203,28 +203,34 @@ export default function PlaceFormFields({
               AI Travel Insights {formatFreshness(aiUpdatedAt)}
             </h4>
 
-            <button
-              type="button"
-              className="btn-secondary flex-align"
-              style={{ 
-                fontSize: '11px', 
-                padding: '4px 10px', 
-                borderRadius: '6px',
-                gap: '6px',
-                borderColor: 'rgba(99, 102, 241, 0.2)',
-                background: 'rgba(99, 102, 241, 0.05)'
-              }}
-              onClick={onAutoFill}
-              disabled={isAiGenerating || !title.trim() || !hasKeys}
-              title={!hasKeys ? 'Configure Gemini API keys in settings to use this feature' : 'Auto-populate these fields with Gemini AI'}
+            <div 
+              data-tooltip={!hasKeys ? 'Configure Gemini API keys in settings to use this feature' : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Auto-populate these fields with Gemini AI')}
+              data-tooltip-position="bottom"
+              style={{ display: 'inline-block' }}
             >
-              {isAiGenerating ? (
-                <RefreshCw size={11} className="spin" />
-              ) : (
-                <Sparkles size={11} />
-              )}
-              {isAiGenerating ? 'Generating...' : 'Auto-Fill with AI'}
-            </button>
+              <button
+                type="button"
+                className="btn-secondary flex-align"
+                style={{ 
+                  fontSize: '11px', 
+                  padding: '4px 10px', 
+                  borderRadius: '6px',
+                  gap: '6px',
+                  borderColor: 'rgba(99, 102, 241, 0.2)',
+                  background: 'rgba(99, 102, 241, 0.05)',
+                  cursor: (isAiGenerating || !title.trim() || !hasKeys) ? 'not-allowed' : 'pointer'
+                }}
+                onClick={onAutoFill}
+                disabled={isAiGenerating || !title.trim() || !hasKeys}
+              >
+                {isAiGenerating ? (
+                  <RefreshCw size={11} className="spin" />
+                ) : (
+                  <Sparkles size={11} />
+                )}
+                {isAiGenerating ? 'Generating...' : 'Auto-Fill with AI'}
+              </button>
+            </div>
           </div>
 
           {aiError && (

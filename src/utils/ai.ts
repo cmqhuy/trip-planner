@@ -37,6 +37,13 @@ export const AI_DETAIL_FIELDS: AiDetailField[] = [
     placeholder: "e.g. Take JR Yamanote Line to Shibuya Station, Hachiko Exit..."
   },
   {
+    key: 'area_guide',
+    label: "Area Guide & Main Streets",
+    icon: 'Compass',
+    instruction: "For neighborhoods, shopping districts, or large parks/trails (like Shibuya, Hongdae, Philosopher's Path): detail the best station exits, main walking streets, and key landmark/shop clusters. For smaller spots, list immediate surrounding attractions.",
+    placeholder: "e.g. Arrive at Hongik Univ. Exit 9, walk down Hongdae Walking Street for busking, street food, and retail..."
+  },
+  {
     key: 'pro_tips',
     label: "Pro-Tips & Gotchas",
     icon: 'AlertCircle',
@@ -143,13 +150,13 @@ export class GeminiService {
    * Direct API call to Gemini for a list of places.
    */
   static async generatePlaceAiDetails(
-    places: { id: string; title: string; description?: string }[],
+    places: { id: string; title: string; description?: string; lat?: number; lng?: number }[],
     city: string,
     country: string,
     apiKey: string,
     model = 'gemini-2.5-flash',
     customAiFields?: { title: string; key: string; description: string }[]
-  ): Promise<{ id: string; [key: string]: string }[]> {
+  ): Promise<{ id: string; suggestedMarkers?: any[]; [key: string]: any }[]> {
     if (places.length === 0) return [];
 
     const properties: any = { id: { type: 'STRING' } };
@@ -172,8 +179,26 @@ export class GeminiService {
       }
     }
 
+    // Add suggested coordinates list
+    properties['suggestedMarkers'] = {
+      type: 'ARRAY',
+      description: 'Suggested key spots, street segments, or landmarks inside or near this place (especially if it is an area/neighborhood/trail like Shibuya, Hongdae, or Philosopher\'s Path). Return empty array if not applicable.',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          title: { type: 'STRING', description: 'Name of the spot/street (e.g. Hongdae Shopping Street, Hachiko Statue, Ewha Womans University Main Entrance)' },
+          lat: { type: 'NUMBER', description: 'Latitude coordinate of this specific spot' },
+          lng: { type: 'NUMBER', description: 'Longitude coordinate of this specific spot' },
+          description: { type: 'STRING', description: 'Very short explanation of what to do here (e.g. Main street for busking, best station exit to start walking, famous flagship store)' },
+          type: { type: 'STRING', description: 'One of: street, landmark, shop, station, cafe, other' }
+        },
+        required: ['title', 'lat', 'lng', 'description', 'type']
+      }
+    };
+    required.push('suggestedMarkers');
+
     const promptText = `You are a professional local travel planner and guide. Provide concise, high-value insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
-${places.map(p => `- ID: "${p.id}", Place Title: "${p.title}" (Description: "${p.description || 'N/A'}")`).join('\n')}
+${places.map(p => `- ID: "${p.id}", Place Title: "${p.title}" (Description: "${p.description || 'N/A'}", Latitude: ${p.lat || 'N/A'}, Longitude: ${p.lng || 'N/A'})`).join('\n')}
 
 For each place, fill in the details below.
 IMPORTANT: Keep each field's description brief and highly readable (2 to 3 concise sentences or a short bulleted list of 2-3 items. Do NOT write long paragraphs or verbose essays):
@@ -182,11 +207,12 @@ ${fieldsPrompt.join('\n')}
 IMPORTANT DIRECTIONS REQUIREMENT:
 If a place is a broad, generic area or neighborhood (such as Shinjuku, Shibuya, Myeongdong, Soho, etc.), the "directions" field MUST specify a concrete arrival point (e.g. which station, exit, or street corner to arrive at) in a single concise sentence.
 
-IMPORTANT STORY REQUIREMENT:
-The "what_special" field must briefly cover the key story, history, romance, or unique feature that makes the place special (no fluff).
-
-IMPORTANT PRO-TIPS REQUIREMENT:
-Provide 2-3 short, actionable gotchas, etiquette tips, or local secrets.
+IMPORTANT AREA MAP MARKERS REQUIREMENT:
+For neighborhoods, trails, or large areas (e.g. Shibuya, Hongdae, Philosopher's Path), you MUST generate a list of 2-5 key spots, street points, or famous landmarks in the "suggestedMarkers" array.
+For example, for "Hongdae": suggest coordinates for the main busking/shopping street, and a famous store or exit.
+For Philosopher's Path: suggest coordinates for the start and end points and a famous temple along the path.
+Ensure the coordinates (lat/lng) are highly accurate and geographically near the main place's coordinates (shown above).
+Return an empty array if the place is a small, single-coordinate point of interest where sub-markers are not useful.
 
 Ensure the returned JSON lists the exact "id" for each place so it can be matched.`;
 
@@ -238,12 +264,12 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
    * Generates AI details rotating through configured keys.
    */
   static async generatePlaceAiDetailsWithRotation(
-    places: { id: string; title: string; description?: string }[],
+    places: { id: string; title: string; description?: string; lat?: number; lng?: number }[],
     city: string,
     country: string,
     customAiFields?: { title: string; key: string; description: string }[],
     model?: string
-  ): Promise<{ id: string; [key: string]: string }[]> {
+  ): Promise<{ id: string; suggestedMarkers?: any[]; [key: string]: any }[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
       throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
@@ -457,7 +483,7 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
     const transportsList = tripInfo.transports.map(t => `- ${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate}`).join('\n');
     const placesList = tripInfo.places.map(p => `- ${p.title} (Reservation info: ${p.reservationDetails || 'None'})`).join('\n');
 
-    const promptText = `You are a professional travel checklist planner. Generate a comprehensive preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
+    const promptText = `You are a professional travel checklist planner. Generate a concise, high-priority preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
 
 Locations to visit:
 ${locationsList || 'None'}
@@ -471,21 +497,13 @@ ${transportsList || 'None'}
 Scheduled places of interest:
 ${placesList || 'None'}
 
-Please pay attention to essential details to make the trip complete:
-1. Identify missing accommodations (if there are gaps between ${tripInfo.startDate} and ${tripInfo.endDate} with no hotel booked).
-2. Identify missing transportation/flights (e.g. if the user hasn't booked transit to/from destinations).
-3. Call out places that require early reservations or tickets based on the scheduled places list (e.g. popular museums, restaurants, etc.).
-4. Research immigration & visa requirements for the destinations based on typical international travelers.
-5. If there is a timeline, organize the checklist chronologically:
-   - 90 Days Prior (or current month if trip is closer)
-   - 60 Days Prior
-   - 30 Days Prior
-   - 1 Week Prior
-   - Day of Travel
-6. Add purchase/ticketing links where possible (using Markdown links, e.g. [Buy tickets](url) or standard official site search links).
-7. ${enableBabyLogistics ? 'Since the user is traveling with a baby, include a dedicated baby checklist section covering baby essentials, travel documents, baby food, medication, stroller/car seat check-in checklist, etc.' : ''}
+Please pay attention to essential details to make the trip complete. Keep the response concise, punchy, and avoid long-winded paragraphs. Limit the output to maximum 3-4 core categories:
+1. Booking Gaps & Ticketing: Identify missing accommodations (if there are gaps between ${tripInfo.startDate} and ${tripInfo.endDate} with no hotel booked), missing transit, or places requiring early reservations/tickets.
+2. Entry & Visa Requirements: Note if visa/immigration documents are needed.
+3. Essential Prep & Gear: 3-5 high-priority packing or preparation tasks specific to these destinations.
+4. ${enableBabyLogistics ? 'Baby Logistics: 4-6 essential baby travel prep/packing items (stroller check-in, baby documents, food, etc.).' : ''}
 
-Make the markdown clean, structured, and easy to read. Do NOT include a wrapper JSON. Output ONLY raw Markdown.`;
+Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',

@@ -175,6 +175,87 @@ export default function MapComponent({
       }
     });
 
+    // Render AI suggested markers for active place
+    const activePlace = places.find(p => p.id === activePlaceId);
+    if (activePlace && activePlace.suggestedMarkers && Array.isArray(activePlace.suggestedMarkers)) {
+      activePlace.suggestedMarkers.forEach(sm => {
+        if (isNaN(sm.lat) || isNaN(sm.lng)) return;
+
+        const aiSvgMap: Record<string, string> = {
+          'street': `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M2 12h20"/><path d="M12 2v20"/><path d="M12 12H6"/></svg>`,
+          'landmark': `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><path d="m12 2-10 9h20z"/></svg>`,
+          'shop': `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/></svg>`,
+          'station': `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 15h8"/><path d="M12 11V6"/></svg>`,
+          'cafe': `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/></svg>`,
+          'sparkles': `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>`
+        };
+
+        const aiIcon = L.divIcon({
+          className: 'custom-map-marker-ai-suggested',
+          html: `
+            <div style="
+              position: relative;
+              width: 26px;
+              height: 26px;
+              background: rgba(17, 24, 39, 0.95);
+              border: 2px solid #c084fc;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 0 12px #c084fc, 0 2px 6px rgba(0,0,0,0.6);
+              color: #e9d5ff;
+            ">
+              ${aiSvgMap[sm.type] || aiSvgMap['sparkles']}
+              <!-- Small sparkles badge on top-right -->
+              <div style="
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #c084fc;
+                color: #0b0f19;
+                border-radius: 50%;
+                width: 11px;
+                height: 11px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+              ">
+                <svg xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
+              </div>
+            </div>
+          `,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+          popupAnchor: [0, -13]
+        });
+
+        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${sm.lat},${sm.lng}`;
+        const directionsLink = `https://www.google.com/maps/dir/?api=1&destination=${sm.lat},${sm.lng}&travelmode=walking`;
+
+        const marker = L.marker([sm.lat, sm.lng], { icon: aiIcon })
+          .bindPopup(`
+            <div class="map-popup-card">
+              <h4 style="color:#d8b4fe; font-size:11.5px; display:flex; align-items:center; gap:4px; margin-top:0;">
+                ✨ ${sm.title} 
+                <span style="font-size:8.5px; padding:1px 4px; background:rgba(192,132,252,0.15); border:1px solid rgba(192,132,252,0.3); color:#c084fc; border-radius:4px; font-weight:normal;">
+                  ${sm.type.toUpperCase()}
+                </span>
+              </h4>
+              <p style="margin-bottom: 6px; font-size:11px; color:#cbd5e1; line-height:1.3;">${sm.description || 'Suggested area highlight.'}</p>
+              <div style="display: flex; gap: 8px; margin-top: 6px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+                <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:9.5px; text-decoration:none; color:#c084fc; font-weight:600;">Google Maps</a>
+                <span style="color:#475569;">|</span>
+                <a href="${directionsLink}" target="_blank" rel="noopener noreferrer" style="font-size:9.5px; text-decoration:none; color:#34d399; font-weight:600;">Directions</a>
+              </div>
+            </div>
+          `);
+
+        markerGroup.addLayer(marker);
+      });
+    }
+
     // Render preview/pin-drop marker if available
     if (previewMarker && !isNaN(previewMarker.lat) && !isNaN(previewMarker.lng)) {
       const previewIcon = L.divIcon({

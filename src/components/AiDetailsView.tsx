@@ -1,6 +1,7 @@
 import { Sparkles, Calendar, Ticket, Compass, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react';
 import type { Place } from '../types';
 import { AI_DETAIL_FIELDS } from '../utils/ai';
+import FunGeneratingLoader from './FunGeneratingLoader';
 
 interface AiDetailsViewProps {
   place: Place;
@@ -54,10 +55,7 @@ export default function AiDetailsView({
       <div className="ai-details-header">
         <span className="ai-details-freshness">
           <Sparkles size={12} className={isGenerating ? 'spin' : ''} />
-          {hasAiDetails 
-            ? `AI Travel Guide (Updated: ${formatFreshness(place.aiUpdatedAt)})` 
-            : 'AI Travel Insights'
-          }
+          {hasAiDetails ? 'AI Travel Guide' : 'AI Travel Insights'}
         </span>
 
         {canEdit && onGenerate && (
@@ -84,13 +82,14 @@ export default function AiDetailsView({
         )}
       </div>
 
-      {isGenerating ? (
-        <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <RefreshCw size={18} className="spin" style={{ color: 'var(--accent-primary)' }} />
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'none' }}>
-            Asking Gemini AI for travel insights...
-          </span>
+      {hasAiDetails && place.aiUpdatedAt && !isGenerating && (
+        <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '8px', textTransform: 'none' }}>
+          Updated: {formatFreshness(place.aiUpdatedAt)}
         </div>
+      )}
+
+      {isGenerating ? (
+        <FunGeneratingLoader message="Asking Gemini AI for travel insights..." />
       ) : hasAiDetails ? (
         <div className={layoutMode === 'adaptive-2-col' ? 'ai-details-grid' : 'ai-details-list'}>
           {AI_DETAIL_FIELDS.map(field => {

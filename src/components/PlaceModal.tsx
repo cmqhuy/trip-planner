@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Search, Trash2 } from 'lucide-react';
-import type { Place, PlaceGroup, Location } from '../types';
+import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
 import { searchPlacesNearLocation, buildMapsLink } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
 import { GeminiService } from '../utils/ai';
@@ -39,6 +39,7 @@ export default function PlaceModal({
   const [aiUpdatedAt, setAiUpdatedAt] = useState<number | undefined>(undefined);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [suggestedMarkers, setSuggestedMarkers] = useState<SuggestedMarker[]>([]);
 
   // Search auto-populate states
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +66,7 @@ export default function PlaceModal({
         setLng(place.lng.toString());
         setAiDetails(place.aiDetails || {});
         setAiUpdatedAt(place.aiUpdatedAt);
+        setSuggestedMarkers(place.suggestedMarkers || []);
       } else {
         // Add mode
         setTitle('');
@@ -76,6 +78,7 @@ export default function PlaceModal({
         setNotes('');
         setAiDetails({});
         setAiUpdatedAt(undefined);
+        setSuggestedMarkers([]);
         if (catalogLocation) {
           setLat(catalogLocation.lat.toString());
           setLng(catalogLocation.lng.toString());
@@ -137,14 +140,21 @@ export default function PlaceModal({
       const country = catalogLocation?.country || '';
       
       const results = await GeminiService.generatePlaceAiDetailsWithRotation(
-        [{ id: 'temp-form-id', title: title.trim(), description: description.trim() }],
+        [{ 
+          id: 'temp-form-id', 
+          title: title.trim(), 
+          description: description.trim(), 
+          lat: parseFloat(lat) || undefined, 
+          lng: parseFloat(lng) || undefined 
+        }],
         city,
         country
       );
 
       if (results && results.length > 0) {
-        const { id, ...details } = results[0];
+        const { id, suggestedMarkers: aiMarkers, ...details } = results[0];
         setAiDetails(details);
+        setSuggestedMarkers(aiMarkers || []);
         setAiUpdatedAt(Date.now());
       } else {
         setAiError('No details were returned by the AI.');
@@ -172,7 +182,8 @@ export default function PlaceModal({
       lat: parseFloat(lat),
       lng: parseFloat(lng),
       aiDetails: Object.keys(aiDetails).length > 0 ? aiDetails : undefined,
-      aiUpdatedAt: aiUpdatedAt
+      aiUpdatedAt: aiUpdatedAt,
+      suggestedMarkers: suggestedMarkers.length > 0 ? suggestedMarkers : undefined
     });
     onClose();
   };

@@ -90,6 +90,29 @@ export default function AiSettingsModal({
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Key size={14} /> Gemini API Keys
             </label>
+            
+            <div 
+              style={{ 
+                margin: '4px 0 8px 0', 
+                padding: '8px 12px', 
+                fontSize: '11.5px', 
+                color: 'var(--text-secondary)', 
+                lineHeight: 1.4, 
+                background: 'rgba(255, 255, 255, 0.02)', 
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '6px',
+                textTransform: 'none'
+              }}
+            >
+              🔑 <strong>How to get a key:</strong>
+              <ol style={{ margin: '4px 0 0 14px', padding: 0, listStyleType: 'decimal' }}>
+                <li>Go to the <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}>Google AI Studio</a>.</li>
+                <li>Sign in with your Google Account.</li>
+                <li>Click <strong>Create API Key</strong> in the top-left menu.</li>
+                <li>Create and copy your key, then paste it below. (Free tier available!)</li>
+              </ol>
+            </div>
+
             <textarea
               className="ai-modal-textarea"
               placeholder="Paste your Gemini API keys here (one key per line)..."

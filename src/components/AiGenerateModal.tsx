@@ -9,7 +9,7 @@ interface AiGenerateModalProps {
   places: Place[];
   city: string;
   country: string;
-  onSave: (updates: { [placeId: string]: { [key: string]: string } }) => void;
+  onSave: (updates: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } }) => void;
   customAiFields?: { title: string; key: string; description: string }[];
 }
 
@@ -94,7 +94,7 @@ export default function AiGenerateModal({
       );
 
       // Map back to update object
-      const updatesMap: { [placeId: string]: { [key: string]: string } } = {};
+      const updatesMap: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } } = {};
       results.forEach(res => {
         const { id, ...details } = res;
         updatesMap[id] = details;
@@ -118,7 +118,7 @@ export default function AiGenerateModal({
       month: 'short',
       day: 'numeric'
     });
-    return <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Updated: {dateStr}</span>;
+    return <span style={{ color: 'var(--color-success)', fontSize: '11px' }}>Updated: {dateStr}</span>;
   };
 
   return (

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, RefreshCw, AlertTriangle, CheckSquare, Square } from 'lucide-react';
+import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import { GeminiService } from '../utils/ai';
+import FunGeneratingLoader from './FunGeneratingLoader';
+import { formatFreshness } from './AiMarkdownSection';
 
 interface DayOption {
   dateStr: string;
   label: string;
   hasTips: boolean;
+  tipsUpdatedAt?: number;
 }
 
 interface AiGenerateDaysModalProps {
@@ -100,15 +103,8 @@ export default function AiGenerateDaysModal({
 
         <div className="modal-scroll-body" style={{ marginTop: '12px' }}>
           {generating ? (
-            <div className="ai-generate-loading-container">
-              <RefreshCw size={36} className="spin" style={{ color: 'var(--accent-primary)' }} />
-              <h4 style={{ textTransform: 'none' }}>Generating Daily Tips</h4>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none', lineHeight: 1.4, textAlign: 'center' }}>
-                Asking Gemini to build local routes, departure times, weather check reminders, transit options, and baby logistics for {selectedDates.size} day(s)...
-              </p>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
-                This may take a few seconds...
-              </span>
+            <div className="ai-generate-loading-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '180px' }}>
+              <FunGeneratingLoader message={`Asking Gemini to build local routes, departure times, weather check reminders, transit options, and baby logistics for ${selectedDates.size} day(s)...`} />
             </div>
           ) : (
             <>
@@ -184,7 +180,11 @@ export default function AiGenerateDaysModal({
                           <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
                             {d.dateStr}
                           </span>
-                          {d.hasTips ? (
+                          {d.tipsUpdatedAt ? (
+                            <span style={{ color: 'var(--color-success)', fontSize: '11px' }}>
+                              Updated: {formatFreshness(d.tipsUpdatedAt)}
+                            </span>
+                          ) : d.hasTips ? (
                             <span style={{ color: 'var(--color-success)', fontSize: '11px' }}>Has AI tips</span>
                           ) : (
                             <span style={{ color: '#fbbf24', fontSize: '11px' }}>No tips generated yet</span>

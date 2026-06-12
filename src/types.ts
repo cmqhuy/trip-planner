@@ -1,3 +1,11 @@
+export interface SuggestedMarker {
+  title: string;
+  lat: number;
+  lng: number;
+  description: string;
+  type: string; // e.g. 'street' | 'landmark' | 'shop' | 'station' | 'cafe' | 'other'
+}
+
 export interface Place {
   id: string; // OSM ID or custom ID
   title: string;
@@ -13,6 +21,7 @@ export interface Place {
     [key: string]: string;
   };
   aiUpdatedAt?: number; // Timestamp when AI details were populated/updated
+  suggestedMarkers?: SuggestedMarker[];
 }
 
 export interface PlaceGroup {

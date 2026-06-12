@@ -7,14 +7,17 @@ import {
   Building, BookOpen, Clock, Check, Layers, X,
   Calendar, FileText, Landmark, Utensils, ShoppingBag,
   Camera, Heart, Share2, Sparkles, MoreVertical,
-  CheckSquare, RefreshCw, Ticket
+  CheckSquare, RefreshCw, Ticket, GripVertical
 } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService } from '../utils/ai';
 import AiDetailsView from './AiDetailsView';
+import { getOptimizedImageUrl } from '../utils/image';
 import AiGenerateModal from './AiGenerateModal';
+import AiMarkdownSection from './AiMarkdownSection';
+import FunGeneratingLoader from './FunGeneratingLoader';
 
 // Extracted Modals
 import ConfirmationModal from './ConfirmationModal';
@@ -401,6 +404,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   
   // Manual checklist inputs
   const [manualChecklistInput, setManualChecklistInput] = useState('');
+  const [draggedChecklistIndex, setDraggedChecklistIndex] = useState<number | null>(null);
 
   // Trigger search on place query changes (Day timeline inline search)
   useEffect(() => {
@@ -623,15 +627,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     setEditingPlace(null);
   };
 
-  const handleSaveBatchAiDetails = useCallback((updates: { [placeId: string]: { [key: string]: string } }) => {
+  const handleSaveBatchAiDetails = useCallback((updates: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } }) => {
     const updatedLocations = trip.locations.map(l => {
       let locationChanged = false;
       const updatedPlaces = l.places.map(p => {
         if (updates[p.id]) {
           locationChanged = true;
+          const { suggestedMarkers, ...aiDetails } = updates[p.id];
           return {
             ...p,
-            aiDetails: updates[p.id],
+            aiDetails,
+            suggestedMarkers,
             aiUpdatedAt: Date.now()
           };
         }
@@ -679,7 +685,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
     try {
       const results = await GeminiService.generatePlaceAiDetailsWithRotation(
-        [{ id: placeId, title: targetPlace.title, description: targetPlace.description }],
+        [{ id: placeId, title: targetPlace.title, description: targetPlace.description, lat: targetPlace.lat, lng: targetPlace.lng }],
         targetLoc.city,
         targetLoc.country,
         trip.customAiFields
@@ -1993,6 +1999,76 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     });
   };
 
+  const handleMoveManualChecklistItem = (id: string, direction: 'up' | 'down') => {
+    if (!trip.manualChecklist) return;
+    const list = [...trip.manualChecklist];
+    const index = list.findIndex(item => item.id === id);
+    if (index === -1) return;
+    
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+    
+    // Swap
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+    
+    onUpdateTrip({
+      ...trip,
+      manualChecklist: list
+    });
+  };
+
+  const handleSaveAiChecklist = (newContent: string) => {
+    onUpdateTrip({
+      ...trip,
+      aiChecklist: newContent,
+      aiChecklistUpdatedAt: Date.now()
+    });
+  };
+
+  const handleSaveAiLocalEssentials = (newContent: string) => {
+    onUpdateTrip({
+      ...trip,
+      aiLocalEssentials: newContent,
+      aiLocalEssentialsUpdatedAt: Date.now()
+    });
+  };
+
+  const handleSaveDayTips = (dateStr: string, newContent: string) => {
+    const day = activePlan.days[dateStr];
+    if (!day) return;
+    const updatedDays = {
+      ...activePlan.days,
+      [dateStr]: {
+        ...day,
+        aiTips: newContent,
+        aiTipsUpdatedAt: Date.now()
+      }
+    };
+    onUpdateTrip({
+      ...trip,
+      plans: trip.plans.map(p => p.id === activePlan.id ? { ...p, days: updatedDays } : p)
+    });
+  };
+
+  const handleSaveBabyLogistics = (dateStr: string, newContent: string) => {
+    const day = activePlan.days[dateStr];
+    if (!day) return;
+    const updatedDays = {
+      ...activePlan.days,
+      [dateStr]: {
+        ...day,
+        aiBabyLogistics: newContent,
+        aiTipsUpdatedAt: Date.now()
+      }
+    };
+    onUpdateTrip({
+      ...trip,
+      plans: trip.plans.map(p => p.id === activePlan.id ? { ...p, days: updatedDays } : p)
+    });
+  };
+
   // ----------------------------------------------------
   // Rendering Helpers
   // ----------------------------------------------------
@@ -2061,6 +2137,28 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   };
 
   const leftPanelJSX = useMemo(() => {
+    // Pre-calculate allocated days mapping once for all catalog cards to prevent heavy calculations in render loops
+    const placeAllocatedDaysMap = new Map<string, string[]>();
+    Object.keys(activePlan.days).forEach(dateStr => {
+      activePlan.days[dateStr].placeIds.forEach(placeId => {
+        if (!placeAllocatedDaysMap.has(placeId)) {
+          placeAllocatedDaysMap.set(placeId, []);
+        }
+        placeAllocatedDaysMap.get(placeId)!.push(dateStr);
+      });
+    });
+    // Sort the dates
+    placeAllocatedDaysMap.forEach(dates => dates.sort());
+
+    // Local cached display date formatter to avoid running slow Intl engines in nested loops
+    const displayDateCache = new Map<string, string>();
+    const getCachedFormattedDisplayDate = (dateStr: string) => {
+      if (!displayDateCache.has(dateStr)) {
+        displayDateCache.set(dateStr, formatDisplayDate(dateStr));
+      }
+      return displayDateCache.get(dateStr)!;
+    };
+
     return (
       <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
         {/* Back to dashboard button (always visible at the top) */}
@@ -2104,49 +2202,41 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
             <div className="accordion-content">
               {/* Back to dashboard and select location inside catalog */}
               <div className="panel-header" style={{ padding: '0 0 12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '12px' }}>
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    Destination Catalog
-                  </h3>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    {catalogLocation && trip.canEdit !== false && (
-                      <button 
-                        className="mini-icon-btn" 
-                        onClick={() => setShowEditLocationModal(true)}
-                        data-tooltip="Edit Location Settings"
-                        style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        <Edit2 size={12} />
-                      </button>
-                    )}
-                    {trip.canEdit !== false && (
-                      <button 
-                        className="btn-primary flex-align"
-                        style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        onClick={() => {
-                          setAddLocationForDay(false);
-                          setShowAddLocationModal(true);
-                        }}
-                        data-tooltip="Add Location"
-                      >
-                        <Plus size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '8px' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <select
                     value={selectedCatalogLocId}
                     onChange={(e) => setSelectedCatalogLocId(e.target.value)}
-                    style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)' }}
+                    style={{ flex: 1, padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)', minWidth: 0 }}
                   >
                     {trip.locations.length === 0 && <option value="">No Locations Added</option>}
                     {trip.locations.map(loc => (
                       <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc, trip.locations)}</option>
                     ))}
                   </select>
+                  
+                  {catalogLocation && trip.canEdit !== false && (
+                    <button 
+                      className="mini-icon-btn" 
+                      onClick={() => setShowEditLocationModal(true)}
+                      data-tooltip="Edit Location Settings"
+                      style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    >
+                      <Edit2 size={12} />
+                    </button>
+                  )}
+                  {trip.canEdit !== false && (
+                    <button 
+                      className="btn-primary flex-align"
+                      style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                      onClick={() => {
+                        setAddLocationForDay(false);
+                        setShowAddLocationModal(true);
+                      }}
+                      data-tooltip="Add Location"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2393,7 +2483,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                               >
                                 <div className="place-card-header">
                                   {place.photoUrl ? (
-                                    <img src={place.photoUrl} className="place-card-thumb" alt="" />
+                                    <img 
+                                      src={getOptimizedImageUrl(place.photoUrl, 120)} 
+                                      className="place-card-thumb" 
+                                      alt="" 
+                                      loading="lazy"
+                                      decoding="async"
+                                    />
                                   ) : (
                                     <div 
                                       className="place-card-thumb" 
@@ -2411,14 +2507,13 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '6px' }}>
                                       <h4 className="place-card-title" style={{ margin: 0, flex: 1, minWidth: 0 }}>{place.title}</h4>
                                       {(() => {
-                                        const allocatedDays = Object.keys(activePlan.days)
-                                          .filter(dateStr => activePlan.days[dateStr].placeIds.includes(place.id))
-                                          .sort();
+                                        const allocatedDays = placeAllocatedDaysMap.get(place.id) || [];
                                         if (allocatedDays.length === 0) return null;
                                         return (
                                           <div style={{ display: 'flex', gap: '3px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '120px' }}>
                                             {allocatedDays.map(dateStr => {
                                               const isActiveDay = dateStr === activeDayStr;
+                                              const formatted = getCachedFormattedDisplayDate(dateStr);
                                               return (
                                                 <span 
                                                   key={dateStr} 
@@ -2432,9 +2527,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                                     border: isActiveDay ? '1px solid var(--accent-primary)' : '1px solid rgba(255, 255, 255, 0.05)',
                                                     whiteSpace: 'nowrap'
                                                   }}
-                                                  title={isActiveDay ? 'Scheduled for today' : `Scheduled for ${formatDisplayDate(dateStr)}`}
+                                                  title={isActiveDay ? 'Scheduled for today' : `Scheduled for ${formatted}`}
                                                 >
-                                                  {formatDisplayDate(dateStr).split(',')[1]?.trim() || dateStr}
+                                                  {formatted.split(',')[1]?.trim() || dateStr}
                                                 </span>
                                               );
                                             })}
@@ -2633,7 +2728,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           {expandedLeftSection === 'checklist' && (
             <div className="accordion-content">
               {/* Checklist Content */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', flex: 1, minHeight: 0 }}>
                 
                 {/* Section A: Manual Checklist */}
                 <div>
@@ -2668,25 +2763,63 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto', paddingRight: '2px' }}>
-                    {(trip.manualChecklist || []).map(item => (
+                    {(trip.manualChecklist || []).map((item, idx) => (
                       <div 
                         key={item.id} 
                         className="flex-between glass-panel"
+                        draggable={trip.canEdit !== false}
+                        onDragStart={(e) => {
+                          setDraggedChecklistIndex(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedChecklistIndex === null || draggedChecklistIndex === idx) return;
+                          const list = [...(trip.manualChecklist || [])];
+                          const [removed] = list.splice(draggedChecklistIndex, 1);
+                          list.splice(idx, 0, removed);
+                          onUpdateTrip({
+                            ...trip,
+                            manualChecklist: list
+                          });
+                        }}
+                        onDragEnd={() => setDraggedChecklistIndex(null)}
                         style={{ 
                           padding: '6px 10px', 
                           borderColor: 'rgba(255,255,255,0.04)',
                           backgroundColor: 'rgba(255,255,255,0.01)',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          opacity: draggedChecklistIndex === idx ? 0.4 : 1,
+                          cursor: trip.canEdit !== false ? 'grab' : 'default',
+                          transition: 'opacity 0.2s ease, background-color 0.2s ease'
                         }}
                       >
-                        <label className="flex-align" style={{ gap: '8px', cursor: trip.canEdit !== false ? 'pointer' : 'default', textTransform: 'none', flex: 1, minWidth: 0 }}>
-                          <input 
-                            type="checkbox" 
-                            checked={item.completed} 
-                            disabled={trip.canEdit === false}
-                            onChange={() => handleToggleManualChecklistItem(item.id)}
-                            style={{ width: '14px', height: '14px', margin: 0, cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
-                          />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                          {trip.canEdit !== false && (
+                            <span 
+                              style={{ 
+                                cursor: 'grab', 
+                                color: 'var(--text-muted)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                opacity: 0.6,
+                                paddingRight: '2px'
+                              }}
+                            >
+                              <GripVertical size={11} />
+                            </span>
+                          )}
+                          <label className="flex-align" style={{ gap: '8px', cursor: trip.canEdit !== false ? 'pointer' : 'default', textTransform: 'none', flex: 1, minWidth: 0 }}>
+                            <input 
+                              type="checkbox" 
+                              checked={item.completed} 
+                              disabled={trip.canEdit === false}
+                              onChange={() => handleToggleManualChecklistItem(item.id)}
+                              style={{ width: '14px', height: '14px', margin: 0, cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
+                            />
                           <span style={{ 
                             fontSize: '12px', 
                             color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
@@ -2698,15 +2831,39 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                             {item.text}
                           </span>
                         </label>
+                      </div>
                         {trip.canEdit !== false && (
-                          <button 
-                            type="button" 
-                            className="trip-delete-btn" 
-                            onClick={() => handleDeleteManualChecklistItem(item.id)}
-                            style={{ padding: '2px' }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          <div style={{ display: 'flex', gap: '2px', alignItems: 'center', marginLeft: '6px' }}>
+                            <button 
+                              type="button" 
+                              className="mini-icon-btn" 
+                              onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
+                              disabled={(trip.manualChecklist || []).indexOf(item) === 0}
+                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (trip.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
+                              data-tooltip="Move Up"
+                            >
+                              <ChevronUp size={12} />
+                            </button>
+                            <button 
+                              type="button" 
+                              className="mini-icon-btn" 
+                              onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
+                              disabled={(trip.manualChecklist || []).indexOf(item) === (trip.manualChecklist || []).length - 1}
+                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (trip.manualChecklist || []).indexOf(item) === (trip.manualChecklist || []).length - 1 ? 0.3 : 1 }}
+                              data-tooltip="Move Down"
+                            >
+                              <ChevronDown size={12} />
+                            </button>
+                            <button 
+                              type="button" 
+                              className="trip-delete-btn" 
+                              onClick={() => handleDeleteManualChecklistItem(item.id)}
+                              style={{ padding: '2px', marginLeft: '4px' }}
+                              data-tooltip="Delete Task"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -2720,7 +2877,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 </div>
 
                 {/* Section B: AI Generated Checklist */}
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                   <div className="flex-between" style={{ marginBottom: '8px' }}>
                     <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>
                       AI Preparation Checklist
@@ -2739,66 +2896,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   </div>
 
                   {generatingChecklist ? (
-                    <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                      <RefreshCw size={18} className="spin" style={{ color: 'var(--accent-primary)' }} />
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
-                        Analyzing trip logistics & requirements...
-                      </span>
-                    </div>
+                    <FunGeneratingLoader message="Analyzing trip logistics & requirements..." />
                   ) : trip.aiChecklist ? (
-                    <div className="ai-checklist-markdown" style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
-                      {/* Simple custom markdown renderer for bullets and sections */}
-                      {trip.aiChecklist.split('\n').map((line, idx) => {
-                        if (line.startsWith('# ')) {
-                          return <h3 key={idx} style={{ fontSize: '14px', fontWeight: 700, margin: '12px 0 6px 0', color: 'var(--text-primary)' }}>{line.replace('# ', '')}</h3>;
-                        }
-                        if (line.startsWith('## ')) {
-                          return <h4 key={idx} style={{ fontSize: '13px', fontWeight: 600, margin: '10px 0 4px 0', color: 'var(--text-primary)' }}>{line.replace('## ', '')}</h4>;
-                        }
-                        if (line.startsWith('### ')) {
-                          return <h5 key={idx} style={{ fontSize: '12px', fontWeight: 600, margin: '8px 0 2px 0', color: 'var(--text-primary)' }}>{line.replace('### ', '')}</h5>;
-                        }
-                        if (line.startsWith('- ') || line.startsWith('* ')) {
-                          // Render inline markdown links [text](url)
-                          const text = line.substring(2);
-                          const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-                          let match;
-                          const parts = [];
-                          let lastIndex = 0;
-                          while ((match = linkRegex.exec(text)) !== null) {
-                            if (match.index > lastIndex) {
-                              parts.push(text.substring(lastIndex, match.index));
-                            }
-                            parts.push(
-                              <a 
-                                key={match[2]} 
-                                href={match[2]} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}
-                              >
-                                {match[1]}
-                              </a>
-                            );
-                            lastIndex = linkRegex.lastIndex;
-                          }
-                          if (lastIndex < text.length) {
-                            parts.push(text.substring(lastIndex));
-                          }
-
-                          return (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '4px 0', paddingLeft: '8px' }}>
-                              <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>•</span>
-                              <span>{parts.length > 0 ? parts : text}</span>
-                            </div>
-                          );
-                        }
-                        return <p key={idx} style={{ margin: '4px 0' }}>{line}</p>;
-                      })}
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'right' }}>
-                        Updated: {new Date(trip.aiChecklistUpdatedAt || 0).toLocaleString()}
-                      </div>
-                    </div>
+                    <AiMarkdownSection 
+                      content={trip.aiChecklist} 
+                      updatedAt={trip.aiChecklistUpdatedAt} 
+                      onSave={handleSaveAiChecklist}
+                      canEdit={trip.canEdit !== false}
+                      style={{ maxHeight: 'none', overflowY: 'auto', flex: 1 }}
+                    />
                   ) : (
                     <div style={{ padding: '16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '8px' }}>
@@ -2842,9 +2948,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           </div>
           
           {expandedLeftSection === 'reservations' && (
-            <div className="accordion-content">
+            <div className="accordion-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
               {/* Reservations Content */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '420px', overflowY: 'auto', paddingRight: '2px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflowY: 'auto', paddingRight: '2px' }}>
                 
                 {/* 1. Transits / Flights */}
                 <div>
@@ -2992,9 +3098,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           </div>
           
           {expandedLeftSection === 'tips' && (
-            <div className="accordion-content">
+            <div className="accordion-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
               {/* Local Essentials Content */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%', flex: 1, minHeight: 0 }}>
                 <div className="flex-between">
                   <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', textTransform: 'none' }}>
                     Quick reference for convenience stores, currencies, local apps, dress codes, etc.
@@ -3013,38 +3119,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 </div>
 
                 {generatingLocalEssentials ? (
-                  <div style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <RefreshCw size={20} className="spin" style={{ color: 'var(--accent-primary)' }} />
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
-                      Gathering destination reference guide...
-                    </span>
-                  </div>
+                  <FunGeneratingLoader message="Gathering destination reference guide..." />
                 ) : trip.aiLocalEssentials ? (
-                  <div className="ai-checklist-markdown" style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {trip.aiLocalEssentials.split('\n').map((line, idx) => {
-                      if (line.startsWith('# ')) {
-                        return <h3 key={idx} style={{ fontSize: '14px', fontWeight: 700, margin: '12px 0 6px 0', color: 'var(--text-primary)' }}>{line.replace('# ', '')}</h3>;
-                      }
-                      if (line.startsWith('## ')) {
-                        return <h4 key={idx} style={{ fontSize: '13px', fontWeight: 600, margin: '10px 0 4px 0', color: 'var(--text-primary)' }}>{line.replace('## ', '')}</h4>;
-                      }
-                      if (line.startsWith('### ')) {
-                        return <h5 key={idx} style={{ fontSize: '12px', fontWeight: 600, margin: '8px 0 2px 0', color: 'var(--text-primary)' }}>{line.replace('### ', '')}</h5>;
-                      }
-                      if (line.startsWith('- ') || line.startsWith('* ')) {
-                        return (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '4px 0', paddingLeft: '8px' }}>
-                            <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>•</span>
-                            <span>{line.substring(2)}</span>
-                          </div>
-                        );
-                      }
-                      return <p key={idx} style={{ margin: '4px 0' }}>{line}</p>;
-                    })}
-                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'right' }}>
-                      Updated: {new Date(trip.aiLocalEssentialsUpdatedAt || 0).toLocaleString()}
-                    </div>
-                  </div>
+                  <AiMarkdownSection 
+                    content={trip.aiLocalEssentials} 
+                    updatedAt={trip.aiLocalEssentialsUpdatedAt} 
+                    onSave={handleSaveAiLocalEssentials}
+                    canEdit={trip.canEdit !== false}
+                    style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}
+                  />
                 ) : (
                   <div style={{ padding: '20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '8px' }}>
@@ -3355,7 +3438,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
               className="day-location-picker glass-panel" 
               style={{ 
                 background: activeDayLocation?.heroPhoto 
-                  ? `linear-gradient(rgba(15,23,42,0.4), ${hexToRgba(activeDayLocation.color || '#6366f1', 0.85)}), url(${activeDayLocation.heroPhoto}) center/cover` 
+                  ? `linear-gradient(rgba(15,23,42,0.4), ${hexToRgba(activeDayLocation.color || '#6366f1', 0.85)}), url(${getOptimizedImageUrl(activeDayLocation.heroPhoto, 1200)}) center/cover` 
                   : `linear-gradient(135deg, rgba(30,41,59,0.4), ${hexToRgba(activeDayLocation?.color || '#6366f1', 0.15)})` 
               }}
             >
@@ -3541,29 +3624,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
               </div>
 
               {daysGeneratingDates.has(activeDayStr) ? (
-                <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                  <RefreshCw size={16} className="spin" style={{ color: 'var(--accent-primary)' }} />
-                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', textTransform: 'none' }}>
-                    Gemini is designing daily tips & route logistics...
-                  </span>
-                </div>
+                <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
               ) : activeDay?.aiTips ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   
                   {/* Daily Tips */}
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>
-                    {activeDay.aiTips.split('\n').map((line, idx) => {
-                      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-                        return (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '3px 0', paddingLeft: '4px' }}>
-                            <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>•</span>
-                            <span>{line.trim().substring(2)}</span>
-                          </div>
-                        );
-                      }
-                      return <p key={idx} style={{ margin: '3px 0' }}>{line}</p>;
-                    })}
-                  </div>
+                  <AiMarkdownSection 
+                    content={activeDay.aiTips} 
+                    updatedAt={activeDay.aiTipsUpdatedAt}
+                    onSave={(newVal) => handleSaveDayTips(activeDayStr, newVal)}
+                    canEdit={trip.canEdit !== false}
+                  />
 
                   {/* Baby Logistics (if enabled and generated) */}
                   {trip.enableBabyLogistics && activeDay.aiBabyLogistics && (
@@ -3574,28 +3645,18 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         marginTop: '4px' 
                       }}
                     >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8', marginBottom: '4px' }}>
-                        👶 Baby Logistics
-                      </span>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>
-                        {activeDay.aiBabyLogistics.split('\n').map((line, idx) => {
-                          if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-                            return (
-                              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '3px 0', paddingLeft: '4px' }}>
-                                <span style={{ color: '#ec4899', flexShrink: 0 }}>•</span>
-                                <span>{line.trim().substring(2)}</span>
-                              </div>
-                            );
-                          }
-                          return <p key={idx} style={{ margin: '3px 0' }}>{line}</p>;
-                        })}
-                      </div>
+                      <AiMarkdownSection 
+                        content={activeDay.aiBabyLogistics} 
+                        onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
+                        canEdit={trip.canEdit !== false}
+                        title={
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8' }}>
+                            👶 Baby Logistics
+                          </span>
+                        }
+                      />
                     </div>
                   )}
-
-                  <div style={{ fontSize: '9px', color: 'var(--text-muted)', textAlign: 'right', marginTop: '2px' }}>
-                    Updated: {new Date(activeDay.aiTipsUpdatedAt || 0).toLocaleString()}
-                  </div>
 
                 </div>
               ) : (
@@ -3722,7 +3783,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                           className="search-result-item"
                           onClick={() => handleAddPlaceFromDayTimeline(place)}
                         >
-                          {place.photoUrl && <img src={place.photoUrl} className="search-result-thumb" alt="" />}
+                          {place.photoUrl && (
+                            <img 
+                              src={getOptimizedImageUrl(place.photoUrl, 80)} 
+                              className="search-result-thumb" 
+                              alt="" 
+                              loading="lazy" 
+                              decoding="async" 
+                            />
+                          )}
                           <div className="search-result-info">
                             <div className="search-result-title">{place.title}</div>
                             <div className="search-result-desc">{place.description}</div>
@@ -3858,7 +3927,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
                               {place.photoUrl ? (
                                 <img 
-                                  src={place.photoUrl} 
+                                  src={getOptimizedImageUrl(place.photoUrl, 80)} 
                                   alt="" 
                                   style={{ 
                                     width: '36px', 
@@ -3867,6 +3936,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                     objectFit: 'cover', 
                                     flexShrink: 0 
                                   }} 
+                                  loading="lazy"
+                                  decoding="async"
                                 />
                               ) : (
                                 <div 
@@ -4330,7 +4401,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           days={daysList.map(d => ({
             dateStr: d,
             label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`,
-            hasTips: !!activePlan.days[d]?.aiTips
+            hasTips: !!activePlan.days[d]?.aiTips,
+            tipsUpdatedAt: activePlan.days[d]?.aiTipsUpdatedAt
           }))}
           onGenerate={handleGenerateDaysTips}
         />

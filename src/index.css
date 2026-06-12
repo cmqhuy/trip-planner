@@ -268,8 +268,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .trip-card {
   position: relative;
   overflow: hidden;
-  padding: 24px;
-  height: 200px;
+  padding: 18px 20px;
+  min-height: 165px;
+  height: auto;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

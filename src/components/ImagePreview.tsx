@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ImageOff } from 'lucide-react';
+import { getOptimizedImageUrl } from '../utils/image';
 
 interface ImagePreviewProps {
   url: string;
@@ -13,6 +14,8 @@ export default function ImagePreview({ url, alt = 'Preview', height = 120, width
   const [loaded, setLoaded] = useState(false);
 
   if (!url.trim()) return null;
+
+  const optimizedUrl = getOptimizedImageUrl(url, width || (height ? height * 2 : 240));
 
   return (
     <div
@@ -37,10 +40,12 @@ export default function ImagePreview({ url, alt = 'Preview', height = 120, width
         </div>
       ) : (
         <img
-          src={url}
+          src={optimizedUrl}
           alt={alt}
           onLoad={() => setLoaded(true)}
           onError={() => setHasError(true)}
+          loading="lazy"
+          decoding="async"
           style={{
             width: '100%',
             height: '100%',
