@@ -297,8 +297,8 @@ export default function TripDashboard({
                 </div>
               </div>
 
-              <div className="trip-card-bottom" style={{ marginBottom: '12px', alignItems: 'flex-end' }}>
-                <div className="trip-card-stats" style={{ paddingBottom: '2px' }}>
+              <div className="trip-card-bottom" style={{ marginBottom: '12px' }}>
+                <div className="trip-card-stats">
                   <span className="flex-align">
                     <Layers size={12} /> {trip.plans.length} {trip.plans.length === 1 ? 'Plan' : 'Plans'}
                   </span>
@@ -306,11 +306,14 @@ export default function TripDashboard({
                     <Map size={12} /> {trip.locations.length} {trip.locations.length === 1 ? 'Location' : 'Locations'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                   {trip.isOwner === false && (
                     <span 
                       style={{ 
-                        display: 'inline-flex',
+                        position: 'absolute',
+                        bottom: 'calc(100% + 4px)',
+                        right: 0,
+                        whiteSpace: 'nowrap',
                         fontSize: '9px', 
                         padding: '2px 6px', 
                         borderRadius: '4px', 
