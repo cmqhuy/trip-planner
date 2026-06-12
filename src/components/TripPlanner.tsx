@@ -4210,6 +4210,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
           onMapClick={handleMapClick}
           previewMarker={previewMarker}
+          onPlaceSelect={setActivePlaceId}
         />
       </div>
 

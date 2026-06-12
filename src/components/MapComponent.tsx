@@ -9,25 +9,63 @@ interface MapComponentProps {
   placeGroups: PlaceGroup[];
   onMapClick?: (lat: number, lng: number) => void;
   previewMarker?: { lat: number; lng: number };
+  onPlaceSelect?: (placeId: string | undefined) => void;
 }
+
+// Helpers for serializing to determine semantic value changes
+const serializePlaces = (placesList: Place[]) => {
+  return placesList.map(p => ({
+    id: p.id,
+    lat: p.lat,
+    lng: p.lng,
+    title: p.title,
+    placeGroupId: p.placeGroupId,
+    suggestedMarkers: p.suggestedMarkers?.map(sm => ({
+      title: sm.title,
+      lat: sm.lat,
+      lng: sm.lng,
+      type: sm.type
+    }))
+  }));
+};
+
+const serializePlaceGroups = (groups: PlaceGroup[]) => {
+  return groups.map(g => ({
+    id: g.id,
+    color: g.color,
+    icon: g.icon
+  }));
+};
 
 export default function MapComponent({ 
   places, 
   activePlaceId, 
   placeGroups, 
   onMapClick, 
-  previewMarker 
+  previewMarker,
+  onPlaceSelect
 }: MapComponentProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markerGroupRef = useRef<L.FeatureGroup | null>(null);
   const polylineRef = useRef<L.Polyline | null>(null);
 
-  // Store click callback in a mutable ref to prevent map re-initialization
+  // Store click callbacks in refs to prevent map re-initialization
   const onMapClickRef = useRef(onMapClick);
   useEffect(() => {
     onMapClickRef.current = onMapClick;
   }, [onMapClick]);
+
+  const onPlaceSelectRef = useRef(onPlaceSelect);
+  useEffect(() => {
+    onPlaceSelectRef.current = onPlaceSelect;
+  }, [onPlaceSelect]);
+
+  // Track previous states to optimize rendering and view adjustments
+  const prevPlacesSerializedRef = useRef<string>('');
+  const prevPlaceGroupsSerializedRef = useRef<string>('');
+  const prevActivePlaceIdRef = useRef<string | undefined>(undefined);
+  const prevPreviewMarkerSerializedRef = useRef<string>('');
 
   // Initialize Map
   useEffect(() => {
@@ -71,6 +109,24 @@ export default function MapComponent({
     const map = mapInstance.current;
     const markerGroup = markerGroupRef.current;
     if (!map || !markerGroup) return;
+
+    // Serialize current states for change detection
+    const placesSerialized = JSON.stringify(serializePlaces(places));
+    const placeGroupsSerialized = JSON.stringify(serializePlaceGroups(placeGroups));
+    const previewMarkerSerialized = JSON.stringify(previewMarker);
+
+    // Determine what changed
+    const placesChanged = placesSerialized !== prevPlacesSerializedRef.current;
+    const groupsChanged = placeGroupsSerialized !== prevPlaceGroupsSerializedRef.current;
+    const activePlaceChanged = activePlaceId !== prevActivePlaceIdRef.current;
+    const previewMarkerChanged = previewMarkerSerialized !== prevPreviewMarkerSerializedRef.current;
+
+    const needsMarkerUpdate = placesChanged || groupsChanged || activePlaceChanged || previewMarkerChanged;
+
+    if (!needsMarkerUpdate) {
+      // Nothing affecting markers or view focus has changed, skip to avoid resetting zoom/pan and closing popups
+      return;
+    }
 
     // Clear previous markers
     markerGroup.clearLayers();
@@ -152,6 +208,11 @@ export default function MapComponent({
       const directionsLink = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.title)}&destination_place_id=&travelmode=walking`;
 
       const marker = L.marker([place.lat, place.lng], { icon })
+        .on('click', () => {
+          if (onPlaceSelectRef.current) {
+            onPlaceSelectRef.current(place.id);
+          }
+        })
         .bindPopup(`
           <div class="map-popup-card">
             <h4>${place.title}</h4>
@@ -280,17 +341,6 @@ export default function MapComponent({
         iconAnchor: [16, 16]
       });
       L.marker([previewMarker.lat, previewMarker.lng], { icon: previewIcon }).addTo(markerGroup);
-      
-      // Auto-pan map to the newly dropped pin location
-      map.panTo([previewMarker.lat, previewMarker.lng]);
-    }
-
-    if (places.length === 0) {
-      if (!previewMarker) {
-        // Zoom out to global view if completely empty
-        map.setView([20, 0], 2);
-      }
-      return;
     }
 
     // Draw route line
@@ -305,18 +355,55 @@ export default function MapComponent({
       }).addTo(map);
     }
 
-    // Fit map view to markers (if no preview pin is active, to avoid overriding manual pin drops)
+    // Smart Map View Adjustments (zoom/pan) - Only run when the focus/day changes to avoid map snapping
     if (!previewMarker) {
-      try {
-        const bounds = markerGroup.getBounds();
-        map.fitBounds(bounds, {
-          padding: [60, 60],
-          maxZoom: 16
-        });
-      } catch (e) {
-        map.setView(latlngs[0], 13);
+      // Scenario A: User newly selected a place/neighborhood
+      if (activePlaceChanged && activePlaceId) {
+        if (activePlace) {
+          if (activePlace.suggestedMarkers && activePlace.suggestedMarkers.length > 0) {
+            // Neighborhood/area: fit bounds around the active place and all its suggested markers
+            const points: L.LatLngExpression[] = [[activePlace.lat, activePlace.lng]];
+            activePlace.suggestedMarkers.forEach(sm => {
+              if (!isNaN(sm.lat) && !isNaN(sm.lng)) {
+                points.push([sm.lat, sm.lng]);
+              }
+            });
+            const neighborhoodBounds = L.latLngBounds(points);
+            map.fitBounds(neighborhoodBounds, {
+              padding: [50, 50],
+              maxZoom: 16
+            });
+          } else {
+            // Single point: center map on the selected place at a closer zoom level
+            map.setView([activePlace.lat, activePlace.lng], 15);
+          }
+        }
       }
+      // Scenario B: Active place was cleared, or day changed with no active place
+      else if ((activePlaceChanged && !activePlaceId) || (placesChanged && !activePlaceId)) {
+        if (places.length > 0) {
+          // Fit map view to see all scheduled places
+          const bounds = L.latLngBounds(latlngs);
+          map.fitBounds(bounds, {
+            padding: [60, 60],
+            maxZoom: 16
+          });
+        } else {
+          // Empty state: default global view
+          map.setView([20, 0], 2);
+        }
+      }
+    } else if (previewMarkerChanged && !isNaN(previewMarker.lat) && !isNaN(previewMarker.lng)) {
+      // Auto-pan map to the newly dropped pin location in dialog edit views
+      map.setView([previewMarker.lat, previewMarker.lng], Math.max(map.getZoom(), 15));
     }
+
+    // Save current values to refs for the next run
+    prevPlacesSerializedRef.current = placesSerialized;
+    prevPlaceGroupsSerializedRef.current = placeGroupsSerialized;
+    prevActivePlaceIdRef.current = activePlaceId;
+    prevPreviewMarkerSerializedRef.current = previewMarkerSerialized;
+
   }, [places, activePlaceId, placeGroups, previewMarker]);
 
   return (
