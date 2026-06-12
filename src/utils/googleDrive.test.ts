@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mergeTrips, fetchTripsFromDrive, saveTripsToDrive, fetchSingleTripFromDrive } from './googleDrive';
+import { mergeTrips, fetchTripsFromDrive, saveTripsToDrive, fetchSingleTripFromDrive, extractFileIdFromUrl } from './googleDrive';
 import type { Trip } from '../types';
 
 describe('googleDrive mergeTrips tests', () => {
@@ -213,5 +213,208 @@ describe('googleDrive api operations', () => {
     expect(decodeURIComponent(mockFetch.mock.calls[0][0] as string)).toContain("name = 'trip-123.json'");
     // Check media URL
     expect(mockFetch.mock.calls[1][0]).toBe('https://www.googleapis.com/drive/v3/files/file-123?alt=media');
+  });
+
+  test('extractFileIdFromUrl extracts file IDs correctly', () => {
+    expect(extractFileIdFromUrl('1A2B3C4D5E')).toBe('1A2B3C4D5E');
+    expect(extractFileIdFromUrl('  1A2B3C4D5E  ')).toBe('1A2B3C4D5E');
+    expect(extractFileIdFromUrl('https://drive.google.com/file/d/1A2B3C4D5E/view?usp=sharing')).toBe('1A2B3C4D5E');
+    expect(extractFileIdFromUrl('https://drive.google.com/open?id=1A2B3C4D5E')).toBe('1A2B3C4D5E');
+    expect(extractFileIdFromUrl('https://example.com/not-gdrive')).toBe('');
+  });
+
+  test('fetchTripsFromDrive resolves shadow files correctly', async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    // 1. List files (contains one shadow file)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        files: [{ id: 'shadow-file-id', name: 'trip-1.json', owners: [{ emailAddress: 'me@me.com', me: true }], capabilities: { canEdit: true }, shared: false }],
+      }),
+    } as Response);
+
+    // 2. Download shadow file content
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: '1',
+        isShadow: true,
+        realDriveFileId: 'real-file-id',
+      }),
+    } as Response);
+
+    // 3. Download real file content
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: '1',
+        name: 'Shared Paris Trip',
+        locations: [],
+        plans: [],
+        placeGroups: [],
+      }),
+    } as Response);
+
+    // 4. Fetch metadata for real file
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        owners: [{ emailAddress: 'owner@owner.com', me: false }],
+        capabilities: { canEdit: false },
+        shared: true,
+      }),
+    } as Response);
+
+    const result = await fetchTripsFromDrive('token', 'folder');
+
+    expect(result?.activeTrips).toHaveLength(1);
+    const trip = result?.activeTrips[0];
+    expect(trip?.id).toBe('1');
+    expect(trip?.name).toBe('Shared Paris Trip');
+    expect(trip?.isShadow).toBe(true);
+    expect(trip?.driveFileId).toBe('real-file-id');
+    expect(trip?.shadowFileId).toBe('shadow-file-id');
+    expect(trip?.ownerEmail).toBe('owner@owner.com');
+    expect(trip?.isOwner).toBe(false);
+    expect(trip?.canEdit).toBe(false);
+    expect(trip?.shared).toBe(true);
+  });
+
+  test('fetchTripsFromDrive cleans up inaccessible shadow files', async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    // 1. List files
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        files: [{ id: 'shadow-file-id', name: 'trip-1.json' }],
+      }),
+    } as Response);
+
+    // 2. Download shadow file content
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: '1',
+        isShadow: true,
+        realDriveFileId: 'real-file-id',
+      }),
+    } as Response);
+
+    // 3. Download real file content fails (404)
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+    } as Response);
+
+    // 4. DELETE call for shadow file succeeds
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+    } as Response);
+
+    const result = await fetchTripsFromDrive('token', 'folder');
+
+    expect(result?.activeTrips).toHaveLength(0);
+    // Verify DELETE was called on shadow-file-id
+    const deleteCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files/shadow-file-id' && c[1]?.method === 'DELETE');
+    expect(deleteCall).toBeDefined();
+  });
+
+  test('saveTripsToDrive strips user-specific metadata from payload', async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    // 1. List files
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        files: [],
+      }),
+    } as Response);
+
+    // 2. POST create metadata
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'new-file-id' }),
+    } as Response);
+
+    // 3. PATCH upload content
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    const tripWithMetadata: Trip = {
+      id: '1',
+      name: 'Paris',
+      startDate: '2026-06-01',
+      endDate: '2026-06-03',
+      locations: [],
+      plans: [],
+      placeGroups: [],
+      driveFileId: 'real-file-id',
+      shadowFileId: 'shadow-file-id',
+      isShadow: true,
+      isOwner: false,
+      ownerEmail: 'owner@owner.com',
+      canEdit: true,
+      shared: true,
+    };
+
+    await saveTripsToDrive('token', 'folder', [tripWithMetadata]);
+
+    // Check payload sent in PATCH upload
+    const uploadCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/upload/drive/v3/files/real-file-id?uploadType=media');
+    expect(uploadCall).toBeDefined();
+    const body = JSON.parse(uploadCall?.[1]?.body as string);
+
+    // Should NOT have metadata keys
+    expect(body.driveFileId).toBeUndefined();
+    expect(body.shadowFileId).toBeUndefined();
+    expect(body.isShadow).toBeUndefined();
+    expect(body.isOwner).toBeUndefined();
+    expect(body.ownerEmail).toBeUndefined();
+    expect(body.canEdit).toBeUndefined();
+    expect(body.shared).toBeUndefined();
+
+    // Should have content keys
+    expect(body.id).toBe('1');
+    expect(body.name).toBe('Paris');
+  });
+
+  test('saveTripsToDrive keeps Viewer shadow file intact', async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    // 1. List files (has the shadow file)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        files: [
+          { id: 'shadow-file-id', name: 'trip-1.json' }
+        ],
+      }),
+    } as Response);
+
+    const viewerTrip: Trip = {
+      id: '1',
+      name: 'Paris',
+      startDate: '2026-06-01',
+      endDate: '2026-06-03',
+      locations: [],
+      plans: [],
+      placeGroups: [],
+      driveFileId: 'real-file-id',
+      shadowFileId: 'shadow-file-id',
+      isShadow: true,
+      isOwner: false,
+      canEdit: false, // Viewer!
+    };
+
+    const result = await saveTripsToDrive('token', 'folder', [viewerTrip]);
+
+    // Check that we did NOT call PATCH to rename (delete) trip-1.json
+    const deleteCall = mockFetch.mock.calls.find(c => c[0].includes('shadow-file-id') && c[1]?.method === 'PATCH');
+    expect(deleteCall).toBeUndefined();
+    expect(result.driveFileIds['1']).toBe('real-file-id');
   });
 });

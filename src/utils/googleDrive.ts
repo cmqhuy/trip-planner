@@ -171,6 +171,9 @@ export async function fetchTripsFromDrive(
     },
   });
   if (!response.ok) {
+    if (response.status === 404 || response.status === 400 || response.status === 403) {
+      throw new Error('FOLDER_NOT_FOUND');
+    }
     throw new Error('Failed to list files on Google Drive');
   }
   const data = await response.json();
@@ -204,11 +207,63 @@ export async function fetchTripsFromDrive(
       }
       const trip = await res.json() as Trip;
       if (trip && typeof trip === 'object' && typeof trip.id === 'string') {
-        trip.driveFileId = file.id;
-        trip.ownerEmail = file.owners?.[0]?.emailAddress;
-        trip.isOwner = file.owners?.[0]?.me;
-        trip.canEdit = file.capabilities?.canEdit;
-        trip.shared = file.shared;
+        // If it's a shadow pointer file, fetch the real trip data instead
+        if ((trip as any).isShadow === true && (trip as any).realDriveFileId) {
+          const realDriveFileId = (trip as any).realDriveFileId;
+          try {
+            const realMediaUrl = `https://www.googleapis.com/drive/v3/files/${realDriveFileId}?alt=media`;
+            const realRes = await fetch(realMediaUrl, {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            });
+            if (!realRes.ok) {
+              console.warn(`Failed to download real trip file for shadow ${trip.id}. Deleting shadow file...`);
+              await deleteFileFromDrive(accessToken, file.id);
+              return null;
+            }
+            const realTrip = await realRes.json() as Trip;
+            if (realTrip && typeof realTrip === 'object' && typeof realTrip.id === 'string') {
+              // Fetch metadata for the real file to get its permissions, owner, and canEdit flag
+              const metaUrl = `https://www.googleapis.com/drive/v3/files/${realDriveFileId}?fields=owners,capabilities,shared`;
+              const metaRes = await fetch(metaUrl, {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              });
+              let owners: any[] = [];
+              let capabilities: any = {};
+              let shared = true;
+              if (metaRes.ok) {
+                const meta = await metaRes.json();
+                owners = meta.owners || [];
+                capabilities = meta.capabilities || {};
+                shared = meta.shared !== undefined ? meta.shared : true;
+              }
+
+              realTrip.driveFileId = realDriveFileId;
+              realTrip.shadowFileId = file.id;
+              realTrip.isShadow = true;
+              realTrip.ownerEmail = owners[0]?.emailAddress;
+              realTrip.isOwner = owners[0]?.me;
+              realTrip.canEdit = capabilities.canEdit;
+              realTrip.shared = shared;
+              return realTrip;
+            }
+          } catch (realErr) {
+            console.error(`Error processing shadow trip real file ${realDriveFileId}:`, realErr);
+            // Attempt to clean up shadow file since we can't access the real one
+            await deleteFileFromDrive(accessToken, file.id).catch(() => {});
+            return null;
+          }
+        } else {
+          // Normal non-shadow trip file
+          trip.driveFileId = file.id;
+          trip.ownerEmail = file.owners?.[0]?.emailAddress;
+          trip.isOwner = file.owners?.[0]?.me;
+          trip.canEdit = file.capabilities?.canEdit;
+          trip.shared = file.shared;
+        }
       }
       return trip;
     } catch (err) {
@@ -251,6 +306,9 @@ async function createNewTripFile(
     }),
   });
   if (!createResponse.ok) {
+    if (createResponse.status === 404 || createResponse.status === 400 || createResponse.status === 403) {
+      throw new Error('FOLDER_NOT_FOUND');
+    }
     throw new Error(`Failed to create trip file metadata ${filename} on Google Drive`);
   }
   const createData = await createResponse.json();
@@ -266,6 +324,9 @@ async function createNewTripFile(
     body: contentString,
   });
   if (!uploadResponse.ok) {
+    if (uploadResponse.status === 404 || uploadResponse.status === 400 || uploadResponse.status === 403) {
+      throw new Error('FOLDER_NOT_FOUND');
+    }
     throw new Error(`Failed to upload trip content for ${filename} to Google Drive`);
   }
   return newFileId;
@@ -285,6 +346,9 @@ export async function saveTripsToDrive(
     },
   });
   if (!listResponse.ok) {
+    if (listResponse.status === 404 || listResponse.status === 400 || listResponse.status === 403) {
+      throw new Error('FOLDER_NOT_FOUND');
+    }
     throw new Error('Failed to list files on Google Drive during save');
   }
   const listData = await listResponse.json();
@@ -311,6 +375,9 @@ export async function saveTripsToDrive(
 
   // Helper function to create/update a single trip file
   const savePromises = activeTripsToSave.map(async (trip) => {
+    const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
+    activeFilenames.add(filename);
+
     // If the trip is marked as read-only (Viewer), we should skip saving edits to Drive
     if (trip.canEdit === false) {
       if (trip.driveFileId) {
@@ -319,9 +386,16 @@ export async function saveTripsToDrive(
       return;
     }
 
-    const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
-    activeFilenames.add(filename);
-    const contentString = JSON.stringify(trip, null, 2);
+    // Strip user/connection-specific metadata before saving to Google Drive
+    const cleanTrip = { ...trip };
+    delete cleanTrip.driveFileId;
+    delete cleanTrip.shadowFileId;
+    delete cleanTrip.isShadow;
+    delete cleanTrip.isOwner;
+    delete cleanTrip.ownerEmail;
+    delete cleanTrip.canEdit;
+    delete cleanTrip.shared;
+    const contentString = JSON.stringify(cleanTrip, null, 2);
 
     // If we have a file ID, update it directly (works for editors on shared files too)
     if (trip.driveFileId) {
@@ -341,6 +415,8 @@ export async function saveTripsToDrive(
         // If file ID not found (deleted from Drive) and we are the owner, recreate it
         const newId = await createNewTripFile(accessToken, folderId, filename, contentString);
         driveFileIds[trip.id] = newId;
+      } else if (response.status === 404 || response.status === 400 || response.status === 403) {
+        throw new Error('FOLDER_NOT_FOUND');
       } else {
         throw new Error(`Failed to update trip file ${filename} (${trip.driveFileId}) on Google Drive`);
       }
@@ -357,10 +433,13 @@ export async function saveTripsToDrive(
           },
           body: contentString,
         });
-        if (!response.ok) {
+        if (response.ok) {
+          driveFileIds[trip.id] = existingFileId;
+        } else if (response.status === 404 || response.status === 400 || response.status === 403) {
+          throw new Error('FOLDER_NOT_FOUND');
+        } else {
           throw new Error(`Failed to update trip file ${filename} on Google Drive`);
         }
-        driveFileIds[trip.id] = existingFileId;
       } else {
         // Recreate completely new file
         const newId = await createNewTripFile(accessToken, folderId, filename, contentString);
@@ -414,6 +493,9 @@ export async function fetchDeletedTripIdsFromDrive(
     },
   });
   if (!response.ok) {
+    if (response.status === 404 || response.status === 400 || response.status === 403) {
+      throw new Error('FOLDER_NOT_FOUND');
+    }
     throw new Error('Failed to list files on Google Drive for deletions check');
   }
   const data = await response.json();
@@ -442,6 +524,9 @@ export async function fetchSingleTripFromDrive(
     },
   });
   if (!listRes.ok) {
+    if (listRes.status === 404 || listRes.status === 400 || listRes.status === 403) {
+      throw new Error('FOLDER_NOT_FOUND');
+    }
     throw new Error(`Failed to find trip file ${filename} on Google Drive`);
   }
   const listData = await listRes.json();
@@ -458,6 +543,9 @@ export async function fetchSingleTripFromDrive(
     },
   });
   if (!contentRes.ok) {
+    if (contentRes.status === 404 || contentRes.status === 400 || contentRes.status === 403) {
+      throw new Error('FOLDER_NOT_FOUND');
+    }
     throw new Error(`Failed to download trip content for ${filename}`);
   }
   return contentRes.json();
@@ -620,4 +708,42 @@ export async function leaveSharedTripFile(accessToken: string, fileId: string, c
   }
 
   await removeTripFilePermission(accessToken, fileId, myPermission.id);
+}
+
+/**
+ * Delete a file from Google Drive.
+ */
+export async function deleteFileFromDrive(accessToken: string, fileId: string): Promise<void> {
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Failed to delete file ${fileId} from Google Drive`);
+  }
+}
+
+/**
+ * Extracts the Google Drive file ID from a URL or raw ID string.
+ */
+export function extractFileIdFromUrl(urlOrId: string): string {
+  const trimmed = urlOrId.trim();
+  // Regex for /file/d/FILE_ID
+  const dRegex = /\/file\/d\/([a-zA-Z0-9-_]+)/;
+  const matchD = trimmed.match(dRegex);
+  if (matchD) return matchD[1];
+
+  // Regex for id=FILE_ID
+  const idParamRegex = /[?&]id=([a-zA-Z0-9-_]+)/;
+  const matchParam = trimmed.match(idParamRegex);
+  if (matchParam) return matchParam[1];
+
+  // Otherwise assume it's the raw ID if it doesn't contain slashes or dots
+  if (!trimmed.includes('/') && !trimmed.includes('.')) {
+    return trimmed;
+  }
+  return '';
 }

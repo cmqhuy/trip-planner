@@ -13,6 +13,8 @@ import {
   fetchTripsFromDrive, 
   saveTripsToDrive, 
   leaveSharedTripFile,
+  deleteFileFromDrive,
+  extractFileIdFromUrl,
   DEFAULT_CLIENT_ID 
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
@@ -362,6 +364,7 @@ export default function App() {
       const conflicts: { tripId: string; localTrip: Trip; cloudTrip: Trip }[] = [];
       const silentPullTrips: Trip[] = [];
       const silentPushTrips: Trip[] = [];
+      let localDeletionsExist = false;
       const syncedTimestamps = { ...syncTimestampsRef.current };
 
       cloudTrips.forEach(cloudTrip => {
@@ -395,6 +398,9 @@ export default function App() {
             // New cloud trip -> silent pull
             silentPullTrips.push(cloudTrip);
             syncedTimestamps[cloudTrip.id] = cloudTrip.updatedAt || 0;
+          } else {
+            // Deleted locally -> we need to push this deletion to GDrive!
+            localDeletionsExist = true;
           }
         }
       });
@@ -446,8 +452,8 @@ export default function App() {
         return;
       }
 
-      // 5. If no conflicts, save any local changes (silent push) to Drive
-      if (silentPushTrips.length > 0 || localTripsOverride) {
+      // 5. If no conflicts, save any local changes (silent push) or deletions to Drive
+      if (silentPushTrips.length > 0 || localDeletionsExist || localTripsOverride) {
         const { deletedTripIds, driveFileIds } = await saveTripsToDrive(token, folderId, finalLocalTrips);
         cleanUpDeletedTrips(deletedTripIds);
 
@@ -476,7 +482,20 @@ export default function App() {
       }
 
       setSyncStatus('synced');
-    } catch (err) {
+    } catch (err: any) {
+      if (err.message === 'FOLDER_NOT_FOUND') {
+        console.warn('Trip planner folder not found on Google Drive. Re-creating...');
+        try {
+          const newFolderId = await getOrCreateTripPlannerFolder(token);
+          setGoogleFolderId(newFolderId);
+          localStorage.setItem('google-folder-id', newFolderId);
+          googleFolderIdRef.current = newFolderId;
+          await performSync();
+          return;
+        } catch (recreateErr) {
+          console.error('Failed to recreate Google Drive folder:', recreateErr);
+        }
+      }
       console.error('Synchronization failed:', err);
       setSyncStatus('error');
     }
@@ -725,10 +744,26 @@ export default function App() {
   };
 
   const handleDeleteTrip = (id: string) => {
+    const trip = trips.find(t => t.id === id);
+    if (trip && (trip.isOwner === false || trip.isShadow === true)) {
+      handleLeaveTrip(trip);
+      return;
+    }
+
     const updated = trips.filter(t => t.id !== id);
-    saveTrips(updated);
+    setTrips(updated);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+
     if (activeTripId === id) {
       setActiveTripId(null);
+    }
+
+    // Trigger sync immediately to rename the file on GDrive
+    if (googleToken && googleFolderId) {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      performSync(updated);
     }
   };
 
@@ -744,6 +779,13 @@ export default function App() {
     setSyncStatus('syncing');
     try {
       await leaveSharedTripFile(googleToken, trip.driveFileId, googleUser.email);
+
+      // If this is a shadow trip, also delete the shadow file in the user's apps/trip_planner folder
+      if (trip.shadowFileId) {
+        await deleteFileFromDrive(googleToken, trip.shadowFileId).catch(e => {
+          console.error('Failed to delete shadow file while leaving trip:', e);
+        });
+      }
       
       // Clean up local storage and state for this trip
       const updated = trips.filter(t => t.id !== trip.id);
@@ -773,6 +815,157 @@ export default function App() {
         message: err.message || 'An error occurred while trying to leave the shared trip. You may need to remove it from your Google Drive web UI.'
       });
     }
+  };
+
+  const handleImportSharedTrip = async (urlOrId: string) => {
+    const token = googleTokenRef.current;
+    const folderId = googleFolderIdRef.current;
+    if (!token || !folderId) {
+      throw new Error('Please sign in to Google Drive first.');
+    }
+
+    const realFileId = extractFileIdFromUrl(urlOrId);
+    if (!realFileId) {
+      throw new Error('Invalid Google Drive link or file ID format.');
+    }
+
+    // 1. Fetch metadata first to verify existence and check details
+    const metaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?fields=id,name,owners,capabilities,shared`;
+    const metaRes = await fetch(metaUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!metaRes.ok) {
+      throw new Error('Cannot access the shared file. Ensure you have permissions and the ID is correct.');
+    }
+    const meta = await metaRes.json();
+    const owners = meta.owners || [];
+    const capabilities = meta.capabilities || {};
+    const shared = meta.shared !== undefined ? meta.shared : true;
+    const isOwner = owners[0]?.me;
+
+    // 2. Fetch the trip content
+    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?alt=media`;
+    const contentRes = await fetch(mediaUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!contentRes.ok) {
+      throw new Error('Failed to download trip content from Google Drive.');
+    }
+
+    const realTrip = await contentRes.json() as Trip;
+    if (!realTrip || typeof realTrip !== 'object' || typeof realTrip.id !== 'string') {
+      throw new Error('The file is not a valid Trip Planner trip file.');
+    }
+
+    // 3. Create/update a shadow file in user's own apps/trip_planner folder ONLY IF they are NOT the owner
+    let shadowFileId: string | undefined = undefined;
+    
+    if (!isOwner) {
+      const filename = realTrip.id.startsWith('trip-') ? `${realTrip.id}.json` : `trip-${realTrip.id}.json`;
+      
+      // Check if a shadow file already exists in user's apps/trip_planner folder
+      const checkQuery = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
+      const checkUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(checkQuery)}&fields=files(id)`;
+      const checkRes = await fetch(checkUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (checkRes.ok) {
+        const checkData = await checkRes.json();
+        if (checkData.files && checkData.files.length > 0) {
+          shadowFileId = checkData.files[0].id;
+        }
+      }
+
+      const shadowContent = {
+        id: realTrip.id,
+        isShadow: true,
+        realDriveFileId: realFileId,
+        updatedAt: 0
+      };
+      const shadowContentString = JSON.stringify(shadowContent, null, 2);
+
+      if (shadowFileId) {
+        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media`;
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: shadowContentString,
+        });
+        if (!uploadRes.ok) {
+          throw new Error('Failed to update the shadow file in your Google Drive.');
+        }
+      } else {
+        const createUrl = 'https://www.googleapis.com/drive/v3/files';
+        const createRes = await fetch(createUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: filename,
+            parents: [folderId],
+          }),
+        });
+        if (!createRes.ok) {
+          throw new Error('Failed to create the shadow file in your Google Drive.');
+        }
+        const createData = await createRes.json();
+        shadowFileId = createData.id;
+
+        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media`;
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: shadowContentString,
+        });
+        if (!uploadRes.ok) {
+          throw new Error('Failed to upload shadow file content.');
+        }
+      }
+    }
+
+    // Annotate the trip for local state
+    const annotatedTrip: Trip = {
+      ...realTrip,
+      driveFileId: realFileId,
+      shadowFileId: shadowFileId,
+      isShadow: !isOwner,
+      ownerEmail: owners[0]?.emailAddress,
+      isOwner: isOwner,
+      canEdit: isOwner || capabilities.canEdit,
+      shared: shared
+    };
+
+    // Update local state and localStorage
+    const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const localTrips: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
+    const updatedTrips = localTrips.filter(t => t.id !== realTrip.id);
+    updatedTrips.push(annotatedTrip);
+
+    setTrips(updatedTrips);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTrips));
+
+    // Update sync timestamps
+    syncTimestampsRef.current[realTrip.id] = realTrip.updatedAt || 0;
+    localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(syncTimestampsRef.current));
+
+    setAppNotification({
+      title: 'Trip Imported',
+      message: `Successfully imported shared trip "${realTrip.name}"`
+    });
   };
 
   const activeTrip = trips.find(t => t.id === activeTripId);
@@ -828,6 +1021,7 @@ export default function App() {
             onShareTrip={setShareModalTrip}
             onLeaveTrip={handleLeaveTrip}
             onUpdateTrip={handleUpdateTrip}
+            onImportSharedTrip={handleImportSharedTrip}
           />
         )}
       </main>

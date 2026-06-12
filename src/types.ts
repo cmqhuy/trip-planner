@@ -82,6 +82,8 @@ export interface Trip {
   placeGroups: PlaceGroup[]; // Trip-level categorized lists / place groups
   updatedAt?: number;        // Timestamp of last modification
   driveFileId?: string;      // Google Drive file ID
+  shadowFileId?: string;     // Google Drive file ID of the shadow file (for shared users)
+  isShadow?: boolean;        // True if this is a shadow file pointing to another user's shared file
   ownerEmail?: string;       // Email of the owner
   isOwner?: boolean;         // True if the current user is the owner
   canEdit?: boolean;         // True if the current user has edit permission

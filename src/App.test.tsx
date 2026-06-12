@@ -27,6 +27,8 @@ vi.mock('./utils/googleDrive', () => ({
   fetchSingleTripFromDrive: vi.fn(),
   checkIfTripDeletedOnDrive: vi.fn().mockResolvedValue(false),
   leaveSharedTripFile: vi.fn().mockResolvedValue(true),
+  deleteFileFromDrive: vi.fn().mockResolvedValue(undefined),
+  extractFileIdFromUrl: vi.fn((urlOrId: string) => urlOrId),
   DEFAULT_CLIENT_ID: 'client-id'
 }));
 
@@ -303,6 +305,154 @@ describe('App Sync and Integration Tests', () => {
 
     await waitFor(() => {
       expect(fetchTripsFromDrive).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('self-heals and recreates the app folder if it is deleted in the cloud', async () => {
+    const { getOrCreateTripPlannerFolder } = await import('./utils/googleDrive');
+
+    // Setup Google credentials
+    localStorage.setItem('google-access-token', 'fake-token');
+    localStorage.setItem('google-token-expires-at', (Date.now() + 3600 * 1000).toString());
+    localStorage.setItem('google-folder-id', 'deleted-folder-id');
+    localStorage.setItem('google-user', JSON.stringify({ name: 'Test User', email: 'test@gmail.com', picture: 'pic' }));
+
+    // Mock fetchTripsFromDrive to throw FOLDER_NOT_FOUND on first call, then succeed on second call
+    let callCount = 0;
+    vi.mocked(fetchTripsFromDrive).mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error('FOLDER_NOT_FOUND');
+      }
+      return { activeTrips: [], deletedTripIds: [] };
+    });
+
+    vi.mocked(getOrCreateTripPlannerFolder).mockResolvedValue('new-folder-id');
+
+    render(<App />);
+
+    // Wait for the sync and recreate to complete
+    await waitFor(() => {
+      expect(getOrCreateTripPlannerFolder).toHaveBeenCalled();
+      expect(localStorage.getItem('google-folder-id')).toBe('new-folder-id');
+      expect(fetchTripsFromDrive).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('propagates local deletions immediately to Google Drive', async () => {
+    // Setup local storage with a trip to delete
+    const localTrip: Trip = {
+      id: 'trip-to-delete',
+      name: 'Soon Gone',
+      startDate: '2026-06-01',
+      endDate: '2026-06-03',
+      locations: [],
+      plans: [],
+      placeGroups: [],
+      driveFileId: 'file-to-delete',
+      updatedAt: 1000
+    };
+    localStorage.setItem('vacation-itineraries', JSON.stringify([localTrip]));
+    localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify({ 'trip-to-delete': 1000 }));
+
+    // Setup Google credentials
+    localStorage.setItem('google-access-token', 'fake-token');
+    localStorage.setItem('google-token-expires-at', (Date.now() + 3600 * 1000).toString());
+    localStorage.setItem('google-folder-id', 'folder-123');
+    localStorage.setItem('google-user', JSON.stringify({ name: 'Test User', email: 'test@gmail.com', picture: 'pic' }));
+
+    vi.mocked(fetchTripsFromDrive).mockResolvedValue({
+      activeTrips: [
+        { ...localTrip } // Cloud still has it initially
+      ],
+      deletedTripIds: []
+    });
+
+    const { container } = render(<App />);
+
+    // Wait for initial sync to finish
+    await waitFor(() => {
+      expect(fetchTripsFromDrive).toHaveBeenCalled();
+    });
+
+    // Clear mock calls
+    vi.mocked(saveTripsToDrive).mockClear();
+
+    // Trigger delete trip
+    const deleteBtn = container.querySelector('.trip-delete-btn');
+    expect(deleteBtn).not.toBeNull();
+    fireEvent.click(deleteBtn!);
+
+    // Confirm modal deletion
+    const confirmBtn = await screen.findByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmBtn);
+
+    // Verify saveTripsToDrive is called immediately and does not contain the trip
+    await waitFor(() => {
+      expect(saveTripsToDrive).toHaveBeenCalled();
+      const tripsArg = vi.mocked(saveTripsToDrive).mock.calls[0][2];
+      expect(tripsArg.some(t => t.id === 'trip-to-delete')).toBe(false);
+    });
+  });
+
+  it('prevents deletion of shared trips and routes to leave flow instead', async () => {
+    const { leaveSharedTripFile } = await import('./utils/googleDrive');
+
+    // Setup local storage with a shared trip
+    const sharedTrip: Trip = {
+      id: 'shared-trip-1',
+      name: 'Shared Trip',
+      startDate: '2026-06-01',
+      endDate: '2026-06-03',
+      locations: [],
+      plans: [],
+      placeGroups: [],
+      driveFileId: 'real-file-123',
+      shadowFileId: 'shadow-file-123',
+      isShadow: true,
+      isOwner: false,
+      ownerEmail: 'owner@owner.com',
+      canEdit: true,
+    };
+    localStorage.setItem('vacation-itineraries', JSON.stringify([sharedTrip]));
+
+    // Setup Google credentials
+    localStorage.setItem('google-access-token', 'fake-token');
+    localStorage.setItem('google-token-expires-at', (Date.now() + 3600 * 1000).toString());
+    localStorage.setItem('google-folder-id', 'folder-123');
+    localStorage.setItem('google-user', JSON.stringify({ name: 'Test User', email: 'test@gmail.com', picture: 'pic' }));
+
+    vi.mocked(fetchTripsFromDrive).mockResolvedValue({
+      activeTrips: [sharedTrip],
+      deletedTripIds: []
+    });
+
+    const { container } = render(<App />);
+
+    // Wait for initial sync
+    await waitFor(() => {
+      expect(fetchTripsFromDrive).toHaveBeenCalled();
+    });
+
+    // Clear mocks
+    vi.mocked(leaveSharedTripFile).mockClear();
+
+    // Trigger delete trip (shared trip button is Leave Trip, select button)
+    const leaveBtn = container.querySelector('.trip-delete-btn');
+    expect(leaveBtn).not.toBeNull();
+    fireEvent.click(leaveBtn!);
+
+    // Confirm modal
+    const confirmBtn = await screen.findByRole('button', { name: 'Leave' });
+    fireEvent.click(confirmBtn);
+
+    // Verify leaveSharedTripFile was called on the real file ID
+    await waitFor(() => {
+      expect(leaveSharedTripFile).toHaveBeenCalledWith('fake-token', 'real-file-123', 'test@gmail.com');
+      // Verify local storage is cleaned up
+      const saved = localStorage.getItem('vacation-itineraries');
+      const parsed = saved ? JSON.parse(saved) : [];
+      expect(parsed.some((t: Trip) => t.id === 'shared-trip-1')).toBe(false);
     });
   });
 });

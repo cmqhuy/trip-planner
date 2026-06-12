@@ -14,6 +14,7 @@ interface TripDashboardProps {
   onShareTrip?: (trip: Trip) => void;
   onLeaveTrip?: (trip: Trip) => void;
   onUpdateTrip?: (trip: Trip) => void;
+  onImportSharedTrip?: (urlOrId: string) => Promise<void>;
 }
 
 export default function TripDashboard({ 
@@ -24,7 +25,8 @@ export default function TripDashboard({
   isGoogleSignedIn,
   onShareTrip,
   onLeaveTrip,
-  onUpdateTrip
+  onUpdateTrip,
+  onImportSharedTrip
 }: TripDashboardProps) {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
@@ -38,6 +40,34 @@ export default function TripDashboard({
     onConfirm: () => void;
   } | null>(null);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+
+  const handleOpenImportModal = () => {
+    setShareLink('');
+    setImportError('');
+    setIsImporting(false);
+    setShowImportModal(true);
+  };
+
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shareLink.trim() || !onImportSharedTrip) return;
+
+    setIsImporting(true);
+    setImportError('');
+    try {
+      await onImportSharedTrip(shareLink);
+      setShowImportModal(false);
+    } catch (err: any) {
+      setImportError(err.message || 'An error occurred during import.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const handleOpenCreateModal = () => {
     setEditingTrip(null);
@@ -145,9 +175,16 @@ export default function TripDashboard({
             Plan your itineraries, route options, and travel details in one place.
           </p>
         </div>
-        <button className="btn-primary flex-align" onClick={handleOpenCreateModal}>
-          <Plus size={18} /> New Trip
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {isGoogleSignedIn && (
+            <button className="btn-secondary flex-align" onClick={handleOpenImportModal}>
+              <Users size={18} /> Import Shared Trip
+            </button>
+          )}
+          <button className="btn-primary flex-align" onClick={handleOpenCreateModal}>
+            <Plus size={18} /> New Trip
+          </button>
+        </div>
       </div>
 
       {trips.length === 0 ? (
@@ -419,6 +456,53 @@ export default function TripDashboard({
                 </button>
                 <button type="submit" className="btn-primary">
                   Create Trip
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showImportModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Import Shared Trip</h3>
+              <button className="modal-close" onClick={() => setShowImportModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleImportSubmit}>
+              <div className="form-group">
+                <label htmlFor="share-link">Google Drive Share Link or File ID</label>
+                <input 
+                  type="text" 
+                  id="share-link" 
+                  placeholder="Paste GDrive link or file ID here..." 
+                  value={shareLink} 
+                  onChange={(e) => setShareLink(e.target.value)}
+                  required 
+                  autoFocus
+                />
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
+                  Paste a link like `https://drive.google.com/file/d/...` or the raw file ID.
+                  Ensure the owner has shared the file with your Google account.
+                </p>
+              </div>
+
+              {importError && (
+                <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px' }}>
+                  {importError}
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setShowImportModal(false)} disabled={isImporting}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={isImporting}>
+                  {isImporting ? 'Importing...' : 'Import'}
                 </button>
               </div>
             </form>
