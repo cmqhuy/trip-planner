@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mergeTrips, fetchTripsFromDrive, saveTripsToDrive, fetchSingleTripFromDrive, extractFileIdFromUrl } from './googleDrive';
+import { mergeTrips, fetchTripsFromDrive, saveTripsToDrive, fetchSingleTripFromDrive, extractFileIdFromUrl, importSharedTripFile } from './googleDrive';
 import type { Trip } from '../types';
 
 describe('googleDrive mergeTrips tests', () => {
@@ -328,7 +328,9 @@ describe('googleDrive api operations', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        files: [],
+        files: [
+          { id: 'shadow-file-id', name: 'trip-1.json' }
+        ],
       }),
     } as Response);
 
@@ -416,5 +418,60 @@ describe('googleDrive api operations', () => {
     const deleteCall = mockFetch.mock.calls.find(c => String(c[0]).includes('shadow-file-id') && c[1]?.method === 'PATCH');
     expect(deleteCall).toBeUndefined();
     expect(result.driveFileIds['1']).toBe('real-file-id');
+  });
+
+  test('importSharedTripFile imports shared trip and creates shadow file', async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    // 1. Fetch metadata
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 'real-file-id',
+        name: 'trip-1.json',
+        owners: [{ emailAddress: 'owner@owner.com', me: false }],
+        capabilities: { canEdit: true },
+        shared: true,
+      }),
+    } as Response);
+
+    // 2. Fetch media content
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => createMockTrip('1', 'Shared Paris Trip'),
+    } as Response);
+
+    // 3. Check existing shadow file (returns empty list)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ files: [] }),
+    } as Response);
+
+    // 4. POST create shadow file
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'new-shadow-file-id' }),
+    } as Response);
+
+    // 5. PATCH upload shadow file content
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    const result = await importSharedTripFile('token', 'folder', 'https://drive.google.com/file/d/real-file-id/view');
+
+    expect(result.realTrip.id).toBe('1');
+    expect(result.realFileId).toBe('real-file-id');
+    expect(result.shadowFileId).toBe('new-shadow-file-id');
+    expect(result.isOwner).toBe(false);
+    expect(result.owners[0].emailAddress).toBe('owner@owner.com');
+    expect(result.capabilities.canEdit).toBe(true);
+    expect(result.shared).toBe(true);
+
+    // Verify create URL and body
+    const createCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true' && c[1]?.method === 'POST');
+    expect(createCall).toBeDefined();
+    expect(JSON.parse(createCall?.[1]?.body as string).parents).toContain('folder');
   });
 });

@@ -112,6 +112,11 @@ async function findFolder(accessToken: string, name: string, parentId?: string):
  * Helper to create a folder.
  */
 async function createFolder(accessToken: string, name: string, parentId?: string): Promise<string> {
+  // Security Guardrail: Only allow creating 'apps' or 'trip_planner' folders
+  if (name !== 'apps' && name !== 'trip_planner') {
+    throw new Error(`Security Guardrail: Attempted to create folder '${name}' outside of allowed application folders.`);
+  }
+
   const body: any = {
     name,
     mimeType: 'application/vnd.google-apps.folder',
@@ -166,7 +171,7 @@ export async function fetchTripsFromDrive(
   accessToken: string,
   folderId: string
 ): Promise<FetchTripsResult | null> {
-  const query = `('${folderId}' in parents or sharedWithMe = true) and mimeType = 'application/json' and name contains 'trip-' and name contains '.json' and trashed = false`;
+  const query = `'${folderId}' in parents and mimeType = 'application/json' and name contains 'trip-' and name contains '.json' and trashed = false`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name, owners, capabilities, shared)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   const response = await fetch(url, {
     headers: {
@@ -296,6 +301,14 @@ async function createNewTripFile(
   filename: string,
   contentString: string
 ): Promise<string> {
+  // Security Guardrail: Enforce parent folder is folderId and name format is valid
+  if (!folderId) {
+    throw new Error('Security Guardrail: Target folderId is required.');
+  }
+  if (!filename.startsWith('trip-') || !filename.endsWith('.json')) {
+    throw new Error(`Security Guardrail: Attempted to create file '${filename}' with invalid format.`);
+  }
+
   const createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
   const createResponse = await fetch(createUrl, {
     method: 'POST',
@@ -372,6 +385,23 @@ export async function saveTripsToDrive(
       existingTripFilesMap.set(f.name, f.id);
     }
   });
+
+  const existingFileIds = new Set<string>(existingFiles.map((f: any) => f.id));
+
+  // Security Guardrail: Enforce that all write targets are inside folderId or valid shadow references
+  for (const trip of activeTripsToSave) {
+    if (trip.driveFileId) {
+      if (trip.isShadow) {
+        if (!trip.shadowFileId || !existingFileIds.has(trip.shadowFileId)) {
+          throw new Error('Security Guardrail: Attempted to write to a shared trip without a valid local shadow file.');
+        }
+      } else {
+        if (!existingFileIds.has(trip.driveFileId)) {
+          throw new Error('Security Guardrail: Attempted to write to a file outside the trip_planner folder.');
+        }
+      }
+    }
+  }
 
   const driveFileIds: Record<string, string> = {};
   const activeFilenames = new Set<string>();
@@ -749,4 +779,155 @@ export function extractFileIdFromUrl(urlOrId: string): string {
     return trimmed;
   }
   return '';
+}
+
+export interface ImportSharedTripResult {
+  realTrip: Trip;
+  realFileId: string;
+  shadowFileId?: string;
+  isOwner: boolean;
+  owners: any[];
+  capabilities: any;
+  shared: boolean;
+}
+
+/**
+ * Imports a shared trip from a Google Drive URL or ID.
+ * Resolves metadata, trip content, and creates/updates a shadow pointer file in the user's folder.
+ */
+export async function importSharedTripFile(
+  accessToken: string,
+  folderId: string,
+  urlOrId: string
+): Promise<ImportSharedTripResult> {
+  const realFileId = extractFileIdFromUrl(urlOrId);
+  if (!realFileId) {
+    throw new Error('Invalid Google Drive link or file ID format.');
+  }
+
+  // 1. Fetch metadata first to verify existence and check details
+  const metaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?fields=id,name,owners,capabilities,shared&supportsAllDrives=true`;
+  const metaRes = await fetch(metaUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!metaRes.ok) {
+    throw new Error('Cannot access the shared file. Ensure you have permissions and the ID is correct.');
+  }
+  const meta = await metaRes.json();
+  const owners = meta.owners || [];
+  const capabilities = meta.capabilities || {};
+  const shared = meta.shared !== undefined ? meta.shared : true;
+  const isOwner = owners[0]?.me;
+
+  // 2. Fetch the trip content
+  const mediaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?alt=media&supportsAllDrives=true`;
+  const contentRes = await fetch(mediaUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!contentRes.ok) {
+    throw new Error('Failed to download trip content from Google Drive.');
+  }
+
+  const realTrip = await contentRes.json() as Trip;
+  if (!realTrip || typeof realTrip !== 'object' || typeof realTrip.id !== 'string') {
+    throw new Error('The file is not a valid Trip Planner trip file.');
+  }
+
+  // 3. Create/update a shadow file in user's own apps/trip_planner folder ONLY IF they are NOT the owner
+  let shadowFileId: string | undefined = undefined;
+  
+  if (!isOwner) {
+    const filename = realTrip.id.startsWith('trip-') ? `${realTrip.id}.json` : `trip-${realTrip.id}.json`;
+    
+    // Security Guardrail: Enforce parent folder is folderId and filename format is valid
+    if (!folderId) {
+      throw new Error('Security Guardrail: Target folderId is required.');
+    }
+    if (!filename.startsWith('trip-') || !filename.endsWith('.json')) {
+      throw new Error(`Security Guardrail: Attempted to create shadow file '${filename}' with invalid format.`);
+    }
+
+    // Check if a shadow file already exists in user's apps/trip_planner folder
+    const checkQuery = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
+    const checkUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(checkQuery)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const checkRes = await fetch(checkUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (checkRes.ok) {
+      const checkData = await checkRes.json();
+      if (checkData.files && checkData.files.length > 0) {
+        shadowFileId = checkData.files[0].id;
+      }
+    }
+
+    const shadowContent = {
+      id: realTrip.id,
+      isShadow: true,
+      realDriveFileId: realFileId,
+      updatedAt: 0
+    };
+    const shadowContentString = JSON.stringify(shadowContent, null, 2);
+
+    if (shadowFileId) {
+      const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media`;
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: shadowContentString,
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Failed to update the shadow file in your Google Drive.');
+      }
+    } else {
+      const createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
+      const createRes = await fetch(createUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: filename,
+          parents: [folderId],
+        }),
+      });
+      if (!createRes.ok) {
+        throw new Error('Failed to create the shadow file in your Google Drive.');
+      }
+      const createData = await createRes.json();
+      shadowFileId = createData.id;
+
+      const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media&supportsAllDrives=true`;
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: shadowContentString,
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Failed to upload shadow file content.');
+      }
+    }
+  }
+
+  return {
+    realTrip,
+    realFileId,
+    shadowFileId,
+    isOwner,
+    owners,
+    capabilities,
+    shared
+  };
 }

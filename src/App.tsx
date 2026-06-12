@@ -14,7 +14,7 @@ import {
   saveTripsToDrive, 
   leaveSharedTripFile,
   deleteFileFromDrive,
-  extractFileIdFromUrl,
+  importSharedTripFile,
   DEFAULT_CLIENT_ID,
   GOOGLE_SCOPES
 } from './utils/googleDrive';
@@ -831,118 +831,15 @@ export default function App() {
       throw new Error('Please sign in to Google Drive first.');
     }
 
-    const realFileId = extractFileIdFromUrl(urlOrId);
-    if (!realFileId) {
-      throw new Error('Invalid Google Drive link or file ID format.');
-    }
-
-    // 1. Fetch metadata first to verify existence and check details
-    const metaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?fields=id,name,owners,capabilities,shared&supportsAllDrives=true`;
-    const metaRes = await fetch(metaUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (!metaRes.ok) {
-      throw new Error('Cannot access the shared file. Ensure you have permissions and the ID is correct.');
-    }
-    const meta = await metaRes.json();
-    const owners = meta.owners || [];
-    const capabilities = meta.capabilities || {};
-    const shared = meta.shared !== undefined ? meta.shared : true;
-    const isOwner = owners[0]?.me;
-
-    // 2. Fetch the trip content
-    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?alt=media&supportsAllDrives=true`;
-    const contentRes = await fetch(mediaUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (!contentRes.ok) {
-      throw new Error('Failed to download trip content from Google Drive.');
-    }
-
-    const realTrip = await contentRes.json() as Trip;
-    if (!realTrip || typeof realTrip !== 'object' || typeof realTrip.id !== 'string') {
-      throw new Error('The file is not a valid Trip Planner trip file.');
-    }
-
-    // 3. Create/update a shadow file in user's own apps/trip_planner folder ONLY IF they are NOT the owner
-    let shadowFileId: string | undefined = undefined;
-    
-    if (!isOwner) {
-      const filename = realTrip.id.startsWith('trip-') ? `${realTrip.id}.json` : `trip-${realTrip.id}.json`;
-      
-      // Check if a shadow file already exists in user's apps/trip_planner folder
-      const checkQuery = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
-      const checkUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(checkQuery)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
-      const checkRes = await fetch(checkUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (checkRes.ok) {
-        const checkData = await checkRes.json();
-        if (checkData.files && checkData.files.length > 0) {
-          shadowFileId = checkData.files[0].id;
-        }
-      }
-
-      const shadowContent = {
-        id: realTrip.id,
-        isShadow: true,
-        realDriveFileId: realFileId,
-        updatedAt: 0
-      };
-      const shadowContentString = JSON.stringify(shadowContent, null, 2);
-
-      if (shadowFileId) {
-        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media`;
-        const uploadRes = await fetch(uploadUrl, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: shadowContentString,
-        });
-        if (!uploadRes.ok) {
-          throw new Error('Failed to update the shadow file in your Google Drive.');
-        }
-      } else {
-        const createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
-        const createRes = await fetch(createUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: filename,
-            parents: [folderId],
-          }),
-        });
-        if (!createRes.ok) {
-          throw new Error('Failed to create the shadow file in your Google Drive.');
-        }
-        const createData = await createRes.json();
-        shadowFileId = createData.id;
-
-        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media&supportsAllDrives=true`;
-        const uploadRes = await fetch(uploadUrl, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: shadowContentString,
-        });
-        if (!uploadRes.ok) {
-          throw new Error('Failed to upload shadow file content.');
-        }
-      }
-    }
+    const {
+      realTrip,
+      realFileId,
+      shadowFileId,
+      isOwner,
+      owners,
+      capabilities,
+      shared
+    } = await importSharedTripFile(token, folderId, urlOrId);
 
     // Annotate the trip for local state
     const annotatedTrip: Trip = {
