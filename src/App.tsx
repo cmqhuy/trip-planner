@@ -135,6 +135,7 @@ export default function App() {
   const clientId = localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID;
 
   const syncTimeoutRef = useRef<any>(null);
+  const isSilentAuthRef = useRef(false);
 
   const cleanUpDeletedTrips = (deletedIds: string[]) => {
     if (!deletedIds || deletedIds.length === 0) return;
@@ -228,6 +229,7 @@ export default function App() {
           initTokenClient(
             clientId,
             (token, expiresIn) => {
+              isSilentAuthRef.current = false;
               setGoogleToken(token);
               const expiresAt = Date.now() + expiresIn * 1000;
               localStorage.setItem('google-access-token', token);
@@ -238,6 +240,11 @@ export default function App() {
             (err) => {
               console.error('Google token request failed:', err);
               setSyncStatus('error');
+              if (isSilentAuthRef.current) {
+                isSilentAuthRef.current = false;
+                console.log('Silent re-auth failed, prompting for interactive sign-in...');
+                handleSignIn();
+              }
             }
           );
 
@@ -815,6 +822,32 @@ export default function App() {
   };
 
   const handleUpdateTrip = (updater: Trip | ((prev: Trip) => Trip)) => {
+    const targetTripId = typeof updater === 'function' ? activeTripId : updater.id;
+    const targetTrip = trips.find(t => t.id === targetTripId);
+    
+    if (targetTrip && (targetTrip.driveFileId || targetTrip.shadowFileId)) {
+      const expiresAtStr = localStorage.getItem('google-token-expires-at');
+      const isExpired = !expiresAtStr || Number(expiresAtStr) <= Date.now();
+      const isLoggedIn = localStorage.getItem('google-logged-in') === 'true';
+
+      if ((!googleToken || isExpired) && syncStatus !== 'syncing') {
+        console.log('User is modifying a cloud-synced trip but is not signed in or token is expired. Triggering sign in flow...');
+        setSyncStatus('syncing');
+        if (isLoggedIn) {
+          isSilentAuthRef.current = true;
+          try {
+            requestAccessToken('');
+          } catch (e) {
+            console.error('Silent re-auth failed on write, launching interactive sign-in:', e);
+            isSilentAuthRef.current = false;
+            handleSignIn();
+          }
+        } else {
+          handleSignIn();
+        }
+      }
+    }
+
     setTrips(prevTrips => {
       const updated = prevTrips.map(t => {
         if (typeof updater === 'function') {

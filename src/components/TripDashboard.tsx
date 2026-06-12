@@ -234,22 +234,6 @@ export default function TripDashboard({
                         <Users size={14} style={{ color: '#60a5fa' }} />
                       </span>
                     )}
-                    {trip.isOwner === false && (
-                      <span 
-                        style={{ 
-                          display: 'inline-flex',
-                          fontSize: '9px', 
-                          padding: '2px 6px', 
-                          borderRadius: '4px', 
-                          background: 'rgba(96, 165, 250, 0.15)', 
-                          color: '#60a5fa', 
-                          fontWeight: 600,
-                          marginLeft: '4px'
-                        }}
-                      >
-                        {trip.canEdit === false ? 'Viewer' : 'Editor'}
-                      </span>
-                    )}
                   </h3>
 
                   <div className="trip-card-dates" style={{ marginTop: '4px' }}>
@@ -313,8 +297,8 @@ export default function TripDashboard({
                 </div>
               </div>
 
-              <div className="trip-card-bottom" style={{ marginBottom: '12px' }}>
-                <div className="trip-card-stats">
+              <div className="trip-card-bottom" style={{ marginBottom: '12px', alignItems: 'flex-end' }}>
+                <div className="trip-card-stats" style={{ paddingBottom: '2px' }}>
                   <span className="flex-align">
                     <Layers size={12} /> {trip.plans.length} {trip.plans.length === 1 ? 'Plan' : 'Plans'}
                   </span>
@@ -322,7 +306,22 @@ export default function TripDashboard({
                     <Map size={12} /> {trip.locations.length} {trip.locations.length === 1 ? 'Location' : 'Locations'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                  {trip.isOwner === false && (
+                    <span 
+                      style={{ 
+                        display: 'inline-flex',
+                        fontSize: '9px', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        background: 'rgba(96, 165, 250, 0.15)', 
+                        color: '#60a5fa', 
+                        fontWeight: 600
+                      }}
+                    >
+                      {trip.canEdit === false ? 'Viewer' : 'Editor'}
+                    </span>
+                  )}
                   <div 
                     style={{ 
                       fontSize: '12px', 
