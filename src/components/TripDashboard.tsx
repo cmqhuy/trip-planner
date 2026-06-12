@@ -234,22 +234,25 @@ export default function TripDashboard({
                         <Users size={14} style={{ color: '#60a5fa' }} />
                       </span>
                     )}
-                    {trip.isOwner === false && (
-                      <span 
-                        style={{ 
-                          fontSize: '9px', 
-                          padding: '2px 6px', 
-                          borderRadius: '4px', 
-                          background: 'rgba(96, 165, 250, 0.15)', 
-                          color: '#60a5fa', 
-                          marginLeft: '6px',
-                          fontWeight: 600
-                        }}
-                      >
-                        {trip.canEdit === false ? 'Viewer' : 'Editor'}
-                      </span>
-                    )}
                   </h3>
+                  {trip.isOwner === false && (
+                    <div 
+                      style={{ 
+                        display: 'inline-flex',
+                        fontSize: '9px', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        background: 'rgba(96, 165, 250, 0.15)', 
+                        color: '#60a5fa', 
+                        fontWeight: 600,
+                        marginTop: '2px',
+                        marginLeft: '0px',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      {trip.canEdit === false ? 'Viewer' : 'Editor'}
+                    </div>
+                  )}
                   <div className="trip-card-dates" style={{ marginTop: '4px' }}>
                     <Calendar size={13} />
                     <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>
