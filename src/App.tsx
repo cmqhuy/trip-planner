@@ -967,18 +967,6 @@ export default function App() {
             onSignOut={handleSignOut}
             onManualSync={handleManualSync}
           />
-          <span 
-            style={{ 
-              fontSize: '11px', 
-              color: 'var(--text-secondary)', 
-              background: 'rgba(255,255,255,0.05)', 
-              padding: '4px 10px', 
-              borderRadius: '99px',
-              border: '1px solid var(--border-glass)'
-            }}
-          >
-            v1.0.0
-          </span>
         </div>
       </header>
 
