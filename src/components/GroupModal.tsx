@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import type { PlaceGroup } from '../types';
 import GroupFormFields from './GroupFormFields';
 
@@ -8,9 +8,10 @@ interface GroupModalProps {
   onClose: () => void;
   group?: PlaceGroup | null;
   onSave: (groupData: { name: string; color: string; icon: string }) => void;
+  onDelete?: () => void;
 }
 
-export default function GroupModal({ isOpen, onClose, group, onSave }: GroupModalProps) {
+export default function GroupModal({ isOpen, onClose, group, onSave, onDelete }: GroupModalProps) {
   const [name, setName] = useState('');
   const [color, setColor] = useState('#6366f1'); // Default Indigo
   const [icon, setIcon] = useState('map-pin');
@@ -59,6 +60,19 @@ export default function GroupModal({ isOpen, onClose, group, onSave }: GroupModa
           />
 
           <div className="modal-actions">
+            {group && onDelete && (
+              <button 
+                type="button" 
+                className="btn-danger flex-align" 
+                onClick={() => {
+                  onDelete();
+                  onClose();
+                }}
+                style={{ marginRight: 'auto', gap: '6px' }}
+              >
+                <Trash2 size={16} /> Delete Group
+              </button>
+            )}
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary">
               {group ? 'Save Changes' : 'Add Group'}

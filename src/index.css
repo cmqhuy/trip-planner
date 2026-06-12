@@ -442,6 +442,32 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* Sync Conflict Modal Options */
+.sync-conflict-option {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.sync-conflict-option:hover {
+  border-color: var(--accent-primary) !important;
+  background: rgba(99, 102, 241, 0.05) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.sync-conflict-option.local-option:hover {
+  border-color: #f59e0b !important;
+  background: rgba(245, 158, 11, 0.05) !important;
+}
+
+.sync-conflict-option:active {
+  transform: translateY(0);
+}
+
+.sync-conflict-option:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 .form-group {
   margin-bottom: 20px;
 }

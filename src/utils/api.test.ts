@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchWikipediaData, searchLocation, searchPlacesNearLocation } from './api';
+import { fetchWikipediaData, searchLocation, searchPlacesNearLocation, searchPlacesNearLocationPhoton } from './api';
 
 describe('api.ts - fetchWikipediaData', () => {
   beforeEach(() => {
@@ -218,3 +218,159 @@ describe('api.ts - searchPlacesNearLocation', () => {
     expect(cafe?.photoUrl).toBe('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80');
   });
 });
+
+describe('api.ts - searchPlacesNearLocationPhoton', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('should search Photon API and parse features correctly', async () => {
+    const mockPhotonResponse = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [2.2945, 48.8584]
+          },
+          properties: {
+            osm_id: 12345,
+            name: 'Eiffel Tower',
+            osm_value: 'attraction',
+            city: 'Paris'
+          }
+        }
+      ]
+    };
+
+    let fetchCount = 0;
+    (globalThis.fetch as any).mockImplementation(() => {
+      fetchCount++;
+      if (fetchCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockPhotonResponse
+        });
+      } else {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ query: { pages: { '-1': {} } } }) // empty wiki
+        });
+      }
+    });
+
+    const location = { city: 'Paris', country: 'France', lat: 48.8566, lng: 2.3522 };
+    const results = await searchPlacesNearLocationPhoton('Eiffel Tower', location);
+    
+    expect(results.length).toBeGreaterThan(0);
+    const tower = results.find(r => r.title === 'Eiffel Tower');
+    expect(tower).toBeDefined();
+    expect(tower?.description).toBe('Attraction in Paris');
+    expect(tower?.lat).toBe(48.8584);
+    expect(tower?.lng).toBe(2.2945);
+  });
+});
+
+describe('api.ts - parallel search places merging', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('should query both Nominatim and Photon, merging and deduplicating results', async () => {
+    const mockOsmResponse = [
+      {
+        osm_id: 111,
+        name: 'Shared Place',
+        type: 'museum',
+        address: {},
+        lat: '48.8600',
+        lon: '2.3300'
+      },
+      {
+        osm_id: 222,
+        name: 'Nominatim Only Place',
+        type: 'restaurant',
+        address: {},
+        lat: '48.8610',
+        lon: '2.3310'
+      }
+    ];
+
+    const mockPhotonResponse = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [2.3300, 48.8600]
+          },
+          properties: {
+            osm_id: 111,
+            name: 'Shared Place',
+            osm_value: 'museum'
+          }
+        },
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [2.3320, 48.8620]
+          },
+          properties: {
+            osm_id: 333,
+            name: 'Photon Only Place',
+            osm_value: 'hotel'
+          }
+        }
+      ]
+    };
+
+    (globalThis.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('nominatim.openstreetmap.org')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockOsmResponse
+        });
+      } else if (url.includes('photon.komoot.io')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockPhotonResponse
+        });
+      } else {
+        // wikipedia requests
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ query: { pages: { '-1': {} } } })
+        });
+      }
+    });
+
+    const location = { city: 'Paris', country: 'France', lat: 48.8566, lng: 2.3522 };
+    const results = await searchPlacesNearLocation('Paris Search', location);
+
+    // Results should contain Shared Place exactly once (deduplicated), Nominatim Only, and Photon Only
+    const titles = results.map(r => r.title);
+    expect(titles).toContain('Shared Place');
+    expect(titles).toContain('Nominatim Only Place');
+    expect(titles).toContain('Photon Only Place');
+    
+    // Total occurrences of 'Shared Place' should be 1
+    const sharedOccurrences = results.filter(r => r.title === 'Shared Place');
+    expect(sharedOccurrences.length).toBe(1);
+  });
+});
+

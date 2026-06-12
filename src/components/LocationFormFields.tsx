@@ -29,7 +29,6 @@ interface LocationFormFieldsProps {
   dragOverLocationIndex: number | null;
   setDragOverLocationIndex: (val: number | null) => void;
   handleDragStart: (idx: number) => void;
-  handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (idx: number) => void;
   getLocIcon: (loc: Location) => string;
   getFormattedLocationName: (loc: Location) => string;
@@ -59,7 +58,6 @@ export default function LocationFormFields({
   dragOverLocationIndex,
   setDragOverLocationIndex,
   handleDragStart,
-  handleDragOver,
   handleDrop,
   getLocIcon,
   getFormattedLocationName
@@ -163,25 +161,30 @@ export default function LocationFormFields({
         <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
           Drag & Drop to Reorder Locations
         </label>
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '6px', 
-          background: 'var(--bg-dark)', 
-          padding: '8px', 
-          borderRadius: '8px', 
-          border: '1px solid var(--border-glass)' 
-        }}>
+        <div 
+          onDragLeave={() => setDragOverLocationIndex(null)}
+          style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '6px', 
+            background: 'var(--bg-dark)', 
+            padding: '8px', 
+            borderRadius: '8px', 
+            border: '1px solid var(--border-glass)' 
+          }}
+        >
           {locations.map((loc, idx) => {
             const isCurrent = loc.id === currentLocationId;
             const isDragging = idx === draggedLocationIndex;
             const isDragOver = idx === dragOverLocationIndex && draggedLocationIndex !== idx;
+            const showLineAtBottom = draggedLocationIndex !== null && draggedLocationIndex < idx;
             return (
               <div key={loc.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 {isDragOver && (
                   <div style={{
                     position: 'absolute',
-                    top: '-5px',
+                    top: showLineAtBottom ? 'auto' : '-5px',
+                    bottom: showLineAtBottom ? '-5px' : 'auto',
                     left: 0,
                     right: 0,
                     height: '4px',
@@ -195,15 +198,15 @@ export default function LocationFormFields({
                 <div
                   draggable
                   onDragStart={() => handleDragStart(idx)}
-                  onDragEnter={() => setDragOverLocationIndex(idx)}
-                  onDragLeave={() => setDragOverLocationIndex(null)}
                   onDragEnd={() => {
                     setDraggedLocationIndex(null);
                     setDragOverLocationIndex(null);
                   }}
                   onDragOver={(e) => {
                     e.preventDefault();
-                    handleDragOver(e);
+                    if (dragOverLocationIndex !== idx) {
+                      setDragOverLocationIndex(idx);
+                    }
                   }}
                   onDrop={() => {
                     handleDrop(idx);

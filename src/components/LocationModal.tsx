@@ -110,10 +110,6 @@ export default function LocationModal({
     setDraggedLocationIndex(index);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
   const handleDrop = (index: number) => {
     if (draggedLocationIndex === null || draggedLocationIndex === index) return;
 
@@ -225,7 +221,6 @@ export default function LocationModal({
               dragOverLocationIndex={dragOverLocationIndex}
               setDragOverLocationIndex={setDragOverLocationIndex}
               handleDragStart={handleDragStart}
-              handleDragOver={handleDragOver}
               handleDrop={handleDrop}
               getLocIcon={getLocIcon}
               getFormattedLocationName={(loc) => getFormattedLocationName(loc, allLocations)}

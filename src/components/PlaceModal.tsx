@@ -48,7 +48,7 @@ export default function PlaceModal({
         setTitle(place.title);
         setDescription(place.description || '');
         setOpeningHours(place.openingHours || '');
-        setGroupId(place.placeGroupId || 'other');
+        setGroupId(place.placeGroupId || 'new');
         setMapsLink(place.mapsLink || '');
         setPhotoUrl(place.photoUrl || '');
         setNotes(place.notes || '');
@@ -59,7 +59,7 @@ export default function PlaceModal({
         setTitle('');
         setDescription('');
         setOpeningHours('');
-        setGroupId('other');
+        setGroupId('new');
         setMapsLink('');
         setPhotoUrl('');
         setNotes('');
@@ -112,7 +112,7 @@ export default function PlaceModal({
       title: title.trim(),
       description: description.trim(),
       openingHours: openingHours.trim() || undefined,
-      placeGroupId: groupId || 'other',
+      placeGroupId: groupId || 'new',
       mapsLink: mapsLink.trim() || buildMapsLink(title.trim(), parseFloat(lat), parseFloat(lng), catalogLocation?.city),
       photoUrl: photoUrl.trim() || undefined,
       notes: notes.trim() || undefined,

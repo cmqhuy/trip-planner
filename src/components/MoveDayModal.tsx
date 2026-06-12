@@ -32,7 +32,8 @@ export default function MoveDayModal({
         setTargetDate('');
       }
     }
-  }, [isOpen, daysOptions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -46,7 +47,7 @@ export default function MoveDayModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Move Day Contents</h3>
+          <h3>Move Scheduled Places</h3>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
           </button>
@@ -79,7 +80,7 @@ export default function MoveDayModal({
             onClick={handleConfirm}
             disabled={!targetDate}
           >
-            Move Contents
+            Move Places
           </button>
         </div>
       </div>

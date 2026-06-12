@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { Trip } from '../types';
 import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2 } from 'lucide-react';
-import { shiftTripDates } from '../utils/dateUtils';
+import { shiftTripDates, getDaysDiff } from '../utils/dateUtils';
 import ConfirmationModal from './ConfirmationModal';
+import EditTripModal from './EditTripModal';
 
 interface TripDashboardProps {
   trips: Trip[];
@@ -47,7 +48,6 @@ export default function TripDashboard({
   };
 
   const handleCloseModal = () => {
-    setEditingTrip(null);
     setName('');
     setStartDate('');
     setEndDate('');
@@ -69,19 +69,47 @@ export default function TripDashboard({
       return;
     }
 
-    if (editingTrip) {
-      const updatedTrip = shiftTripDates(editingTrip, startDate, endDate);
-      updatedTrip.name = name;
-      onUpdateTrip && onUpdateTrip(updatedTrip);
-    } else {
-      onCreateTrip({ name, startDate, endDate });
-    }
-    
-    setEditingTrip(null);
+    onCreateTrip({ name, startDate, endDate });
     setName('');
     setStartDate('');
     setEndDate('');
     setShowModal(false);
+  };
+
+  const handleSaveEditTrip = (name: string, startDate: string, endDate: string) => {
+    if (!editingTrip) return;
+
+    if (new Date(startDate) > new Date(endDate)) {
+      setConfirmModal({
+        title: 'Invalid Dates',
+        message: 'Start date must be before or equal to end date.',
+        isAlert: true,
+        confirmText: 'OK',
+        onConfirm: () => {}
+      });
+      return;
+    }
+
+    const currentDuration = getDaysDiff(editingTrip.startDate, editingTrip.endDate) + 1;
+    const newDuration = getDaysDiff(startDate, endDate) + 1;
+
+    const performSave = () => {
+      const updatedTrip = shiftTripDates(editingTrip, startDate, endDate);
+      updatedTrip.name = name.trim();
+      onUpdateTrip && onUpdateTrip(updatedTrip);
+      setEditingTrip(null);
+    };
+
+    if (newDuration < currentDuration) {
+      setConfirmModal({
+        title: 'Shorten Trip Duration',
+        message: `Are you sure you want to shorten the trip? The last ${currentDuration - newDuration} day(s) of your plan will be permanently deleted.`,
+        confirmText: 'Shorten',
+        onConfirm: performSave
+      });
+    } else {
+      performSave();
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -246,7 +274,7 @@ export default function TripDashboard({
                 </div>
               </div>
 
-              <div className="trip-card-bottom" style={{ marginBottom: trip.isOwner !== false ? '12px' : '0' }}>
+              <div className="trip-card-bottom" style={{ marginBottom: '12px' }}>
                 <div className="trip-card-stats">
                   <span className="flex-align">
                     <Layers size={12} /> {trip.plans.length} {trip.plans.length === 1 ? 'Plan' : 'Plans'}
@@ -268,40 +296,33 @@ export default function TripDashboard({
                 </div>
               </div>
 
-              {trip.isOwner !== false && (
-                <div 
-                  className="trip-card-actions" 
-                  onClick={e => e.stopPropagation()} 
+              <div 
+                className="trip-card-actions" 
+                onClick={e => e.stopPropagation()} 
+                style={{ 
+                  display: 'flex', 
+                  gap: '8px', 
+                  paddingTop: '12px', 
+                  borderTop: '1px solid rgba(255, 255, 255, 0.08)' 
+                }}
+              >
+                <button 
+                  className="btn-primary flex-align"
                   style={{ 
-                    display: 'flex', 
-                    gap: '8px', 
-                    paddingTop: '12px', 
-                    borderTop: '1px solid rgba(255, 255, 255, 0.08)' 
+                    flex: 1, 
+                    padding: '6px 12px', 
+                    fontSize: '12px', 
+                    height: '30px', 
+                    justifyContent: 'center', 
+                    gap: '6px',
+                    borderRadius: '6px'
                   }}
+                  onClick={() => onSelectTrip(trip.id)}
                 >
-                  <button 
-                    className="btn-secondary flex-align"
-                    style={{ 
-                      flex: 1, 
-                      padding: '6px 12px', 
-                      fontSize: '12px', 
-                      height: '30px', 
-                      justifyContent: 'center', 
-                      gap: '6px',
-                      borderRadius: '6px'
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingTrip(trip);
-                      setName(trip.name);
-                      setStartDate(trip.startDate);
-                      setEndDate(trip.endDate);
-                      setShowModal(true);
-                    }}
-                  >
-                    <Edit2 size={13} /> Edit
-                  </button>
-                  {isGoogleSignedIn && trip.driveFileId && (
+                  Open
+                </button>
+                {trip.isOwner !== false && (
+                  <>
                     <button 
                       className="btn-secondary flex-align"
                       style={{ 
@@ -313,13 +334,33 @@ export default function TripDashboard({
                         gap: '6px',
                         borderRadius: '6px'
                       }}
-                      onClick={() => onShareTrip && onShareTrip(trip)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingTrip(trip);
+                      }}
                     >
-                      <Share2 size={13} /> Share
+                      <Edit2 size={13} /> Edit
                     </button>
-                  )}
-                </div>
-              )}
+                    {isGoogleSignedIn && trip.driveFileId && (
+                      <button 
+                        className="btn-secondary flex-align"
+                        style={{ 
+                          flex: 1, 
+                          padding: '6px 12px', 
+                          fontSize: '12px', 
+                          height: '30px', 
+                          justifyContent: 'center', 
+                          gap: '6px',
+                          borderRadius: '6px'
+                        }}
+                        onClick={() => onShareTrip && onShareTrip(trip)}
+                      >
+                        <Share2 size={13} /> Share
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -329,7 +370,7 @@ export default function TripDashboard({
         <div className="modal-overlay">
           <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{editingTrip ? 'Edit Trip' : 'Create Trip'}</h3>
+              <h3>Create Trip</h3>
               <button className="modal-close" onClick={handleCloseModal}>
                 <X size={20} />
               </button>
@@ -377,12 +418,21 @@ export default function TripDashboard({
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary">
-                  {editingTrip ? 'Save Changes' : 'Create Trip'}
+                  Create Trip
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {editingTrip && (
+        <EditTripModal
+          isOpen={editingTrip !== null}
+          onClose={() => setEditingTrip(null)}
+          trip={editingTrip}
+          onSave={handleSaveEditTrip}
+        />
       )}
 
       <ConfirmationModal

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Trip } from '../types';
-import { getDaysDiff } from '../utils/dateUtils';
+import { getDaysDiff, shiftDateString } from '../utils/dateUtils';
 
 interface EditTripModalProps {
   isOpen: boolean;
@@ -22,6 +22,15 @@ export default function EditTripModal({ isOpen, onClose, trip, onSave }: EditTri
       setEndDate(trip.endDate);
     }
   }, [isOpen, trip]);
+
+  const handleStartDateChange = (newStart: string) => {
+    if (startDate && endDate && newStart) {
+      const diff = getDaysDiff(startDate, newStart);
+      const newEnd = shiftDateString(endDate, diff);
+      setEndDate(newEnd);
+    }
+    setStartDate(newStart);
+  };
 
   if (!isOpen) return null;
 
@@ -66,7 +75,7 @@ export default function EditTripModal({ isOpen, onClose, trip, onSave }: EditTri
                 type="date" 
                 id="edit-trip-start"
                 value={startDate} 
-                onChange={e => setStartDate(e.target.value)} 
+                onChange={e => handleStartDateChange(e.target.value)} 
                 required 
               />
             </div>

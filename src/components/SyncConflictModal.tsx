@@ -1,137 +1,151 @@
-import { Cloud, Laptop, GitMerge } from 'lucide-react';
+import { Cloud, Laptop } from 'lucide-react';
+import type { Trip } from '../types';
 
 export interface SyncConflictModalProps {
-  localCount: number;
-  cloudCount: number;
-  onResolve: (choice: 'merge' | 'cloud' | 'local') => void;
+  isOpen: boolean;
+  localTrip: Trip | null;
+  cloudTrip: Trip | null;
+  conflictIndex: number;
+  totalConflicts: number;
+  onResolve: (choice: 'cloud' | 'local') => void;
 }
 
+const formatDate = (timestamp?: number) => {
+  if (!timestamp) return 'Unknown';
+  try {
+    return new Date(timestamp).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch (e) {
+    return 'Unknown';
+  }
+};
+
 export default function SyncConflictModal({
-  localCount,
-  cloudCount,
+  isOpen,
+  localTrip,
+  cloudTrip,
+  conflictIndex,
+  totalConflicts,
   onResolve,
 }: SyncConflictModalProps) {
+  if (!isOpen || !localTrip || !cloudTrip) return null;
+
   return (
     <div className="modal-overlay" style={{ zIndex: 1100 }}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content glass-panel" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Cloud size={24} style={{ color: 'var(--accent-primary)' }} />
-            Sync Conflict Detected
+            Trip Sync Conflict
           </h3>
         </div>
 
         <div style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '24px' }}>
           <p style={{ marginBottom: '16px' }}>
-            We found trip details stored both locally on this device and on your Google Drive. 
-            Please choose how you would like to handle this sync conflict:
+            We detected a conflict for the trip: <strong>"{localTrip.name}"</strong>. The version stored on Google Drive has different changes than your local version.
+            {totalConflicts > 1 && (
+              <span style={{ display: 'block', marginTop: '8px', color: 'var(--accent-primary)', fontWeight: 500 }}>
+                Conflict {conflictIndex + 1} of {totalConflicts}
+              </span>
+            )}
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Option 1: Merge */}
-            <div 
-              className="glass-panel" 
-              onClick={() => onResolve('merge')}
-              style={{ 
-                padding: '16px', 
-                borderRadius: '8px', 
-                cursor: 'pointer', 
-                border: '1px solid var(--border-glass)',
-                background: 'rgba(255,255,255,0.02)',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12px'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = 'var(--accent-primary)';
-                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.05)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = 'var(--border-glass)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-              }}
-            >
-              <GitMerge size={20} style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ display: 'block', color: 'var(--text-primary)', marginBottom: '2px', fontSize: '14px' }}>
-                  Merge Local & Google Drive Trips (Recommended)
-                </strong>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Combines all trips from both sources. If the same trip exists on both, we'll keep the Google Drive version.
-                </span>
-              </div>
-            </div>
-
-            {/* Option 2: Keep Cloud */}
-            <div 
-              className="glass-panel" 
+          <div className="sync-conflict-options" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '20px' }}>
+            {/* Option 1: Cloud */}
+            <button 
+              type="button"
+              className="sync-conflict-option glass-panel cloud-option" 
               onClick={() => onResolve('cloud')}
-              style={{ 
-                padding: '16px', 
-                borderRadius: '8px', 
-                cursor: 'pointer', 
+              aria-label="Get Cloud Version"
+              style={{
+                width: '100%',
                 border: '1px solid var(--border-glass)',
                 background: 'rgba(255,255,255,0.02)',
-                transition: 'all 0.2s ease',
+                textAlign: 'left',
+                color: 'inherit',
+                fontFamily: 'inherit',
                 display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12px'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = 'var(--accent-primary)';
-                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.05)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = 'var(--border-glass)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                gap: '16px',
+                padding: '20px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.25s ease',
               }}
             >
-              <Cloud size={20} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ display: 'block', color: 'var(--text-primary)', marginBottom: '2px', fontSize: '14px' }}>
-                  Use Google Drive Trips Only
-                </strong>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Discard the {localCount} local trip{localCount !== 1 ? 's' : ''} and load the {cloudCount} trip{cloudCount !== 1 ? 's' : ''} from Google Drive.
+              <div className="option-icon-wrapper" style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                flexShrink: 0,
+                background: 'rgba(99, 102, 241, 0.1)',
+                color: 'var(--accent-primary)',
+              }}>
+                <Cloud size={28} />
+              </div>
+              <div className="option-text" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Get Cloud Version
+                </h4>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                  Replace your local trip with the one on Google Drive. Any local unsynced changes will be lost.
+                </p>
+                <span className="option-meta" style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Modified on Drive: {formatDate(cloudTrip.updatedAt)}
                 </span>
               </div>
-            </div>
+            </button>
 
-            {/* Option 3: Keep Local */}
-            <div 
-              className="glass-panel" 
+            {/* Option 2: Local */}
+            <button 
+              type="button"
+              className="sync-conflict-option glass-panel local-option" 
               onClick={() => onResolve('local')}
-              style={{ 
-                padding: '16px', 
-                borderRadius: '8px', 
-                cursor: 'pointer', 
+              aria-label="Override Cloud"
+              style={{
+                width: '100%',
                 border: '1px solid var(--border-glass)',
                 background: 'rgba(255,255,255,0.02)',
-                transition: 'all 0.2s ease',
+                textAlign: 'left',
+                color: 'inherit',
+                fontFamily: 'inherit',
                 display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12px'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = 'var(--accent-primary)';
-                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.05)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = 'var(--border-glass)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                gap: '16px',
+                padding: '20px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.25s ease',
               }}
             >
-              <Laptop size={20} style={{ color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ display: 'block', color: 'var(--text-primary)', marginBottom: '2px', fontSize: '14px' }}>
-                  Overwrite Google Drive with Local Trips
-                </strong>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Keep the {localCount} local trip{localCount !== 1 ? 's' : ''} and overwrite the data currently stored on Google Drive.
+              <div className="option-icon-wrapper" style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                flexShrink: 0,
+                background: 'rgba(245, 158, 11, 0.1)',
+                color: '#f59e0b',
+              }}>
+                <Laptop size={28} />
+              </div>
+              <div className="option-text" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Override Cloud
+                </h4>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                  Keep your local trip and overwrite the version stored on Google Drive.
+                </p>
+                <span className="option-meta" style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Modified on Device: {formatDate(localTrip.updatedAt)}
                 </span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>

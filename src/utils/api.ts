@@ -189,8 +189,78 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
   }
 }
 
-// 3. Search Places (Attractions, restaurants, etc.) near coordinates using OSM Nominatim
-export async function searchPlacesNearLocation(query: string, location: { city: string, country: string, lat: number, lng: number }): Promise<Omit<Place, 'placeGroupId'>[]> {
+// 3. Search Places (Attractions, restaurants, etc.) near coordinates using Photon (Komoot) API
+export async function searchPlacesNearLocationPhoton(
+  query: string,
+  location: { city: string; country: string; lat: number; lng: number }
+): Promise<Omit<Place, 'placeGroupId'>[]> {
+  if (!query || query.trim().length < 2) return [];
+
+  try {
+    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${location.lat}&lon=${location.lng}&limit=10`;
+    const response = await fetch(photonUrl);
+    if (!response.ok) throw new Error('Photon place search failed');
+    const data = await response.json();
+    const features = data.features || [];
+
+    const onlineResults = await Promise.all(features.map(async (feature: any) => {
+      const props = feature.properties || {};
+      const title = props.name || 'Unnamed Place';
+      
+      let description = props.osm_value 
+        ? props.osm_value.charAt(0).toUpperCase() + props.osm_value.slice(1).replace('_', ' ')
+        : (props.type || 'Point of Interest');
+      if (props.city) description += ` in ${props.city}`;
+      
+      const coordinates = feature.geometry?.coordinates || [0, 0];
+      const lng = coordinates[0];
+      const lat = coordinates[1];
+      
+      // Wikipedia fetch for places
+      let photoUrl = '';
+      const wikiData = await fetchWikipediaData(title);
+      if (wikiData.photoUrl) {
+        photoUrl = wikiData.photoUrl;
+      }
+      if (wikiData.description) {
+        description = wikiData.description;
+      }
+      
+      if (!photoUrl) {
+        const category = props.osm_value || props.osm_key || '';
+        if (category.includes('restaurant') || category.includes('cafe') || category.includes('food') || category.includes('eating')) {
+          photoUrl = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80';
+        } else if (category.includes('hotel') || category.includes('motel') || category.includes('hostel') || category.includes('tourism')) {
+          photoUrl = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80';
+        } else {
+          photoUrl = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&q=80';
+        }
+      }
+
+      return {
+        id: `photon-place-${props.osm_id || Math.random().toString(36).substr(2, 9)}`,
+        title,
+        description,
+        openingHours: 'Varies',
+        photoUrl,
+        lat,
+        lng,
+        notes: ''
+      };
+    }));
+
+    return onlineResults;
+  } catch (error) {
+    console.error('Photon place search failed:', error);
+    return [];
+  }
+}
+
+// 4. Unified Search Places function: queries both OSM Nominatim and Photon in parallel, merging & deduplicating
+export async function searchPlacesNearLocation(
+  query: string,
+  location: { city: string; country: string; lat: number; lng: number }
+): Promise<Omit<Place, 'placeGroupId'>[]> {
   if (!query || query.trim().length < 2) return [];
 
   const trimmed = query.trim().toLowerCase();
@@ -215,76 +285,87 @@ export async function searchPlacesNearLocation(query: string, location: { city: 
     }));
   }
 
-  try {
-    // Search OSM within a bounding box centered on location or query string + city name
-    const searchQuery = `${query}, ${location.city}`;
-    const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10`;
-    
-    const response = await fetch(osmUrl);
-
-    if (!response.ok) throw new Error('OSM place search failed');
-    const data = await response.json();
-    
-    const onlineResults = await Promise.all(data.map(async (item: any) => {
-      const title = item.name || item.display_name.split(',')[0];
-      const address = item.address;
+  // Fetch from both Nominatim and Photon in parallel
+  const fetchNominatim = async (): Promise<Omit<Place, 'placeGroupId'>[]> => {
+    try {
+      const searchQuery = `${query}, ${location.city}`;
+      const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10`;
+      const response = await fetch(osmUrl);
+      if (!response.ok) throw new Error('OSM place search failed');
+      const data = await response.json();
       
-      // Determine description from osm tags/types
-      let description = item.type 
-        ? item.type.charAt(0).toUpperCase() + item.type.slice(1).replace('_', ' ')
-        : 'Point of Interest';
-      if (address.suburb) description += ` in ${address.suburb}`;
-      
-      const lat = parseFloat(item.lat);
-      const lng = parseFloat(item.lon);
-      
-      // Wikipedia fetch for places
-      let photoUrl = '';
-      let wikiData = await fetchWikipediaData(title);
-      if (wikiData.photoUrl) {
-        photoUrl = wikiData.photoUrl;
-      }
-      if (wikiData.description) {
-        description = wikiData.description;
-      }
-      
-      if (!photoUrl) {
-        // Standard icon category fallbacks
-        const category = item.type || '';
-        if (category.includes('restaurant') || category.includes('cafe') || category.includes('food')) {
-          photoUrl = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80';
-        } else if (category.includes('hotel') || category.includes('motel') || category.includes('hostel')) {
-          photoUrl = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80';
-        } else {
-          photoUrl = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&q=80'; // general travel photo
+      return await Promise.all(data.map(async (item: any) => {
+        const title = item.name || item.display_name.split(',')[0];
+        const address = item.address || {};
+        
+        let description = item.type 
+          ? item.type.charAt(0).toUpperCase() + item.type.slice(1).replace('_', ' ')
+          : 'Point of Interest';
+        if (address.suburb) description += ` in ${address.suburb}`;
+        
+        const lat = parseFloat(item.lat);
+        const lng = parseFloat(item.lon);
+        
+        let photoUrl = '';
+        const wikiData = await fetchWikipediaData(title);
+        if (wikiData.photoUrl) {
+          photoUrl = wikiData.photoUrl;
         }
-      }
+        if (wikiData.description) {
+          description = wikiData.description;
+        }
+        
+        if (!photoUrl) {
+          const category = item.type || '';
+          if (category.includes('restaurant') || category.includes('cafe') || category.includes('food')) {
+            photoUrl = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80';
+          } else if (category.includes('hotel') || category.includes('motel') || category.includes('hostel')) {
+            photoUrl = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80';
+          } else {
+            photoUrl = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&q=80';
+          }
+        }
 
-      return {
-        id: `osm-place-${item.osm_id || Math.random().toString(36).substr(2, 9)}`,
-        title,
-        description,
-        openingHours: item.extratags?.opening_hours || 'Varies',
-        photoUrl,
-        lat,
-        lng,
-        notes: ''
-      };
-    }));
-
-    // Combine local and online
-    const combined = [...localResults];
-    for (const online of onlineResults) {
-      if (!combined.some(p => p.title.toLowerCase() === online.title.toLowerCase())) {
-        combined.push(online);
-      }
+        return {
+          id: `osm-place-${item.osm_id || Math.random().toString(36).substr(2, 9)}`,
+          title,
+          description,
+          openingHours: item.extratags?.opening_hours || 'Varies',
+          photoUrl,
+          lat,
+          lng,
+          notes: ''
+        };
+      }));
+    } catch (e) {
+      console.error('OSM Nominatim fetch failed:', e);
+      return [];
     }
+  };
 
-    return combined;
-  } catch (error) {
-    console.error('Online place search failed, returning local matches:', error);
-    return localResults;
+  const [nominatimResult, photonResult] = await Promise.allSettled([
+    fetchNominatim(),
+    searchPlacesNearLocationPhoton(query, location)
+  ]);
+
+  const onlineResults: Omit<Place, 'placeGroupId'>[] = [];
+  
+  if (nominatimResult.status === 'fulfilled') {
+    onlineResults.push(...nominatimResult.value);
   }
+  if (photonResult.status === 'fulfilled') {
+    onlineResults.push(...photonResult.value);
+  }
+
+  // Combine local database, Nominatim, and Photon results, deduplicating by title (case-insensitive)
+  const combined = [...localResults];
+  for (const online of onlineResults) {
+    if (!combined.some(p => p.title.toLowerCase() === online.title.toLowerCase())) {
+      combined.push(online);
+    }
+  }
+
+  return combined;
 }
 
 export const getCountryFlag = (countryCode?: string): string => {

@@ -12,9 +12,10 @@ export interface ShareTripModalProps {
   trip: Trip;
   accessToken: string;
   onClose: () => void;
+  onUpdateTrip?: (updatedTrip: Trip) => void;
 }
 
-export default function ShareTripModal({ trip, accessToken, onClose }: ShareTripModalProps) {
+export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTrip }: ShareTripModalProps) {
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [emailInput, setEmailInput] = useState('');
@@ -38,6 +39,14 @@ export default function ShareTripModal({ trip, accessToken, onClose }: ShareTrip
         return (a.emailAddress || '').localeCompare(b.emailAddress || '');
       });
       setPermissions(sorted);
+
+      const hasCollaborators = sorted.some(p => p.role !== 'owner');
+      if (trip.shared !== hasCollaborators && onUpdateTrip) {
+        onUpdateTrip({
+          ...trip,
+          shared: hasCollaborators
+        });
+      }
     } catch (e: any) {
       console.error(e);
       setErrorMsg('Failed to load sharing list. You might not have permission to view it.');
@@ -199,7 +208,7 @@ export default function ShareTripModal({ trip, accessToken, onClose }: ShareTrip
         </div>
 
         {/* Collaborators List */}
-        <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ maxHeight: '200px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {permissions.length === 0 && loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
               <Loader2 size={20} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />

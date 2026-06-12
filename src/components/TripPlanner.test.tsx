@@ -162,16 +162,16 @@ describe('TripPlanner Component', () => {
     const moveDayBtn = screen.getByRole('button', { name: /Move Day/i });
     fireEvent.click(moveDayBtn);
 
-    expect(screen.getByRole('heading', { name: 'Move Day Contents', level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Move Scheduled Places', level: 3 })).toBeInTheDocument();
 
     // Get select element inside Move Day Modal
-    const modal = screen.getByRole('heading', { name: 'Move Day Contents', level: 3 }).closest('.modal-content');
+    const modal = screen.getByRole('heading', { name: 'Move Scheduled Places', level: 3 }).closest('.modal-content');
     const select = modal?.querySelector('select');
     expect(select).toBeDefined();
     fireEvent.change(select!, { target: { value: '2026-07-02' } });
 
-    // Click "Move Contents" button
-    const confirmBtn = screen.getByRole('button', { name: 'Move Contents' });
+    // Click "Move Places" button
+    const confirmBtn = screen.getByRole('button', { name: 'Move Places' });
     fireEvent.click(confirmBtn);
 
     // Click "Move Places" button inside the styled confirmation modal
@@ -210,7 +210,7 @@ describe('TripPlanner Component', () => {
     fireEvent.click(clearDayBtn);
 
     // Click "Clear Day" button inside the styled confirmation modal
-    const clearModal = screen.getByRole('heading', { name: 'Clear Day Places', level: 3 }).closest('.modal-content');
+    const clearModal = screen.getByRole('heading', { name: 'Clear Day', level: 3 }).closest('.modal-content');
     const confirmClearBtn = clearModal?.querySelector('button.btn-primary');
     expect(confirmClearBtn).toBeDefined();
     fireEvent.click(confirmClearBtn!);
@@ -376,6 +376,156 @@ describe('TripPlanner Component', () => {
     const createdPlace = updatedTrip.locations[0].places.find(p => p.title === 'Arc de Triomphe');
     expect(createdPlace).toBeDefined();
 
+    // Verify it is scheduled to Day 1
     expect(updatedTrip.plans[0].days['2026-07-01'].placeIds).toContain(createdPlace?.id);
+    
+    // Verify it defaults to 'new' group
+    expect(createdPlace?.placeGroupId).toBe('new');
+  });
+
+  it('renders day switcher styling highlights correctly', () => {
+    const { container } = render(
+      <TripPlanner
+        trip={mockTrip}
+        onBack={vi.fn()}
+        onUpdateTrip={vi.fn()}
+      />
+    );
+
+    const tabs = container.querySelectorAll('.day-tab');
+    expect(tabs.length).toBe(3);
+
+    // Active tab (Day 1)
+    const activeTab = tabs[0] as HTMLButtonElement;
+    expect(activeTab.classList.contains('active')).toBe(true);
+    // Active tab should have colored borders or boxShadow
+    expect(activeTab.style.borderTopColor).toBe('var(--accent-primary)');
+
+    // Inactive tab (Day 2)
+    const inactiveTab = tabs[1] as HTMLButtonElement;
+    expect(inactiveTab.classList.contains('active')).toBe(false);
+    expect(inactiveTab.style.borderTopColor).toBe('transparent');
+  });
+
+  it('preserves move day dropdown target selection on rerender', () => {
+    const handleUpdateTrip = vi.fn();
+    const { rerender } = render(
+      <TripPlanner
+        trip={mockTrip}
+        onBack={vi.fn()}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    // Open Move Day modal
+    const moveDayBtn = screen.getByRole('button', { name: /Move Day/i });
+    fireEvent.click(moveDayBtn);
+
+    const select = screen.getByRole('combobox', { name: 'Select Destination Day' }) as HTMLSelectElement;
+    expect(select.value).toBe('2026-07-02'); // defaults to first available
+
+    // Change target day
+    fireEvent.change(select, { target: { value: '2026-07-03' } });
+    expect(select.value).toBe('2026-07-03');
+
+    // Trigger parent rerender by supplying a new trip prop object reference
+    rerender(
+      <TripPlanner
+        trip={{ ...mockTrip }}
+        onBack={vi.fn()}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    // Target day should still be the chosen '2026-07-03' and not reset
+    expect(select.value).toBe('2026-07-03');
+  });
+
+  it('displays drag-and-drop location reordering visual clues in the correct positions', () => {
+    const handleUpdateTrip = vi.fn();
+    const tripWithTwoLocs: Trip = {
+      ...mockTrip,
+      locations: [
+        {
+          id: 'loc-paris',
+          city: 'Paris',
+          country: 'France',
+          lat: 48.8566,
+          lng: 2.3522,
+          places: []
+        },
+        {
+          id: 'loc-london',
+          city: 'London',
+          country: 'UK',
+          lat: 51.5074,
+          lng: -0.1278,
+          places: []
+        }
+      ]
+    };
+
+    const { container } = render(
+      <TripPlanner
+        trip={tripWithTwoLocs}
+        onBack={vi.fn()}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    // Open Edit Location Settings Modal
+    const editLocBtn = container.querySelector('[data-tooltip="Edit Location Settings"]');
+    expect(editLocBtn).not.toBeNull();
+    fireEvent.click(editLocBtn!);
+
+    // Verify modal is open
+    expect(screen.getByText('Edit Location')).toBeInTheDocument();
+
+    // Find the draggable location elements by text
+    const ParisRow = screen.getAllByText('Paris, France').find(
+      el => el.tagName.toLowerCase() === 'span' && el.closest('[draggable="true"]')
+    )?.closest('[draggable="true"]');
+    
+    const LondonRow = screen.getAllByText('London, UK').find(
+      el => el.tagName.toLowerCase() === 'span' && el.closest('[draggable="true"]')
+    )?.closest('[draggable="true"]');
+
+    expect(ParisRow).toBeDefined();
+    expect(LondonRow).toBeDefined();
+
+    // 1. Drag Paris (index 0) over London (index 1) - dragging DOWN
+    fireEvent.dragStart(ParisRow!);
+    fireEvent.dragOver(LondonRow!);
+
+    const londonWrapper = LondonRow!.parentElement;
+    expect(londonWrapper).toBeDefined();
+    
+    // Find the line indicator element (the div with background var(--accent-primary))
+    const indicatorsDown = Array.from(londonWrapper!.children).filter(
+      child => (child as HTMLElement).style.background === 'var(--accent-primary)'
+    );
+    expect(indicatorsDown.length).toBe(1);
+    const lineIndicatorDown = indicatorsDown[0] as HTMLElement;
+    expect(lineIndicatorDown.style.bottom).toBe('-5px');
+    expect(lineIndicatorDown.style.top).toBe('auto');
+
+    // 2. Now drag London (index 1) over Paris (index 0) - dragging UP
+    // First end previous drag
+    fireEvent.dragEnd(ParisRow!);
+
+    // Start dragging London and hover over Paris
+    fireEvent.dragStart(LondonRow!);
+    fireEvent.dragOver(ParisRow!);
+
+    const parisWrapper = ParisRow!.parentElement;
+    expect(parisWrapper).toBeDefined();
+    const indicatorsUp = Array.from(parisWrapper!.children).filter(
+      child => (child as HTMLElement).style.background === 'var(--accent-primary)'
+    );
+    expect(indicatorsUp.length).toBe(1);
+    const lineIndicatorUp = indicatorsUp[0] as HTMLElement;
+    expect(lineIndicatorUp.style.top).toBe('-5px');
+    expect(lineIndicatorUp.style.bottom).toBe('auto');
   });
 });
+

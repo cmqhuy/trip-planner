@@ -2,7 +2,7 @@ import { LogIn, LogOut, Cloud, RefreshCw, AlertCircle } from 'lucide-react';
 
 export interface GoogleAuthSectionProps {
   user: { name: string; email: string; picture: string } | null;
-  syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  syncStatus: 'idle' | 'pending' | 'syncing' | 'synced' | 'error';
   onSignIn: () => void;
   onSignOut: () => void;
   onManualSync: () => void;
@@ -22,6 +22,16 @@ export default function GoogleAuthSection({
         return (
           <span className="badge flex-align" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', gap: '4px' }}>
             <RefreshCw size={10} className="spin" /> Syncing...
+          </span>
+        );
+      case 'pending':
+        return (
+          <span 
+            className="badge flex-align" 
+            style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', gap: '4px' }}
+            title="Changes saved locally. Uploading to Google Drive in 30 seconds..."
+          >
+            <Cloud size={10} style={{ opacity: 0.7 }} /> Changes Pending
           </span>
         );
       case 'synced':
