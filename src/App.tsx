@@ -15,7 +15,8 @@ import {
   leaveSharedTripFile,
   deleteFileFromDrive,
   extractFileIdFromUrl,
-  DEFAULT_CLIENT_ID 
+  DEFAULT_CLIENT_ID,
+  GOOGLE_SCOPES
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
 import ShareTripModal from './components/ShareTripModal';
@@ -76,7 +77,8 @@ export default function App() {
 
   const [googleToken, setGoogleToken] = useState<string | null>(() => {
     const expiresAtStr = localStorage.getItem('google-token-expires-at');
-    if (expiresAtStr && Number(expiresAtStr) > Date.now()) {
+    const storedScopes = localStorage.getItem('google-token-scopes');
+    if (expiresAtStr && Number(expiresAtStr) > Date.now() && (!storedScopes || storedScopes === GOOGLE_SCOPES)) {
       return localStorage.getItem('google-access-token');
     }
     return null;
@@ -84,7 +86,8 @@ export default function App() {
 
   const [googleFolderId, setGoogleFolderId] = useState<string | null>(() => {
     const expiresAtStr = localStorage.getItem('google-token-expires-at');
-    if (expiresAtStr && Number(expiresAtStr) > Date.now()) {
+    const storedScopes = localStorage.getItem('google-token-scopes');
+    if (expiresAtStr && Number(expiresAtStr) > Date.now() && (!storedScopes || storedScopes === GOOGLE_SCOPES)) {
       return localStorage.getItem('google-folder-id');
     }
     return null;
@@ -92,7 +95,8 @@ export default function App() {
 
   const [syncStatus, setSyncStatus] = useState<'idle' | 'pending' | 'syncing' | 'synced' | 'error'>(() => {
     const expiresAtStr = localStorage.getItem('google-token-expires-at');
-    if (expiresAtStr && Number(expiresAtStr) > Date.now()) {
+    const storedScopes = localStorage.getItem('google-token-scopes');
+    if (expiresAtStr && Number(expiresAtStr) > Date.now() && (!storedScopes || storedScopes === GOOGLE_SCOPES)) {
       return 'synced';
     }
     return 'idle';
@@ -219,6 +223,7 @@ export default function App() {
               localStorage.setItem('google-access-token', token);
               localStorage.setItem('google-token-expires-at', expiresAt.toString());
               localStorage.setItem('google-logged-in', 'true');
+              localStorage.setItem('google-token-scopes', GOOGLE_SCOPES);
             },
             (err) => {
               console.error('Google token request failed:', err);
@@ -227,12 +232,13 @@ export default function App() {
           );
 
           // After initialization, check if we should auto-restore session silently
-          const loggedIn = localStorage.getItem('google-logged-in') === 'true';
+          const loggedIn = localStorage.getItem('google-logged-in') === 'true' || !!localStorage.getItem('google-access-token');
           const expiresAtStr = localStorage.getItem('google-token-expires-at');
           const isExpired = !expiresAtStr || Number(expiresAtStr) <= Date.now();
+          const storedScopes = localStorage.getItem('google-token-scopes');
 
-          if (loggedIn && isExpired) {
-            console.log('User was previously logged in but token is expired. Attempting silent re-auth...');
+          if (loggedIn && (isExpired || storedScopes !== GOOGLE_SCOPES)) {
+            console.log('User was previously logged in but token is expired or scopes mismatched. Attempting silent re-auth...');
             setSyncStatus('syncing');
             setTimeout(() => {
               try {
@@ -610,6 +616,7 @@ export default function App() {
     localStorage.removeItem('google-user');
     localStorage.removeItem('google-folder-id');
     localStorage.removeItem('google-logged-in');
+    localStorage.removeItem('google-token-scopes');
   };
 
   const handleResolveConflict = async (choice: 'cloud' | 'local') => {
@@ -830,7 +837,7 @@ export default function App() {
     }
 
     // 1. Fetch metadata first to verify existence and check details
-    const metaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?fields=id,name,owners,capabilities,shared`;
+    const metaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?fields=id,name,owners,capabilities,shared&supportsAllDrives=true`;
     const metaRes = await fetch(metaUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -846,7 +853,7 @@ export default function App() {
     const isOwner = owners[0]?.me;
 
     // 2. Fetch the trip content
-    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?alt=media`;
+    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${realFileId}?alt=media&supportsAllDrives=true`;
     const contentRes = await fetch(mediaUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -869,7 +876,7 @@ export default function App() {
       
       // Check if a shadow file already exists in user's apps/trip_planner folder
       const checkQuery = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
-      const checkUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(checkQuery)}&fields=files(id)`;
+      const checkUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(checkQuery)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
       const checkRes = await fetch(checkUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -904,7 +911,7 @@ export default function App() {
           throw new Error('Failed to update the shadow file in your Google Drive.');
         }
       } else {
-        const createUrl = 'https://www.googleapis.com/drive/v3/files';
+        const createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
         const createRes = await fetch(createUrl, {
           method: 'POST',
           headers: {
@@ -922,7 +929,7 @@ export default function App() {
         const createData = await createRes.json();
         shadowFileId = createData.id;
 
-        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media`;
+        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${shadowFileId}?uploadType=media&supportsAllDrives=true`;
         const uploadRes = await fetch(uploadUrl, {
           method: 'PATCH',
           headers: {

@@ -108,9 +108,9 @@ describe('googleDrive api operations', () => {
     // Verify first call (list query)
     expect(mockFetch.mock.calls[0][0]).toContain('https://www.googleapis.com/drive/v3/files?q=');
     // Verify subsequent media calls
-    expect(mockFetch.mock.calls[1][0]).toBe('https://www.googleapis.com/drive/v3/files/file-1?alt=media');
+    expect(mockFetch.mock.calls[1][0]).toBe('https://www.googleapis.com/drive/v3/files/file-1?alt=media&supportsAllDrives=true');
     // Note: since list contains mock files, mockFetch.mock.calls[2] is the second active media request
-    expect(mockFetch.mock.calls[2][0]).toBe('https://www.googleapis.com/drive/v3/files/file-2?alt=media');
+    expect(mockFetch.mock.calls[2][0]).toBe('https://www.googleapis.com/drive/v3/files/file-2?alt=media&supportsAllDrives=true');
   });
 
   test('saveTripsToDrive updates existing, creates new, and deletes orphaned files', async () => {
@@ -164,23 +164,23 @@ describe('googleDrive api operations', () => {
     expect(mockFetch.mock.calls[0][0]).toContain('https://www.googleapis.com/drive/v3/files?q=');
 
     // Call 1: PATCH update for trip-1
-    const patchCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/upload/drive/v3/files/file-1?uploadType=media');
+    const patchCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/upload/drive/v3/files/file-1?uploadType=media&supportsAllDrives=true');
     expect(patchCall).toBeDefined();
     expect(patchCall?.[1]?.method).toBe('PATCH');
 
     // Call 2: POST create metadata for trip-3
-    const createCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files');
+    const createCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true');
     expect(createCall).toBeDefined();
     expect(createCall?.[1]?.method).toBe('POST');
     expect(JSON.parse(createCall?.[1]?.body as string).name).toBe('trip-3.json');
 
     // Call 3: PATCH upload media content for file-3
-    const uploadCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/upload/drive/v3/files/file-3?uploadType=media');
+    const uploadCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/upload/drive/v3/files/file-3?uploadType=media&supportsAllDrives=true');
     expect(uploadCall).toBeDefined();
     expect(uploadCall?.[1]?.method).toBe('PATCH');
 
     // Call 4: PATCH rename for orphaned trip-2
-    const deleteCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files/file-2');
+    const deleteCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files/file-2?supportsAllDrives=true');
     expect(deleteCall).toBeDefined();
     expect(deleteCall?.[1]?.method).toBe('PATCH');
     expect(JSON.parse(deleteCall?.[1]?.body as string).name).toBe('[Deleted] trip-2.json');
@@ -212,7 +212,7 @@ describe('googleDrive api operations', () => {
     // Check query URL contains the filename search
     expect(decodeURIComponent(mockFetch.mock.calls[0][0] as string)).toContain("name = 'trip-123.json'");
     // Check media URL
-    expect(mockFetch.mock.calls[1][0]).toBe('https://www.googleapis.com/drive/v3/files/file-123?alt=media');
+    expect(mockFetch.mock.calls[1][0]).toBe('https://www.googleapis.com/drive/v3/files/file-123?alt=media&supportsAllDrives=true');
   });
 
   test('extractFileIdFromUrl extracts file IDs correctly', () => {
@@ -317,7 +317,7 @@ describe('googleDrive api operations', () => {
 
     expect(result?.activeTrips).toHaveLength(0);
     // Verify DELETE was called on shadow-file-id
-    const deleteCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files/shadow-file-id' && c[1]?.method === 'DELETE');
+    const deleteCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/drive/v3/files/shadow-file-id?supportsAllDrives=true' && c[1]?.method === 'DELETE');
     expect(deleteCall).toBeDefined();
   });
 
@@ -364,7 +364,7 @@ describe('googleDrive api operations', () => {
     await saveTripsToDrive('token', 'folder', [tripWithMetadata]);
 
     // Check payload sent in PATCH upload
-    const uploadCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/upload/drive/v3/files/real-file-id?uploadType=media');
+    const uploadCall = mockFetch.mock.calls.find(c => c[0] === 'https://www.googleapis.com/upload/drive/v3/files/real-file-id?uploadType=media&supportsAllDrives=true');
     expect(uploadCall).toBeDefined();
     const body = JSON.parse(uploadCall?.[1]?.body as string);
 

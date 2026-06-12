@@ -29,7 +29,8 @@ vi.mock('./utils/googleDrive', () => ({
   leaveSharedTripFile: vi.fn().mockResolvedValue(true),
   deleteFileFromDrive: vi.fn().mockResolvedValue(undefined),
   extractFileIdFromUrl: vi.fn((urlOrId: string) => urlOrId),
-  DEFAULT_CLIENT_ID: 'client-id'
+  DEFAULT_CLIENT_ID: 'client-id',
+  GOOGLE_SCOPES: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive email profile openid'
 }));
 
 describe('App Sync and Integration Tests', () => {

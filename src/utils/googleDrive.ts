@@ -10,6 +10,9 @@ declare global {
 // Default Client ID configured for localhost:5173 and localhost:5174
 export const DEFAULT_CLIENT_ID = '370189493068-6pnu5gv03ctdn87u2mnkbb0jpaakk47r.apps.googleusercontent.com';
 
+// Broader scope including drive access for reading/writing shared files
+export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive email profile openid';
+
 let tokenClient: any = null;
 
 /**
@@ -45,7 +48,7 @@ export function initTokenClient(
 
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: clientId,
-    scope: 'https://www.googleapis.com/auth/drive.file email profile openid',
+    scope: GOOGLE_SCOPES,
     callback: (response: any) => {
       if (response.error) {
         if (onError) onError(response);
@@ -92,7 +95,7 @@ async function findFolder(accessToken: string, name: string, parentId?: string):
     query += ` and 'root' in parents`;
   }
   
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -119,7 +122,7 @@ async function createFolder(accessToken: string, name: string, parentId?: string
     body.parents = ['root'];
   }
 
-  const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+  const response = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -164,7 +167,7 @@ export async function fetchTripsFromDrive(
   folderId: string
 ): Promise<FetchTripsResult | null> {
   const query = `('${folderId}' in parents or sharedWithMe = true) and mimeType = 'application/json' and name contains 'trip-' and name contains '.json' and trashed = false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name, owners, capabilities, shared)`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name, owners, capabilities, shared)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -195,7 +198,7 @@ export async function fetchTripsFromDrive(
   // Fetch each active file in parallel
   const tripPromises = tripFiles.map(async (file: any) => {
     try {
-      const mediaUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
+      const mediaUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`;
       const res = await fetch(mediaUrl, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -211,7 +214,7 @@ export async function fetchTripsFromDrive(
         if ((trip as any).isShadow === true && (trip as any).realDriveFileId) {
           const realDriveFileId = (trip as any).realDriveFileId;
           try {
-            const realMediaUrl = `https://www.googleapis.com/drive/v3/files/${realDriveFileId}?alt=media`;
+            const realMediaUrl = `https://www.googleapis.com/drive/v3/files/${realDriveFileId}?alt=media&supportsAllDrives=true`;
             const realRes = await fetch(realMediaUrl, {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -225,7 +228,7 @@ export async function fetchTripsFromDrive(
             const realTrip = await realRes.json() as Trip;
             if (realTrip && typeof realTrip === 'object' && typeof realTrip.id === 'string') {
               // Fetch metadata for the real file to get its permissions, owner, and canEdit flag
-              const metaUrl = `https://www.googleapis.com/drive/v3/files/${realDriveFileId}?fields=owners,capabilities,shared`;
+              const metaUrl = `https://www.googleapis.com/drive/v3/files/${realDriveFileId}?fields=owners,capabilities,shared&supportsAllDrives=true`;
               const metaRes = await fetch(metaUrl, {
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
@@ -293,7 +296,7 @@ async function createNewTripFile(
   filename: string,
   contentString: string
 ): Promise<string> {
-  const createUrl = 'https://www.googleapis.com/drive/v3/files';
+  const createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
   const createResponse = await fetch(createUrl, {
     method: 'POST',
     headers: {
@@ -314,7 +317,7 @@ async function createNewTripFile(
   const createData = await createResponse.json();
   const newFileId = createData.id;
 
-  const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media`;
+  const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media&supportsAllDrives=true`;
   const uploadResponse = await fetch(uploadUrl, {
     method: 'PATCH',
     headers: {
@@ -339,7 +342,7 @@ export async function saveTripsToDrive(
 ): Promise<SaveTripsResult> {
   // 1. List existing files in the folder (only for owner/owned files delete reconciliations)
   const query = `'${folderId}' in parents and trashed = false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name)`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id, name)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   const listResponse = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -399,7 +402,7 @@ export async function saveTripsToDrive(
 
     // If we have a file ID, update it directly (works for editors on shared files too)
     if (trip.driveFileId) {
-      const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${trip.driveFileId}?uploadType=media`;
+      const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${trip.driveFileId}?uploadType=media&supportsAllDrives=true`;
       const response = await fetch(uploadUrl, {
         method: 'PATCH',
         headers: {
@@ -424,7 +427,7 @@ export async function saveTripsToDrive(
       // No file ID: check if it already exists in parent folder by filename
       const existingFileId = existingTripFilesMap.get(filename);
       if (existingFileId) {
-        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`;
+        const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media&supportsAllDrives=true`;
         const response = await fetch(uploadUrl, {
           method: 'PATCH',
           headers: {
@@ -452,7 +455,7 @@ export async function saveTripsToDrive(
   const deletePromises: Promise<void>[] = [];
   existingTripFilesMap.forEach((fileId, filename) => {
     if (!activeFilenames.has(filename)) {
-      const renameUrl = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+      const renameUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`;
       deletePromises.push(
         fetch(renameUrl, {
           method: 'PATCH',
@@ -486,7 +489,7 @@ export async function fetchDeletedTripIdsFromDrive(
   folderId: string
 ): Promise<string[]> {
   const query = `'${folderId}' in parents and trashed = false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(name)`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(name)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -516,7 +519,7 @@ export async function fetchSingleTripFromDrive(
 ): Promise<Trip | null> {
   const filename = tripId.startsWith('trip-') ? `${tripId}.json` : `trip-${tripId}.json`;
   const query = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
-  const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`;
+  const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   
   const listRes = await fetch(listUrl, {
     headers: {
@@ -536,7 +539,7 @@ export async function fetchSingleTripFromDrive(
   }
   const fileId = files[0].id;
 
-  const mediaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const mediaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
   const contentRes = await fetch(mediaUrl, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -588,7 +591,7 @@ export async function checkIfTripDeletedOnDrive(
 ): Promise<boolean> {
   const filename = tripId.startsWith('trip-') ? `[Deleted] ${tripId}.json` : `[Deleted] trip-${tripId}.json`;
   const query = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   
   try {
     const res = await fetch(url, {
@@ -613,7 +616,7 @@ export async function shareTripFile(
   emailAddress: string,
   role: 'reader' | 'writer'
 ): Promise<any> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions`;
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?supportsAllDrives=true`;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -637,7 +640,7 @@ export async function shareTripFile(
  * List all sharing permissions for a Google Drive trip file.
  */
 export async function listTripFilePermissions(accessToken: string, fileId: string): Promise<any[]> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?fields=permissions(id,emailAddress,role,displayName)`;
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?fields=permissions(id,emailAddress,role,displayName)&supportsAllDrives=true`;
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -654,7 +657,7 @@ export async function listTripFilePermissions(accessToken: string, fileId: strin
  * Remove a sharing permission for a Google Drive trip file.
  */
 export async function removeTripFilePermission(accessToken: string, fileId: string, permissionId: string): Promise<void> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions/${permissionId}`;
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions/${permissionId}?supportsAllDrives=true`;
   const response = await fetch(url, {
     method: 'DELETE',
     headers: {
@@ -675,7 +678,7 @@ export async function updateTripFilePermission(
   permissionId: string,
   role: 'reader' | 'writer'
 ): Promise<void> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions/${permissionId}`;
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions/${permissionId}?supportsAllDrives=true`;
   const response = await fetch(url, {
     method: 'PATCH',
     headers: {
@@ -714,7 +717,7 @@ export async function leaveSharedTripFile(accessToken: string, fileId: string, c
  * Delete a file from Google Drive.
  */
 export async function deleteFileFromDrive(accessToken: string, fileId: string): Promise<void> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`;
   const response = await fetch(url, {
     method: 'DELETE',
     headers: {
