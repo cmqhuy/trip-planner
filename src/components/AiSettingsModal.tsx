@@ -106,19 +106,6 @@ export default function AiSettingsModal({
           </div>
 
           <div className="form-group" style={{ marginTop: '16px' }}>
-            <label>API Model</label>
-            <select
-              className="ai-modal-select"
-              value={model}
-              onChange={e => setModel(e.target.value)}
-            >
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Fast & Cost-Efficient)</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Extremely Detailed - Slower)</option>
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Legacy)</option>
-            </select>
-          </div>
-
-          <div className="form-group" style={{ marginTop: '16px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isGoogleSignedIn ? 'pointer' : 'not-allowed', textTransform: 'none', fontWeight: 'normal' }}>
               <input
                 type="checkbox"
@@ -149,6 +136,19 @@ export default function AiSettingsModal({
             >
               🔒 <strong>Security Note</strong>: Keys are stored in a private settings file (<code>ai-settings.json</code>) in your Google Drive's <code>apps/trip_planner</code> folder. They are never shared with collaborators, even if you share your trips.
             </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '16px' }}>
+            <label>API Model</label>
+            <select
+              className="ai-modal-select"
+              value={model}
+              onChange={e => setModel(e.target.value)}
+            >
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Fast & Cost-Efficient)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Extremely Detailed - Slower)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Legacy)</option>
+            </select>
           </div>
 
           {/* Test connection row */}
