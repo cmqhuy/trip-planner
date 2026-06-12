@@ -1605,3 +1605,107 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: center;
   gap: 4px;
 }
+
+/* Accordion Left Panel */
+.left-panel-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  overflow-y: hidden;
+  padding: 16px;
+}
+
+.accordion-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.2);
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.accordion-section.collapsed {
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.accordion-section.expanded {
+  flex: 1 1 0%;
+  background: rgba(30, 41, 59, 0.35);
+  box-shadow: 0 4px 20px -2px rgba(0,0,0,0.25);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.accordion-header {
+  padding: 10px 14px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  user-select: none;
+  transition: var(--transition-fast);
+  border-bottom: 1px solid transparent;
+}
+
+.accordion-section.expanded .accordion-header {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom-color: var(--border-glass);
+}
+
+.accordion-header:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.accordion-content {
+  padding: 12px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* AI Day Assistant & Checklists styling */
+.ai-day-assistant-card {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+}
+
+.ai-day-assistant-card:hover {
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.1);
+}
+
+.ai-checklist-markdown h3 {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.ai-checklist-markdown p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.ai-checklist-markdown a {
+  transition: var(--transition-fast);
+}
+
+.ai-checklist-markdown a:hover {
+  color: #a5b4fc !important;
+}
+
+/* Scrollbar tweaks inside accordion content */
+.accordion-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.accordion-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.accordion-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+

@@ -6,7 +6,8 @@ import {
   Search, Plane, Train, Bus, Car, Anchor, 
   Building, BookOpen, Clock, Check, Layers, X,
   Calendar, FileText, Landmark, Utensils, ShoppingBag,
-  Camera, Heart, Share2, Sparkles, MoreVertical
+  Camera, Heart, Share2, Sparkles, MoreVertical,
+  CheckSquare, RefreshCw, Ticket
 } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
@@ -26,6 +27,8 @@ import GroupModal from './GroupModal';
 import TransportModal from './TransportModal';
 import HotelModal from './HotelModal';
 import PlaceModal from './PlaceModal';
+import TripAiConfigModal from './TripAiConfigModal';
+import AiGenerateDaysModal from './AiGenerateDaysModal';
 
 const LOCATION_COLORS = [
   '#6366f1', // Indigo
@@ -378,6 +381,27 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   const [autoScheduleOnActiveDay, setAutoScheduleOnActiveDay] = useState(false);
   const [hideAllocatedPlaces, setHideAllocatedPlaces] = useState(false);
 
+  // Accordion state for left panel
+  const [expandedLeftSection, setExpandedLeftSection] = useState<'catalog' | 'checklist' | 'reservations' | 'tips'>('catalog');
+  
+  // Trip AI settings modal state
+  const [showTripAiConfigModal, setShowTripAiConfigModal] = useState(false);
+  
+  // AI Generate Days Modal state
+  const [showAiGenerateDaysModal, setShowAiGenerateDaysModal] = useState(false);
+  
+  // Daily tips generating state (per-day dates)
+  const [daysGeneratingDates, setDaysGeneratingDates] = useState<Set<string>>(new Set());
+  
+  // Trip Checklist generation states
+  const [generatingChecklist, setGeneratingChecklist] = useState(false);
+  
+  // Local Essentials generation states
+  const [generatingLocalEssentials, setGeneratingLocalEssentials] = useState(false);
+  
+  // Manual checklist inputs
+  const [manualChecklistInput, setManualChecklistInput] = useState('');
+
   // Trigger search on place query changes (Day timeline inline search)
   useEffect(() => {
     if (placeQuery.trim().length < 2 || !activeDayLocation) {
@@ -657,7 +681,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       const results = await GeminiService.generatePlaceAiDetailsWithRotation(
         [{ id: placeId, title: targetPlace.title, description: targetPlace.description }],
         targetLoc.city,
-        targetLoc.country
+        targetLoc.country,
+        trip.customAiFields
       );
 
       if (results && results.length > 0) {
@@ -1654,6 +1679,320 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     });
   };
 
+  // Save Trip AI Config (baby logistics checkbox & custom AI fields)
+  const handleSaveTripAiConfig = (enableBabyLogistics: boolean, customAiFields: { title: string; key: string; description: string; }[]) => {
+    onUpdateTrip({
+      ...trip,
+      enableBabyLogistics,
+      customAiFields
+    });
+  };
+
+  // Generate tips for a single day
+  const handleGenerateSingleDayTips = async (dateStr: string) => {
+    if (!GeminiService.hasApiKey()) {
+      alert('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      return;
+    }
+
+    setDaysGeneratingDates(prev => {
+      const next = new Set(prev);
+      next.add(dateStr);
+      return next;
+    });
+
+    try {
+      const day = activePlan.days[dateStr];
+      if (!day) return;
+
+      // Gather day information
+      const location = trip.locations.find(l => l.id === day.locationId) || trip.locations[0];
+      const dayPlaces = day.placeIds.map(pid => {
+        const p = location?.places.find(pl => pl.id === pid);
+        return p ? { 
+          title: p.title, 
+          description: p.description,
+          openingHours: p.openingHours,
+          lat: p.lat,
+          lng: p.lng,
+          notes: p.notes
+        } : null;
+      }).filter(Boolean) as { 
+        title: string; 
+        description?: string;
+        openingHours?: string;
+        lat?: number;
+        lng?: number;
+        notes?: string;
+      }[];
+
+      const dayHotels = getHotelsForDay(dateStr).map(h => h.name);
+      const dayTransports = getTransportsForDay(dateStr).map(t => `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName}`);
+
+      const results = await GeminiService.generateDailyTipsWithRotation(
+        [{
+          dateStr,
+          locationCity: location?.city || '',
+          locationCountry: location?.country || '',
+          places: dayPlaces,
+          hotels: dayHotels,
+          transports: dayTransports
+        }],
+        !!trip.enableBabyLogistics
+      );
+
+      if (results && results.length > 0) {
+        const res = results[0];
+        const updatedDays = {
+          ...activePlan.days,
+          [dateStr]: {
+            ...day,
+            aiTips: res.tips,
+            aiBabyLogistics: res.babyLogistics,
+            aiTipsUpdatedAt: Date.now()
+          }
+        };
+
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id === activePlan.id) {
+            return {
+              ...p,
+              days: updatedDays
+            };
+          }
+          return p;
+        });
+
+        onUpdateTrip({
+          ...trip,
+          plans: updatedPlans
+        });
+      }
+    } catch (err: any) {
+      console.error('AI day tips generation failed:', err);
+      alert(`AI generation failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setDaysGeneratingDates(prev => {
+        const next = new Set(prev);
+        next.delete(dateStr);
+        return next;
+      });
+    }
+  };
+
+  // Batch generate daily tips
+  const handleGenerateDaysTips = async (selectedDates: string[]) => {
+    if (selectedDates.length === 0) return;
+    if (!GeminiService.hasApiKey()) {
+      throw new Error('Gemini API keys are missing. Please add them in the AI Settings.');
+    }
+
+    setDaysGeneratingDates(prev => {
+      const next = new Set(prev);
+      selectedDates.forEach(d => next.add(d));
+      return next;
+    });
+
+    try {
+      const daysPayload = selectedDates.map(dateStr => {
+        const day = activePlan.days[dateStr];
+        const location = trip.locations.find(l => l.id === day?.locationId) || trip.locations[0];
+        const dayPlaces = day ? day.placeIds.map(pid => {
+          const p = location?.places.find(pl => pl.id === pid);
+          return p ? { 
+            title: p.title, 
+            description: p.description,
+            openingHours: p.openingHours,
+            lat: p.lat,
+            lng: p.lng,
+            notes: p.notes
+          } : null;
+        }).filter(Boolean) as { 
+          title: string; 
+          description?: string;
+          openingHours?: string;
+          lat?: number;
+          lng?: number;
+          notes?: string;
+        }[] : [];
+
+        const dayHotels = getHotelsForDay(dateStr).map(h => h.name);
+        const dayTransports = getTransportsForDay(dateStr).map(t => `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName}`);
+
+        return {
+          dateStr,
+          locationCity: location?.city || '',
+          locationCountry: location?.country || '',
+          places: dayPlaces,
+          hotels: dayHotels,
+          transports: dayTransports
+        };
+      });
+
+      const results = await GeminiService.generateDailyTipsWithRotation(
+        daysPayload,
+        !!trip.enableBabyLogistics
+      );
+
+      const updatedDays = { ...activePlan.days };
+      results.forEach(res => {
+        const day = updatedDays[res.dateStr];
+        if (day) {
+          updatedDays[res.dateStr] = {
+             ...day,
+             aiTips: res.tips,
+             aiBabyLogistics: res.babyLogistics,
+             aiTipsUpdatedAt: Date.now()
+          };
+        }
+      });
+
+      const updatedPlans = trip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          return {
+            ...p,
+            days: updatedDays
+          };
+        }
+        return p;
+      });
+
+      onUpdateTrip({
+        ...trip,
+        plans: updatedPlans
+      });
+    } finally {
+      setDaysGeneratingDates(prev => {
+        const next = new Set(prev);
+        selectedDates.forEach(d => next.delete(d));
+        return next;
+      });
+    }
+  };
+
+  // Generate trip checklist
+  const handleGenerateTripChecklist = async () => {
+    if (!GeminiService.hasApiKey()) {
+      alert('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      return;
+    }
+
+    setGeneratingChecklist(true);
+    try {
+      // Find all scheduled places in the current active plan
+      const allScheduledPlaceIds = new Set<string>();
+      Object.values(activePlan.days).forEach(day => {
+        day.placeIds.forEach(pid => allScheduledPlaceIds.add(pid));
+      });
+
+      const placesWithReservations: { title: string; reservationDetails?: string }[] = [];
+      trip.locations.forEach(loc => {
+        loc.places.forEach(p => {
+          if (allScheduledPlaceIds.has(p.id)) {
+            placesWithReservations.push({
+              title: p.title,
+              reservationDetails: p.aiDetails?.reservation || p.notes
+            });
+          }
+        });
+      });
+
+      const tripInfo = {
+        name: trip.name,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        locations: trip.locations.map(l => ({ city: l.city, country: l.country })),
+        hotels: activePlan.hotels.map(h => ({ name: h.name, checkInDate: h.checkInDate, checkOutDate: h.checkOutDate })),
+        transports: activePlan.transports.map(t => ({
+          type: t.type,
+          departureLocationName: t.departureLocationName,
+          arrivalLocationName: t.arrivalLocationName,
+          departureDate: t.departureDate
+        })),
+        places: placesWithReservations
+      };
+
+      const result = await GeminiService.generateTripChecklistWithRotation(
+        tripInfo,
+        !!trip.enableBabyLogistics
+      );
+
+      onUpdateTrip({
+        ...trip,
+        aiChecklist: result,
+        aiChecklistUpdatedAt: Date.now()
+      });
+    } catch (err: any) {
+      console.error('AI checklist generation failed:', err);
+      alert(`AI checklist generation failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setGeneratingChecklist(false);
+    }
+  };
+
+  // Generate local essentials
+  const handleGenerateLocalEssentials = async () => {
+    if (trip.locations.length === 0) {
+      alert('Please add at least one location to your trip first.');
+      return;
+    }
+    if (!GeminiService.hasApiKey()) {
+      alert('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      return;
+    }
+
+    setGeneratingLocalEssentials(true);
+    try {
+      const locations = trip.locations.map(l => ({ city: l.city, country: l.country }));
+      const result = await GeminiService.generateLocalEssentialsWithRotation(locations);
+
+      onUpdateTrip({
+        ...trip,
+        aiLocalEssentials: result,
+        aiLocalEssentialsUpdatedAt: Date.now()
+      });
+    } catch (err: any) {
+      console.error('AI local essentials generation failed:', err);
+      alert(`AI local essentials generation failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setGeneratingLocalEssentials(false);
+    }
+  };
+
+  // Manual checklist operations
+  const handleAddManualChecklistItem = (text: string) => {
+    if (!text.trim()) return;
+    const newItem = {
+      id: `chk-${Date.now()}`,
+      text: text.trim(),
+      completed: false
+    };
+    onUpdateTrip({
+      ...trip,
+      manualChecklist: [...(trip.manualChecklist || []), newItem]
+    });
+  };
+
+  const handleToggleManualChecklistItem = (id: string) => {
+    const updated = (trip.manualChecklist || []).map(item => {
+      if (item.id === id) {
+        return { ...item, completed: !item.completed };
+      }
+      return item;
+    });
+    onUpdateTrip({
+      ...trip,
+      manualChecklist: updated
+    });
+  };
+
+  const handleDeleteManualChecklistItem = (id: string) => {
+    onUpdateTrip({
+      ...trip,
+      manualChecklist: (trip.manualChecklist || []).filter(item => item.id !== id)
+    });
+  };
+
   // ----------------------------------------------------
   // Rendering Helpers
   // ----------------------------------------------------
@@ -1721,521 +2060,1012 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     return new Date(cleanDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const catalogPanelJSX = useMemo(() => {
+  const leftPanelJSX = useMemo(() => {
     return (
-      <div className={`catalog-panel ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
-        <div className="panel-header">
-          <button 
-            className="mini-icon-btn" 
-            onClick={onBack} 
-            style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}
+      <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
+        {/* Back to dashboard button (always visible at the top) */}
+        <button 
+          className="mini-icon-btn" 
+          onClick={onBack} 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            fontSize: '12px', 
+            width: 'fit-content',
+            padding: '6px 10px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '6px',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            marginBottom: '4px'
+          }}
+        >
+          <ArrowLeft size={14} /> Back to dashboard
+        </button>
+
+        {/* Accordion Item 1: Catalog */}
+        <div className={`accordion-section ${expandedLeftSection === 'catalog' ? 'expanded' : 'collapsed'}`}>
+          <div 
+            className="accordion-header flex-between"
+            onClick={() => setExpandedLeftSection('catalog')}
           >
-            <ArrowLeft size={14} /> Back to dashboard
-          </button>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BookOpen size={18} style={{ color: 'var(--accent-primary)' }} />
+            <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
+              <BookOpen size={16} style={{ color: 'var(--accent-primary)' }} />
               Catalog
-            </h3>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {catalogLocation && trip.canEdit !== false && (
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => setShowEditLocationModal(true)}
-                  data-tooltip="Edit Location Settings"
-                  style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Edit2 size={12} />
-                </button>
-              )}
-              {trip.canEdit !== false && (
-                <button 
-                  className="btn-primary flex-align"
-                  style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  onClick={() => {
-                    setAddLocationForDay(false);
-                    setShowAddLocationModal(true);
-                  }}
-                  data-tooltip="Add Location"
-                >
-                  <Plus size={12} />
-                </button>
-              )}
-            </div>
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              {catalogLocation ? `${catalogLocation.places.length} places` : 'Empty'}
+            </span>
           </div>
+          
+          {expandedLeftSection === 'catalog' && (
+            <div className="accordion-content">
+              {/* Back to dashboard and select location inside catalog */}
+              <div className="panel-header" style={{ padding: '0 0 12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '12px' }}>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    Destination Catalog
+                  </h3>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {catalogLocation && trip.canEdit !== false && (
+                      <button 
+                        className="mini-icon-btn" 
+                        onClick={() => setShowEditLocationModal(true)}
+                        data-tooltip="Edit Location Settings"
+                        style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    )}
+                    {trip.canEdit !== false && (
+                      <button 
+                        className="btn-primary flex-align"
+                        style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onClick={() => {
+                          setAddLocationForDay(false);
+                          setShowAddLocationModal(true);
+                        }}
+                        data-tooltip="Add Location"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-          {/* Catalog Location Selector */}
-          <div style={{ marginTop: '8px' }}>
-            <select
-              value={selectedCatalogLocId}
-              onChange={(e) => setSelectedCatalogLocId(e.target.value)}
-              style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)' }}
-            >
-              {trip.locations.length === 0 && <option value="">No Locations Added</option>}
-              {trip.locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc, trip.locations)}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {catalogLocation ? (
-          <div className="catalog-content">
-            {/* Catalog Group Management */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Groups</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none', gap: '4px' }}>
-                  <input
-                    type="checkbox"
-                    checked={hideAllocatedPlaces}
-                    onChange={(e) => setHideAllocatedPlaces(e.target.checked)}
-                    style={{ margin: 0, width: '13px', height: '13px', accentColor: 'var(--accent-primary)', minHeight: 'auto', cursor: 'pointer' }}
-                  />
-                  Hide Allocated
-                </label>
-                {trip.canEdit !== false && (
-                  <button 
-                    className="mini-icon-btn" 
-                    onClick={() => setShowGroupModal(true)} 
-                    data-tooltip="Add Custom Category"
-                    data-tooltip-position="bottom"
-                    style={{ color: 'var(--accent-secondary)', padding: '2px' }}
+                <div style={{ marginTop: '8px' }}>
+                  <select
+                    value={selectedCatalogLocId}
+                    onChange={(e) => setSelectedCatalogLocId(e.target.value)}
+                    style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)' }}
                   >
-                    <Plus size={14} />
-                  </button>
-                )}
+                    {trip.locations.length === 0 && <option value="">No Locations Added</option>}
+                    {trip.locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc, trip.locations)}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
 
-            {/* List by Groups */}
-            {[
-              ...(trip.placeGroups || DEFAULT_PLACE_GROUPS).map((group, groupIdx, allGroups) => ({
-                ...group,
-                groupIdx,
-                isReorderable: true,
-                isFirst: groupIdx === 0,
-                isLast: groupIdx === allGroups.length - 1
-              })),
-              { id: 'new', name: 'New / Unassigned', color: '#6b7280', icon: 'map-pin', isReorderable: false, groupIdx: -1, isFirst: false, isLast: false }
-            ].map(group => {
-              const placesInGroup = catalogLocation.places.filter(p => {
-                if (group.id === 'new') {
-                  return !p.placeGroupId || p.placeGroupId === 'new';
-                }
-                return p.placeGroupId === group.id;
-              });
-              const filteredPlaces = placesInGroup.filter(p => {
-                if (!hideAllocatedPlaces) return true;
-                return !Object.values(activePlan.days).some(day => day.placeIds.includes(p.id));
-              });
-              if (placesInGroup.length === 0 && group.id === 'new') return null; // Hide new section if empty
-
-              return (
-                <div 
-                  key={group.id} 
-                  className="place-group-section"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (draggedPlaceId && dragOverGroupId !== group.id) {
-                      setDragOverGroupId(group.id);
-                    }
-                  }}
-                  onDragLeave={() => setDragOverGroupId(null)}
-                  onDrop={() => {
-                    handlePlaceDropOnGroup(group.id);
-                    setDragOverGroupId(null);
-                  }}
-                  style={{
-                    border: (dragOverGroupId === group.id && draggedPlaceId) ? '2px dashed var(--accent-primary)' : '2px dashed transparent',
-                    borderRadius: '8px',
-                    padding: '4px',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div className="place-group-header">
-                    <span className="place-group-title">
-                      <span className="group-badge-dot" style={{ backgroundColor: group.color }} />
-                      {group.name}
-                    </span>
-                    <div className="flex-align" style={{ gap: '4px' }}>
+              {catalogLocation ? (
+                <div className="catalog-content" style={{ padding: 0 }}>
+                  {/* Catalog Group Management */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Groups</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none', gap: '4px' }}>
+                        <input
+                          type="checkbox"
+                          checked={hideAllocatedPlaces}
+                          onChange={(e) => setHideAllocatedPlaces(e.target.checked)}
+                          style={{ margin: 0, width: '13px', height: '13px', accentColor: 'var(--accent-primary)', minHeight: 'auto', cursor: 'pointer' }}
+                        />
+                        Hide Allocated
+                      </label>
                       {trip.canEdit !== false && (
-                        <>
-                          <button 
-                            className="mini-icon-btn" 
-                            onClick={() => {
-                              setAiGeneratePlaces(placesInGroup);
-                              setAiGenerateCity(catalogLocation?.city || '');
-                              setAiGenerateCountry(catalogLocation?.country || '');
-                              setShowAiGenerateModal(true);
-                            }} 
-                            data-tooltip={`AI Travel Guide for ${group.name}`} 
-                            style={{ padding: '2px', color: '#a5b4fc', display: 'flex', alignItems: 'center' }}
-                          >
-                            <Sparkles size={12} />
-                          </button>
-                          
-                          <button 
-                            className="mini-icon-btn" 
-                            onClick={() => {
-                              setEditingPlace({
-                                id: `new-temp-${Date.now()}`,
-                                title: '',
-                                description: '',
-                                openingHours: '',
-                                lat: catalogLocation?.lat || 0,
-                                lng: catalogLocation?.lng || 0,
-                                placeGroupId: group.id,
-                                notes: '',
-                                photoUrl: '',
-                                mapsLink: ''
-                              });
-                              setAutoScheduleOnActiveDay(false);
-                              setShowCustomPlaceModal(true);
-                            }} 
-                            data-tooltip={`Add Place to ${group.name}`} 
-                            style={{ padding: '2px' }}
-                          >
-                            <Plus size={10} />
-                          </button>
-                        </>
+                        <button 
+                          className="mini-icon-btn" 
+                          onClick={() => setShowGroupModal(true)} 
+                          data-tooltip="Add Custom Category"
+                          data-tooltip-position="bottom"
+                          style={{ color: 'var(--accent-secondary)', padding: '2px' }}
+                        >
+                          <Plus size={14} />
+                        </button>
                       )}
-                      {group.isReorderable && trip.canEdit !== false && (
-                        <div className="group-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
-                          <button 
-                            className="mini-icon-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveGroupDropdownId(activeGroupDropdownId === group.id ? null : group.id);
-                            }}
-                            data-tooltip="Group Options"
-                            style={{ 
-                              padding: '6px', 
-                              height: '28px', 
-                              width: '28px', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <MoreVertical size={14} />
-                          </button>
-                          {activeGroupDropdownId === group.id && (
-                            <div className="dropdown-menu" style={{ right: 0, left: 'auto' }}>
-                              <button 
-                                className="dropdown-item"
-                                disabled={group.isFirst}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMoveGroupOrder(group.groupIdx!, 'up');
-                                  setActiveGroupDropdownId(null);
-                                }}
-                              >
-                                <ChevronUp size={12} /> Move Up
-                              </button>
-                              <button 
-                                className="dropdown-item"
-                                disabled={group.isLast}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMoveGroupOrder(group.groupIdx!, 'down');
-                                  setActiveGroupDropdownId(null);
-                                }}
-                              >
-                                <ChevronDown size={12} /> Move Down
-                              </button>
-                              <button 
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  startEditingGroup(group as PlaceGroup);
-                                  setActiveGroupDropdownId(null);
-                                }}
-                              >
-                                <Edit2 size={12} /> Edit Group
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
-                        {filteredPlaces.length}
-                      </span>
                     </div>
                   </div>
 
-                  <div 
-                    className="catalog-places-list" 
-                    onDragLeave={() => setDragOverPlaceId(null)}
-                    style={{ minHeight: '30px' }}
-                  >
-                    {filteredPlaces.map((place, placeIndexInGroup) => (
-                      <div key={place.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                        {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
-                          <div style={{
-                            position: 'absolute',
-                            top: dragOverPlacePosition === 'top' ? '-6px' : 'auto',
-                            bottom: dragOverPlacePosition === 'bottom' ? '-6px' : 'auto',
-                            left: 0,
-                            right: 0,
-                            height: '4px',
-                            background: 'var(--accent-primary)',
-                            borderRadius: '2px',
-                            boxShadow: '0 0 8px var(--accent-primary)',
-                            zIndex: 10,
-                            pointerEvents: 'none'
-                          }} />
-                        )}
-                        <div 
-                          className="catalog-place-card"
-                          draggable={trip.canEdit !== false}
-                          onDragStart={() => handlePlaceDragStart(place.id)}
-                          onDragEnd={() => {
-                            setDraggedPlaceId(null);
-                            setDragOverPlaceId(null);
-                            setDragOverGroupId(null);
-                            setDragOverDayPlaceIndex(null);
-                          }}
-                          onDragOver={(e) => {
-                            if (!draggedPlaceId || draggedPlaceId === place.id) return;
-                            e.preventDefault();
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const relativeY = e.clientY - rect.top;
-                            const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
-                            
-                            if (dragOverPlaceId !== place.id || dragOverPlacePosition !== position) {
-                              setDragOverPlaceId(place.id);
-                              setDragOverPlacePosition(position);
-                            }
-                          }}
-                          onDrop={(e) => {
-                            e.stopPropagation();
-                            handlePlaceDropOnPlace(place.id, group.id, dragOverPlacePosition);
-                            setDragOverPlaceId(null);
-                          }}
-                          onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
-                          style={{ 
-                            borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
-                            cursor: 'grab'
-                          }}
-                        >
-                          <div className="place-card-header">
-                            {place.photoUrl ? (
-                              <img src={place.photoUrl} className="place-card-thumb" alt="" />
-                            ) : (
-                              <div 
-                                className="place-card-thumb" 
-                                style={{ 
-                                  background: 'rgba(255,255,255,0.05)', 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center'
-                                }}
-                              >
-                                <MapPin size={16} />
-                              </div>
-                            )}
-                            <div className="place-card-info" style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '6px' }}>
-                                <h4 className="place-card-title" style={{ margin: 0, flex: 1, minWidth: 0 }}>{place.title}</h4>
-                                {(() => {
-                                  const allocatedDays = Object.keys(activePlan.days)
-                                    .filter(dateStr => activePlan.days[dateStr].placeIds.includes(place.id))
-                                    .sort();
-                                  if (allocatedDays.length === 0) return null;
-                                  return (
-                                    <div style={{ display: 'flex', gap: '3px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '120px' }}>
-                                      {allocatedDays.map(dateStr => {
-                                        const isActiveDay = dateStr === activeDayStr;
-                                        return (
-                                          <span 
-                                            key={dateStr} 
-                                            style={{
-                                              fontSize: '9px',
-                                              fontWeight: 600,
-                                              padding: '2px 5px',
-                                              borderRadius: '4px',
-                                              background: isActiveDay ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.03)',
-                                              color: isActiveDay ? '#ffffff' : 'var(--text-muted)',
-                                              border: isActiveDay ? '1px solid var(--accent-primary)' : '1px solid rgba(255, 255, 255, 0.05)',
-                                              whiteSpace: 'nowrap'
-                                            }}
-                                            title={isActiveDay ? 'Scheduled for today' : `Scheduled for ${formatDisplayDate(dateStr)}`}
-                                          >
-                                            {formatDisplayDate(dateStr).split(',')[1]?.trim() || dateStr}
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                              {place.openingHours && (
-                                <div className="place-card-hours" style={{ marginTop: '2px' }}>
-                                  <Clock size={10} /> {place.openingHours}
-                                </div>
-                              )}
-                            </div>
+                  {/* List by Groups */}
+                  {[
+                    ...(trip.placeGroups || DEFAULT_PLACE_GROUPS).map((group, groupIdx, allGroups) => ({
+                      ...group,
+                      groupIdx,
+                      isReorderable: true,
+                      isFirst: groupIdx === 0,
+                      isLast: groupIdx === allGroups.length - 1
+                    })),
+                    { id: 'new', name: 'New / Unassigned', color: '#6b7280', icon: 'map-pin', isReorderable: false, groupIdx: -1, isFirst: false, isLast: false }
+                  ].map(group => {
+                    const placesInGroup = catalogLocation.places.filter(p => {
+                      if (group.id === 'new') {
+                        return !p.placeGroupId || p.placeGroupId === 'new';
+                      }
+                      return p.placeGroupId === group.id;
+                    });
+                    const filteredPlaces = placesInGroup.filter(p => {
+                      if (!hideAllocatedPlaces) return true;
+                      return !Object.values(activePlan.days).some(day => day.placeIds.includes(p.id));
+                    });
+                    if (placesInGroup.length === 0 && group.id === 'new') return null;
+
+                    return (
+                      <div 
+                        key={group.id} 
+                        className="place-group-section"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (draggedPlaceId && dragOverGroupId !== group.id) {
+                            setDragOverGroupId(group.id);
+                          }
+                        }}
+                        onDragLeave={() => setDragOverGroupId(null)}
+                        onDrop={() => {
+                          handlePlaceDropOnGroup(group.id);
+                          setDragOverGroupId(null);
+                        }}
+                        style={{
+                          border: (dragOverGroupId === group.id && draggedPlaceId) ? '2px dashed var(--accent-primary)' : '2px dashed transparent',
+                          borderRadius: '8px',
+                          padding: '4px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div className="place-group-header">
+                          <span className="place-group-title">
+                            <span className="group-badge-dot" style={{ backgroundColor: group.color }} />
+                            {group.name}
+                          </span>
+                          <div className="flex-align" style={{ gap: '4px' }}>
                             {trip.canEdit !== false && (
-                              <div 
-                                style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignSelf: 'center', flexShrink: 0 }} 
-                                onClick={e => e.stopPropagation()}
-                              >
+                              <>
                                 <button 
                                   className="mini-icon-btn" 
-                                  disabled={placeIndexInGroup === 0} 
-                                  onClick={() => handleMoveCatalogPlace(place.id, 'up')}
-                                  style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1, padding: '2px' }}
-                                  data-tooltip="Move Up"
-                                  draggable={false}
-                                  onDragStart={e => e.stopPropagation()}
+                                  onClick={() => {
+                                    setAiGeneratePlaces(placesInGroup);
+                                    setAiGenerateCity(catalogLocation?.city || '');
+                                    setAiGenerateCountry(catalogLocation?.country || '');
+                                    setShowAiGenerateModal(true);
+                                  }} 
+                                  data-tooltip={`AI Travel Guide for ${group.name}`} 
+                                  style={{ padding: '2px', color: '#a5b4fc', display: 'flex', alignItems: 'center' }}
                                 >
-                                  <ChevronUp size={12} />
+                                  <Sparkles size={12} />
                                 </button>
-                                <button 
-                                  className="mini-icon-btn" 
-                                  disabled={placeIndexInGroup === filteredPlaces.length - 1} 
-                                  onClick={() => handleMoveCatalogPlace(place.id, 'down')}
-                                  style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
-                                  data-tooltip="Move Down"
-                                  draggable={false}
-                                  onDragStart={e => e.stopPropagation()}
-                                >
-                                  <ChevronDown size={12} />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Expand Details if selected */}
-                          {activePlaceId === place.id && (
-                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }} onClick={e => e.stopPropagation()}>
-                              {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
-                              
-                              {/* Notes Field (Shared at Trip level) */}
-                              <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(99,102,241,0.04)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 4px 4px 0' }}>
-                                <label style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                                  <FileText size={11} /> Notes
-                                </label>
                                 
-                                {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                                    <textarea 
-                                      value={tempNotes}
-                                      onChange={(e) => setTempNotes(e.target.value)}
-                                      placeholder="Add notes..."
-                                      rows={3}
-                                      style={{ 
-                                        padding: '6px', 
-                                        fontSize: '13px', 
-                                        width: '100%', 
-                                        background: 'var(--bg-dark)', 
-                                        border: '1px solid var(--border-glass)', 
-                                        color: 'var(--text-primary)',
-                                        borderRadius: '4px',
-                                        resize: 'vertical'
-                                      }}
-                                    />
-                                    <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
-                                      <button 
-                                        className="btn-secondary" 
-                                        onClick={() => setEditingPlaceNotesId(null)} 
-                                        style={{ padding: '4px 8px', fontSize: '11px' }}
-                                      >
-                                        Cancel
-                                      </button>
-                                      <button 
-                                        className="btn-primary flex-align" 
-                                        onClick={() => savePlaceNotes(place.id)} 
-                                        style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
-                                      >
-                                        <Check size={12} /> Save Notes
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <span style={{ 
-                                      fontStyle: 'italic', 
-                                      color: place.notes ? 'var(--text-primary)' : 'var(--text-muted)',
-                                      whiteSpace: 'pre-wrap',
-                                      display: 'block',
-                                      width: '100%',
-                                      lineHeight: 1.4,
-                                      fontSize: '12.5px'
-                                    }}>
-                                      {place.notes || 'No notes added yet.'}
-                                    </span>
-                                    {trip.canEdit !== false && (
-                                      <button className="mini-icon-btn" onClick={() => startEditingNotes(place)} style={{ padding: '2px' }}>
-                                        <Edit2 size={10} />
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Actions */}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginBottom: '8px' }}>
-                                <a 
-                                  href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="btn-secondary flex-align"
-                                  style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                <button 
+                                  className="mini-icon-btn" 
+                                  onClick={() => {
+                                    setEditingPlace({
+                                      id: `new-temp-${Date.now()}`,
+                                      title: '',
+                                      description: '',
+                                      openingHours: '',
+                                      lat: catalogLocation?.lat || 0,
+                                      lng: catalogLocation?.lng || 0,
+                                      placeGroupId: group.id,
+                                      notes: '',
+                                      photoUrl: '',
+                                      mapsLink: ''
+                                    });
+                                    setAutoScheduleOnActiveDay(false);
+                                    setShowCustomPlaceModal(true);
+                                  }} 
+                                  data-tooltip={`Add Place to ${group.name}`} 
+                                  style={{ padding: '2px' }}
                                 >
-                                  Map <ExternalLink size={10} />
-                                </a>
-                                {trip.canEdit !== false && (
-                                  <>
+                                  <Plus size={10} />
+                                </button>
+                              </>
+                            )}
+                            {group.isReorderable && trip.canEdit !== false && (
+                              <div className="group-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
+                                <button 
+                                  className="mini-icon-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveGroupDropdownId(activeGroupDropdownId === group.id ? null : group.id);
+                                  }}
+                                  data-tooltip="Group Options"
+                                  style={{ 
+                                    padding: '6px', 
+                                    height: '28px', 
+                                    width: '28px', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <MoreVertical size={14} />
+                                </button>
+                                {activeGroupDropdownId === group.id && (
+                                  <div className="dropdown-menu" style={{ right: 0, left: 'auto' }}>
                                     <button 
-                                      className="btn-secondary flex-align"
+                                      className="dropdown-item"
+                                      disabled={group.isFirst}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleOpenEditPlace(place);
+                                        handleMoveGroupOrder(group.groupIdx!, 'up');
+                                        setActiveGroupDropdownId(null);
                                       }}
-                                      style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', borderRadius: '8px', whiteSpace: 'nowrap' }}
-                                      data-tooltip="Edit Place Details"
                                     >
-                                      <Edit2 size={12} /> Edit
+                                      <ChevronUp size={12} /> Move Up
                                     </button>
                                     <button 
-                                      className="btn-primary" 
-                                      style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '8px', whiteSpace: 'nowrap' }}
-                                      onClick={() => {
-                                        handleAddPlaceToDay(place);
+                                      className="dropdown-item"
+                                      disabled={group.isLast}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleMoveGroupOrder(group.groupIdx!, 'down');
+                                        setActiveGroupDropdownId(null);
                                       }}
                                     >
-                                      + Add to Day
+                                      <ChevronDown size={12} /> Move Down
                                     </button>
-                                  </>
+                                    <button 
+                                      className="dropdown-item"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        startEditingGroup(group as PlaceGroup);
+                                        setActiveGroupDropdownId(null);
+                                      }}
+                                    >
+                                      <Edit2 size={12} /> Edit Group
+                                    </button>
+                                  </div>
                                 )}
                               </div>
+                            )}
+                            <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
+                              {filteredPlaces.length}
+                            </span>
+                          </div>
+                        </div>
 
-                              <AiDetailsView
-                                place={place}
-                                onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
-                                canEdit={trip.canEdit !== false}
-                                isGenerating={placeGeneratingIds.has(place.id)}
-                                layoutMode="single-col"
-                              />
+                        <div 
+                          className="catalog-places-list" 
+                          onDragLeave={() => setDragOverPlaceId(null)}
+                          style={{ minHeight: '30px' }}
+                        >
+                          {filteredPlaces.map((place, placeIndexInGroup) => (
+                            <div key={place.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                              {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: dragOverPlacePosition === 'top' ? '-6px' : 'auto',
+                                  bottom: dragOverPlacePosition === 'bottom' ? '-6px' : 'auto',
+                                  left: 0,
+                                  right: 0,
+                                  height: '4px',
+                                  background: 'var(--accent-primary)',
+                                  borderRadius: '2px',
+                                  boxShadow: '0 0 8px var(--accent-primary)',
+                                  zIndex: 10,
+                                  pointerEvents: 'none'
+                                }} />
+                              )}
+                              <div 
+                                className="catalog-place-card"
+                                draggable={trip.canEdit !== false}
+                                onDragStart={() => handlePlaceDragStart(place.id)}
+                                onDragEnd={() => {
+                                  setDraggedPlaceId(null);
+                                  setDragOverPlaceId(null);
+                                  setDragOverGroupId(null);
+                                  setDragOverDayPlaceIndex(null);
+                                }}
+                                onDragOver={(e) => {
+                                  if (!draggedPlaceId || draggedPlaceId === place.id) return;
+                                  e.preventDefault();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const relativeY = e.clientY - rect.top;
+                                  const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
+                                  
+                                  if (dragOverPlaceId !== place.id || dragOverPlacePosition !== position) {
+                                    setDragOverPlaceId(place.id);
+                                    setDragOverPlacePosition(position);
+                                  }
+                                }}
+                                onDrop={(e) => {
+                                  e.stopPropagation();
+                                  handlePlaceDropOnPlace(place.id, group.id, dragOverPlacePosition);
+                                  setDragOverPlaceId(null);
+                                }}
+                                onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
+                                style={{ 
+                                  borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
+                                  cursor: 'grab'
+                                }}
+                              >
+                                <div className="place-card-header">
+                                  {place.photoUrl ? (
+                                    <img src={place.photoUrl} className="place-card-thumb" alt="" />
+                                  ) : (
+                                    <div 
+                                      className="place-card-thumb" 
+                                      style={{ 
+                                        background: 'rgba(255,255,255,0.05)', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center'
+                                      }}
+                                    >
+                                      <MapPin size={16} />
+                                    </div>
+                                  )}
+                                  <div className="place-card-info" style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '6px' }}>
+                                      <h4 className="place-card-title" style={{ margin: 0, flex: 1, minWidth: 0 }}>{place.title}</h4>
+                                      {(() => {
+                                        const allocatedDays = Object.keys(activePlan.days)
+                                          .filter(dateStr => activePlan.days[dateStr].placeIds.includes(place.id))
+                                          .sort();
+                                        if (allocatedDays.length === 0) return null;
+                                        return (
+                                          <div style={{ display: 'flex', gap: '3px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '120px' }}>
+                                            {allocatedDays.map(dateStr => {
+                                              const isActiveDay = dateStr === activeDayStr;
+                                              return (
+                                                <span 
+                                                  key={dateStr} 
+                                                  style={{
+                                                    fontSize: '9px',
+                                                    fontWeight: 600,
+                                                    padding: '2px 5px',
+                                                    borderRadius: '4px',
+                                                    background: isActiveDay ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.03)',
+                                                    color: isActiveDay ? '#ffffff' : 'var(--text-muted)',
+                                                    border: isActiveDay ? '1px solid var(--accent-primary)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                                    whiteSpace: 'nowrap'
+                                                  }}
+                                                  title={isActiveDay ? 'Scheduled for today' : `Scheduled for ${formatDisplayDate(dateStr)}`}
+                                                >
+                                                  {formatDisplayDate(dateStr).split(',')[1]?.trim() || dateStr}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                    {place.openingHours && (
+                                      <div className="place-card-hours" style={{ marginTop: '2px' }}>
+                                        <Clock size={10} /> {place.openingHours}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {trip.canEdit !== false && (
+                                    <div 
+                                      style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignSelf: 'center', flexShrink: 0 }} 
+                                      onClick={e => e.stopPropagation()}
+                                    >
+                                      <button 
+                                        className="mini-icon-btn" 
+                                        disabled={placeIndexInGroup === 0} 
+                                        onClick={() => handleMoveCatalogPlace(place.id, 'up')}
+                                        style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1, padding: '2px' }}
+                                        data-tooltip="Move Up"
+                                        draggable={false}
+                                        onDragStart={e => e.stopPropagation()}
+                                      >
+                                        <ChevronUp size={12} />
+                                      </button>
+                                      <button 
+                                        className="mini-icon-btn" 
+                                        disabled={placeIndexInGroup === filteredPlaces.length - 1} 
+                                        onClick={() => handleMoveCatalogPlace(place.id, 'down')}
+                                        style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
+                                        data-tooltip="Move Down"
+                                        draggable={false}
+                                        onDragStart={e => e.stopPropagation()}
+                                      >
+                                        <ChevronDown size={12} />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Expand Details if selected */}
+                                {activePlaceId === place.id && (
+                                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }} onClick={e => e.stopPropagation()}>
+                                    {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
+                                    
+                                    {/* Notes Field (Shared at Trip level) */}
+                                    <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(99,102,241,0.04)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 4px 4px 0' }}>
+                                      <label style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                                        <FileText size={11} /> Notes
+                                      </label>
+                                      
+                                      {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                          <textarea 
+                                            value={tempNotes}
+                                            onChange={(e) => setTempNotes(e.target.value)}
+                                            placeholder="Add notes..."
+                                            rows={3}
+                                            style={{ 
+                                              padding: '6px', 
+                                              fontSize: '13px', 
+                                              width: '100%', 
+                                              background: 'var(--bg-dark)', 
+                                              border: '1px solid var(--border-glass)', 
+                                              color: 'var(--text-primary)',
+                                              borderRadius: '4px',
+                                              resize: 'vertical'
+                                            }}
+                                          />
+                                          <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
+                                            <button 
+                                              className="btn-secondary" 
+                                              onClick={() => setEditingPlaceNotesId(null)} 
+                                              style={{ padding: '4px 8px', fontSize: '11px' }}
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button 
+                                              className="btn-primary flex-align" 
+                                              onClick={() => savePlaceNotes(place.id)} 
+                                              style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
+                                            >
+                                              <Check size={12} /> Save Notes
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                          <span style={{ 
+                                            fontStyle: 'italic', 
+                                            color: place.notes ? 'var(--text-primary)' : 'var(--text-muted)',
+                                            whiteSpace: 'pre-wrap',
+                                            display: 'block',
+                                            width: '100%',
+                                            lineHeight: 1.4,
+                                            fontSize: '12.5px'
+                                          }}>
+                                            {place.notes || 'No notes added yet.'}
+                                          </span>
+                                          {trip.canEdit !== false && (
+                                            <button className="mini-icon-btn" onClick={() => startEditingNotes(place)} style={{ padding: '2px' }}>
+                                              <Edit2 size={10} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginBottom: '8px' }}>
+                                      <a 
+                                        href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="btn-secondary flex-align"
+                                        style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                      >
+                                        Map <ExternalLink size={10} />
+                                      </a>
+                                      {trip.canEdit !== false && (
+                                        <>
+                                          <button 
+                                            className="btn-secondary flex-align"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleOpenEditPlace(place);
+                                            }}
+                                            style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                            data-tooltip="Edit Place Details"
+                                          >
+                                            <Edit2 size={12} /> Edit
+                                          </button>
+                                          <button 
+                                            className="btn-primary" 
+                                            style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                            onClick={() => {
+                                              handleAddPlaceToDay(place);
+                                            }}
+                                          >
+                                            + Add to Day
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    <AiDetailsView
+                                      place={place}
+                                      onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
+                                      canEdit={trip.canEdit !== false}
+                                      isGenerating={placeGeneratingIds.has(place.id)}
+                                      layoutMode="single-col"
+                                      customAiFields={trip.customAiFields}
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
+                          ))}
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '40px 20px', textTransform: 'none', color: 'var(--text-muted)', textAlign: 'center', fontSize: '14px' }}>
+                  Add locations above to start building your Catalog.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Accordion Item 2: Checklist */}
+        <div className={`accordion-section ${expandedLeftSection === 'checklist' ? 'expanded' : 'collapsed'}`}>
+          <div 
+            className="accordion-header flex-between"
+            onClick={() => setExpandedLeftSection(expandedLeftSection === 'checklist' ? 'catalog' : 'checklist')}
+          >
+            <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
+              <CheckSquare size={16} style={{ color: 'var(--accent-secondary)' }} />
+              Checklist
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              {(() => {
+                const total = (trip.manualChecklist || []).length;
+                const done = (trip.manualChecklist || []).filter(c => c.completed).length;
+                return `${done}/${total} done`;
+              })()}
+            </span>
+          </div>
+          
+          {expandedLeftSection === 'checklist' && (
+            <div className="accordion-content">
+              {/* Checklist Content */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                {/* Section A: Manual Checklist */}
+                <div>
+                  <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Personal Checklist</span>
+                  </h4>
+                  
+                  {trip.canEdit !== false && (
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleAddManualChecklistItem(manualChecklistInput);
+                        setManualChecklistInput('');
+                      }}
+                      style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}
+                    >
+                      <input 
+                        type="text" 
+                        placeholder="Add new task..." 
+                        value={manualChecklistInput} 
+                        onChange={(e) => setManualChecklistInput(e.target.value)}
+                        style={{ flex: 1, padding: '4px 8px', fontSize: '12px', height: '28px' }}
+                      />
+                      <button 
+                        type="submit" 
+                        className="btn-primary" 
+                        style={{ padding: '4px 10px', fontSize: '11px', height: '28px' }}
+                      >
+                        Add
+                      </button>
+                    </form>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto', paddingRight: '2px' }}>
+                    {(trip.manualChecklist || []).map(item => (
+                      <div 
+                        key={item.id} 
+                        className="flex-between glass-panel"
+                        style={{ 
+                          padding: '6px 10px', 
+                          borderColor: 'rgba(255,255,255,0.04)',
+                          backgroundColor: 'rgba(255,255,255,0.01)',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        <label className="flex-align" style={{ gap: '8px', cursor: trip.canEdit !== false ? 'pointer' : 'default', textTransform: 'none', flex: 1, minWidth: 0 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={item.completed} 
+                            disabled={trip.canEdit === false}
+                            onChange={() => handleToggleManualChecklistItem(item.id)}
+                            style={{ width: '14px', height: '14px', margin: 0, cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
+                          />
+                          <span style={{ 
+                            fontSize: '12px', 
+                            color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
+                            textDecoration: item.completed ? 'line-through' : 'none',
+                            textOverflow: 'ellipsis',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {item.text}
+                          </span>
+                        </label>
+                        {trip.canEdit !== false && (
+                          <button 
+                            type="button" 
+                            className="trip-delete-btn" 
+                            onClick={() => handleDeleteManualChecklistItem(item.id)}
+                            style={{ padding: '2px' }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     ))}
+
+                    {(trip.manualChecklist || []).length === 0 && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                        No personal tasks added.
+                      </span>
+                    )}
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Section B: AI Generated Checklist */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                  <div className="flex-between" style={{ marginBottom: '8px' }}>
+                    <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>
+                      AI Preparation Checklist
+                    </h4>
+                    {trip.canEdit !== false && (
+                      <button 
+                        className="mini-icon-btn flex-align"
+                        style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)' }}
+                        onClick={handleGenerateTripChecklist}
+                        disabled={generatingChecklist}
+                      >
+                        {generatingChecklist ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
+                        {trip.aiChecklist ? 'Regenerate' : 'Generate'}
+                      </button>
+                    )}
+                  </div>
+
+                  {generatingChecklist ? (
+                    <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <RefreshCw size={18} className="spin" style={{ color: 'var(--accent-primary)' }} />
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
+                        Analyzing trip logistics & requirements...
+                      </span>
+                    </div>
+                  ) : trip.aiChecklist ? (
+                    <div className="ai-checklist-markdown" style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none', maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {/* Simple custom markdown renderer for bullets and sections */}
+                      {trip.aiChecklist.split('\n').map((line, idx) => {
+                        if (line.startsWith('# ')) {
+                          return <h3 key={idx} style={{ fontSize: '14px', fontWeight: 700, margin: '12px 0 6px 0', color: 'var(--text-primary)' }}>{line.replace('# ', '')}</h3>;
+                        }
+                        if (line.startsWith('## ')) {
+                          return <h4 key={idx} style={{ fontSize: '13px', fontWeight: 600, margin: '10px 0 4px 0', color: 'var(--text-primary)' }}>{line.replace('## ', '')}</h4>;
+                        }
+                        if (line.startsWith('### ')) {
+                          return <h5 key={idx} style={{ fontSize: '12px', fontWeight: 600, margin: '8px 0 2px 0', color: 'var(--text-primary)' }}>{line.replace('### ', '')}</h5>;
+                        }
+                        if (line.startsWith('- ') || line.startsWith('* ')) {
+                          // Render inline markdown links [text](url)
+                          const text = line.substring(2);
+                          const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                          let match;
+                          const parts = [];
+                          let lastIndex = 0;
+                          while ((match = linkRegex.exec(text)) !== null) {
+                            if (match.index > lastIndex) {
+                              parts.push(text.substring(lastIndex, match.index));
+                            }
+                            parts.push(
+                              <a 
+                                key={match[2]} 
+                                href={match[2]} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}
+                              >
+                                {match[1]}
+                              </a>
+                            );
+                            lastIndex = linkRegex.lastIndex;
+                          }
+                          if (lastIndex < text.length) {
+                            parts.push(text.substring(lastIndex));
+                          }
+
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '4px 0', paddingLeft: '8px' }}>
+                              <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>•</span>
+                              <span>{parts.length > 0 ? parts : text}</span>
+                            </div>
+                          );
+                        }
+                        return <p key={idx} style={{ margin: '4px 0' }}>{line}</p>;
+                      })}
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'right' }}>
+                        Updated: {new Date(trip.aiChecklistUpdatedAt || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '8px' }}>
+                        No AI checklist generated.
+                      </span>
+                      {trip.canEdit !== false && (
+                        <button 
+                          className="btn-secondary flex-align"
+                          style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
+                          onClick={handleGenerateTripChecklist}
+                        >
+                          <Sparkles size={11} /> Generate Checklist
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Accordion Item 3: Reservations */}
+        <div className={`accordion-section ${expandedLeftSection === 'reservations' ? 'expanded' : 'collapsed'}`}>
+          <div 
+            className="accordion-header flex-between"
+            onClick={() => setExpandedLeftSection(expandedLeftSection === 'reservations' ? 'catalog' : 'reservations')}
+          >
+            <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
+              <Building size={16} style={{ color: 'var(--color-success)' }} />
+              Reservations
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              {(() => {
+                const hotelsCount = activePlan.hotels.length;
+                const transitCount = activePlan.transports.length;
+                return `${hotelsCount}H / ${transitCount}T`;
+              })()}
+            </span>
           </div>
-        ) : (
-          <div style={{ padding: '40px 20px', textTransform: 'none', color: 'var(--text-muted)', textAlign: 'center', fontSize: '14px' }}>
-            Add locations above to start building your Catalog.
+          
+          {expandedLeftSection === 'reservations' && (
+            <div className="accordion-content">
+              {/* Reservations Content */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '420px', overflowY: 'auto', paddingRight: '2px' }}>
+                
+                {/* 1. Transits / Flights */}
+                <div>
+                  <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Plane size={12} /> Transits & Flights ({activePlan.transports.length})
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {activePlan.transports.map(t => (
+                      <div key={t.id} className="glass-panel" style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px' }}>
+                        <div className="flex-between">
+                          <strong style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
+                            {t.type.toUpperCase()}: {t.departureLocationName} → {t.arrivalLocationName}
+                          </strong>
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                          Departs: {t.departureDate} at {t.departureTime} ({t.departureTimezone})
+                        </span>
+                        {t.carrier && (
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '1px' }}>
+                            Carrier: {t.carrier} {t.transitCode && `| Code: ${t.transitCode}`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {activePlan.transports.length === 0 && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No transit events.</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Hotels */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                  <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Building size={12} /> Accommodations ({activePlan.hotels.length})
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {activePlan.hotels.map(h => (
+                      <div key={h.id} className="glass-panel" style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px' }}>
+                        <strong style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{h.name}</strong>
+                        {h.address && <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>📍 {h.address}</span>}
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '1px' }}>
+                          Stay: {h.checkInDate} to {h.checkOutDate}
+                        </span>
+                      </div>
+                    ))}
+                    {activePlan.hotels.length === 0 && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No hotels booked.</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Places requiring early reservations */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                  <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Ticket size={12} /> Reservations Required
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(() => {
+                      const allScheduledPlaceIds = new Set<string>();
+                      Object.values(activePlan.days).forEach(day => {
+                        day.placeIds.forEach(pid => allScheduledPlaceIds.add(pid));
+                      });
+
+                      const placesNeedBooking: { id: string; title: string; reservation?: string; earliestDate: string }[] = [];
+                      trip.locations.forEach(loc => {
+                        loc.places.forEach(p => {
+                          if (allScheduledPlaceIds.has(p.id) && (p.aiDetails?.reservation || p.notes?.toLowerCase().includes('book') || p.notes?.toLowerCase().includes('reserv'))) {
+                            const dates = Object.entries(activePlan.days)
+                              .filter(([_, day]) => day.placeIds.includes(p.id))
+                              .map(([dateStr]) => dateStr);
+                            const earliestDate = dates.length > 0 ? dates.sort()[0] : '';
+                            placesNeedBooking.push({
+                              id: p.id,
+                              title: p.title,
+                              reservation: p.aiDetails?.reservation || p.notes,
+                              earliestDate
+                            });
+                          }
+                        });
+                      });
+
+                      if (placesNeedBooking.length === 0) {
+                        return <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No scheduled places require reservations.</span>;
+                      }
+
+                      // Sort by earliest scheduled date
+                      placesNeedBooking.sort((a, b) => {
+                        if (!a.earliestDate) return 1;
+                        if (!b.earliestDate) return -1;
+                        return a.earliestDate.localeCompare(b.earliestDate);
+                      });
+
+                      return placesNeedBooking.map(p => {
+                        const dayIndex = p.earliestDate ? daysList.indexOf(p.earliestDate) + 1 : -1;
+                        const dayLabel = dayIndex > 0 
+                          ? `Day ${dayIndex} (${formatDisplayDate(p.earliestDate).split(',')[1]?.trim() || p.earliestDate})`
+                          : '';
+
+                        return (
+                          <div 
+                            key={p.id} 
+                            className="glass-panel" 
+                            style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px', cursor: 'pointer' }}
+                            onClick={() => {
+                              setExpandedLeftSection('catalog');
+                              setActivePlaceId(p.id);
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                              <strong style={{ fontSize: '12px', color: 'var(--text-primary)', flex: 1 }}>{p.title}</strong>
+                              {dayLabel && (
+                                <span style={{ fontSize: '9px', color: 'var(--accent-primary)', fontWeight: 600, flexShrink: 0 }}>
+                                  {dayLabel}
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '4px', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {p.reservation}
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Accordion Item 4: Tips */}
+        <div className={`accordion-section ${expandedLeftSection === 'tips' ? 'expanded' : 'collapsed'}`}>
+          <div 
+            className="accordion-header flex-between"
+            onClick={() => setExpandedLeftSection(expandedLeftSection === 'tips' ? 'catalog' : 'tips')}
+          >
+            <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
+              <Sparkles size={16} style={{ color: 'var(--accent-primary)' }} />
+              Tips (Local Essentials)
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              {trip.aiLocalEssentials ? 'Ready' : 'Empty'}
+            </span>
           </div>
-        )}
+          
+          {expandedLeftSection === 'tips' && (
+            <div className="accordion-content">
+              {/* Local Essentials Content */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="flex-between">
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', textTransform: 'none' }}>
+                    Quick reference for convenience stores, currencies, local apps, dress codes, etc.
+                  </span>
+                  {trip.locations.length > 0 && trip.canEdit !== false && (
+                    <button 
+                      className="mini-icon-btn flex-align"
+                      style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)', flexShrink: 0 }}
+                      onClick={handleGenerateLocalEssentials}
+                      disabled={generatingLocalEssentials}
+                    >
+                      {generatingLocalEssentials ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
+                      {trip.aiLocalEssentials ? 'Regenerate' : 'Generate'}
+                    </button>
+                  )}
+                </div>
+
+                {generatingLocalEssentials ? (
+                  <div style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <RefreshCw size={20} className="spin" style={{ color: 'var(--accent-primary)' }} />
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
+                      Gathering destination reference guide...
+                    </span>
+                  </div>
+                ) : trip.aiLocalEssentials ? (
+                  <div className="ai-checklist-markdown" style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {trip.aiLocalEssentials.split('\n').map((line, idx) => {
+                      if (line.startsWith('# ')) {
+                        return <h3 key={idx} style={{ fontSize: '14px', fontWeight: 700, margin: '12px 0 6px 0', color: 'var(--text-primary)' }}>{line.replace('# ', '')}</h3>;
+                      }
+                      if (line.startsWith('## ')) {
+                        return <h4 key={idx} style={{ fontSize: '13px', fontWeight: 600, margin: '10px 0 4px 0', color: 'var(--text-primary)' }}>{line.replace('## ', '')}</h4>;
+                      }
+                      if (line.startsWith('### ')) {
+                        return <h5 key={idx} style={{ fontSize: '12px', fontWeight: 600, margin: '8px 0 2px 0', color: 'var(--text-primary)' }}>{line.replace('### ', '')}</h5>;
+                      }
+                      if (line.startsWith('- ') || line.startsWith('* ')) {
+                        return (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '4px 0', paddingLeft: '8px' }}>
+                            <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>•</span>
+                            <span>{line.substring(2)}</span>
+                          </div>
+                        );
+                      }
+                      return <p key={idx} style={{ margin: '4px 0' }}>{line}</p>;
+                    })}
+                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'right' }}>
+                      Updated: {new Date(trip.aiLocalEssentialsUpdatedAt || 0).toLocaleString()}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '8px' }}>
+                      No Local Essentials Reference guide generated yet.
+                    </span>
+                    {trip.locations.length > 0 && trip.canEdit !== false && (
+                      <button 
+                        className="btn-secondary flex-align"
+                        style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
+                        onClick={handleGenerateLocalEssentials}
+                      >
+                        <Sparkles size={11} /> Generate Tips
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
     );
   }, [
@@ -2268,13 +3098,25 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     activeGroupDropdownId,
     activeDayStr,
     placeGeneratingIds,
-    handleGenerateSinglePlaceAiDetails
+    handleGenerateSinglePlaceAiDetails,
+    expandedLeftSection,
+    manualChecklistInput,
+    generatingChecklist,
+    generatingLocalEssentials,
+    trip.manualChecklist,
+    trip.aiChecklist,
+    trip.aiChecklistUpdatedAt,
+    trip.aiLocalEssentials,
+    trip.aiLocalEssentialsUpdatedAt,
+    trip.customAiFields,
+    activePlan.hotels,
+    activePlan.transports
   ]);
 
   return (
     <div className="planner-view">
-      {/* LEFT PANEL: Catalog */}
-      {catalogPanelJSX}
+      {/* LEFT PANEL: Accordion (Catalog, Checklist, Reservations, Tips) */}
+      {leftPanelJSX}
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}
       <div className={`itinerary-panel ${activeMobileTab === 'itinerary' ? 'mobile-active' : ''}`}>
@@ -2291,6 +3133,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                     style={{ padding: '4px', opacity: 0.6 }}
                   >
                     <Edit2 size={14} />
+                  </button>
+                )}
+                {trip.isOwner !== false && (
+                  <button 
+                    className="mini-icon-btn" 
+                    onClick={() => setShowTripAiConfigModal(true)}
+                    data-tooltip="Trip AI Config Settings"
+                    style={{ padding: '4px', opacity: 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
                   </button>
                 )}
                 {isGoogleSignedIn && trip.isOwner !== false && trip.driveFileId && (
@@ -2652,6 +3504,116 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No transit events scheduled.</p>
                 )}
               </div>
+            </div>
+
+            {/* AI Day Assistant (Daily Tips & Baby Logistics) */}
+            <div className="glass-panel ai-day-assistant-card" style={{ padding: '12px 14px', margin: '8px 0 16px 0', borderColor: 'rgba(99, 102, 241, 0.15)', background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.45) 0%, rgba(99, 102, 241, 0.03) 100%)' }}>
+              <div className="flex-between" style={{ marginBottom: '8px' }}>
+                <span className="flex-align" style={{ gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
+                  AI Day Assistant
+                </span>
+                
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {trip.canEdit !== false && (
+                    <button 
+                      className="mini-icon-btn flex-align"
+                      style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', background: 'rgba(99, 102, 241, 0.12)', color: '#a5b4fc' }}
+                      onClick={() => handleGenerateSingleDayTips(activeDayStr)}
+                      disabled={daysGeneratingDates.has(activeDayStr)}
+                    >
+                      {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={10} className="spin" /> : <RefreshCw size={10} />}
+                      {activeDay?.aiTips ? 'Regenerate Tips' : 'Generate Tips'}
+                    </button>
+                  )}
+                  {trip.canEdit !== false && (
+                    <button 
+                      className="mini-icon-btn flex-align"
+                      style={{ fontSize: '10px', padding: '2px 8px', gap: '4px' }}
+                      onClick={() => {
+                        setShowAiGenerateDaysModal(true);
+                      }}
+                    >
+                      <Sparkles size={10} /> Batch Generate Tips
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {daysGeneratingDates.has(activeDayStr) ? (
+                <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                  <RefreshCw size={16} className="spin" style={{ color: 'var(--accent-primary)' }} />
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', textTransform: 'none' }}>
+                    Gemini is designing daily tips & route logistics...
+                  </span>
+                </div>
+              ) : activeDay?.aiTips ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  
+                  {/* Daily Tips */}
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>
+                    {activeDay.aiTips.split('\n').map((line, idx) => {
+                      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+                        return (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '3px 0', paddingLeft: '4px' }}>
+                            <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>•</span>
+                            <span>{line.trim().substring(2)}</span>
+                          </div>
+                        );
+                      }
+                      return <p key={idx} style={{ margin: '3px 0' }}>{line}</p>;
+                    })}
+                  </div>
+
+                  {/* Baby Logistics (if enabled and generated) */}
+                  {trip.enableBabyLogistics && activeDay.aiBabyLogistics && (
+                    <div 
+                      style={{ 
+                        borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
+                        paddingTop: '8px', 
+                        marginTop: '4px' 
+                      }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8', marginBottom: '4px' }}>
+                        👶 Baby Logistics
+                      </span>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>
+                        {activeDay.aiBabyLogistics.split('\n').map((line, idx) => {
+                          if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+                            return (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '3px 0', paddingLeft: '4px' }}>
+                                <span style={{ color: '#ec4899', flexShrink: 0 }}>•</span>
+                                <span>{line.trim().substring(2)}</span>
+                              </div>
+                            );
+                          }
+                          return <p key={idx} style={{ margin: '3px 0' }}>{line}</p>;
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: '9px', color: 'var(--text-muted)', textAlign: 'right', marginTop: '2px' }}>
+                    Updated: {new Date(activeDay.aiTipsUpdatedAt || 0).toLocaleString()}
+                  </div>
+
+                </div>
+              ) : (
+                <div style={{ padding: '8px 0', textAlign: 'center' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '6px' }}>
+                    No daily tips or transit warnings generated for this day yet.
+                  </span>
+                  {trip.canEdit !== false && (
+                    <button 
+                      className="btn-secondary flex-align"
+                      style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px', borderColor: 'rgba(99, 102, 241, 0.15)' }}
+                      onClick={() => handleGenerateSingleDayTips(activeDayStr)}
+                    >
+                      <Sparkles size={11} /> Generate Day Tips
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 4. Timeline Schedule Places */}
@@ -3348,6 +4310,29 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           city={aiGenerateCity}
           country={aiGenerateCountry}
           onSave={handleSaveBatchAiDetails}
+          customAiFields={trip.customAiFields}
+        />
+      )}
+
+      {showTripAiConfigModal && (
+        <TripAiConfigModal
+          isOpen={showTripAiConfigModal}
+          onClose={() => setShowTripAiConfigModal(false)}
+          trip={trip}
+          onSave={handleSaveTripAiConfig}
+        />
+      )}
+
+      {showAiGenerateDaysModal && (
+        <AiGenerateDaysModal
+          isOpen={showAiGenerateDaysModal}
+          onClose={() => setShowAiGenerateDaysModal(false)}
+          days={daysList.map(d => ({
+            dateStr: d,
+            label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`,
+            hasTips: !!activePlan.days[d]?.aiTips
+          }))}
+          onGenerate={handleGenerateDaysTips}
         />
       )}
     </div>

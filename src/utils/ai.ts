@@ -147,7 +147,8 @@ export class GeminiService {
     city: string,
     country: string,
     apiKey: string,
-    model = 'gemini-2.5-flash'
+    model = 'gemini-2.5-flash',
+    customAiFields?: { title: string; key: string; description: string }[]
   ): Promise<{ id: string; [key: string]: string }[]> {
     if (places.length === 0) return [];
 
@@ -159,6 +160,16 @@ export class GeminiService {
       properties[field.key] = { type: 'STRING' };
       required.push(field.key);
       fieldsPrompt.push(`- "${field.key}": ${field.instruction}`);
+    }
+
+    if (customAiFields && customAiFields.length > 0) {
+      for (const field of customAiFields) {
+        if (field.key && field.title) {
+          properties[field.key] = { type: 'STRING' };
+          required.push(field.key);
+          fieldsPrompt.push(`- "${field.key}": (${field.title}) ${field.description}`);
+        }
+      }
     }
 
     const promptText = `You are a professional local travel planner and guide. Provide concise, high-value insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
@@ -230,6 +241,7 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     places: { id: string; title: string; description?: string }[],
     city: string,
     country: string,
+    customAiFields?: { title: string; key: string; description: string }[],
     model?: string
   ): Promise<{ id: string; [key: string]: string }[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
@@ -242,7 +254,7 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
 
     for (const key of keys) {
       try {
-        return await this.generatePlaceAiDetails(places, city, country, key, selectedModel);
+        return await this.generatePlaceAiDetails(places, city, country, key, selectedModel, customAiFields);
       } catch (err) {
         console.warn(`Gemini call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
         lastError = err;
@@ -250,4 +262,356 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     }
     throw lastError || new Error('All configured API keys failed to execute.');
   }
+
+  /**
+   * Generates Daily Tips for plan days.
+   */
+  static async generateDailyTips(
+    days: {
+      dateStr: string;
+      locationCity: string;
+      locationCountry: string;
+      places: {
+        title: string;
+        description?: string;
+        openingHours?: string;
+        lat?: number;
+        lng?: number;
+        notes?: string;
+      }[];
+      hotels: string[];
+      transports: string[];
+    }[],
+    apiKey: string,
+    model = 'gemini-2.5-flash',
+    enableBabyLogistics = false
+  ): Promise<{
+    dateStr: string;
+    tips: string;
+    babyLogistics?: string;
+  }[]> {
+    if (days.length === 0) return [];
+
+    const properties: any = {
+      dateStr: { type: 'STRING' },
+      tips: { type: 'STRING' }
+    };
+    const required = ['dateStr', 'tips'];
+
+    if (enableBabyLogistics) {
+      properties['babyLogistics'] = { type: 'STRING' };
+      required.push('babyLogistics');
+    }
+
+    const daysPrompt = days.map((d, i) => {
+      const placesList = d.places.map(p => {
+        const details = [];
+        if (p.description) details.push(`description: ${p.description}`);
+        if (p.openingHours) details.push(`opening hours: ${p.openingHours}`);
+        if (p.notes) details.push(`notes: ${p.notes}`);
+        if (p.lat !== undefined && p.lng !== undefined) details.push(`coordinates: ${p.lat}, ${p.lng}`);
+        return `- ${p.title}${details.length > 0 ? ` (${details.join('; ')})` : ''}`;
+      }).join('\n');
+      const hotelsList = d.hotels.map(h => `- Hotel: ${h}`).join('\n');
+      const transportsList = d.transports.map(t => `- Transit: ${t}`).join('\n');
+      return `Day ${i + 1} (${d.dateStr}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
+Scheduled Places (in planned sequence order):
+${placesList || 'None'}
+Hotels:
+${hotelsList || 'None'}
+Transports:
+${transportsList || 'None'}`;
+    }).join('\n\n');
+
+    const promptText = `You are a professional local travel planner and guide. Provide daily itinerary summaries and practical daily travel tips for the following days:
+
+${daysPrompt}
+
+For each day, write daily tips (in Markdown format). Keep the response structured, clear, and relatively brief (under 8-10 sentences total or a clean, bulleted checklist/list of tips, avoiding long essays).
+Specifically, cover the following in the tips field:
+
+1. **Daily Route Sequence & Summary**: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates. For example: "Start at [Hotel], take [transit] to [station X] for [Place 1], then walk along [street/path Y] to get to [Place 2], then take [transit] to [station Z]...".
+2. **Timing & Optimization Suggestions**:
+   - Give suggestions if any place takes a long time (e.g., "This place will take a long time to explore, so plan carefully").
+   - Give sequence/route suggestions based on opening hours or spatial layout (e.g., "It is recommended to visit X before Y because Y closes earlier/at [time]" or "Visiting X before Y offers a more optimal routing path").
+   - Warn the user if a place is likely closed on this specific day of the week or date.
+3. **Logistics & Alerts**:
+   - Recommended departure time from the hotel/starting point.
+   - Which local transit lines to use.
+   - Weather check reminders.
+   - Essential safety warnings (pickpocket warnings, local scams, walking terrain/comfort).
+
+${enableBabyLogistics ? `IMPORTANT BABY LOGISTICS REQUIREMENT:
+Since the user is traveling with a baby, generate a specific "babyLogistics" text (in Markdown format) for each day, describing what to be aware of regarding having a baby (e.g. stroller friendliness, diaper changing spots, safety, nursing facilities, nap planning). Keep it brief, 2-3 sentences or bullet points.` : ''}
+
+Ensure the returned JSON lists the exact "dateStr" for each day so it can be matched.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              days: {
+                type: 'ARRAY',
+                items: {
+                  type: 'OBJECT',
+                  properties,
+                  required
+                }
+              }
+            },
+            required: ['days']
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) {
+      throw new Error('Gemini API returned an empty response.');
+    }
+
+    const parsed = JSON.parse(resultText);
+    if (!parsed.days || !Array.isArray(parsed.days)) {
+      throw new Error('Invalid response structure from Gemini API.');
+    }
+
+    return parsed.days;
+  }
+
+  /**
+   * Generates Daily Tips rotating through API keys.
+   */
+  static async generateDailyTipsWithRotation(
+    days: {
+      dateStr: string;
+      locationCity: string;
+      locationCountry: string;
+      places: {
+        title: string;
+        description?: string;
+        openingHours?: string;
+        lat?: number;
+        lng?: number;
+        notes?: string;
+      }[];
+      hotels: string[];
+      transports: string[];
+    }[],
+    enableBabyLogistics = false,
+    model?: string
+  ): Promise<{
+    dateStr: string;
+    tips: string;
+    babyLogistics?: string;
+  }[]> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) {
+      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+    }
+
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+
+    for (const key of keys) {
+      try {
+        return await this.generateDailyTips(days, key, selectedModel, enableBabyLogistics);
+      } catch (err) {
+        console.warn(`Gemini daily tips call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  /**
+   * Generates checklist for the trip.
+   */
+  static async generateTripChecklist(
+    tripInfo: {
+      name: string;
+      startDate: string;
+      endDate: string;
+      locations: { city: string; country: string }[];
+      hotels: { name: string; checkInDate: string; checkOutDate: string }[];
+      transports: { type: string; departureLocationName: string; arrivalLocationName: string; departureDate: string }[];
+      places: { title: string; reservationDetails?: string }[];
+    },
+    apiKey: string,
+    model = 'gemini-2.5-flash',
+    enableBabyLogistics = false
+  ): Promise<string> {
+    const locationsList = tripInfo.locations.map(l => `- ${l.city}, ${l.country}`).join('\n');
+    const hotelsList = tripInfo.hotels.map(h => `- ${h.name} (${h.checkInDate} to ${h.checkOutDate})`).join('\n');
+    const transportsList = tripInfo.transports.map(t => `- ${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate}`).join('\n');
+    const placesList = tripInfo.places.map(p => `- ${p.title} (Reservation info: ${p.reservationDetails || 'None'})`).join('\n');
+
+    const promptText = `You are a professional travel checklist planner. Generate a comprehensive preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
+
+Locations to visit:
+${locationsList || 'None'}
+
+Accommodations booked:
+${hotelsList || 'None'}
+
+Transportation scheduled:
+${transportsList || 'None'}
+
+Scheduled places of interest:
+${placesList || 'None'}
+
+Please pay attention to essential details to make the trip complete:
+1. Identify missing accommodations (if there are gaps between ${tripInfo.startDate} and ${tripInfo.endDate} with no hotel booked).
+2. Identify missing transportation/flights (e.g. if the user hasn't booked transit to/from destinations).
+3. Call out places that require early reservations or tickets based on the scheduled places list (e.g. popular museums, restaurants, etc.).
+4. Research immigration & visa requirements for the destinations based on typical international travelers.
+5. If there is a timeline, organize the checklist chronologically:
+   - 90 Days Prior (or current month if trip is closer)
+   - 60 Days Prior
+   - 30 Days Prior
+   - 1 Week Prior
+   - Day of Travel
+6. Add purchase/ticketing links where possible (using Markdown links, e.g. [Buy tickets](url) or standard official site search links).
+7. ${enableBabyLogistics ? 'Since the user is traveling with a baby, include a dedicated baby checklist section covering baby essentials, travel documents, baby food, medication, stroller/car seat check-in checklist, etc.' : ''}
+
+Make the markdown clean, structured, and easy to read. Do NOT include a wrapper JSON. Output ONLY raw Markdown.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) {
+      throw new Error('Gemini API returned an empty response.');
+    }
+
+    return resultText;
+  }
+
+  /**
+   * Generates checklist rotating through API keys.
+   */
+  static async generateTripChecklistWithRotation(
+    tripInfo: {
+      name: string;
+      startDate: string;
+      endDate: string;
+      locations: { city: string; country: string }[];
+      hotels: { name: string; checkInDate: string; checkOutDate: string }[];
+      transports: { type: string; departureLocationName: string; arrivalLocationName: string; departureDate: string }[];
+      places: { title: string; reservationDetails?: string }[];
+    },
+    enableBabyLogistics = false,
+    model?: string
+  ): Promise<string> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) {
+      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+    }
+
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+
+    for (const key of keys) {
+      try {
+        return await this.generateTripChecklist(tripInfo, key, selectedModel, enableBabyLogistics);
+      } catch (err) {
+        console.warn(`Gemini checklist call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  /**
+   * Generates local essentials.
+   */
+  static async generateLocalEssentials(
+    locations: { city: string; country: string }[],
+    apiKey: string,
+    model = 'gemini-2.5-flash'
+  ): Promise<string> {
+    const locationsList = locations.map(l => `- ${l.city}, ${l.country}`).join('\n');
+
+    const promptText = `You are a local travel guide expert. Provide a Local Essentials Reference (in Markdown format) for the following destinations:
+${locationsList}
+
+Please organize the guide with clean subheadings and bullet points covering:
+1. **Convenience Stores & Essentials**: Best popular chains (e.g. 7-Eleven, Lawson, etc.), what you can find there (ATM, tickets, SIM cards, hot food), and payment methods.
+2. **Currency & Payments**: Local currency, acceptance of credit cards vs cash, mobile payments (Google Pay, local apps), and tipping culture.
+3. **Local Apps**: Must-have transit/mapping, ride-sharing, food delivery, and translation apps.
+4. **Dress Code & Local Etiquette**: Cultural norms, religious sites restrictions, and seasonal packing tips.
+5. **Other Utilities**: Power plugs & voltage, tap water safety, and emergency phone numbers.
+
+Keep it highly practical, clean, and structured. Output ONLY raw Markdown.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) {
+      throw new Error('Gemini API returned an empty response.');
+    }
+
+    return resultText;
+  }
+
+  /**
+   * Generates local essentials rotating through API keys.
+   */
+  static async generateLocalEssentialsWithRotation(
+    locations: { city: string; country: string }[],
+    model?: string
+  ): Promise<string> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) {
+      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+    }
+
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+
+    for (const key of keys) {
+      try {
+        return await this.generateLocalEssentials(locations, key, selectedModel);
+      } catch (err) {
+        console.warn(`Gemini local essentials call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
 }
+

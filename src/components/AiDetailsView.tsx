@@ -8,6 +8,7 @@ interface AiDetailsViewProps {
   canEdit?: boolean;
   isGenerating?: boolean;
   layoutMode?: 'single-col' | 'adaptive-2-col';
+  customAiFields?: { title: string; key: string; description: string; }[];
 }
 
 export default function AiDetailsView({
@@ -15,7 +16,8 @@ export default function AiDetailsView({
   onGenerate,
   canEdit = true,
   isGenerating = false,
-  layoutMode = 'single-col'
+  layoutMode = 'single-col',
+  customAiFields
 }: AiDetailsViewProps) {
   const hasAiDetails = place.aiDetails && Object.keys(place.aiDetails).length > 0;
 
@@ -100,6 +102,24 @@ export default function AiDetailsView({
                 <div className="ai-detail-block-title">
                   {getFieldIcon(field.icon)}
                   <span>{field.label}</span>
+                </div>
+                <div className="ai-detail-block-content">
+                  {content}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Render custom AI fields if they exist */}
+          {customAiFields && customAiFields.map(field => {
+            const content = place.aiDetails?.[field.key];
+            if (!content || !content.trim()) return null;
+
+            return (
+              <div key={field.key} className="ai-detail-block">
+                <div className="ai-detail-block-title">
+                  <Sparkles size={13} style={{ color: '#c084fc' }} />
+                  <span>{field.title}</span>
                 </div>
                 <div className="ai-detail-block-content">
                   {content}

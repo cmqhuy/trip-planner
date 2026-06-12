@@ -64,6 +64,9 @@ export interface PlanDay {
   dateStr: string; // YYYY-MM-DD
   locationId?: string; // Reference to Location.id (where the day ends)
   placeIds: string[];  // Scheduled places on this day
+  aiTips?: string;
+  aiBabyLogistics?: string;
+  aiTipsUpdatedAt?: number;
 }
 
 export interface Plan {
@@ -92,4 +95,11 @@ export interface Trip {
   isOwner?: boolean;         // True if the current user is the owner
   canEdit?: boolean;         // True if the current user has edit permission
   shared?: boolean;          // True if the trip is shared with others
+  enableBabyLogistics?: boolean;
+  customAiFields?: { title: string; key: string; description: string; }[];
+  manualChecklist?: { id: string; text: string; completed: boolean; }[];
+  aiChecklist?: string;
+  aiChecklistUpdatedAt?: number;
+  aiLocalEssentials?: string;
+  aiLocalEssentialsUpdatedAt?: number;
 }
