@@ -6,7 +6,7 @@ import {
   Search, Plane, Train, Bus, Car, Anchor, 
   Building, BookOpen, Clock, Check, Layers, X,
   Calendar, FileText, Landmark, Utensils, ShoppingBag,
-  Camera, Heart, Share2, Sparkles
+  Camera, Heart, Share2, Sparkles, MoreVertical
 } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
@@ -68,16 +68,29 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   const lastScrollLeft = useRef<number>(0);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close search suggestions dropdown when clicking outside
+  // Close search suggestions and dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchDropdownRef.current && !searchDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(target)) {
         setPlaceSuggestions([]);
       }
+      if (!target.closest('.group-dropdown-container')) {
+        setActiveGroupDropdownId(null);
+      }
+      if (!target.closest('.plan-dropdown-container')) {
+        setShowPlanMenu(false);
+      }
+      if (!target.closest('.day-options-dropdown-container')) {
+        setShowDayOptionsMenu(false);
+      }
+      if (!target.closest('.timeline-place-dropdown-container')) {
+        setActiveTimelinePlaceDropdownKey(null);
+      }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('click', handleClickOutside);
     };
   }, []);
 
@@ -292,9 +305,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   const [aiGenerateCountry, setAiGenerateCountry] = useState('');
   const [placeGeneratingIds, setPlaceGeneratingIds] = useState<Set<string>>(new Set());
   
-  // Plan renaming state
+  // Rename plan state
   const [isRenamingPlan, setIsRenamingPlan] = useState(false);
   const [editPlanName, setEditPlanName] = useState('');
+
+  // Dropdown states
+  const [activeGroupDropdownId, setActiveGroupDropdownId] = useState<string | null>(null);
+  const [showPlanMenu, setShowPlanMenu] = useState(false);
+  const [showDayOptionsMenu, setShowDayOptionsMenu] = useState(false);
+  const [activeTimelinePlaceDropdownKey, setActiveTimelinePlaceDropdownKey] = useState<string | null>(null);
 
   // Add Location Modal state
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
@@ -580,7 +599,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     setEditingPlace(null);
   };
 
-  const handleSaveBatchAiDetails = (updates: { [placeId: string]: { [key: string]: string } }) => {
+  const handleSaveBatchAiDetails = useCallback((updates: { [placeId: string]: { [key: string]: string } }) => {
     const updatedLocations = trip.locations.map(l => {
       let locationChanged = false;
       const updatedPlaces = l.places.map(p => {
@@ -607,9 +626,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       ...trip,
       locations: updatedLocations
     });
-  };
+  }, [trip, onUpdateTrip]);
 
-  const handleGenerateSinglePlaceAiDetails = async (placeId: string) => {
+  const handleGenerateSinglePlaceAiDetails = useCallback(async (placeId: string) => {
     let targetPlace: Place | null = null;
     let targetLoc: Location | null = null;
     for (const l of trip.locations) {
@@ -655,7 +674,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         return next;
       });
     }
-  };
+  }, [trip, onUpdateTrip, handleSaveBatchAiDetails]);
 
   const handleMapClick = (_lat: number, _lng: number) => {
     // No-op. Modals now use their own self-contained MapPicker components.
@@ -1659,6 +1678,43 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     })
     .filter(Boolean) as Place[];
 
+  // Find the selected catalog place if activePlaceId is set
+  const selectedCatalogPlace = useMemo(() => {
+    if (!activePlaceId) return null;
+    for (const loc of trip.locations) {
+      const p = loc.places.find(place => place.id === activePlaceId);
+      if (p) return p;
+    }
+    return null;
+  }, [activePlaceId, trip.locations]);
+
+  const isSelectedPlaceScheduledOnActiveDay = useMemo(() => {
+    if (!activePlaceId || !activeDay) return false;
+    return (activeDay.placeIds || []).includes(activePlaceId);
+  }, [activePlaceId, activeDay]);
+
+  // Construct displayScheduledPlaces, prepending the temporary preview place if applicable
+  const displayScheduledPlaces = useMemo(() => {
+    let list = [...scheduledPlaces];
+    if (selectedCatalogPlace && !isSelectedPlaceScheduledOnActiveDay) {
+      list = [{ ...selectedCatalogPlace, isTemporary: true } as Place, ...list];
+    }
+    return list;
+  }, [scheduledPlaces, selectedCatalogPlace, isSelectedPlaceScheduledOnActiveDay]);
+
+  // Scroll selected place into view in the Day Schedule timeline
+  useEffect(() => {
+    if (activePlaceId) {
+      const timer = setTimeout(() => {
+        const element = document.querySelector(`[data-place-id="${activePlaceId}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activePlaceId, activeDayStr]);
+
   const formatDisplayDate = (dateStr: string) => {
     if (!dateStr) return '';
     const cleanDateStr = dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`;
@@ -1677,46 +1733,50 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
             <ArrowLeft size={14} /> Back to dashboard
           </button>
           
-          <h3>
-            <BookOpen size={18} style={{ color: 'var(--accent-primary)' }} />
-            Catalog
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BookOpen size={18} style={{ color: 'var(--accent-primary)' }} />
+              Catalog
+            </h3>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {catalogLocation && trip.canEdit !== false && (
+                <button 
+                  className="mini-icon-btn" 
+                  onClick={() => setShowEditLocationModal(true)}
+                  data-tooltip="Edit Location Settings"
+                  style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Edit2 size={12} />
+                </button>
+              )}
+              {trip.canEdit !== false && (
+                <button 
+                  className="btn-primary flex-align"
+                  style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => {
+                    setAddLocationForDay(false);
+                    setShowAddLocationModal(true);
+                  }}
+                  data-tooltip="Add Location"
+                >
+                  <Plus size={12} />
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Catalog Location Selector */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '12px' }}>
+          <div style={{ marginTop: '8px' }}>
             <select
               value={selectedCatalogLocId}
               onChange={(e) => setSelectedCatalogLocId(e.target.value)}
-              style={{ flex: 1, padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)' }}
+              style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)' }}
             >
               {trip.locations.length === 0 && <option value="">No Locations Added</option>}
               {trip.locations.map(loc => (
                 <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc, trip.locations)}</option>
               ))}
             </select>
-            {catalogLocation && trip.canEdit !== false && (
-              <button 
-                className="mini-icon-btn" 
-                onClick={() => setShowEditLocationModal(true)}
-                data-tooltip="Edit Location Settings"
-                style={{ padding: '6px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Edit2 size={14} />
-              </button>
-            )}
-            {trip.canEdit !== false && (
-              <button 
-                className="btn-primary flex-align"
-                style={{ padding: '6px', fontSize: '11px', height: '32px', width: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => {
-                  setAddLocationForDay(false);
-                  setShowAddLocationModal(true);
-                }}
-                data-tooltip="Add Location"
-              >
-                <Plus size={14} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -1842,29 +1902,63 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         </>
                       )}
                       {group.isReorderable && trip.canEdit !== false && (
-                        <>
+                        <div className="group-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
                           <button 
-                            className="mini-icon-btn" 
-                            disabled={group.isFirst} 
-                            onClick={() => handleMoveGroupOrder(group.groupIdx!, 'up')} 
-                            data-tooltip="Move Up" 
-                            style={{ opacity: group.isFirst ? 0.3 : 1, padding: '2px' }}
+                            className="mini-icon-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveGroupDropdownId(activeGroupDropdownId === group.id ? null : group.id);
+                            }}
+                            data-tooltip="Group Options"
+                            style={{ 
+                              padding: '6px', 
+                              height: '28px', 
+                              width: '28px', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              cursor: 'pointer'
+                            }}
                           >
-                            <ChevronUp size={12} />
+                            <MoreVertical size={14} />
                           </button>
-                          <button 
-                            className="mini-icon-btn" 
-                            disabled={group.isLast} 
-                            onClick={() => handleMoveGroupOrder(group.groupIdx!, 'down')} 
-                            data-tooltip="Move Down" 
-                            style={{ opacity: group.isLast ? 0.3 : 1, padding: '2px' }}
-                          >
-                            <ChevronDown size={12} />
-                          </button>
-                          <button className="mini-icon-btn" onClick={() => startEditingGroup(group as PlaceGroup)} data-tooltip="Edit Group" style={{ padding: '2px' }}>
-                            <Edit2 size={10} />
-                          </button>
-                        </>
+                          {activeGroupDropdownId === group.id && (
+                            <div className="dropdown-menu" style={{ right: 0, left: 'auto' }}>
+                              <button 
+                                className="dropdown-item"
+                                disabled={group.isFirst}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMoveGroupOrder(group.groupIdx!, 'up');
+                                  setActiveGroupDropdownId(null);
+                                }}
+                              >
+                                <ChevronUp size={12} /> Move Up
+                              </button>
+                              <button 
+                                className="dropdown-item"
+                                disabled={group.isLast}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMoveGroupOrder(group.groupIdx!, 'down');
+                                  setActiveGroupDropdownId(null);
+                                }}
+                              >
+                                <ChevronDown size={12} /> Move Down
+                              </button>
+                              <button 
+                                className="dropdown-item"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEditingGroup(group as PlaceGroup);
+                                  setActiveGroupDropdownId(null);
+                                }}
+                              >
+                                <Edit2 size={12} /> Edit Group
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                       <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
                         {filteredPlaces.length}
@@ -1952,24 +2046,28 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                     .sort();
                                   if (allocatedDays.length === 0) return null;
                                   return (
-                                    <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-                                      {allocatedDays.map(dateStr => (
-                                        <span 
-                                          key={dateStr} 
-                                          style={{
-                                            fontSize: '9px',
-                                            fontWeight: 600,
-                                            padding: '2px 5px',
-                                            borderRadius: '4px',
-                                            background: 'rgba(99, 102, 241, 0.15)',
-                                            color: '#a78bfa',
-                                            border: '1px solid rgba(139, 92, 246, 0.2)',
-                                            whiteSpace: 'nowrap'
-                                          }}
-                                        >
-                                          {formatDisplayDate(dateStr).split(',')[1]?.trim() || dateStr}
-                                        </span>
-                                      ))}
+                                    <div style={{ display: 'flex', gap: '3px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '120px' }}>
+                                      {allocatedDays.map(dateStr => {
+                                        const isActiveDay = dateStr === activeDayStr;
+                                        return (
+                                          <span 
+                                            key={dateStr} 
+                                            style={{
+                                              fontSize: '9px',
+                                              fontWeight: 600,
+                                              padding: '2px 5px',
+                                              borderRadius: '4px',
+                                              background: isActiveDay ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.03)',
+                                              color: isActiveDay ? '#ffffff' : 'var(--text-muted)',
+                                              border: isActiveDay ? '1px solid var(--accent-primary)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                              whiteSpace: 'nowrap'
+                                            }}
+                                            title={isActiveDay ? 'Scheduled for today' : `Scheduled for ${formatDisplayDate(dateStr)}`}
+                                          >
+                                            {formatDisplayDate(dateStr).split(',')[1]?.trim() || dateStr}
+                                          </span>
+                                        );
+                                      })}
                                     </div>
                                   );
                                 })()}
@@ -2079,16 +2177,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                 )}
                               </div>
 
-                              <AiDetailsView
-                                place={place}
-                                onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
-                                canEdit={trip.canEdit !== false}
-                                isGenerating={placeGeneratingIds.has(place.id)}
-                                layoutMode="single-col"
-                              />
-
                               {/* Actions */}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginTop: '8px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginBottom: '8px' }}>
                                 <a 
                                   href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)} 
                                   target="_blank" 
@@ -2123,6 +2213,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                   </>
                                 )}
                               </div>
+
+                              <AiDetailsView
+                                place={place}
+                                onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
+                                canEdit={trip.canEdit !== false}
+                                isGenerating={placeGeneratingIds.has(place.id)}
+                                layoutMode="single-col"
+                              />
                             </div>
                           )}
                         </div>
@@ -2166,7 +2264,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     savePlaceNotes,
     startEditingNotes,
     handleOpenEditPlace,
-    handleAddPlaceToDay
+    handleAddPlaceToDay,
+    activeGroupDropdownId,
+    activeDayStr,
+    placeGeneratingIds,
+    handleGenerateSinglePlaceAiDetails
   ]);
 
   return (
@@ -2273,44 +2375,70 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   ))}
                 </select>
                 {trip.canEdit !== false && (
-                  <>
+                  <div className="plan-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
                     <button 
-                      className="mini-icon-btn" 
-                      onClick={() => handleMovePlan('up')} 
-                      disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
-                      data-tooltip="Move Plan Up"
-                      style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === 0 ? 0.3 : 1 }}
+                      className="mini-icon-btn"
+                      onClick={() => setShowPlanMenu(!showPlanMenu)}
+                      data-tooltip="Plan Options"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      <ChevronUp size={16} />
+                      <MoreVertical size={16} />
                     </button>
-                    <button 
-                      className="mini-icon-btn" 
-                      onClick={() => handleMovePlan('down')} 
-                      disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
-                      data-tooltip="Move Plan Down"
-                      style={{ opacity: trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1 ? 0.3 : 1 }}
-                    >
-                      <ChevronDown size={16} />
-                    </button>
-                    <button 
-                      className="mini-icon-btn" 
-                      onClick={() => {
-                        setIsRenamingPlan(true);
-                        setEditPlanName(activePlan.name);
-                      }} 
-                      data-tooltip="Rename Plan"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button className="mini-icon-btn" onClick={() => setShowNewPlanModal(true)} data-tooltip="Add Plan">
-                      <Plus size={16} />
-                    </button>
-                    {trip.plans.length > 1 && (
-                      <button className="mini-icon-btn" onClick={() => handleDeletePlan(activePlan.id)} data-tooltip="Delete Plan" style={{ color: 'var(--color-danger)' }}>
-                        <Trash2 size={15} />
-                      </button>
+                    {showPlanMenu && (
+                      <div className="dropdown-menu">
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
+                            setShowNewPlanModal(true);
+                            setShowPlanMenu(false);
+                          }}
+                        >
+                          <Plus size={14} /> Add Plan
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
+                          onClick={() => {
+                            handleMovePlan('up');
+                            setShowPlanMenu(false);
+                          }}
+                        >
+                          <ChevronUp size={14} /> Move Plan Up
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
+                          onClick={() => {
+                            handleMovePlan('down');
+                            setShowPlanMenu(false);
+                          }}
+                        >
+                          <ChevronDown size={14} /> Move Plan Down
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
+                            setIsRenamingPlan(true);
+                            setEditPlanName(activePlan.name);
+                            setShowPlanMenu(false);
+                          }}
+                        >
+                          <Edit2 size={14} /> Rename Plan
+                        </button>
+                        {trip.plans.length > 1 && (
+                          <button 
+                            className="dropdown-item danger"
+                            onClick={() => {
+                              handleDeletePlan(activePlan.id);
+                              setShowPlanMenu(false);
+                            }}
+                          >
+                            <Trash2 size={14} /> Delete Plan
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             )}
@@ -2398,7 +2526,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 <div className="flex-align" style={{ gap: '8px' }}>
                   <select
                     value={activeDay?.locationId || ''}
-                    onChange={(e) => handleSetDayLocation(e.target.value)}
+                    onChange={(e) => {
+                      if (e.target.value === 'ADD_NEW_LOCATION') {
+                        setAddLocationForDay(true);
+                        setShowAddLocationModal(true);
+                      } else {
+                        handleSetDayLocation(e.target.value);
+                      }
+                    }}
                     style={{ 
                       padding: '8px 12px', 
                       fontSize: '13px', 
@@ -2412,17 +2547,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                     {trip.locations.map(l => (
                       <option key={l.id} value={l.id}>{getLocIcon(l)} {getFormattedLocationName(l, trip.locations)}</option>
                     ))}
+                    <option value="ADD_NEW_LOCATION">Add Location...</option>
                   </select>
-                  <button 
-                    className="btn-primary flex-align"
-                    style={{ padding: '8px 12px', fontSize: '13px', gap: '4px', height: '38px', borderRadius: '8px' }}
-                    onClick={() => {
-                      setAddLocationForDay(true);
-                      setShowAddLocationModal(true);
-                    }}
-                  >
-                    <Plus size={14} /> Location
-                  </button>
                 </div>
               )}
             </div>
@@ -2551,22 +2677,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
                     <button 
                       className="mini-icon-btn flex-align" 
-                      onClick={() => setShowMoveDayModal(true)} 
-                      data-tooltip="Move Places To Another Day"
-                      style={{ gap: '4px' }}
-                    >
-                      <ArrowRight size={14} /> Move Day
-                    </button>
-                    <button 
-                      className="mini-icon-btn" 
-                      onClick={handleClearDay} 
-                      data-tooltip="Clear All Places"
-                      style={{ gap: '4px', color: 'var(--color-danger)' }}
-                    >
-                      <Trash2 size={14} /> Clear Day
-                    </button>
-                    <button 
-                      className="mini-icon-btn flex-align" 
                       onClick={() => {
                         setEditingPlace({
                           id: `new-temp-${Date.now()}`,
@@ -2588,6 +2698,39 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                     >
                       <Plus size={14} /> Add Place
                     </button>
+
+                    <div className="day-options-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
+                      <button 
+                        className="mini-icon-btn"
+                        onClick={() => setShowDayOptionsMenu(!showDayOptionsMenu)}
+                        data-tooltip="Day Options"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+                      {showDayOptionsMenu && (
+                        <div className="dropdown-menu">
+                          <button 
+                            className="dropdown-item"
+                            onClick={() => {
+                              setShowMoveDayModal(true);
+                              setShowDayOptionsMenu(false);
+                            }}
+                          >
+                            <ArrowRight size={12} /> Move Day
+                          </button>
+                          <button 
+                            className="dropdown-item danger"
+                            onClick={() => {
+                              handleClearDay();
+                              setShowDayOptionsMenu(false);
+                            }}
+                          >
+                            <Trash2 size={12} /> Clear Day
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2650,282 +2793,368 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   }
                 }}
               >
-                {scheduledPlaces.map((place, index) => (
-                  <div 
-                    key={`${place.id}-${index}`} 
-                    style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
-                  >
-                    {dragOverDayPlaceIndex === index && (
-                      <div style={{
-                        position: 'absolute',
-                        top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto',
-                        bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto',
-                        left: 0,
-                        right: 0,
-                        height: '4px',
-                        background: 'var(--accent-primary)',
-                        borderRadius: '2px',
-                        boxShadow: '0 0 8px var(--accent-primary)',
-                        zIndex: 10,
-                        pointerEvents: 'none'
-                      }} />
-                    )}
+                {displayScheduledPlaces.map((place, index) => {
+                  const isTemporary = (place as any).isTemporary;
+                  const isTempActive = (displayScheduledPlaces[0] as any)?.isTemporary;
+                  const actualIndex = isTempActive ? index - 1 : index;
+                  const dropTargetIndex = actualIndex < 0 ? 0 : actualIndex;
+
+                  return (
                     <div 
-                      className="timeline-card glass-panel" 
-                      draggable={trip.canEdit !== false}
-                      onDragStart={() => handleDayPlaceDragStart(index)}
-                      onDragEnd={() => {
-                        setDraggedDayPlaceIndex(null);
-                        setDragOverDayPlaceIndex(null);
-                      }}
-                      onDragOver={(e) => {
-                        if (draggedDayPlaceIndex === index) return;
-                        if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
-                        e.preventDefault();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const relativeY = e.clientY - rect.top;
-                        const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
-                        
-                        if (dragOverDayPlaceIndex !== index || dragOverDayPlacePosition !== position) {
-                          setDragOverDayPlaceIndex(index);
-                          setDragOverDayPlacePosition(position);
-                        }
-                      }}
-                      onDrop={(e) => {
-                        e.stopPropagation();
-                        if (draggedDayPlaceIndex !== null) {
-                          handleDayPlaceDrop(index, dragOverDayPlacePosition);
-                        } else if (draggedPlaceId) {
-                          handleCatalogPlaceDropOnTimeline(draggedPlaceId, index, dragOverDayPlacePosition);
-                        }
-                        setDragOverDayPlaceIndex(null);
-                      }}
-                      onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
-                      style={{
-                        flexDirection: 'column',
-                        alignItems: 'stretch',
-                        borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
-                        cursor: 'pointer',
-                        gap: '0'
-                      }}
+                      key={`${place.id}-${index}`} 
+                      style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
                     >
+                      {dragOverDayPlaceIndex === index && (
+                        <div style={{
+                          position: 'absolute',
+                          top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto',
+                          bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto',
+                          left: 0,
+                          right: 0,
+                          height: '4px',
+                          background: 'var(--accent-primary)',
+                          borderRadius: '2px',
+                          boxShadow: '0 0 8px var(--accent-primary)',
+                          zIndex: 10,
+                          pointerEvents: 'none'
+                        }} />
+                      )}
                       <div 
-                        className="timeline-dot" 
-                        style={{ 
-                          backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' 
+                        className={`timeline-card glass-panel ${isTemporary ? 'timeline-card-preview' : ''}`}
+                        data-place-id={place.id}
+                        draggable={trip.canEdit !== false && !isTemporary}
+                        onDragStart={() => handleDayPlaceDragStart(actualIndex)}
+                        onDragEnd={() => {
+                          setDraggedDayPlaceIndex(null);
+                          setDragOverDayPlaceIndex(null);
+                        }}
+                        onDragOver={(e) => {
+                          if (draggedDayPlaceIndex === index) return;
+                          if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
+                          if (isTemporary && draggedDayPlaceIndex !== null) return; // Don't allow re-sorting itself
+                          e.preventDefault();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const relativeY = e.clientY - rect.top;
+                          const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
+                          
+                          if (dragOverDayPlaceIndex !== index || dragOverDayPlacePosition !== position) {
+                            setDragOverDayPlaceIndex(index);
+                            setDragOverDayPlacePosition(position);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.stopPropagation();
+                          if (draggedDayPlaceIndex !== null) {
+                            handleDayPlaceDrop(dropTargetIndex, dragOverDayPlacePosition);
+                          } else if (draggedPlaceId) {
+                            handleCatalogPlaceDropOnTimeline(draggedPlaceId, dropTargetIndex, dragOverDayPlacePosition);
+                          }
+                          setDragOverDayPlaceIndex(null);
+                        }}
+                        onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
+                        style={{
+                          flexDirection: 'column',
+                          alignItems: 'stretch',
+                          borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
+                          cursor: 'pointer',
+                          gap: '0'
                         }}
                       >
-                        {(() => {
-                          const group = (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId);
-                          return getCategoryIconComponent(group?.icon || 'map-pin', 12, undefined, { color: '#ffffff' });
-                        })()}
-                      </div>
+                        <div 
+                          className="timeline-dot" 
+                          style={{ 
+                            backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' 
+                          }}
+                        >
+                          {(() => {
+                            const group = (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId);
+                            return getCategoryIconComponent(group?.icon || 'map-pin', 12, undefined, { color: '#ffffff' });
+                          })()}
+                        </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '16px' }}>
-                        <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: 'grab' }}>
-                          <div 
-                            style={{ 
-                              width: '24px', 
-                              height: '24px', 
-                              borderRadius: '50%', 
-                              background: 'rgba(255,255,255,0.08)',
-                              color: 'var(--text-primary)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              flexShrink: 0
-                            }}
-                          >
-                            {index + 1}
-                          </div>
-
-                          {/* Place Thumbnail Image */}
-                          {place.photoUrl ? (
-                            <img 
-                              src={place.photoUrl} 
-                              alt="" 
-                              style={{ 
-                                width: '36px', 
-                                height: '36px', 
-                                borderRadius: '6px', 
-                                objectFit: 'cover', 
-                                flexShrink: 0 
-                              }} 
-                            />
-                          ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '16px' }}>
+                          <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: isTemporary ? 'default' : 'grab' }}>
                             <div 
                               style={{ 
-                                width: '36px', 
-                                height: '36px', 
-                                borderRadius: '6px', 
-                                background: 'rgba(255,255,255,0.05)', 
-                                display: 'flex', 
-                                alignItems: 'center', 
+                                width: '24px', 
+                                height: '24px', 
+                                borderRadius: '50%', 
+                                background: isTemporary ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.08)',
+                                color: isTemporary ? '#a5b4fc' : 'var(--text-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
                                 justifyContent: 'center',
+                                fontSize: '11px',
+                                fontWeight: 700,
                                 flexShrink: 0
                               }}
                             >
-                              <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
+                              {isTemporary ? 'P' : actualIndex + 1}
                             </div>
-                          )}
 
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {place.title}
-                            </h4>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                              {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
-                            </p>
-                            {editingPlaceNotesId === place.id ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
-                                <textarea 
-                                  value={tempNotes}
-                                  onChange={(e) => setTempNotes(e.target.value)}
-                                  placeholder="Add notes..."
-                                  rows={2}
+                            {/* Place Thumbnail Image & Map Button */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                              {place.photoUrl ? (
+                                <img 
+                                  src={place.photoUrl} 
+                                  alt="" 
                                   style={{ 
-                                    padding: '6px', 
-                                    fontSize: '13px', 
-                                    width: '100%', 
-                                    background: 'var(--bg-dark)', 
-                                    border: '1px solid var(--border-glass)', 
-                                    color: 'var(--text-primary)',
-                                    borderRadius: '4px',
-                                    resize: 'vertical',
-                                    textTransform: 'none'
-                                  }}
+                                    width: '36px', 
+                                    height: '36px', 
+                                    borderRadius: '6px', 
+                                    objectFit: 'cover', 
+                                    flexShrink: 0 
+                                  }} 
                                 />
-                                <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
-                                  <button 
-                                    className="btn-secondary" 
-                                    onClick={() => setEditingPlaceNotesId(null)} 
-                                    style={{ padding: '2px 6px', fontSize: '10px' }}
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button 
-                                    className="btn-primary flex-align" 
-                                    onClick={() => savePlaceNotes(place.id)} 
-                                    style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}
-                                  >
-                                    <Check size={10} /> Save
-                                  </button>
+                              ) : (
+                                <div 
+                                  style={{ 
+                                    width: '36px', 
+                                    height: '36px', 
+                                    borderRadius: '6px', 
+                                    background: 'rgba(255,255,255,0.05)', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
                                 </div>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                <div style={{ 
-                                  fontSize: '12.5px', 
-                                  color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', 
-                                  fontStyle: 'italic', 
-                                  whiteSpace: 'pre-wrap',
-                                  lineHeight: 1.4,
-                                  margin: 0,
-                                  flex: 1,
-                                  textTransform: 'none',
+                              )}
+                              <a 
+                                href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="btn-secondary"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ 
+                                  padding: '2px 4px', 
+                                  fontSize: '9px', 
+                                  textDecoration: 'none', 
+                                  borderRadius: '4px',
                                   display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: '6px'
-                                }}>
-                                  <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                                  <span>{place.notes || 'Add notes...'}</span>
-                                </div>
-                                {trip.canEdit !== false && (
-                                  <button 
-                                    className="mini-icon-btn" 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      startEditingNotes(place);
-                                    }} 
-                                    style={{ padding: '2px' }}
-                                    data-tooltip="Edit Note"
-                                  >
-                                    <Edit2 size={10} />
-                                  </button>
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '36px',
+                                  boxSizing: 'border-box',
+                                  textAlign: 'center',
+                                  height: '18px'
+                                }}
+                              >
+                                Map
+                              </a>
+                            </div>
+
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
+                                  {place.title}
+                                </h4>
+                                {isTemporary && (
+                                  <span className="preview-badge">Preview</span>
                                 )}
                               </div>
-                            )}
+                              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
+                              </p>
+                              {editingPlaceNotesId === place.id ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
+                                  <textarea 
+                                    value={tempNotes}
+                                    onChange={(e) => setTempNotes(e.target.value)}
+                                    placeholder="Add notes..."
+                                    rows={2}
+                                    style={{ 
+                                      padding: '6px', 
+                                      fontSize: '13px', 
+                                      width: '100%', 
+                                      background: 'var(--bg-dark)', 
+                                      border: '1px solid var(--border-glass)', 
+                                      color: 'var(--text-primary)',
+                                      borderRadius: '4px',
+                                      resize: 'vertical',
+                                      textTransform: 'none'
+                                    }}
+                                  />
+                                  <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
+                                    <button 
+                                      className="btn-secondary" 
+                                      onClick={() => setEditingPlaceNotesId(null)} 
+                                      style={{ padding: '2px 6px', fontSize: '10px' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button 
+                                      className="btn-primary flex-align" 
+                                      onClick={() => savePlaceNotes(place.id)} 
+                                      style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}
+                                    >
+                                      <Check size={10} /> Save
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                                  <div style={{ 
+                                    fontSize: '12.5px', 
+                                    color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', 
+                                    fontStyle: 'italic', 
+                                    whiteSpace: 'pre-wrap',
+                                    lineHeight: 1.4,
+                                    margin: 0,
+                                    flex: 1,
+                                    textTransform: 'none',
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '6px'
+                                  }}>
+                                    <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                                    <span>{place.notes || 'Add notes...'}</span>
+                                  </div>
+                                  {trip.canEdit !== false && !isTemporary && (
+                                    <button 
+                                      className="mini-icon-btn" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        startEditingNotes(place);
+                                      }} 
+                                      style={{ padding: '2px' }}
+                                      data-tooltip="Edit Note"
+                                    >
+                                      <Edit2 size={10} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
+
+                          {trip.canEdit !== false && (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                              {isTemporary ? (
+                                <>
+                                  <button 
+                                    className="mini-icon-btn" 
+                                    onClick={() => handleAddPlaceToDay(place)}
+                                    data-tooltip="Keep / Add to Day"
+                                    style={{ padding: '4px', color: 'var(--color-success)' }}
+                                  >
+                                    <Plus size={16} />
+                                  </button>
+                                  <button 
+                                    className="mini-icon-btn" 
+                                    onClick={() => setActivePlaceId(undefined)}
+                                    data-tooltip="Remove Preview"
+                                    style={{ padding: '4px', color: 'var(--color-danger)' }}
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <button 
+                                      className="mini-icon-btn" 
+                                      disabled={actualIndex === 0} 
+                                      onClick={() => handleMovePlaceOrder(actualIndex, 'up')}
+                                      style={{ opacity: actualIndex === 0 ? 0.3 : 1, padding: '2px' }}
+                                      data-tooltip="Move Up"
+                                    >
+                                      <ChevronUp size={14} />
+                                    </button>
+                                    <button 
+                                      className="mini-icon-btn" 
+                                      disabled={actualIndex === scheduledPlaces.length - 1} 
+                                      onClick={() => handleMovePlaceOrder(actualIndex, 'down')}
+                                      style={{ opacity: actualIndex === scheduledPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
+                                      data-tooltip="Move Down"
+                                    >
+                                      <ChevronDown size={14} />
+                                    </button>
+                                  </div>
+                                  <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>
+                                    <button 
+                                      className="mini-icon-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const key = `${place.id}-${index}`;
+                                        setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === key ? null : key);
+                                      }}
+                                      data-tooltip="Place Options"
+                                      style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                    >
+                                      <MoreVertical size={14} />
+                                    </button>
+                                    {activeTimelinePlaceDropdownKey === `${place.id}-${index}` && (
+                                      <div className="dropdown-menu" style={{ right: 0, bottom: '100%', top: 'auto', marginBottom: '4px' }}>
+                                        <button 
+                                          className="dropdown-item" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenEditPlace(place);
+                                            setActiveTimelinePlaceDropdownKey(null);
+                                          }}
+                                          data-tooltip="Edit Place"
+                                        >
+                                          <Edit2 size={12} /> Edit Place
+                                        </button>
+                                        <button 
+                                          className="dropdown-item danger" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleRemovePlaceFromDay(actualIndex);
+                                            setActiveTimelinePlaceDropdownKey(null);
+                                          }}
+                                          data-tooltip="Remove from Day"
+                                        >
+                                          <Trash2 size={12} /> Remove from Day
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        {trip.canEdit !== false && (
-                          <div className="flex-align" style={{ flexShrink: 0, gap: '4px' }} onClick={e => e.stopPropagation()}>
-                            {/* Custom order re-arranging */}
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <button 
-                                className="mini-icon-btn" 
-                                disabled={index === 0} 
-                                onClick={() => handleMovePlaceOrder(index, 'up')}
-                                style={{ opacity: index === 0 ? 0.3 : 1, padding: '2px' }}
-                              >
-                                <ChevronUp size={14} />
-                              </button>
-                              <button 
-                                className="mini-icon-btn" 
-                                disabled={index === scheduledPlaces.length - 1} 
-                                onClick={() => handleMovePlaceOrder(index, 'down')}
-                                style={{ opacity: index === scheduledPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
-                              >
-                                <ChevronDown size={14} />
-                              </button>
-                            </div>
-                            <button className="mini-icon-btn" onClick={() => handleOpenEditPlace(place)} data-tooltip="Edit Place" style={{ padding: '4px' }}>
-                              <Edit2 size={14} />
-                            </button>
-                            <button className="trip-delete-btn" onClick={() => handleRemovePlaceFromDay(index)}>
-                              <Trash2 size={14} />
-                            </button>
+                        {/* Expand Details if selected */}
+                        {activePlaceId === place.id && (
+                          <div 
+                            style={{ 
+                              marginTop: '12px', 
+                              paddingTop: '12px', 
+                              borderTop: '1px solid rgba(255,255,255,0.05)', 
+                              fontSize: '13px',
+                              cursor: 'default',
+                              width: '100%'
+                            }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            {place.description && (
+                              <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>
+                                {place.description}
+                              </p>
+                            )}
+                            
+                            <AiDetailsView
+                              place={place}
+                              onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
+                              canEdit={trip.canEdit !== false}
+                              isGenerating={placeGeneratingIds.has(place.id)}
+                              layoutMode="adaptive-2-col"
+                            />
+
+
                           </div>
                         )}
                       </div>
-
-                      {/* Expand Details if selected */}
-                      {activePlaceId === place.id && (
-                        <div 
-                          style={{ 
-                            marginTop: '12px', 
-                            paddingTop: '12px', 
-                            borderTop: '1px solid rgba(255,255,255,0.05)', 
-                            fontSize: '13px',
-                            cursor: 'default',
-                            width: '100%'
-                          }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {place.description && (
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>
-                              {place.description}
-                            </p>
-                          )}
-                          
-                          <AiDetailsView
-                            place={place}
-                            onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
-                            canEdit={trip.canEdit !== false}
-                            isGenerating={placeGeneratingIds.has(place.id)}
-                            layoutMode="adaptive-2-col"
-                          />
-
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px', gap: '6px' }}>
-                            <a 
-                              href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="btn-secondary flex-align"
-                              style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none', borderRadius: '8px' }}
-                            >
-                              Map <ExternalLink size={10} />
-                            </a>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
-                {scheduledPlaces.length === 0 && (
+                {displayScheduledPlaces.length === 0 && (
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '6px' }}>
                     Itinerary is empty. Search above or click catalog places to schedule.
                   </p>
@@ -2943,7 +3172,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       {/* RIGHT PANEL: Interactive Leaflet Map */}
       <div className={`map-panel ${activeMobileTab === 'map' ? 'mobile-active' : ''}`}>
         <MapComponent 
-          places={scheduledPlaces} 
+          places={displayScheduledPlaces} 
           activePlaceId={activePlaceId}
           placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
           onMapClick={handleMapClick}

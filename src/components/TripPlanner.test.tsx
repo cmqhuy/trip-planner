@@ -150,13 +150,18 @@ describe('TripPlanner Component', () => {
     const handleUpdateTrip = vi.fn();
     const handleBack = vi.fn();
 
-    render(
+    const { container } = render(
       <TripPlanner
         trip={mockTrip}
         onBack={handleBack}
         onUpdateTrip={handleUpdateTrip}
       />
     );
+
+    // Open Day Options dropdown
+    const dayOptionsBtn = container.querySelector('[data-tooltip="Day Options"]');
+    expect(dayOptionsBtn).toBeDefined();
+    fireEvent.click(dayOptionsBtn!);
 
     // Click Move Day button (now inside timeline Day Schedule header)
     const moveDayBtn = screen.getByRole('button', { name: /Move Day/i });
@@ -197,13 +202,18 @@ describe('TripPlanner Component', () => {
     const handleUpdateTrip = vi.fn();
     const handleBack = vi.fn();
 
-    render(
+    const { container } = render(
       <TripPlanner
         trip={mockTrip}
         onBack={handleBack}
         onUpdateTrip={handleUpdateTrip}
       />
     );
+
+    // Open Day Options dropdown
+    const dayOptionsBtn = container.querySelector('[data-tooltip="Day Options"]');
+    expect(dayOptionsBtn).toBeDefined();
+    fireEvent.click(dayOptionsBtn!);
 
     // Click Clear Day button
     const clearDayBtn = screen.getByRole('button', { name: /Clear Day/i });
@@ -279,6 +289,11 @@ describe('TripPlanner Component', () => {
         onUpdateTrip={handleUpdateTrip}
       />
     );
+
+    // Find and click the place options dropdown button first to reveal the edit button
+    const placeOptionsBtns = container.querySelectorAll('[data-tooltip="Place Options"]');
+    expect(placeOptionsBtns.length).toBeGreaterThan(0);
+    fireEvent.click(placeOptionsBtns[0]);
 
     // Find and click the edit button for "Eiffel Tower" inside the day schedule
     const editPlaceBtns = container.querySelectorAll('[data-tooltip="Edit Place"]');
@@ -409,13 +424,18 @@ describe('TripPlanner Component', () => {
 
   it('preserves move day dropdown target selection on rerender', () => {
     const handleUpdateTrip = vi.fn();
-    const { rerender } = render(
+    const { rerender, container } = render(
       <TripPlanner
         trip={mockTrip}
         onBack={vi.fn()}
         onUpdateTrip={handleUpdateTrip}
       />
     );
+
+    // Open Day Options dropdown
+    const dayOptionsBtn = container.querySelector('[data-tooltip="Day Options"]');
+    expect(dayOptionsBtn).toBeDefined();
+    fireEvent.click(dayOptionsBtn!);
 
     // Open Move Day modal
     const moveDayBtn = screen.getByRole('button', { name: /Move Day/i });
@@ -509,7 +529,6 @@ describe('TripPlanner Component', () => {
     expect(lineIndicatorDown.style.bottom).toBe('-5px');
     expect(lineIndicatorDown.style.top).toBe('auto');
 
-    // 2. Now drag London (index 1) over Paris (index 0) - dragging UP
     // First end previous drag
     fireEvent.dragEnd(ParisRow!);
 
@@ -527,5 +546,33 @@ describe('TripPlanner Component', () => {
     expect(lineIndicatorUp.style.top).toBe('-5px');
     expect(lineIndicatorUp.style.bottom).toBe('auto');
   });
+
+  it('closes dropdowns when clicking outside', () => {
+    const handleUpdateTrip = vi.fn();
+    const handleBack = vi.fn();
+
+    const { container } = render(
+      <TripPlanner
+        trip={mockTrip}
+        onBack={handleBack}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    // Open timeline place dropdown
+    const placeOptionsBtns = container.querySelectorAll('[data-tooltip="Place Options"]');
+    expect(placeOptionsBtns.length).toBeGreaterThan(0);
+    fireEvent.click(placeOptionsBtns[0]);
+
+    // Verify "Edit Place" is visible
+    expect(screen.getByText('Edit Place')).toBeInTheDocument();
+
+    // Click outside on the document body
+    fireEvent.click(document.body);
+
+    // Verify "Edit Place" is no longer visible
+    expect(screen.queryByText('Edit Place')).toBeNull();
+  });
 });
+
 
