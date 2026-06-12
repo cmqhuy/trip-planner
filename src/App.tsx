@@ -15,6 +15,9 @@ import {
   leaveSharedTripFile,
   deleteFileFromDrive,
   importSharedTripFile,
+  fetchAiSettingsFromDrive,
+  saveAiSettingsToDrive,
+  deleteAiSettingsFromDrive,
   DEFAULT_CLIENT_ID,
   GOOGLE_SCOPES
 } from './utils/googleDrive';
@@ -520,6 +523,36 @@ export default function App() {
     performSync();
   }, [googleToken, googleFolderId]);
 
+  // Load AI Settings from Google Drive on startup
+  useEffect(() => {
+    if (!googleToken || !googleFolderId) return;
+
+    const syncAiSettingsOnStartup = async () => {
+      try {
+        const remoteSettings = await fetchAiSettingsFromDrive(googleToken, googleFolderId);
+        if (remoteSettings) {
+          GeminiService.saveApiKeys(remoteSettings.keys);
+          GeminiService.saveSelectedModel(remoteSettings.model);
+          GeminiService.setSyncToDrive(true);
+          setHasAiKey(GeminiService.hasApiKey());
+          console.log('Successfully loaded AI Settings from Google Drive on startup.');
+        } else if (GeminiService.getSyncToDrive()) {
+          // Sync is enabled locally but no file on drive, upload local settings
+          const keys = GeminiService.getApiKeys();
+          const model = GeminiService.getSelectedModel();
+          if (keys.length > 0) {
+            await saveAiSettingsToDrive(googleToken, googleFolderId, { keys, model });
+            console.log('Successfully uploaded local AI Settings to Google Drive on startup.');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync AI settings on startup:', err);
+      }
+    };
+
+    syncAiSettingsOnStartup();
+  }, [googleToken, googleFolderId]);
+
   // Sync activeTripId with URL search parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -879,6 +912,32 @@ export default function App() {
     });
   };
 
+  const handleAiSettingsSaved = async () => {
+    setHasAiKey(GeminiService.hasApiKey());
+
+    // Sync / delete from GDrive if signed in
+    if (googleToken && googleFolderId) {
+      const isSyncEnabled = GeminiService.getSyncToDrive();
+      if (isSyncEnabled) {
+        const keys = GeminiService.getApiKeys();
+        const model = GeminiService.getSelectedModel();
+        try {
+          await saveAiSettingsToDrive(googleToken, googleFolderId, { keys, model });
+          console.log('AI settings successfully synced to Google Drive.');
+        } catch (err) {
+          console.error('Failed to sync AI settings to Drive:', err);
+        }
+      } else {
+        try {
+          await deleteAiSettingsFromDrive(googleToken, googleFolderId);
+          console.log('AI settings successfully deleted from Google Drive.');
+        } catch (err) {
+          console.error('Failed to delete AI settings from Drive:', err);
+        }
+      }
+    }
+  };
+
   const activeTrip = trips.find(t => t.id === activeTripId);
 
   return (
@@ -977,7 +1036,8 @@ export default function App() {
       <AiSettingsModal
         isOpen={showAiSettings}
         onClose={() => setShowAiSettings(false)}
-        onSaved={() => setHasAiKey(GeminiService.hasApiKey())}
+        onSaved={handleAiSettingsSaved}
+        isGoogleSignedIn={!!googleToken}
       />
 
     </div>

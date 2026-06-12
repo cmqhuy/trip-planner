@@ -54,8 +54,23 @@ export const AI_DETAIL_FIELDS: AiDetailField[] = [
 
 const KEYS_STORAGE_KEY = 'vacation-itineraries-gemini-api-keys';
 const MODEL_STORAGE_KEY = 'vacation-itineraries-gemini-model';
+const SYNC_STORAGE_KEY = 'vacation-itineraries-gemini-sync-drive';
 
 export class GeminiService {
+  /**
+   * Gets preference for syncing AI settings to Google Drive.
+   */
+  static getSyncToDrive(): boolean {
+    return localStorage.getItem(SYNC_STORAGE_KEY) === 'true';
+  }
+
+  /**
+   * Saves preference for syncing AI settings to Google Drive.
+   */
+  static setSyncToDrive(enabled: boolean): void {
+    localStorage.setItem(SYNC_STORAGE_KEY, String(enabled));
+  }
+
   /**
    * Retrieves keys list from localStorage.
    */

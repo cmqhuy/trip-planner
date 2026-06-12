@@ -6,15 +6,18 @@ interface AiSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
+  isGoogleSignedIn: boolean;
 }
 
 export default function AiSettingsModal({
   isOpen,
   onClose,
-  onSaved
+  onSaved,
+  isGoogleSignedIn
 }: AiSettingsModalProps) {
   const [keysInput, setKeysInput] = useState('');
   const [model, setModel] = useState('gemini-2.5-flash');
+  const [syncToDrive, setSyncToDrive] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
 
@@ -23,6 +26,7 @@ export default function AiSettingsModal({
       const savedKeys = GeminiService.getApiKeys();
       setKeysInput(savedKeys.join('\n'));
       setModel(GeminiService.getSelectedModel());
+      setSyncToDrive(GeminiService.getSyncToDrive());
       setTestStatus('idle');
       setTestMessage('');
     }
@@ -55,6 +59,7 @@ export default function AiSettingsModal({
     const keys = keysInput.split('\n').map(k => k.trim()).filter(Boolean);
     GeminiService.saveApiKeys(keys);
     GeminiService.saveSelectedModel(model);
+    GeminiService.setSyncToDrive(syncToDrive && isGoogleSignedIn);
     onSaved();
     onClose();
   };
@@ -111,6 +116,39 @@ export default function AiSettingsModal({
               <option value="gemini-2.5-pro">Gemini 2.5 Pro (Extremely Detailed - Slower)</option>
               <option value="gemini-1.5-flash">Gemini 1.5 Flash (Legacy)</option>
             </select>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '16px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isGoogleSignedIn ? 'pointer' : 'not-allowed', textTransform: 'none', fontWeight: 'normal' }}>
+              <input
+                type="checkbox"
+                checked={syncToDrive}
+                onChange={e => setSyncToDrive(e.target.checked)}
+                disabled={!isGoogleSignedIn}
+                style={{ width: '16px', height: '16px', padding: 0, margin: 0, cursor: isGoogleSignedIn ? 'pointer' : 'not-allowed' }}
+              />
+              <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>Sync API Keys to Google Drive</span>
+            </label>
+            {!isGoogleSignedIn && (
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block', textTransform: 'none' }}>
+                Sign in to Google Drive (via dashboard) to enable cross-device sync.
+              </span>
+            )}
+            <div 
+              className="glass-panel" 
+              style={{ 
+                marginTop: '8px', 
+                padding: '8px 12px', 
+                fontSize: '11px', 
+                color: 'var(--text-secondary)', 
+                lineHeight: 1.4, 
+                textTransform: 'none',
+                borderColor: 'rgba(255, 255, 255, 0.05)',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)'
+              }}
+            >
+              🔒 <strong>Security Note</strong>: Keys are stored in a private settings file (<code>ai-settings.json</code>) in your Google Drive's <code>apps/trip_planner</code> folder. They are never shared with collaborators, even if you share your trips.
+            </div>
           </div>
 
           {/* Test connection row */}

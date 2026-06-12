@@ -931,3 +931,158 @@ export async function importSharedTripFile(
     shared
   };
 }
+
+/**
+ * Fetches the user's AI settings file (ai-settings.json) from Google Drive if it exists.
+ */
+export async function fetchAiSettingsFromDrive(
+  accessToken: string,
+  folderId: string
+): Promise<{ keys: string[]; model: string } | null> {
+  if (!folderId) return null;
+  try {
+    const query = `name = 'ai-settings.json' and '${folderId}' in parents and trashed = false`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data.files || data.files.length === 0) return null;
+
+    const fileId = data.files[0].id;
+    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
+    const mediaResponse = await fetch(mediaUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!mediaResponse.ok) return null;
+    const settings = await mediaResponse.json();
+    if (settings && Array.isArray(settings.keys)) {
+      return settings;
+    }
+    return null;
+  } catch (err) {
+    console.error('Failed to fetch AI settings from Drive:', err);
+    return null;
+  }
+}
+
+/**
+ * Saves or updates the user's AI settings file (ai-settings.json) on Google Drive.
+ */
+export async function saveAiSettingsToDrive(
+  accessToken: string,
+  folderId: string,
+  aiSettings: { keys: string[]; model: string }
+): Promise<string> {
+  if (!folderId) {
+    throw new Error('Security Guardrail: Target folderId is required.');
+  }
+
+  const filename = 'ai-settings.json';
+  const contentString = JSON.stringify(aiSettings);
+
+  // 1. Search if the file already exists
+  const query = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
+  const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+  const searchResponse = await fetch(searchUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  let fileId = '';
+  if (searchResponse.ok) {
+    const data = await searchResponse.json();
+    if (data.files && data.files.length > 0) {
+      fileId = data.files[0].id;
+    }
+  }
+
+  if (fileId) {
+    // 2. Update existing file content
+    const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`;
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: contentString,
+    });
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to update AI settings on Google Drive.');
+    }
+    return fileId;
+  } else {
+    // 3. Create new file
+    const createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
+    const createResponse = await fetch(createUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: filename,
+        parents: [folderId],
+      }),
+    });
+
+    if (!createResponse.ok) {
+      throw new Error('Failed to create AI settings file on Google Drive.');
+    }
+    const createData = await createResponse.json();
+    const newFileId = createData.id;
+
+    const uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media&supportsAllDrives=true`;
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: contentString,
+    });
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload AI settings content to Google Drive.');
+    }
+    return newFileId;
+  }
+}
+
+/**
+ * Deletes the user's AI settings file (ai-settings.json) from Google Drive.
+ */
+export async function deleteAiSettingsFromDrive(
+  accessToken: string,
+  folderId: string
+): Promise<void> {
+  if (!folderId) return;
+  try {
+    const filename = 'ai-settings.json';
+    const query = `name = '${filename}' and '${folderId}' in parents and trashed = false`;
+    const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const searchResponse = await fetch(searchUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!searchResponse.ok) return;
+    const data = await searchResponse.json();
+    if (data.files && data.files.length > 0) {
+      const fileId = data.files[0].id;
+      await deleteFileFromDrive(accessToken, fileId);
+    }
+  } catch (err) {
+    console.error('Failed to delete AI settings from Drive:', err);
+  }
+}
+
