@@ -9,6 +9,10 @@ export interface Place {
   placeGroupId?: string; // Links to PlaceGroup.id or 'new' or undefined
   notes?: string;        // Notes are shared across all plans in the trip
   mapsLink?: string;     // Optional custom Google Maps link
+  aiDetails?: {
+    [key: string]: string;
+  };
+  aiUpdatedAt?: number; // Timestamp when AI details were populated/updated
 }
 
 export interface PlaceGroup {

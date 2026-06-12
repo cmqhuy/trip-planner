@@ -22,6 +22,9 @@ import GoogleAuthSection from './components/GoogleAuthSection';
 import ShareTripModal from './components/ShareTripModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import SyncConflictModal from './components/SyncConflictModal';
+import { GeminiService } from './utils/ai';
+import AiSettingsModal from './components/AiSettingsModal';
+import { Sparkles } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -43,6 +46,10 @@ export default function App() {
 
   // Share trip modal state
   const [shareModalTrip, setShareModalTrip] = useState<Trip | null>(null);
+
+  // AI Settings states
+  const [hasAiKey, setHasAiKey] = useState(() => GeminiService.hasApiKey());
+  const [showAiSettings, setShowAiSettings] = useState(false);
 
   // Conflict resolution states
   const [pendingConflicts, setPendingConflicts] = useState<{
@@ -884,6 +891,16 @@ export default function App() {
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            className={`ai-status-badge ${hasAiKey ? 'active' : 'nudge'}`}
+            onClick={() => setShowAiSettings(true)}
+            title={hasAiKey ? 'AI Settings (Active)' : 'Setup Gemini AI (Keys Missing)'}
+            style={{ display: 'flex', border: '1px solid var(--border-glass)' }}
+          >
+            <Sparkles size={14} className={hasAiKey ? '' : 'pulse'} />
+            <span>{hasAiKey ? 'AI Active' : 'Setup AI'}</span>
+          </button>
+
           <GoogleAuthSection
             user={googleUser}
             syncStatus={syncStatus}
@@ -956,6 +973,12 @@ export default function App() {
           onClose={() => setShareModalTrip(null)}
         />
       )}
+
+      <AiSettingsModal
+        isOpen={showAiSettings}
+        onClose={() => setShowAiSettings(false)}
+        onSaved={() => setHasAiKey(GeminiService.hasApiKey())}
+      />
 
     </div>
   );

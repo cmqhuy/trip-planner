@@ -235,24 +235,7 @@ export default function TripDashboard({
                       </span>
                     )}
                   </h3>
-                  {trip.isOwner === false && (
-                    <div 
-                      style={{ 
-                        display: 'inline-flex',
-                        fontSize: '9px', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px', 
-                        background: 'rgba(96, 165, 250, 0.15)', 
-                        color: '#60a5fa', 
-                        fontWeight: 600,
-                        marginTop: '2px',
-                        marginLeft: '0px',
-                        marginBottom: '8px'
-                      }}
-                    >
-                      {trip.canEdit === false ? 'Viewer' : 'Editor'}
-                    </div>
-                  )}
+
                   <div className="trip-card-dates" style={{ marginTop: '4px' }}>
                     <Calendar size={13} />
                     <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>
@@ -325,14 +308,38 @@ export default function TripDashboard({
                 </div>
                 <div 
                   style={{ 
-                    fontSize: '12px', 
-                    fontWeight: 600, 
-                    padding: '4px 8px', 
-                    borderRadius: '4px', 
-                    background: 'rgba(255,255,255,0.1)' 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'flex-end', 
+                    gap: '4px' 
                   }}
                 >
-                  {calculateDays(trip.startDate, trip.endDate)}
+                  {trip.isOwner === false && (
+                    <div 
+                      style={{ 
+                        display: 'inline-flex',
+                        fontSize: '9px', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        background: 'rgba(96, 165, 250, 0.15)', 
+                        color: '#60a5fa', 
+                        fontWeight: 600,
+                      }}
+                    >
+                      {trip.canEdit === false ? 'Viewer' : 'Editor'}
+                    </div>
+                  )}
+                  <div 
+                    style={{ 
+                      fontSize: '12px', 
+                      fontWeight: 600, 
+                      padding: '4px 8px', 
+                      borderRadius: '4px', 
+                      background: 'rgba(255,255,255,0.1)' 
+                    }}
+                  >
+                    {calculateDays(trip.startDate, trip.endDate)}
+                  </div>
                 </div>
               </div>
 

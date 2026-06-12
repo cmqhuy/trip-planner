@@ -3,6 +3,7 @@ import { X, Search, Trash2 } from 'lucide-react';
 import type { Place, PlaceGroup, Location } from '../types';
 import { searchPlacesNearLocation, buildMapsLink } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
+import { GeminiService } from '../utils/ai';
 
 interface PlaceModalProps {
   isOpen: boolean;
@@ -33,6 +34,12 @@ export default function PlaceModal({
   const [lat, setLat] = useState('0');
   const [lng, setLng] = useState('0');
 
+  // AI fields states
+  const [aiDetails, setAiDetails] = useState<{ [key: string]: string }>({});
+  const [aiUpdatedAt, setAiUpdatedAt] = useState<number | undefined>(undefined);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   // Search auto-populate states
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -43,6 +50,8 @@ export default function PlaceModal({
     if (isOpen) {
       setSearchQuery('');
       setSuggestions([]);
+      setAiError(null);
+      setIsAiGenerating(false);
       if (place) {
         // Edit mode
         setTitle(place.title);
@@ -54,6 +63,8 @@ export default function PlaceModal({
         setNotes(place.notes || '');
         setLat(place.lat.toString());
         setLng(place.lng.toString());
+        setAiDetails(place.aiDetails || {});
+        setAiUpdatedAt(place.aiUpdatedAt);
       } else {
         // Add mode
         setTitle('');
@@ -63,6 +74,8 @@ export default function PlaceModal({
         setMapsLink('');
         setPhotoUrl('');
         setNotes('');
+        setAiDetails({});
+        setAiUpdatedAt(undefined);
         if (catalogLocation) {
           setLat(catalogLocation.lat.toString());
           setLng(catalogLocation.lng.toString());
@@ -105,6 +118,45 @@ export default function PlaceModal({
 
   if (!isOpen) return null;
 
+  const handleAutoFillWithAi = async () => {
+    if (!title.trim()) {
+      setAiError('Please enter a place title first to generate insights.');
+      return;
+    }
+
+    if (!GeminiService.hasApiKey()) {
+      setAiError('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      return;
+    }
+
+    setIsAiGenerating(true);
+    setAiError(null);
+
+    try {
+      const city = catalogLocation?.city || '';
+      const country = catalogLocation?.country || '';
+      
+      const results = await GeminiService.generatePlaceAiDetailsWithRotation(
+        [{ id: 'temp-form-id', title: title.trim(), description: description.trim() }],
+        city,
+        country
+      );
+
+      if (results && results.length > 0) {
+        const { id, ...details } = results[0];
+        setAiDetails(details);
+        setAiUpdatedAt(Date.now());
+      } else {
+        setAiError('No details were returned by the AI.');
+      }
+    } catch (err: any) {
+      console.error('AI generation error:', err);
+      setAiError(err?.message || 'Failed to generate AI insights.');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !lat || !lng) return;
@@ -118,7 +170,9 @@ export default function PlaceModal({
       photoUrl: photoUrl.trim() || undefined,
       notes: notes.trim() || undefined,
       lat: parseFloat(lat),
-      lng: parseFloat(lng)
+      lng: parseFloat(lng),
+      aiDetails: Object.keys(aiDetails).length > 0 ? aiDetails : undefined,
+      aiUpdatedAt: aiUpdatedAt
     });
     onClose();
   };
@@ -221,6 +275,12 @@ export default function PlaceModal({
               lng={lng}
               setLng={setLng}
               placeGroups={placeGroups}
+              aiDetails={aiDetails}
+              setAiDetails={setAiDetails}
+              isAiGenerating={isAiGenerating}
+              onAutoFill={handleAutoFillWithAi}
+              aiError={aiError}
+              aiUpdatedAt={aiUpdatedAt}
             />
           </div>
 

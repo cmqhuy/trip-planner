@@ -1,7 +1,9 @@
+import { Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
 import ImagePreview from './ImagePreview';
 import CategoryGroupSelect from './CategoryGroupSelect';
 import MapPicker from './MapPicker';
 import type { PlaceGroup } from '../types';
+import { AI_DETAIL_FIELDS, GeminiService } from '../utils/ai';
 
 interface PlaceFormFieldsProps {
   title: string;
@@ -23,6 +25,13 @@ interface PlaceFormFieldsProps {
   lng: string;
   setLng: (val: string) => void;
   placeGroups: PlaceGroup[];
+  // AI fields addition
+  aiDetails: { [key: string]: string };
+  setAiDetails: (details: { [key: string]: string }) => void;
+  isAiGenerating: boolean;
+  onAutoFill: () => void;
+  aiError: string | null;
+  aiUpdatedAt?: number;
 }
 
 export default function PlaceFormFields({
@@ -44,8 +53,21 @@ export default function PlaceFormFields({
   setLat,
   lng,
   setLng,
-  placeGroups
+  placeGroups,
+  aiDetails,
+  setAiDetails,
+  isAiGenerating,
+  onAutoFill,
+  aiError,
+  aiUpdatedAt
 }: PlaceFormFieldsProps) {
+  const hasKeys = GeminiService.hasApiKey();
+
+  const formatFreshness = (timestamp?: number) => {
+    if (!timestamp) return '';
+    return ` (Last updated: ${new Date(timestamp).toLocaleDateString()})`;
+  };
+
   return (
     <>
       <div className="form-group">
@@ -151,6 +173,70 @@ export default function PlaceFormFields({
             setLng(pickedLng.toFixed(6));
           }}
         />
+      </div>
+
+      {/* AI Fields Section */}
+      <div style={{ borderTop: '1px dashed var(--border-glass)', marginTop: '20px', paddingTop: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#a5b4fc', textTransform: 'none', margin: 0, fontWeight: 600 }}>
+            <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
+            AI Travel Insights {formatFreshness(aiUpdatedAt)}
+          </h4>
+
+          <button
+            type="button"
+            className="btn-secondary flex-align"
+            style={{ 
+              fontSize: '11px', 
+              padding: '4px 10px', 
+              borderRadius: '6px',
+              gap: '6px',
+              borderColor: 'rgba(99, 102, 241, 0.2)',
+              background: 'rgba(99, 102, 241, 0.05)'
+            }}
+            onClick={onAutoFill}
+            disabled={isAiGenerating || !title.trim() || !hasKeys}
+            title={!hasKeys ? 'Configure Gemini API keys in settings to use this feature' : 'Auto-populate these fields with Gemini AI'}
+          >
+            {isAiGenerating ? (
+              <RefreshCw size={11} className="spin" />
+            ) : (
+              <Sparkles size={11} />
+            )}
+            {isAiGenerating ? 'Generating...' : 'Auto-Fill with AI'}
+          </button>
+        </div>
+
+        {aiError && (
+          <div className="ai-settings-test-panel error" style={{ margin: '8px 0 16px 0', padding: '8px 10px' }}>
+            <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+            <span style={{ textTransform: 'none', fontSize: '11.5px', lineHeight: 1.3 }}>{aiError}</span>
+          </div>
+        )}
+
+        {AI_DETAIL_FIELDS.map(field => (
+          <div className="form-group" key={field.key} style={{ marginTop: '12px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', textTransform: 'none', fontWeight: 500 }}>
+              <span style={{ color: '#c084fc', fontWeight: 'bold' }}>[AI]</span> {field.label}
+            </label>
+            <textarea
+              className="form-group-textarea"
+              value={aiDetails[field.key] || ''}
+              onChange={e => {
+                setAiDetails({
+                  ...aiDetails,
+                  [field.key]: e.target.value
+                });
+              }}
+              placeholder={field.placeholder}
+              rows={2}
+              style={{ fontSize: '13px', textTransform: 'none', width: '100%', padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)' }}
+            />
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', textTransform: 'none', lineHeight: 1.3 }}>
+              {field.instruction}
+            </span>
+          </div>
+        ))}
       </div>
     </>
   );
