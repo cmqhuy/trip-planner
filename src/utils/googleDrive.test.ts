@@ -413,7 +413,7 @@ describe('googleDrive api operations', () => {
     const result = await saveTripsToDrive('token', 'folder', [viewerTrip]);
 
     // Check that we did NOT call PATCH to rename (delete) trip-1.json
-    const deleteCall = mockFetch.mock.calls.find(c => c[0].includes('shadow-file-id') && c[1]?.method === 'PATCH');
+    const deleteCall = mockFetch.mock.calls.find(c => String(c[0]).includes('shadow-file-id') && c[1]?.method === 'PATCH');
     expect(deleteCall).toBeUndefined();
     expect(result.driveFileIds['1']).toBe('real-file-id');
   });

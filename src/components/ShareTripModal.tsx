@@ -22,6 +22,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
   const [roleInput, setRoleInput] = useState<'reader' | 'writer'>('reader');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fileId = trip.driveFileId;
 
@@ -200,6 +201,61 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
             Share
           </button>
         </form>
+
+        {/* Share Link Section */}
+        {fileId && (
+          <div style={{ 
+            marginBottom: '24px', 
+            padding: '12px 14px', 
+            borderRadius: '8px', 
+            border: '1px solid var(--border-glass)',
+            background: 'rgba(255, 255, 255, 0.02)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <Share2 size={13} style={{ color: 'var(--text-muted)' }} />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Share Link for Import</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                readOnly
+                value={`https://drive.google.com/file/d/${fileId}/view?usp=sharing`}
+                onClick={e => (e.target as HTMLInputElement).select()}
+                style={{ 
+                  flex: 1, 
+                  padding: '6px 10px', 
+                  fontSize: '12px', 
+                  background: 'var(--bg-dark)', 
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-secondary)',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                  textTransform: 'none'
+                }}
+              />
+              <button 
+                type="button" 
+                className="btn-secondary"
+                onClick={() => {
+                  navigator.clipboard.writeText(`https://drive.google.com/file/d/${fileId}/view?usp=sharing`);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                style={{ 
+                  padding: '0 12px', 
+                  fontSize: '12px', 
+                  height: '30px', 
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Collaborators List Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
