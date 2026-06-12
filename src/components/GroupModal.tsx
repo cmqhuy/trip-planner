@@ -28,7 +28,8 @@ export default function GroupModal({ isOpen, onClose, group, onSave, onDelete }:
         setIcon('map-pin');
       }
     }
-  }, [isOpen, group]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

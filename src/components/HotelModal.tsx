@@ -31,7 +31,8 @@ export default function HotelModal({
       setCheckOutDate(tripStartDate);
       setNotes('');
     }
-  }, [isOpen, tripStartDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleCheckInChange = (val: string) => {
     setCheckInDate(val);

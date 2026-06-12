@@ -72,7 +72,8 @@ export default function PlaceModal({
         }
       }
     }
-  }, [isOpen, place, catalogLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Handle auto-populate suggestions search with debounce
   useEffect(() => {

@@ -45,7 +45,8 @@ export default function TransportModal({
       setTransitCode('');
       setNotes('');
     }
-  }, [isOpen, tripStartDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Sync arrival date when departure date changes to ensure it's not before departure
   const handleDepDateChange = (val: string) => {

@@ -56,7 +56,8 @@ export default function LocationModal({
       setSearchQuery('');
       setSuggestions([]);
     }
-  }, [isOpen, location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Handle Nominatim geocoding search for auto-populating city details
   useEffect(() => {

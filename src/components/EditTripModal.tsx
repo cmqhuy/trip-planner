@@ -21,7 +21,8 @@ export default function EditTripModal({ isOpen, onClose, trip, onSave }: EditTri
       setStartDate(trip.startDate);
       setEndDate(trip.endDate);
     }
-  }, [isOpen, trip]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleStartDateChange = (newStart: string) => {
     if (startDate && endDate && newStart) {
