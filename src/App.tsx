@@ -814,10 +814,41 @@ export default function App() {
     }
   };
 
-  const handleUpdateTrip = (updatedTrip: Trip) => {
-    const tripWithTimestamp = { ...updatedTrip, updatedAt: Date.now() };
-    const updated = trips.map(t => (t.id === updatedTrip.id ? tripWithTimestamp : t));
-    saveTrips(updated);
+  const handleUpdateTrip = (updater: Trip | ((prev: Trip) => Trip)) => {
+    setTrips(prevTrips => {
+      const updated = prevTrips.map(t => {
+        if (typeof updater === 'function') {
+          if (t.id === activeTripId) {
+            const result = updater(t);
+            return { ...result, updatedAt: Date.now() };
+          }
+          return t;
+        } else {
+          if (t.id === updater.id) {
+            return { ...updater, updatedAt: Date.now() };
+          }
+          return t;
+        }
+      });
+
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+
+      if (googleToken && googleFolderId) {
+        setSyncStatus('pending');
+
+        if (syncTimeoutRef.current) {
+          clearTimeout(syncTimeoutRef.current);
+        }
+
+        syncTimeoutRef.current = setTimeout(() => {
+          const latestRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+          const latestTrips = latestRaw ? JSON.parse(latestRaw) : updated;
+          performSync(latestTrips);
+        }, 30000);
+      }
+
+      return updated;
+    });
   };
 
   const handleLeaveTrip = async (trip: Trip) => {

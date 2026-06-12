@@ -566,23 +566,20 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
    * Generates local essentials.
    */
   static async generateLocalEssentials(
-    locations: { city: string; country: string }[],
+    location: { city: string; country: string },
     apiKey: string,
     model = 'gemini-2.5-flash'
   ): Promise<string> {
-    const locationsList = locations.map(l => `- ${l.city}, ${l.country}`).join('\n');
+    const promptText = `You are a local travel guide expert. Provide a very concise Local Essentials Reference (in Markdown format) for ${location.city}, ${location.country}.
 
-    const promptText = `You are a local travel guide expert. Provide a Local Essentials Reference (in Markdown format) for the following destinations:
-${locationsList}
-
-Please organize the guide with clean subheadings and bullet points covering:
-1. **Convenience Stores & Essentials**: Best popular chains (e.g. 7-Eleven, Lawson, etc.), what you can find there (ATM, tickets, SIM cards, hot food), and payment methods.
-2. **Currency & Payments**: Local currency, acceptance of credit cards vs cash, mobile payments (Google Pay, local apps), and tipping culture.
-3. **Local Apps**: Must-have transit/mapping, ride-sharing, food delivery, and translation apps.
-4. **Dress Code & Local Etiquette**: Cultural norms, religious sites restrictions, and seasonal packing tips.
+Please organize the guide with clean subheadings, keeping each section extremely brief (max 2-3 concise bullet points or 1-2 short sentences per section, avoiding any wordiness):
+1. **Convenience Stores & Essentials**: Best popular chains (e.g. 7-Eleven, Lawson, etc.), what you can find there, and payment options.
+2. **Currency & Payments**: Local currency, acceptance of credit cards vs cash, and tipping culture.
+3. **Local Apps**: Must-have transit/mapping, ride-sharing, and translation apps.
+4. **Dress Code & Etiquette**: Cultural norms and seasonal packing/clothing tips.
 5. **Other Utilities**: Power plugs & voltage, tap water safety, and emergency phone numbers.
 
-Keep it highly practical, clean, and structured. Output ONLY raw Markdown.`;
+Output ONLY raw Markdown. Do not include any greeting or conversational filler.`;
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -610,7 +607,7 @@ Keep it highly practical, clean, and structured. Output ONLY raw Markdown.`;
    * Generates local essentials rotating through API keys.
    */
   static async generateLocalEssentialsWithRotation(
-    locations: { city: string; country: string }[],
+    location: { city: string; country: string },
     model?: string
   ): Promise<string> {
     const keys = this.getApiKeys().filter(k => k.trim());
@@ -623,7 +620,7 @@ Keep it highly practical, clean, and structured. Output ONLY raw Markdown.`;
 
     for (const key of keys) {
       try {
-        return await this.generateLocalEssentials(locations, key, selectedModel);
+        return await this.generateLocalEssentials(location, key, selectedModel);
       } catch (err) {
         console.warn(`Gemini local essentials call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
         lastError = err;

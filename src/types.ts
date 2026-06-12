@@ -42,6 +42,8 @@ export interface Location {
   lng: number;
   places: Place[];
   color?: string; // Hex color for color coding
+  aiLocalEssentials?: string;
+  aiLocalEssentialsUpdatedAt?: number;
 }
 
 export interface Transportation {
@@ -86,6 +88,9 @@ export interface Plan {
   days: { [dateStr: string]: PlanDay };
   hotels: Hotel[];
   transports: Transportation[];
+  manualChecklist?: { id: string; text: string; completed: boolean; }[];
+  aiChecklist?: string;
+  aiChecklistUpdatedAt?: number;
 }
 
 export interface Trip {
@@ -106,9 +111,4 @@ export interface Trip {
   shared?: boolean;          // True if the trip is shared with others
   enableBabyLogistics?: boolean;
   customAiFields?: { title: string; key: string; description: string; }[];
-  manualChecklist?: { id: string; text: string; completed: boolean; }[];
-  aiChecklist?: string;
-  aiChecklistUpdatedAt?: number;
-  aiLocalEssentials?: string;
-  aiLocalEssentialsUpdatedAt?: number;
 }

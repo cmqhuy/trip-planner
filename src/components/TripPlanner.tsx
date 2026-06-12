@@ -57,7 +57,7 @@ const hexToRgba = (hex: string, alpha: number) => {
 interface TripPlannerProps {
   trip: Trip;
   onBack: () => void;
-  onUpdateTrip: (updatedTrip: Trip) => void;
+  onUpdateTrip: (updatedTrip: Trip | ((prevTrip: Trip) => Trip)) => void;
   onShareTrip?: (trip: Trip) => void;
   isGoogleSignedIn?: boolean;
 }
@@ -628,35 +628,37 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   };
 
   const handleSaveBatchAiDetails = useCallback((updates: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } }) => {
-    const updatedLocations = trip.locations.map(l => {
-      let locationChanged = false;
-      const updatedPlaces = l.places.map(p => {
-        if (updates[p.id]) {
-          locationChanged = true;
-          const { suggestedMarkers, ...aiDetails } = updates[p.id];
+    onUpdateTrip(prevTrip => {
+      const updatedLocations = prevTrip.locations.map(l => {
+        let locationChanged = false;
+        const updatedPlaces = l.places.map(p => {
+          if (updates[p.id]) {
+            locationChanged = true;
+            const { suggestedMarkers, ...aiDetails } = updates[p.id];
+            return {
+              ...p,
+              aiDetails,
+              suggestedMarkers,
+              aiUpdatedAt: Date.now()
+            };
+          }
+          return p;
+        });
+        if (locationChanged) {
           return {
-            ...p,
-            aiDetails,
-            suggestedMarkers,
-            aiUpdatedAt: Date.now()
+            ...l,
+            places: updatedPlaces
           };
         }
-        return p;
+        return l;
       });
-      if (locationChanged) {
-        return {
-          ...l,
-          places: updatedPlaces
-        };
-      }
-      return l;
-    });
 
-    onUpdateTrip({
-      ...trip,
-      locations: updatedLocations
+      return {
+        ...prevTrip,
+        locations: updatedLocations
+      };
     });
-  }, [trip, onUpdateTrip]);
+  }, [onUpdateTrip]);
 
   const handleGenerateSinglePlaceAiDetails = useCallback(async (placeId: string) => {
     let targetPlace: Place | null = null;
@@ -705,7 +707,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         return next;
       });
     }
-  }, [trip, onUpdateTrip, handleSaveBatchAiDetails]);
+  }, [trip.locations, trip.customAiFields, handleSaveBatchAiDetails]);
 
   const handleMapClick = (_lat: number, _lng: number) => {
     // No-op. Modals now use their own self-contained MapPicker components.
@@ -1749,29 +1751,29 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
       if (results && results.length > 0) {
         const res = results[0];
-        const updatedDays = {
-          ...activePlan.days,
-          [dateStr]: {
-            ...day,
-            aiTips: res.tips,
-            aiBabyLogistics: res.babyLogistics,
-            aiTipsUpdatedAt: Date.now()
-          }
-        };
-
-        const updatedPlans = trip.plans.map(p => {
-          if (p.id === activePlan.id) {
-            return {
-              ...p,
-              days: updatedDays
-            };
-          }
-          return p;
-        });
-
-        onUpdateTrip({
-          ...trip,
-          plans: updatedPlans
+        onUpdateTrip(prevTrip => {
+          const updatedPlans = prevTrip.plans.map(p => {
+            if (p.id === activePlan.id) {
+              const updatedDays = {
+                ...p.days,
+                [dateStr]: {
+                  ...p.days[dateStr],
+                  aiTips: res.tips,
+                  aiBabyLogistics: res.babyLogistics,
+                  aiTipsUpdatedAt: Date.now()
+                }
+              };
+              return {
+                ...p,
+                days: updatedDays
+              };
+            }
+            return p;
+          });
+          return {
+            ...prevTrip,
+            plans: updatedPlans
+          };
         });
       }
     } catch (err: any) {
@@ -1840,32 +1842,32 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         !!trip.enableBabyLogistics
       );
 
-      const updatedDays = { ...activePlan.days };
-      results.forEach(res => {
-        const day = updatedDays[res.dateStr];
-        if (day) {
-          updatedDays[res.dateStr] = {
-             ...day,
-             aiTips: res.tips,
-             aiBabyLogistics: res.babyLogistics,
-             aiTipsUpdatedAt: Date.now()
-          };
-        }
-      });
-
-      const updatedPlans = trip.plans.map(p => {
-        if (p.id === activePlan.id) {
-          return {
-            ...p,
-            days: updatedDays
-          };
-        }
-        return p;
-      });
-
-      onUpdateTrip({
-        ...trip,
-        plans: updatedPlans
+      onUpdateTrip(prevTrip => {
+        const updatedPlans = prevTrip.plans.map(p => {
+          if (p.id === activePlan.id) {
+            const updatedDays = { ...p.days };
+            results.forEach(res => {
+              const day = updatedDays[res.dateStr];
+              if (day) {
+                updatedDays[res.dateStr] = {
+                   ...day,
+                   aiTips: res.tips,
+                   aiBabyLogistics: res.babyLogistics,
+                   aiTipsUpdatedAt: Date.now()
+                };
+              }
+            });
+            return {
+              ...p,
+              days: updatedDays
+            };
+          }
+          return p;
+        });
+        return {
+          ...prevTrip,
+          plans: updatedPlans
+        };
       });
     } finally {
       setDaysGeneratingDates(prev => {
@@ -1923,10 +1925,21 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         !!trip.enableBabyLogistics
       );
 
-      onUpdateTrip({
-        ...trip,
-        aiChecklist: result,
-        aiChecklistUpdatedAt: Date.now()
+      onUpdateTrip(prevTrip => {
+        const updatedPlans = prevTrip.plans.map(p => {
+          if (p.id === activePlan.id) {
+            return {
+              ...p,
+              aiChecklist: result,
+              aiChecklistUpdatedAt: Date.now()
+            };
+          }
+          return p;
+        });
+        return {
+          ...prevTrip,
+          plans: updatedPlans
+        };
       });
     } catch (err: any) {
       console.error('AI checklist generation failed:', err);
@@ -1938,7 +1951,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
   // Generate local essentials
   const handleGenerateLocalEssentials = async () => {
-    if (trip.locations.length === 0) {
+    const locId = selectedCatalogLocId || (trip.locations.length > 0 ? trip.locations[0].id : '');
+    const loc = trip.locations.find(l => l.id === locId);
+    if (!loc) {
       alert('Please add at least one location to your trip first.');
       return;
     }
@@ -1949,13 +1964,23 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
     setGeneratingLocalEssentials(true);
     try {
-      const locations = trip.locations.map(l => ({ city: l.city, country: l.country }));
-      const result = await GeminiService.generateLocalEssentialsWithRotation(locations);
+      const result = await GeminiService.generateLocalEssentialsWithRotation({ city: loc.city, country: loc.country });
 
-      onUpdateTrip({
-        ...trip,
-        aiLocalEssentials: result,
-        aiLocalEssentialsUpdatedAt: Date.now()
+      onUpdateTrip(prevTrip => {
+        const updatedLocations = prevTrip.locations.map(l => {
+          if (l.id === locId) {
+            return {
+              ...l,
+              aiLocalEssentials: result,
+              aiLocalEssentialsUpdatedAt: Date.now()
+            };
+          }
+          return l;
+        });
+        return {
+          ...prevTrip,
+          locations: updatedLocations
+        };
       });
     } catch (err: any) {
       console.error('AI local essentials generation failed:', err);
@@ -1973,65 +1998,132 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       text: text.trim(),
       completed: false
     };
-    onUpdateTrip({
-      ...trip,
-      manualChecklist: [...(trip.manualChecklist || []), newItem]
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          return {
+            ...p,
+            manualChecklist: [...(p.manualChecklist || []), newItem]
+          };
+        }
+        return p;
+      });
+      return {
+        ...prevTrip,
+        plans: updatedPlans
+      };
     });
   };
 
   const handleToggleManualChecklistItem = (id: string) => {
-    const updated = (trip.manualChecklist || []).map(item => {
-      if (item.id === id) {
-        return { ...item, completed: !item.completed };
-      }
-      return item;
-    });
-    onUpdateTrip({
-      ...trip,
-      manualChecklist: updated
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          const updated = (p.manualChecklist || []).map(item => {
+            if (item.id === id) {
+              return { ...item, completed: !item.completed };
+            }
+            return item;
+          });
+          return {
+            ...p,
+            manualChecklist: updated
+          };
+        }
+        return p;
+      });
+      return {
+        ...prevTrip,
+        plans: updatedPlans
+      };
     });
   };
 
   const handleDeleteManualChecklistItem = (id: string) => {
-    onUpdateTrip({
-      ...trip,
-      manualChecklist: (trip.manualChecklist || []).filter(item => item.id !== id)
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          return {
+            ...p,
+            manualChecklist: (p.manualChecklist || []).filter(item => item.id !== id)
+          };
+        }
+        return p;
+      });
+      return {
+        ...prevTrip,
+        plans: updatedPlans
+      };
     });
   };
 
   const handleMoveManualChecklistItem = (id: string, direction: 'up' | 'down') => {
-    if (!trip.manualChecklist) return;
-    const list = [...trip.manualChecklist];
-    const index = list.findIndex(item => item.id === id);
-    if (index === -1) return;
-    
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= list.length) return;
-    
-    // Swap
-    const temp = list[index];
-    list[index] = list[targetIndex];
-    list[targetIndex] = temp;
-    
-    onUpdateTrip({
-      ...trip,
-      manualChecklist: list
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          if (!p.manualChecklist) return p;
+          const list = [...p.manualChecklist];
+          const index = list.findIndex(item => item.id === id);
+          if (index === -1) return p;
+          
+          const targetIndex = direction === 'up' ? index - 1 : index + 1;
+          if (targetIndex < 0 || targetIndex >= list.length) return p;
+          
+          // Swap
+          const temp = list[index];
+          list[index] = list[targetIndex];
+          list[targetIndex] = temp;
+          
+          return {
+            ...p,
+            manualChecklist: list
+          };
+        }
+        return p;
+      });
+      return {
+        ...prevTrip,
+        plans: updatedPlans
+      };
     });
   };
 
   const handleSaveAiChecklist = (newContent: string) => {
-    onUpdateTrip({
-      ...trip,
-      aiChecklist: newContent,
-      aiChecklistUpdatedAt: Date.now()
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          return {
+            ...p,
+            aiChecklist: newContent,
+            aiChecklistUpdatedAt: Date.now()
+          };
+        }
+        return p;
+      });
+      return {
+        ...prevTrip,
+        plans: updatedPlans
+      };
     });
   };
 
   const handleSaveAiLocalEssentials = (newContent: string) => {
-    onUpdateTrip({
-      ...trip,
-      aiLocalEssentials: newContent,
-      aiLocalEssentialsUpdatedAt: Date.now()
+    const locId = selectedCatalogLocId || (trip.locations.length > 0 ? trip.locations[0].id : '');
+    onUpdateTrip(prevTrip => {
+      const updatedLocations = prevTrip.locations.map(l => {
+        if (l.id === locId) {
+          return {
+            ...l,
+            aiLocalEssentials: newContent,
+            aiLocalEssentialsUpdatedAt: Date.now()
+          };
+        }
+        return l;
+      });
+      return {
+        ...prevTrip,
+        locations: updatedLocations
+      };
     });
   };
 
@@ -2718,8 +2810,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
             </span>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
               {(() => {
-                const total = (trip.manualChecklist || []).length;
-                const done = (trip.manualChecklist || []).filter(c => c.completed).length;
+                const total = (activePlan.manualChecklist || []).length;
+                const done = (activePlan.manualChecklist || []).filter(c => c.completed).length;
                 return `${done}/${total} done`;
               })()}
             </span>
@@ -2761,9 +2853,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                       </button>
                     </form>
                   )}
-
+ 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto', paddingRight: '2px' }}>
-                    {(trip.manualChecklist || []).map((item, idx) => (
+                    {(activePlan.manualChecklist || []).map((item, idx) => (
                       <div 
                         key={item.id} 
                         className="flex-between glass-panel"
@@ -2778,12 +2870,23 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         onDrop={(e) => {
                           e.preventDefault();
                           if (draggedChecklistIndex === null || draggedChecklistIndex === idx) return;
-                          const list = [...(trip.manualChecklist || [])];
-                          const [removed] = list.splice(draggedChecklistIndex, 1);
-                          list.splice(idx, 0, removed);
-                          onUpdateTrip({
-                            ...trip,
-                            manualChecklist: list
+                          onUpdateTrip(prevTrip => {
+                            const updatedPlans = prevTrip.plans.map(p => {
+                              if (p.id === activePlan.id) {
+                                const list = [...(p.manualChecklist || [])];
+                                const [removed] = list.splice(draggedChecklistIndex, 1);
+                                list.splice(idx, 0, removed);
+                                return {
+                                  ...p,
+                                  manualChecklist: list
+                                };
+                              }
+                              return p;
+                            });
+                            return {
+                              ...prevTrip,
+                              plans: updatedPlans
+                            };
                           });
                         }}
                         onDragEnd={() => setDraggedChecklistIndex(null)}
@@ -2838,8 +2941,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                               type="button" 
                               className="mini-icon-btn" 
                               onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
-                              disabled={(trip.manualChecklist || []).indexOf(item) === 0}
-                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (trip.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
+                              disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
+                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
                               data-tooltip="Move Up"
                             >
                               <ChevronUp size={12} />
@@ -2848,8 +2951,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                               type="button" 
                               className="mini-icon-btn" 
                               onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
-                              disabled={(trip.manualChecklist || []).indexOf(item) === (trip.manualChecklist || []).length - 1}
-                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (trip.manualChecklist || []).indexOf(item) === (trip.manualChecklist || []).length - 1 ? 0.3 : 1 }}
+                              disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
+                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
                               data-tooltip="Move Down"
                             >
                               <ChevronDown size={12} />
@@ -2867,15 +2970,15 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         )}
                       </div>
                     ))}
-
-                    {(trip.manualChecklist || []).length === 0 && (
+ 
+                    {(activePlan.manualChecklist || []).length === 0 && (
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                         No personal tasks added.
                       </span>
                     )}
                   </div>
                 </div>
-
+ 
                 {/* Section B: AI Generated Checklist */}
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                   <div className="flex-between" style={{ marginBottom: '8px' }}>
@@ -2890,17 +2993,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         disabled={generatingChecklist}
                       >
                         {generatingChecklist ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
-                        {trip.aiChecklist ? 'Regenerate' : 'Generate'}
+                        {activePlan.aiChecklist ? 'Regenerate' : 'Generate'}
                       </button>
                     )}
                   </div>
-
+ 
                   {generatingChecklist ? (
                     <FunGeneratingLoader message="Analyzing trip logistics & requirements..." />
-                  ) : trip.aiChecklist ? (
+                  ) : activePlan.aiChecklist ? (
                     <AiMarkdownSection 
-                      content={trip.aiChecklist} 
-                      updatedAt={trip.aiChecklistUpdatedAt} 
+                      content={activePlan.aiChecklist} 
+                      updatedAt={activePlan.aiChecklistUpdatedAt} 
                       onSave={handleSaveAiChecklist}
                       canEdit={trip.canEdit !== false}
                       style={{ maxHeight: 'none', overflowY: 'auto', flex: 1 }}
@@ -2922,7 +3025,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                     </div>
                   )}
                 </div>
-
+ 
               </div>
             </div>
           )}
@@ -3093,19 +3196,33 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
               Tips (Local Essentials)
             </span>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              {trip.aiLocalEssentials ? 'Ready' : 'Empty'}
+              {catalogLocation && catalogLocation.aiLocalEssentials ? 'Ready' : 'Empty'}
             </span>
           </div>
           
           {expandedLeftSection === 'tips' && (
             <div className="accordion-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+              {/* Location Select (Synced with Catalog, No Add/Edit buttons) */}
+              <div style={{ padding: '0 0 12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '12px' }}>
+                <select
+                  value={selectedCatalogLocId}
+                  onChange={(e) => setSelectedCatalogLocId(e.target.value)}
+                  style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)', minWidth: 0, border: '1px solid var(--border-glass)', borderRadius: '6px' }}
+                >
+                  {trip.locations.length === 0 && <option value="">No Locations Added</option>}
+                  {trip.locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc, trip.locations)}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Local Essentials Content */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%', flex: 1, minHeight: 0 }}>
                 <div className="flex-between">
                   <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', textTransform: 'none' }}>
                     Quick reference for convenience stores, currencies, local apps, dress codes, etc.
                   </span>
-                  {trip.locations.length > 0 && trip.canEdit !== false && (
+                  {catalogLocation && trip.canEdit !== false && (
                     <button 
                       className="mini-icon-btn flex-align"
                       style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)', flexShrink: 0 }}
@@ -3113,17 +3230,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                       disabled={generatingLocalEssentials}
                     >
                       {generatingLocalEssentials ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
-                      {trip.aiLocalEssentials ? 'Regenerate' : 'Generate'}
+                      {catalogLocation.aiLocalEssentials ? 'Regenerate' : 'Generate'}
                     </button>
                   )}
                 </div>
 
                 {generatingLocalEssentials ? (
                   <FunGeneratingLoader message="Gathering destination reference guide..." />
-                ) : trip.aiLocalEssentials ? (
+                ) : catalogLocation && catalogLocation.aiLocalEssentials ? (
                   <AiMarkdownSection 
-                    content={trip.aiLocalEssentials} 
-                    updatedAt={trip.aiLocalEssentialsUpdatedAt} 
+                    content={catalogLocation.aiLocalEssentials} 
+                    updatedAt={catalogLocation.aiLocalEssentialsUpdatedAt} 
                     onSave={handleSaveAiLocalEssentials}
                     canEdit={trip.canEdit !== false}
                     style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}
@@ -3133,7 +3250,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '8px' }}>
                       No Local Essentials Reference guide generated yet.
                     </span>
-                    {trip.locations.length > 0 && trip.canEdit !== false && (
+                    {catalogLocation && trip.canEdit !== false && (
                       <button 
                         className="btn-secondary flex-align"
                         style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
@@ -3186,11 +3303,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     manualChecklistInput,
     generatingChecklist,
     generatingLocalEssentials,
-    trip.manualChecklist,
-    trip.aiChecklist,
-    trip.aiChecklistUpdatedAt,
-    trip.aiLocalEssentials,
-    trip.aiLocalEssentialsUpdatedAt,
+    activePlan.manualChecklist,
+    activePlan.aiChecklist,
+    activePlan.aiChecklistUpdatedAt,
     trip.customAiFields,
     activePlan.hotels,
     activePlan.transports
