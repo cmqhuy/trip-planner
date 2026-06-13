@@ -10,7 +10,9 @@ interface AiGenerateModalProps {
   city: string;
   country: string;
   onSave: (updates: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } }) => void;
-  customAiFields?: { title: string; key: string; description: string }[];
+  customAiFields?: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[];
+  disabledPlaceFields?: string[];
+  placeFieldsOrder?: string[];
 }
 
 export default function AiGenerateModal({
@@ -20,7 +22,9 @@ export default function AiGenerateModal({
   city,
   country,
   onSave,
-  customAiFields
+  customAiFields,
+  disabledPlaceFields = [],
+  placeFieldsOrder = []
 }: AiGenerateModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -90,7 +94,10 @@ export default function AiGenerateModal({
         placesToGen,
         city,
         country,
-        customAiFields
+        customAiFields,
+        undefined, // model
+        disabledPlaceFields,
+        placeFieldsOrder
       );
 
       // Map back to update object

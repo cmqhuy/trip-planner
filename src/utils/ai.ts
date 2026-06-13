@@ -1,4 +1,13 @@
 
+export const DEFAULT_AI_ICONS = [
+  'Sparkles', 'Sparkle', 'Wand2', 'Brain', 'Bot',
+  'Calendar', 'Ticket', 'Compass', 'AlertCircle', 'HelpCircle',
+  'MapPin', 'Info', 'Smile', 'Camera', 'Utensils', 'ShoppingBag',
+  'Coffee', 'DollarSign', 'BookOpen', 'Clock', 'Baby',
+  'Activity', 'TrendingUp', 'Flame', 'Gem', 'Sun', 'Heart',
+  'Globe', 'Languages', 'Map'
+];
+
 export interface AiDetailField {
   key: string;
   label: string;
@@ -58,6 +67,53 @@ export const AI_DETAIL_FIELDS: AiDetailField[] = [
     placeholder: "e.g. Stroller accessible, restrooms available nearby..."
   }
 ];
+
+export interface MergedAiField {
+  key: string;
+  title: string;
+  description: string;
+  icon: string;
+  isDefault: boolean;
+  disabled: boolean;
+}
+
+export function getOrderedPlaceFields(
+  customAiFields: { title: string; key: string; description: string; icon?: string; disabled?: boolean }[] = [],
+  disabledPlaceFields: string[] = [],
+  placeFieldsOrder: string[] = []
+): MergedAiField[] {
+  const defaultFields = AI_DETAIL_FIELDS.map(f => ({
+    key: f.key,
+    title: f.label,
+    description: f.instruction,
+    icon: f.icon,
+    isDefault: true,
+    disabled: disabledPlaceFields.includes(f.key)
+  }));
+
+  const customFields = customAiFields.map(f => ({
+    key: f.key,
+    title: f.title,
+    description: f.description,
+    icon: f.icon || 'Sparkles',
+    isDefault: false,
+    disabled: !!f.disabled
+  }));
+
+  const allFields = [...defaultFields, ...customFields];
+
+  if (placeFieldsOrder && placeFieldsOrder.length > 0) {
+    allFields.sort((a, b) => {
+      let idxA = placeFieldsOrder.indexOf(a.key);
+      let idxB = placeFieldsOrder.indexOf(b.key);
+      if (idxA === -1) idxA = 999;
+      if (idxB === -1) idxB = 999;
+      return idxA - idxB;
+    });
+  }
+
+  return allFields;
+}
 
 const KEYS_STORAGE_KEY = 'vacation-itineraries-gemini-api-keys';
 const MODEL_STORAGE_KEY = 'vacation-itineraries-gemini-model';
@@ -155,7 +211,9 @@ export class GeminiService {
     country: string,
     apiKey: string,
     model = 'gemini-2.5-flash',
-    customAiFields?: { title: string; key: string; description: string }[]
+    customAiFields?: { title: string; key: string; description: string; disabled?: boolean }[],
+    disabledPlaceFields?: string[],
+    placeFieldsOrder?: string[]
   ): Promise<{ id: string; suggestedMarkers?: any[]; [key: string]: any }[]> {
     if (places.length === 0) return [];
 
@@ -163,19 +221,16 @@ export class GeminiService {
     const required = ['id'];
     const fieldsPrompt: string[] = [];
 
-    for (const field of AI_DETAIL_FIELDS) {
+    const orderedFields = getOrderedPlaceFields(customAiFields, disabledPlaceFields, placeFieldsOrder);
+
+    for (const field of orderedFields) {
+      if (field.disabled) continue;
       properties[field.key] = { type: 'STRING' };
       required.push(field.key);
-      fieldsPrompt.push(`- "${field.key}": ${field.instruction}`);
-    }
-
-    if (customAiFields && customAiFields.length > 0) {
-      for (const field of customAiFields) {
-        if (field.key && field.title) {
-          properties[field.key] = { type: 'STRING' };
-          required.push(field.key);
-          fieldsPrompt.push(`- "${field.key}": (${field.title}) ${field.description}`);
-        }
+      if (field.isDefault) {
+        fieldsPrompt.push(`- "${field.key}": ${field.description}`);
+      } else {
+        fieldsPrompt.push(`- "${field.key}": (${field.title}) ${field.description}`);
       }
     }
 
@@ -267,8 +322,10 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     places: { id: string; title: string; description?: string; lat?: number; lng?: number }[],
     city: string,
     country: string,
-    customAiFields?: { title: string; key: string; description: string }[],
-    model?: string
+    customAiFields?: { title: string; key: string; description: string; disabled?: boolean }[],
+    model?: string,
+    disabledPlaceFields?: string[],
+    placeFieldsOrder?: string[]
   ): Promise<{ id: string; suggestedMarkers?: any[]; [key: string]: any }[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
@@ -280,7 +337,7 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
 
     for (const key of keys) {
       try {
-        return await this.generatePlaceAiDetails(places, city, country, key, selectedModel, customAiFields);
+        return await this.generatePlaceAiDetails(places, city, country, key, selectedModel, customAiFields, disabledPlaceFields, placeFieldsOrder);
       } catch (err) {
         console.warn(`Gemini call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
         lastError = err;
@@ -310,19 +367,25 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     }[],
     apiKey: string,
     model = 'gemini-2.5-flash',
-    enableBabyLogistics = false
+    enableBabyLogistics = false,
+    disabledDayFields?: string[]
   ): Promise<{
     dateStr: string;
-    tips: string;
+    tips?: string;
     babyLogistics?: string;
   }[]> {
     if (days.length === 0) return [];
 
     const properties: any = {
-      dateStr: { type: 'STRING' },
-      tips: { type: 'STRING' }
+      dateStr: { type: 'STRING' }
     };
-    const required = ['dateStr', 'tips'];
+    const required = ['dateStr'];
+
+    const tipsDisabled = disabledDayFields?.includes('daily_tips');
+    if (!tipsDisabled) {
+      properties['tips'] = { type: 'STRING' };
+      required.push('tips');
+    }
 
     if (enableBabyLogistics) {
       properties['babyLogistics'] = { type: 'STRING' };
@@ -436,10 +499,11 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
       transports: string[];
     }[],
     enableBabyLogistics = false,
-    model?: string
+    model?: string,
+    disabledDayFields?: string[]
   ): Promise<{
     dateStr: string;
-    tips: string;
+    tips?: string;
     babyLogistics?: string;
   }[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
@@ -452,7 +516,7 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
 
     for (const key of keys) {
       try {
-        return await this.generateDailyTips(days, key, selectedModel, enableBabyLogistics);
+        return await this.generateDailyTips(days, key, selectedModel, enableBabyLogistics, disabledDayFields);
       } catch (err) {
         console.warn(`Gemini daily tips call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
         lastError = err;

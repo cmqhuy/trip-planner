@@ -691,7 +691,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         [{ id: placeId, title: targetPlace.title, description: targetPlace.description, lat: targetPlace.lat, lng: targetPlace.lng }],
         targetLoc.city,
         targetLoc.country,
-        trip.customAiFields
+        trip.customAiFields,
+        undefined, // model
+        trip.disabledPlaceFields
       );
 
       if (results && results.length > 0) {
@@ -708,7 +710,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         return next;
       });
     }
-  }, [trip.locations, trip.customAiFields, handleSaveBatchAiDetails]);
+  }, [trip.locations, trip.customAiFields, trip.disabledPlaceFields, handleSaveBatchAiDetails]);
 
   const handleMapClick = (_lat: number, _lng: number) => {
     // No-op. Modals now use their own self-contained MapPicker components.
@@ -1689,11 +1691,20 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   };
 
   // Save Trip AI Config (baby logistics checkbox & custom AI fields)
-  const handleSaveTripAiConfig = (enableBabyLogistics: boolean, customAiFields: { title: string; key: string; description: string; }[]) => {
+  const handleSaveTripAiConfig = (
+    enableBabyLogistics: boolean,
+    customAiFields: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[],
+    disabledPlaceFields?: string[],
+    disabledDayFields?: string[],
+    placeFieldsOrder?: string[]
+  ) => {
     onUpdateTrip({
       ...trip,
       enableBabyLogistics,
-      customAiFields
+      customAiFields,
+      disabledPlaceFields: disabledPlaceFields || [],
+      disabledDayFields: disabledDayFields || [],
+      placeFieldsOrder: placeFieldsOrder || []
     });
   };
 
@@ -1747,7 +1758,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           hotels: dayHotels,
           transports: dayTransports
         }],
-        !!trip.enableBabyLogistics
+        !!trip.enableBabyLogistics,
+        undefined, // model
+        trip.disabledDayFields
       );
 
       if (results && results.length > 0) {
@@ -1840,7 +1853,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
       const results = await GeminiService.generateDailyTipsWithRotation(
         daysPayload,
-        !!trip.enableBabyLogistics
+        !!trip.enableBabyLogistics,
+        undefined, // model
+        trip.disabledDayFields
       );
 
       onUpdateTrip(prevTrip => {
@@ -2771,7 +2786,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                         </>
                                       )}
                                     </div>
-
                                     <AiDetailsView
                                       place={place}
                                       onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
@@ -2779,6 +2793,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                                       isGenerating={placeGeneratingIds.has(place.id)}
                                       layoutMode="single-col"
                                       customAiFields={trip.customAiFields}
+                                      disabledPlaceFields={trip.disabledPlaceFields}
+                                      fieldIcons={trip.fieldIcons}
+                                      placeFieldsOrder={trip.placeFieldsOrder}
                                     />
                                   </div>
                                 )}
@@ -3753,83 +3770,111 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 </span>
                 
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  {trip.canEdit !== false && (
-                    <button 
-                      className="mini-icon-btn flex-align"
-                      style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', background: 'rgba(99, 102, 241, 0.12)', color: '#a5b4fc' }}
-                      onClick={() => handleGenerateSingleDayTips(activeDayStr)}
-                      disabled={daysGeneratingDates.has(activeDayStr)}
-                    >
-                      {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={10} className="spin" /> : <RefreshCw size={10} />}
-                      {activeDay?.aiTips ? 'Regenerate Tips' : 'Generate Tips'}
-                    </button>
-                  )}
-                  {trip.canEdit !== false && (
-                    <button 
-                      className="mini-icon-btn flex-align"
-                      style={{ fontSize: '10px', padding: '2px 8px', gap: '4px' }}
-                      onClick={() => {
-                        setShowAiGenerateDaysModal(true);
-                      }}
-                    >
-                      <Sparkles size={10} /> Batch Generate Tips
-                    </button>
-                  )}
+                  {(() => {
+                    const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
+                    const isBabyLogisticsEnabled = !!trip.enableBabyLogistics;
+                    const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
+                    return (
+                      <>
+                        {trip.canEdit !== false && (
+                          <button 
+                            className="mini-icon-btn flex-align"
+                            style={{ fontSize: '10px', padding: '2px 8px', gap: '4px' }}
+                            onClick={() => {
+                              if (isAnyDayFieldEnabled) {
+                                handleGenerateSingleDayTips(activeDayStr);
+                              }
+                            }}
+                            disabled={daysGeneratingDates.has(activeDayStr) || !isAnyDayFieldEnabled}
+                            data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : (activeDay?.aiTips ? 'Regenerate Tips' : 'Generate Tips')}
+                          >
+                            {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={10} className="spin" /> : <RefreshCw size={10} />}
+                            {activeDay?.aiTips ? 'Regenerate Tips' : 'Generate Tips'}
+                          </button>
+                        )}
+                        {trip.canEdit !== false && (
+                          <button 
+                            className="mini-icon-btn flex-align"
+                            style={{ fontSize: '10px', padding: '2px 8px', gap: '4px' }}
+                            onClick={() => {
+                              if (isAnyDayFieldEnabled) {
+                                setShowAiGenerateDaysModal(true);
+                              }
+                            }}
+                            disabled={!isAnyDayFieldEnabled}
+                            data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : 'Batch Generate Tips'}
+                          >
+                            <Sparkles size={10} /> Batch Generate Tips
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
-              {daysGeneratingDates.has(activeDayStr) ? (
-                <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
-              ) : activeDay?.aiTips ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  
-                  {/* Daily Tips */}
-                  <AiMarkdownSection 
-                    content={activeDay.aiTips} 
-                    updatedAt={activeDay.aiTipsUpdatedAt}
-                    onSave={(newVal) => handleSaveDayTips(activeDayStr, newVal)}
-                    canEdit={trip.canEdit !== false}
-                  />
+              {(() => {
+                const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
+                const isBabyLogisticsEnabled = !!trip.enableBabyLogistics;
+                const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
 
-                  {/* Baby Logistics (if enabled and generated) */}
-                  {trip.enableBabyLogistics && activeDay.aiBabyLogistics && (
-                    <div 
-                      style={{ 
-                        borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
-                        paddingTop: '8px', 
-                        marginTop: '4px' 
-                      }}
-                    >
+                return daysGeneratingDates.has(activeDayStr) ? (
+                  <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
+                ) : (isDailyTipsEnabled && activeDay?.aiTips) || (isBabyLogisticsEnabled && activeDay?.aiBabyLogistics) ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    
+                    {/* Daily Tips */}
+                    {isDailyTipsEnabled && activeDay?.aiTips && (
                       <AiMarkdownSection 
-                        content={activeDay.aiBabyLogistics} 
-                        onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
+                        content={activeDay.aiTips} 
+                        updatedAt={activeDay.aiTipsUpdatedAt}
+                        onSave={(newVal) => handleSaveDayTips(activeDayStr, newVal)}
                         canEdit={trip.canEdit !== false}
-                        title={
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8' }}>
-                            👶 Baby Logistics
-                          </span>
-                        }
                       />
-                    </div>
-                  )}
+                    )}
 
-                </div>
-              ) : (
-                <div style={{ padding: '8px 0', textAlign: 'center' }}>
-                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '6px' }}>
-                    No daily tips or transit warnings generated for this day yet.
-                  </span>
-                  {trip.canEdit !== false && (
-                    <button 
-                      className="btn-secondary flex-align"
-                      style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px', borderColor: 'rgba(99, 102, 241, 0.15)' }}
-                      onClick={() => handleGenerateSingleDayTips(activeDayStr)}
-                    >
-                      <Sparkles size={11} /> Generate Day Tips
-                    </button>
-                  )}
-                </div>
-              )}
+                    {/* Baby Logistics (if enabled and generated) */}
+                    {isBabyLogisticsEnabled && activeDay.aiBabyLogistics && (
+                      <div 
+                        style={{ 
+                          borderTop: isDailyTipsEnabled && activeDay?.aiTips ? '1px solid rgba(255, 255, 255, 0.05)' : 'none', 
+                          paddingTop: isDailyTipsEnabled && activeDay?.aiTips ? '8px' : '0', 
+                          marginTop: isDailyTipsEnabled && activeDay?.aiTips ? '4px' : '0' 
+                        }}
+                      >
+                        <AiMarkdownSection 
+                          content={activeDay.aiBabyLogistics} 
+                          onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
+                          canEdit={trip.canEdit !== false}
+                          title={
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8' }}>
+                              👶 Baby Logistics
+                            </span>
+                          }
+                        />
+                      </div>
+                    )}
+
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 0', textAlign: 'center' }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '6px' }}>
+                      {!isAnyDayFieldEnabled 
+                        ? 'All day-level AI fields are disabled in Settings.' 
+                        : 'No daily tips or transit warnings generated for this day yet.'}
+                    </span>
+                    {trip.canEdit !== false && isAnyDayFieldEnabled && (
+                      <button 
+                        className="btn-secondary flex-align"
+                        style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px', borderColor: 'rgba(99, 102, 241, 0.15)' }}
+                        onClick={() => handleGenerateSingleDayTips(activeDayStr)}
+                      >
+                        <Sparkles size={11} /> Generate Day Tips
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* 4. Timeline Schedule Places */}
@@ -4333,6 +4378,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                               isGenerating={placeGeneratingIds.has(place.id)}
                               layoutMode="adaptive-2-col"
                               customAiFields={trip.customAiFields}
+                              disabledPlaceFields={trip.disabledPlaceFields}
+                              fieldIcons={trip.fieldIcons}
+                              placeFieldsOrder={trip.placeFieldsOrder}
                             />
 
 
@@ -4482,6 +4530,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         }}
         onDelete={editingPlace && !editingPlace.id.startsWith('new-temp-') ? handleDeletePlace : undefined}
         customAiFields={trip.customAiFields}
+        disabledPlaceFields={trip.disabledPlaceFields}
+        fieldIcons={trip.fieldIcons}
+        placeFieldsOrder={trip.placeFieldsOrder}
       />
 
       {/* 7. Group Modal */}
@@ -4540,6 +4591,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           country={aiGenerateCountry}
           onSave={handleSaveBatchAiDetails}
           customAiFields={trip.customAiFields}
+          disabledPlaceFields={trip.disabledPlaceFields}
+          placeFieldsOrder={trip.placeFieldsOrder}
         />
       )}
 

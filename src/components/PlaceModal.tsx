@@ -13,7 +13,10 @@ interface PlaceModalProps {
   placeGroups: PlaceGroup[];
   onSave: (placeData: Omit<Place, 'id'>) => void;
   onDelete?: (id: string) => void;
-  customAiFields?: { title: string; key: string; description: string; }[];
+  customAiFields?: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[];
+  disabledPlaceFields?: string[];
+  fieldIcons?: { [key: string]: string };
+  placeFieldsOrder?: string[];
 }
 
 export default function PlaceModal({
@@ -24,7 +27,10 @@ export default function PlaceModal({
   placeGroups,
   onSave,
   onDelete,
-  customAiFields
+  customAiFields,
+  disabledPlaceFields = [],
+  fieldIcons = {},
+  placeFieldsOrder = []
 }: PlaceModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -151,7 +157,10 @@ export default function PlaceModal({
         }],
         city,
         country,
-        customAiFields
+        customAiFields,
+        undefined, // model
+        disabledPlaceFields,
+        placeFieldsOrder
       );
 
       if (results && results.length > 0) {
@@ -296,6 +305,9 @@ export default function PlaceModal({
               aiError={aiError}
               aiUpdatedAt={aiUpdatedAt}
               customAiFields={customAiFields}
+              disabledPlaceFields={disabledPlaceFields}
+              fieldIcons={fieldIcons}
+              placeFieldsOrder={placeFieldsOrder}
             />
           </div>
 

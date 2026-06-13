@@ -565,7 +565,7 @@ describe('TripPlanner Component', () => {
       ]
     };
 
-    const { container } = render(
+    render(
       <TripPlanner
         trip={tripWithChecklist}
         onBack={handleBack}

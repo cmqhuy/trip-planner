@@ -110,5 +110,9 @@ export interface Trip {
   canEdit?: boolean;         // True if the current user has edit permission
   shared?: boolean;          // True if the trip is shared with others
   enableBabyLogistics?: boolean;
-  customAiFields?: { title: string; key: string; description: string; }[];
+  disabledPlaceFields?: string[];
+  disabledDayFields?: string[];
+  fieldIcons?: { [key: string]: string };
+  placeFieldsOrder?: string[];
+  customAiFields?: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[];
 }

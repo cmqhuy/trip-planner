@@ -1,9 +1,10 @@
-import { Sparkles, RefreshCw, AlertTriangle, Calendar, Ticket, Compass, AlertCircle, HelpCircle } from 'lucide-react';
+import { Sparkles, RefreshCw, AlertTriangle, HelpCircle } from 'lucide-react';
 import ImagePreview from './ImagePreview';
 import CategoryGroupSelect from './CategoryGroupSelect';
 import MapPicker from './MapPicker';
 import type { PlaceGroup } from '../types';
-import { AI_DETAIL_FIELDS, GeminiService } from '../utils/ai';
+import { GeminiService, getOrderedPlaceFields } from '../utils/ai';
+import { FIELD_ICONS_MAP, getIconColor } from './TripAiConfigModal';
 
 interface PlaceFormFieldsProps {
   title: string;
@@ -32,7 +33,10 @@ interface PlaceFormFieldsProps {
   onAutoFill: () => void;
   aiError: string | null;
   aiUpdatedAt?: number;
-  customAiFields?: { title: string; key: string; description: string; }[];
+  customAiFields?: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[];
+  disabledPlaceFields?: string[];
+  fieldIcons?: { [key: string]: string };
+  placeFieldsOrder?: string[];
 }
 
 export default function PlaceFormFields({
@@ -61,31 +65,26 @@ export default function PlaceFormFields({
   onAutoFill,
   aiError,
   aiUpdatedAt,
-  customAiFields
+  customAiFields,
+  disabledPlaceFields = [],
+  fieldIcons = {},
+  placeFieldsOrder = []
 }: PlaceFormFieldsProps) {
   const hasKeys = GeminiService.hasApiKey();
 
-  const getFieldIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Sparkles':
-        return <Sparkles size={13} style={{ color: '#a5b4fc' }} />;
-      case 'Calendar':
-        return <Calendar size={13} style={{ color: '#fda4af' }} />;
-      case 'Ticket':
-        return <Ticket size={13} style={{ color: '#6ee7b7' }} />;
-      case 'Compass':
-        return <Compass size={13} style={{ color: '#93c5fd' }} />;
-      case 'AlertCircle':
-        return <AlertCircle size={13} style={{ color: '#fde047' }} />;
-      default:
-        return <HelpCircle size={13} style={{ color: '#c084fc' }} />;
-    }
+  const getFieldIcon = (fieldKey: string, defaultIconName: string) => {
+    const iconName = fieldIcons?.[fieldKey] || defaultIconName;
+    const IconComponent = FIELD_ICONS_MAP[iconName] || HelpCircle;
+    const color = getIconColor(iconName);
+    return <IconComponent size={13} style={{ color }} />;
   };
 
   const formatFreshness = (timestamp?: number) => {
     if (!timestamp) return '';
     return ` (Last updated: ${new Date(timestamp).toLocaleDateString()})`;
   };
+
+  const orderedFields = getOrderedPlaceFields(customAiFields, disabledPlaceFields, placeFieldsOrder);
 
   return (
     <div className="place-form-grid">
@@ -242,65 +241,39 @@ export default function PlaceFormFields({
             </div>
           )}
 
-          {AI_DETAIL_FIELDS.map(field => (
-            <div className="form-group" key={field.key} style={{ marginTop: '12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '12px', textTransform: 'none', fontWeight: 500 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {getFieldIcon(field.icon)}
-                  {field.label}
-                </span>
-                <span title="AI Generated Field" style={{ display: 'flex', alignItems: 'center' }}>
-                  <Sparkles size={12} style={{ color: '#c084fc' }} />
-                </span>
-              </label>
-              <textarea
-                className="form-group-textarea"
-                value={aiDetails[field.key] || ''}
-                onChange={e => {
-                  setAiDetails({
-                    ...aiDetails,
-                    [field.key]: e.target.value
-                  });
-                }}
-                placeholder={field.placeholder}
-                rows={4}
-                style={{ fontSize: '13px', textTransform: 'none', width: '100%', padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)' }}
-              />
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', textTransform: 'none', lineHeight: 1.3 }}>
-                {field.instruction}
-              </span>
-            </div>
-          ))}
+          {orderedFields.map(field => {
+            if (field.disabled) return null;
 
-          {customAiFields && customAiFields.map(field => (
-            <div className="form-group" key={field.key} style={{ marginTop: '12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '12px', textTransform: 'none', fontWeight: 500 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={13} style={{ color: '#c084fc' }} />
-                  {field.title}
+            return (
+              <div className="form-group" key={field.key} style={{ marginTop: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '12px', textTransform: 'none', fontWeight: 500 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {getFieldIcon(field.key, field.icon)}
+                    {field.title}
+                  </span>
+                  <span title="AI Generated Field" style={{ display: 'flex', alignItems: 'center' }}>
+                    <Sparkles size={12} style={{ color: '#c084fc' }} />
+                  </span>
+                </label>
+                <textarea
+                  className="form-group-textarea"
+                  value={aiDetails[field.key] || ''}
+                  onChange={e => {
+                    setAiDetails({
+                      ...aiDetails,
+                      [field.key]: e.target.value
+                    });
+                  }}
+                  placeholder={field.isDefault ? `Gemini AI will generate details for ${field.title}...` : `Gemini AI will generate custom details...`}
+                  rows={4}
+                  style={{ fontSize: '13px', textTransform: 'none', width: '100%', padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)' }}
+                />
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', textTransform: 'none', lineHeight: 1.3 }}>
+                  {field.description}
                 </span>
-                <span title="AI Generated Field" style={{ display: 'flex', alignItems: 'center' }}>
-                  <Sparkles size={12} style={{ color: '#c084fc' }} />
-                </span>
-              </label>
-              <textarea
-                className="form-group-textarea"
-                value={aiDetails[field.key] || ''}
-                onChange={e => {
-                  setAiDetails({
-                    ...aiDetails,
-                    [field.key]: e.target.value
-                  });
-                }}
-                placeholder={`Gemini AI will generate details for ${field.title}...`}
-                rows={4}
-                style={{ fontSize: '13px', textTransform: 'none', width: '100%', padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)' }}
-              />
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', textTransform: 'none', lineHeight: 1.3 }}>
-                {field.description}
-              </span>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

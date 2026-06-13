@@ -1,7 +1,8 @@
-import { Sparkles, Calendar, Ticket, Compass, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react';
+import { Sparkles, RefreshCw, HelpCircle } from 'lucide-react';
 import type { Place } from '../types';
-import { AI_DETAIL_FIELDS } from '../utils/ai';
+import { getOrderedPlaceFields } from '../utils/ai';
 import FunGeneratingLoader from './FunGeneratingLoader';
+import { FIELD_ICONS_MAP, getIconColor } from './TripAiConfigModal';
 
 interface AiDetailsViewProps {
   place: Place;
@@ -9,7 +10,10 @@ interface AiDetailsViewProps {
   canEdit?: boolean;
   isGenerating?: boolean;
   layoutMode?: 'single-col' | 'adaptive-2-col';
-  customAiFields?: { title: string; key: string; description: string; }[];
+  customAiFields?: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[];
+  disabledPlaceFields?: string[];
+  fieldIcons?: { [key: string]: string };
+  placeFieldsOrder?: string[];
 }
 
 export default function AiDetailsView({
@@ -18,25 +22,18 @@ export default function AiDetailsView({
   canEdit = true,
   isGenerating = false,
   layoutMode = 'single-col',
-  customAiFields
+  customAiFields,
+  disabledPlaceFields = [],
+  fieldIcons = {},
+  placeFieldsOrder = []
 }: AiDetailsViewProps) {
   const hasAiDetails = place.aiDetails && Object.keys(place.aiDetails).length > 0;
 
-  const getFieldIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Sparkles':
-        return <Sparkles size={13} style={{ color: '#a5b4fc' }} />;
-      case 'Calendar':
-        return <Calendar size={13} style={{ color: '#fda4af' }} />;
-      case 'Ticket':
-        return <Ticket size={13} style={{ color: '#6ee7b7' }} />;
-      case 'Compass':
-        return <Compass size={13} style={{ color: '#93c5fd' }} />;
-      case 'AlertCircle':
-        return <AlertCircle size={13} style={{ color: '#fde047' }} />;
-      default:
-        return <HelpCircle size={13} style={{ color: '#c084fc' }} />;
-    }
+  const getFieldIcon = (fieldKey: string, defaultIconName: string) => {
+    const iconName = fieldIcons?.[fieldKey] || defaultIconName;
+    const IconComponent = FIELD_ICONS_MAP[iconName] || HelpCircle;
+    const color = getIconColor(iconName);
+    return <IconComponent size={13} style={{ color }} />;
   };
 
   const formatFreshness = (timestamp?: number) => {
@@ -49,6 +46,8 @@ export default function AiDetailsView({
       minute: '2-digit'
     });
   };
+
+  const orderedFields = getOrderedPlaceFields(customAiFields, disabledPlaceFields, placeFieldsOrder);
 
   return (
     <div className={`ai-details-container ${isGenerating ? 'ai-generating-glow' : ''}`}>
@@ -92,32 +91,16 @@ export default function AiDetailsView({
         <FunGeneratingLoader message="Asking Gemini AI for travel insights..." />
       ) : hasAiDetails ? (
         <div className={layoutMode === 'adaptive-2-col' ? 'ai-details-grid' : 'ai-details-list'}>
-          {AI_DETAIL_FIELDS.map(field => {
+          {orderedFields.map(field => {
+            if (field.disabled) return null;
+
             const content = place.aiDetails?.[field.key];
             if (!content || !content.trim()) return null;
 
             return (
               <div key={field.key} className="ai-detail-block">
                 <div className="ai-detail-block-title">
-                  {getFieldIcon(field.icon)}
-                  <span>{field.label}</span>
-                </div>
-                <div className="ai-detail-block-content">
-                  {content}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Render custom AI fields if they exist */}
-          {customAiFields && customAiFields.map(field => {
-            const content = place.aiDetails?.[field.key];
-            if (!content || !content.trim()) return null;
-
-            return (
-              <div key={field.key} className="ai-detail-block">
-                <div className="ai-detail-block-title">
-                  <Sparkles size={13} style={{ color: '#c084fc' }} />
+                  {getFieldIcon(field.key, field.icon)}
                   <span>{field.title}</span>
                 </div>
                 <div className="ai-detail-block-content">
