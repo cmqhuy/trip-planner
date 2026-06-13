@@ -955,7 +955,7 @@ export default function App() {
     }
   };
 
-  const handleOpenGooglePicker = async (): Promise<string | null> => {
+  const handleOpenGooglePicker = async (searchQuery?: string): Promise<string | null> => {
     const token = googleTokenRef.current;
     if (!token) {
       throw new Error('Please sign in to Google Drive first.');
@@ -978,7 +978,8 @@ export default function App() {
         },
         () => {
           resolve(null);
-        }
+        },
+        searchQuery
       ).catch((err) => {
         reject(err);
       });

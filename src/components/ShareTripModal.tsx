@@ -23,6 +23,8 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [successData, setSuccessData] = useState<{ email: string; role: 'reader' | 'writer' } | null>(null);
+  const [successCopied, setSuccessCopied] = useState(false);
 
   const fileId = trip.driveFileId;
 
@@ -67,9 +69,12 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
 
     setErrorMsg(null);
     setLoading(true);
+    const targetEmail = emailInput.trim();
+    const targetRole = roleInput;
     try {
-      await shareTripFile(accessToken, fileId, emailInput.trim(), roleInput);
+      await shareTripFile(accessToken, fileId, targetEmail, targetRole);
       setEmailInput('');
+      setSuccessData({ email: targetEmail, role: targetRole });
       await loadPermissions();
     } catch (e: any) {
       console.error(e);
@@ -113,9 +118,11 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
     }
   };
 
+  const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
+
   return (
     <div className="modal-overlay" style={{ zIndex: 1100 }}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '540px', padding: '24px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content glass-panel" style={{ maxWidth: '540px', padding: '24px', position: 'relative' }} onClick={e => e.stopPropagation()}>
         
         {/* Header */}
         <div className="modal-header" style={{ marginBottom: '16px' }}>
@@ -202,7 +209,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
           </button>
         </form>
 
-        {/* Share Link Section */}
+        {/* File Name Section */}
         {fileId && (
           <div style={{ 
             marginBottom: '24px', 
@@ -213,13 +220,13 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
               <Share2 size={13} style={{ color: 'var(--text-muted)' }} />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Share Link for Import</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>File Name</span>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
               <input
                 type="text"
                 readOnly
-                value={`https://drive.google.com/file/d/${fileId}/view?usp=sharing`}
+                value={filename}
                 onClick={e => (e.target as HTMLInputElement).select()}
                 style={{ 
                   flex: 1, 
@@ -237,7 +244,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
                 type="button" 
                 className="btn-secondary"
                 onClick={() => {
-                  navigator.clipboard.writeText(`https://drive.google.com/file/d/${fileId}/view?usp=sharing`);
+                  navigator.clipboard.writeText(filename);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
@@ -252,6 +259,121 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
                 }}
               >
                 {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <p style={{ fontSize: '11.5px', color: 'var(--text-secondary)', margin: 0, textTransform: 'none', lineHeight: 1.4 }}>
+              Share this file name with other users so they can import the trip.
+            </p>
+          </div>
+        )}
+
+        {/* Success Overlay Popup */}
+        {successData && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'var(--bg-panel)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '16px',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px', width: '100%' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-success)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                boxShadow: '0 0 15px rgba(16, 185, 129, 0.2)'
+              }}>
+                <Share2 size={24} />
+              </div>
+              
+              <div>
+                <h4 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                  Trip Shared Successfully!
+                </h4>
+                <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px 0', textTransform: 'none' }}>
+                  You have shared the trip with <strong style={{ color: 'var(--text-primary)' }}>{successData.email}</strong> as {successData.role === 'writer' ? 'an Editor' : 'a Viewer'}.
+                  <br />
+                  <span style={{ display: 'block', marginTop: '8px', color: 'var(--color-warning)', fontWeight: 500 }}>
+                    ⚠️ Action Required:
+                  </span>
+                  Please copy the file name below, send it to them, and ask them to import the trip in their app.
+                </p>
+              </div>
+
+              {/* Copy Filename Box */}
+              <div style={{ 
+                width: '100%',
+                padding: '12px 14px', 
+                borderRadius: '8px', 
+                border: '1px solid var(--border-glass)',
+                background: 'rgba(255, 255, 255, 0.02)',
+                textAlign: 'left'
+              }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={filename}
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                    style={{ 
+                      flex: 1, 
+                      padding: '6px 10px', 
+                      fontSize: '12px', 
+                      background: 'var(--bg-dark)', 
+                      border: '1px solid var(--border-glass)',
+                      color: 'var(--text-secondary)',
+                      borderRadius: '4px',
+                      fontFamily: 'monospace',
+                      textTransform: 'none'
+                    }}
+                  />
+                  <button 
+                    type="button" 
+                    className="btn-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(filename);
+                      setSuccessCopied(true);
+                      setTimeout(() => setSuccessCopied(false), 2000);
+                    }}
+                    style={{ 
+                      padding: '0 12px', 
+                      fontSize: '12px', 
+                      height: '30px', 
+                      borderRadius: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {successCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                type="button" 
+                className="btn-primary" 
+                onClick={() => setSuccessData(null)}
+                style={{ marginTop: '16px', padding: '8px 24px', fontSize: '13px' }}
+              >
+                Got it
               </button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Trip } from '../types';
-import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2, FolderOpen } from 'lucide-react';
+import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2, Loader2 } from 'lucide-react';
 import { shiftTripDates, getDaysDiff } from '../utils/dateUtils';
 import ConfirmationModal from './ConfirmationModal';
 import EditTripModal from './EditTripModal';
@@ -15,7 +15,7 @@ interface TripDashboardProps {
   onLeaveTrip?: (trip: Trip) => void;
   onUpdateTrip?: (trip: Trip) => void;
   onImportSharedTrip?: (urlOrId: string) => Promise<void>;
-  onOpenGooglePicker?: () => Promise<string | null>;
+  onOpenGooglePicker?: (searchQuery?: string) => Promise<string | null>;
 }
 
 export default function TripDashboard({ 
@@ -44,12 +44,12 @@ export default function TripDashboard({
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
   const [showImportModal, setShowImportModal] = useState(false);
-  const [shareLink, setShareLink] = useState('');
+  const [importFileName, setImportFileName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
 
   const handleOpenImportModal = () => {
-    setShareLink('');
+    setImportFileName('');
     setImportError('');
     setIsImporting(false);
     setShowImportModal(true);
@@ -57,32 +57,19 @@ export default function TripDashboard({
 
   const handleImportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shareLink.trim() || !onImportSharedTrip) return;
+    const query = importFileName.trim();
+    if (!query || !onOpenGooglePicker || !onImportSharedTrip) return;
 
     setIsImporting(true);
     setImportError('');
     try {
-      await onImportSharedTrip(shareLink);
-      setShowImportModal(false);
-    } catch (err: any) {
-      setImportError(err.message || 'An error occurred during import.');
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleOpenPickerClick = async () => {
-    if (!onOpenGooglePicker || !onImportSharedTrip) return;
-    setIsImporting(true);
-    setImportError('');
-    try {
-      const fileId = await onOpenGooglePicker();
+      const fileId = await onOpenGooglePicker(query);
       if (fileId) {
         await onImportSharedTrip(fileId);
         setShowImportModal(false);
       }
     } catch (err: any) {
-      setImportError(err.message || 'An error occurred using Google Picker.');
+      setImportError(err.message || 'An error occurred during import.');
     } finally {
       setIsImporting(false);
     }
@@ -489,64 +476,77 @@ export default function TripDashboard({
       )}
 
       {showImportModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Import Shared Trip</h3>
-              <button className="modal-close" onClick={() => setShowImportModal(false)}>
-                <X size={20} />
+        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
+          <div className="modal-content glass-panel" style={{ maxWidth: '440px', padding: '24px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Import Shared Trip</h3>
+              <button className="modal-close" onClick={() => setShowImportModal(false)} style={{ padding: '4px' }}>
+                <X size={18} />
               </button>
             </div>
             
             <form onSubmit={handleImportSubmit}>
-              {isGoogleSignedIn && onOpenGooglePicker && (
-                <div style={{ marginBottom: '16px' }}>
-                  <button
-                    type="button"
-                    className="btn-primary flex-align"
-                    style={{ gap: '8px', width: '100%', justifyContent: 'center', padding: '10px' }}
-                    onClick={handleOpenPickerClick}
-                    disabled={isImporting}
-                  >
-                    <FolderOpen size={16} />
-                    Select File from Google Drive
-                  </button>
-                  <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0 8px 0', color: 'var(--text-muted)', fontSize: '11px' }}>
-                    <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }}></div>
-                    <span style={{ padding: '0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>or paste manually</span>
-                    <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }}></div>
-                  </div>
-                </div>
-              )}
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 18px 0', textTransform: 'none' }}>
+                To import a shared trip, please enter the file name below. 
+                If you don't have the file name, please ask the trip owner to share it with you. 
+                Clicking **Import** will search Google Drive for this file.
+              </p>
 
-              <div className="form-group">
-                <label htmlFor="share-link">Google Drive Share Link or File ID</label>
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label htmlFor="import-filename" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Shared File Name</label>
                 <input 
                   type="text" 
-                  id="share-link" 
-                  placeholder="Paste GDrive link or file ID here..." 
-                  value={shareLink} 
-                  onChange={(e) => setShareLink(e.target.value)}
-                  required={!isGoogleSignedIn} 
-                  autoFocus={!isGoogleSignedIn}
+                  id="import-filename" 
+                  placeholder="Paste file name (e.g. trip-xxxx.json) here..." 
+                  value={importFileName} 
+                  onChange={(e) => setImportFileName(e.target.value)}
+                  required
+                  autoFocus
+                  disabled={isImporting}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '13px',
+                    background: 'var(--bg-dark)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '6px',
+                    marginTop: '6px',
+                    textTransform: 'none'
+                  }}
                 />
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                  Paste a link like `https://drive.google.com/file/d/...` or the raw file ID.
-                  Ensure the owner has shared the file with your Google account.
-                </p>
               </div>
 
               {importError && (
-                <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px' }}>
+                <div style={{ 
+                  color: '#f87171', 
+                  fontSize: '12.5px', 
+                  marginBottom: '16px',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)'
+                }}>
                   {importError}
                 </div>
               )}
 
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowImportModal(false)} disabled={isImporting}>
+              <div className="modal-actions" style={{ justifyContent: 'flex-end', marginTop: '0', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={() => setShowImportModal(false)} 
+                  disabled={isImporting}
+                  style={{ padding: '8px 16px', fontSize: '13px' }}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={isImporting || (!isGoogleSignedIn && !shareLink.trim())}>
+                <button 
+                  type="submit" 
+                  className="btn-primary flex-align" 
+                  disabled={isImporting || !importFileName.trim()}
+                  style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}
+                >
+                  {isImporting ? <Loader2 size={14} className="animate-spin" /> : null}
                   {isImporting ? 'Importing...' : 'Import'}
                 </button>
               </div>

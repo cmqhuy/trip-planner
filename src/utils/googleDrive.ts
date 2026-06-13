@@ -65,7 +65,8 @@ export function initPicker(
   apiKey: string,
   clientId: string,
   onFilePicked: (fileId: string, name: string) => void,
-  onCancel?: () => void
+  onCancel?: () => void,
+  searchQuery?: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const gapi = window.gapi;
@@ -86,6 +87,10 @@ export function initPicker(
           const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
             .setMimeTypes('application/json')
             .setSelectFolderEnabled(false);
+
+          if (searchQuery) {
+            view.setQuery(searchQuery);
+          }
 
           // Get the App ID (project number) from client ID
           const appId = clientId.split('-')[0];
