@@ -702,7 +702,7 @@ export default function TripAiConfigModal({
                               {/* Move Up */}
                               <button
                                 type="button"
-                                className="mini-icon-btn"
+                                className="mini-icon-btn desktop-only"
                                 onClick={() => handleMovePlaceField(idx, 'up')}
                                 disabled={idx === 0}
                                 style={{
@@ -722,7 +722,7 @@ export default function TripAiConfigModal({
                               {/* Move Down */}
                               <button
                                 type="button"
-                                className="mini-icon-btn"
+                                className="mini-icon-btn desktop-only"
                                 onClick={() => handleMovePlaceField(idx, 'down')}
                                 disabled={idx === allPlaceFields.length - 1}
                                 style={{

@@ -34,6 +34,7 @@ export default function ColorPalette({ value, onChange }: ColorPaletteProps) {
             <button
               key={color}
               type="button"
+              className="color-btn"
               onClick={() => { onChange(color); setShowCustom(false); }}
               style={{
                 width: '28px',
@@ -59,6 +60,7 @@ export default function ColorPalette({ value, onChange }: ColorPaletteProps) {
         {/* Custom color trigger */}
         <button
           type="button"
+          className="color-btn"
           onClick={() => setShowCustom(!showCustom)}
           style={{
             width: '28px',
@@ -84,6 +86,7 @@ export default function ColorPalette({ value, onChange }: ColorPaletteProps) {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <input
             type="color"
+            className="color-picker-input"
             value={value}
             onChange={e => onChange(e.target.value)}
             style={{

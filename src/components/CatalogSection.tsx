@@ -146,7 +146,7 @@ export default function CatalogSection({
           )}
           {trip.canEdit !== false && (
             <button 
-              className="btn-primary flex-align mini-icon-btn add-location-btn"
+              className="btn-primary flex-align add-location-btn"
               style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
               onClick={onAddLocation}
               data-tooltip="Add Location"

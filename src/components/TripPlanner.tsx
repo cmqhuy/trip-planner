@@ -38,13 +38,13 @@ const LOCATION_COLORS = [
 
 interface TripPlannerProps {
   trip: Trip;
-  onBack: () => void;
+  onBack?: () => void;
   onUpdateTrip: (updatedTrip: Trip | ((prevTrip: Trip) => Trip)) => void;
   onShareTrip?: (trip: Trip) => void;
   isGoogleSignedIn?: boolean;
 }
 
-export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, isGoogleSignedIn }: TripPlannerProps) {
+export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleSignedIn }: TripPlannerProps) {
   // Plan State
   const [activePlanId, setActivePlanId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2169,7 +2169,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     <div className="planner-view">
       {/* LEFT PANEL: Accordion (Catalog, Checklist, Reservations, Tips) */}
       <LeftPanelAccordion
-        onBack={onBack}
         activeMobileTab={activeMobileTab}
         expandedLeftSection={expandedLeftSection}
         setExpandedLeftSection={setExpandedLeftSection}

@@ -1109,7 +1109,6 @@ export default function App() {
         {activeTrip ? (
           <TripPlanner 
             trip={activeTrip}
-            onBack={() => setActiveTripId(null)}
             onUpdateTrip={handleUpdateTrip}
             onShareTrip={setShareModalTrip}
           />

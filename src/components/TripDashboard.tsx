@@ -184,7 +184,7 @@ export default function TripDashboard({
         <div className="dashboard-header-buttons" style={{ display: 'flex', gap: '8px' }}>
           {isGoogleSignedIn && (
             <button className="btn-secondary flex-align" onClick={handleOpenImportModal}>
-              <Users size={18} /> Import Shared Trip
+              <Users size={18} /> <span className="desktop-only">Import Shared Trip</span><span className="mobile-only">Import Trip</span>
             </button>
           )}
           <button className="btn-primary flex-align" onClick={handleOpenCreateModal}>
@@ -226,17 +226,17 @@ export default function TripDashboard({
               style={{ background: gradients[idx % gradients.length] }}
               onClick={() => onSelectTrip(trip.id)}
             >
-              <div className="trip-card-top">
-                <div>
-                  <h3 className="flex-align" style={{ gap: '6px', flexWrap: 'wrap' }}>
-                    <span>{trip.name}</span>
+              <div className="trip-card-top" style={{ gap: '12px' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3 className="flex-align" style={{ gap: '6px', flexWrap: 'nowrap', minWidth: 0 }}>
+                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flexShrink: 1 }}>{trip.name}</span>
                     {isGoogleSignedIn && trip.driveFileId && (
-                      <span data-tooltip="Synced to Google Drive" style={{ display: 'inline-flex', marginLeft: '4px' }}>
+                      <span data-tooltip="Synced to Google Drive" style={{ display: 'inline-flex', marginLeft: '4px', flexShrink: 0 }}>
                         <Cloud size={14} style={{ color: '#34d399' }} />
                       </span>
                     )}
                     {trip.shared && (
-                      <span data-tooltip="Shared Trip" style={{ display: 'inline-flex', marginLeft: '4px' }}>
+                      <span data-tooltip="Shared Trip" style={{ display: 'inline-flex', marginLeft: '4px', flexShrink: 0 }}>
                         <Users size={14} style={{ color: '#60a5fa' }} />
                       </span>
                     )}
@@ -479,7 +479,10 @@ export default function TripDashboard({
         <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
           <div className="modal-content glass-panel" style={{ maxWidth: '440px', padding: '24px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header" style={{ marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Import Shared Trip</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 600 }}>
+                <span className="desktop-only">Import Shared Trip</span>
+                <span className="mobile-only">Import Trip</span>
+              </h3>
               <button className="modal-close" onClick={() => setShowImportModal(false)} style={{ padding: '4px' }}>
                 <X size={18} />
               </button>

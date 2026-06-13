@@ -36,13 +36,11 @@ const mockTrip: Trip = {
 
 describe('LeftPanelAccordion Component', () => {
   it('renders and allows switching sections and going back', () => {
-    const handleBack = vi.fn();
     const handleSetExpanded = vi.fn();
     const handleSetSelectedCatalogLocId = vi.fn();
 
     render(
       <LeftPanelAccordion
-        onBack={handleBack}
         activeMobileTab="catalog"
         expandedLeftSection="catalog"
         setExpandedLeftSection={handleSetExpanded}
@@ -103,12 +101,6 @@ describe('LeftPanelAccordion Component', () => {
         formatDisplayDate={(d) => d}
       />
     );
-
-    // Verify back button works
-    const backBtn = screen.getByRole('button', { name: 'Back to dashboard' });
-    expect(backBtn).toBeInTheDocument();
-    fireEvent.click(backBtn);
-    expect(handleBack).toHaveBeenCalled();
 
     // Verify Catalog section is rendered
     expect(screen.getByText('Catalog')).toBeInTheDocument();

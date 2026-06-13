@@ -722,11 +722,34 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: rgba(15, 23, 42, 0.15);
 }
 
-.trip-meta-info {
-  display: flex;
-  justify-content: space-between;
+.trip-meta-info-container {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 24px;
+  row-gap: 6px;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.trip-title-row {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trip-duration-text {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.trip-plan-picker-column {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
 }
 
 .plan-picker-wrapper {
@@ -1011,6 +1034,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.mobile-only {
+  display: none !important;
 }
 
 .badge {
@@ -2107,14 +2134,42 @@ div.google-auth-avatar-desktop {
     border-top: 1px dashed rgba(255, 255, 255, 0.05) !important;
   }
 
-  /* Absolute mobile tab navigation to position relative to planner-view container */
+  /* Sticky mobile tab navigation fixed to viewport bottom */
   .mobile-tab-nav {
-    position: absolute !important;
+    position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     height: 60px !important;
     z-index: 1000 !important;
+  }
+
+  /* Responsive layout utilities */
+  .mobile-only {
+    display: inline-block !important;
+  }
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Stacking form fields vertically on mobile */
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Override touch-optimization stretch for specific compact buttons */
+  .trip-delete-btn {
+    min-width: 32px !important;
+    min-height: 32px !important;
+  }
+
+  .color-btn {
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .color-picker-input {
+    min-height: 0 !important;
   }
 
   /* Compact touch target for specific buttons inside place cards */

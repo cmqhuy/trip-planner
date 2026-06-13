@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, CheckSquare, Building, Sparkles } from 'lucide-react';
+import { BookOpen, CheckSquare, Building, Sparkles } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
@@ -6,7 +6,6 @@ import ReservationsSection from './ReservationsSection';
 import TipsSection from './TipsSection';
 
 interface LeftPanelAccordionProps {
-  onBack: () => void;
   activeMobileTab: 'catalog' | 'itinerary' | 'map';
   expandedLeftSection: 'catalog' | 'checklist' | 'reservations' | 'tips';
   setExpandedLeftSection: (section: 'catalog' | 'checklist' | 'reservations' | 'tips') => void;
@@ -68,7 +67,6 @@ interface LeftPanelAccordionProps {
 }
 
 export default function LeftPanelAccordion({
-  onBack,
   activeMobileTab,
   expandedLeftSection,
   setExpandedLeftSection,
@@ -130,27 +128,6 @@ export default function LeftPanelAccordion({
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
-      {/* Back to dashboard button (always visible at the top) */}
-      <button 
-        className="mini-icon-btn back-to-dashboard-btn" 
-        onClick={onBack} 
-        style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '6px', 
-          fontSize: '12px', 
-          width: 'fit-content',
-          padding: '6px 10px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '6px',
-          color: 'var(--text-secondary)',
-          cursor: 'pointer',
-          marginBottom: '4px'
-        }}
-      >
-        <ArrowLeft size={14} /> Back to dashboard
-      </button>
 
       {/* Accordion Section 1: Catalog */}
       <div className={`accordion-section ${expandedLeftSection === 'catalog' ? 'expanded' : 'collapsed'}`}>
