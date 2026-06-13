@@ -4292,6 +4292,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                               canEdit={trip.canEdit !== false}
                               isGenerating={placeGeneratingIds.has(place.id)}
                               layoutMode="adaptive-2-col"
+                              customAiFields={trip.customAiFields}
                             />
 
 
@@ -4440,6 +4441,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           }
         }}
         onDelete={editingPlace && !editingPlace.id.startsWith('new-temp-') ? handleDeletePlace : undefined}
+        customAiFields={trip.customAiFields}
       />
 
       {/* 7. Group Modal */}

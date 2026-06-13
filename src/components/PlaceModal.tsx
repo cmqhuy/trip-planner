@@ -13,6 +13,7 @@ interface PlaceModalProps {
   placeGroups: PlaceGroup[];
   onSave: (placeData: Omit<Place, 'id'>) => void;
   onDelete?: (id: string) => void;
+  customAiFields?: { title: string; key: string; description: string; }[];
 }
 
 export default function PlaceModal({
@@ -22,7 +23,8 @@ export default function PlaceModal({
   catalogLocation,
   placeGroups,
   onSave,
-  onDelete
+  onDelete,
+  customAiFields
 }: PlaceModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -148,7 +150,8 @@ export default function PlaceModal({
           lng: parseFloat(lng) || undefined 
         }],
         city,
-        country
+        country,
+        customAiFields
       );
 
       if (results && results.length > 0) {
@@ -292,6 +295,7 @@ export default function PlaceModal({
               onAutoFill={handleAutoFillWithAi}
               aiError={aiError}
               aiUpdatedAt={aiUpdatedAt}
+              customAiFields={customAiFields}
             />
           </div>
 

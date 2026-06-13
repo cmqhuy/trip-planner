@@ -32,6 +32,7 @@ interface PlaceFormFieldsProps {
   onAutoFill: () => void;
   aiError: string | null;
   aiUpdatedAt?: number;
+  customAiFields?: { title: string; key: string; description: string; }[];
 }
 
 export default function PlaceFormFields({
@@ -59,7 +60,8 @@ export default function PlaceFormFields({
   isAiGenerating,
   onAutoFill,
   aiError,
-  aiUpdatedAt
+  aiUpdatedAt,
+  customAiFields
 }: PlaceFormFieldsProps) {
   const hasKeys = GeminiService.hasApiKey();
 
@@ -266,6 +268,36 @@ export default function PlaceFormFields({
               />
               <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', textTransform: 'none', lineHeight: 1.3 }}>
                 {field.instruction}
+              </span>
+            </div>
+          ))}
+
+          {customAiFields && customAiFields.map(field => (
+            <div className="form-group" key={field.key} style={{ marginTop: '12px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '12px', textTransform: 'none', fontWeight: 500 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={13} style={{ color: '#c084fc' }} />
+                  {field.title}
+                </span>
+                <span title="AI Generated Field" style={{ display: 'flex', alignItems: 'center' }}>
+                  <Sparkles size={12} style={{ color: '#c084fc' }} />
+                </span>
+              </label>
+              <textarea
+                className="form-group-textarea"
+                value={aiDetails[field.key] || ''}
+                onChange={e => {
+                  setAiDetails({
+                    ...aiDetails,
+                    [field.key]: e.target.value
+                  });
+                }}
+                placeholder={`Gemini AI will generate details for ${field.title}...`}
+                rows={4}
+                style={{ fontSize: '13px', textTransform: 'none', width: '100%', padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)' }}
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', textTransform: 'none', lineHeight: 1.3 }}>
+                {field.description}
               </span>
             </div>
           ))}
