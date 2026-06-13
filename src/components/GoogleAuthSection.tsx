@@ -1,4 +1,4 @@
-import { LogIn, LogOut, Cloud, RefreshCw, AlertCircle } from 'lucide-react';
+import { LogIn, LogOut, Cloud, RefreshCw, AlertCircle, Settings } from 'lucide-react';
 
 export interface GoogleAuthSectionProps {
   user: { name: string; email: string; picture: string } | null;
@@ -6,6 +6,7 @@ export interface GoogleAuthSectionProps {
   onSignIn: () => void;
   onSignOut: () => void;
   onManualSync: () => void;
+  onOpenSettings: () => void;
 }
 
 export default function GoogleAuthSection({
@@ -14,6 +15,7 @@ export default function GoogleAuthSection({
   onSignIn,
   onSignOut,
   onManualSync,
+  onOpenSettings,
 }: GoogleAuthSectionProps) {
 
   const getSyncBadge = () => {
@@ -56,7 +58,7 @@ export default function GoogleAuthSection({
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       {user ? (
         // Signed-in UI
         <div 
@@ -125,6 +127,16 @@ export default function GoogleAuthSection({
           <LogIn size={14} /> Sign In with Google
         </button>
       )}
+
+      <button 
+        className="mini-icon-btn" 
+        onClick={onOpenSettings}
+        data-tooltip="Google Integration Settings"
+        data-tooltip-position="bottom"
+        style={{ padding: '6px', display: 'flex', borderRadius: '50%' }}
+      >
+        <Settings size={14} />
+      </button>
     </div>
   );
 }

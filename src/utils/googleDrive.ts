@@ -1,17 +1,18 @@
 import type { Trip } from '../types';
 
-// Declare global google variable
+// Declare global google and gapi variables
 declare global {
   interface Window {
     google?: any;
+    gapi?: any;
   }
 }
 
 // Default Client ID configured for localhost:5173 and localhost:5174
 export const DEFAULT_CLIENT_ID = '370189493068-6pnu5gv03ctdn87u2mnkbb0jpaakk47r.apps.googleusercontent.com';
 
-// Broader scope including drive access for reading/writing shared files
-export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive email profile openid';
+// Restrained scope only allowing access to files created or opened by this app
+export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file email profile openid';
 
 let tokenClient: any = null;
 
@@ -31,6 +32,86 @@ export function loadGsiScript(): Promise<void> {
     script.onload = () => resolve();
     script.onerror = (err) => reject(err);
     document.head.appendChild(script);
+  });
+}
+
+/**
+ * Dynamically loads the Google API Client Library (gapi) script.
+ */
+export function loadGapiScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.gapi) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = (err) => reject(err);
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Initializes and displays the Google Drive File Picker for shared JSON files.
+ */
+export function initPicker(
+  accessToken: string,
+  apiKey: string,
+  clientId: string,
+  onFilePicked: (fileId: string, name: string) => void,
+  onCancel?: () => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const gapi = window.gapi;
+    if (!gapi) {
+      reject(new Error('GAPI SDK not loaded'));
+      return;
+    }
+
+    gapi.load('picker', {
+      callback: () => {
+        try {
+          const google = window.google;
+          if (!google || !google.picker) {
+            reject(new Error('Google Picker API not loaded'));
+            return;
+          }
+
+          const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+            .setMimeTypes('application/json')
+            .setSelectFolderEnabled(false);
+
+          // Get the App ID (project number) from client ID
+          const appId = clientId.split('-')[0];
+
+          const picker = new google.picker.PickerBuilder()
+            .addView(view)
+            .setOAuthToken(accessToken)
+            .setDeveloperKey(apiKey)
+            .setAppId(appId)
+            .setCallback((data: any) => {
+              if (data.action === google.picker.Action.PICKED) {
+                const doc = data.docs[0];
+                onFilePicked(doc.id, doc.name);
+              } else if (data.action === google.picker.Action.CANCEL) {
+                if (onCancel) onCancel();
+              }
+            })
+            .build();
+
+          picker.setVisible(true);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      },
+      onerror: (err: any) => {
+        reject(err);
+      }
+    });
   });
 }
 

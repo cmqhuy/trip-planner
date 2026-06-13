@@ -19,9 +19,12 @@ import {
   saveAiSettingsToDrive,
   deleteAiSettingsFromDrive,
   DEFAULT_CLIENT_ID,
-  GOOGLE_SCOPES
+  GOOGLE_SCOPES,
+  loadGapiScript,
+  initPicker
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
+import GoogleSettingsModal from './components/GoogleSettingsModal';
 import ShareTripModal from './components/ShareTripModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import SyncConflictModal from './components/SyncConflictModal';
@@ -132,7 +135,29 @@ export default function App() {
     activeTripIdRef.current = activeTripId;
   }, [activeTripId]);
 
-  const clientId = localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID;
+  const [clientId, setClientId] = useState(() => localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('google-api-key') || (import.meta.env.VITE_GOOGLE_API_KEY as string) || '');
+  const [showGoogleSettings, setShowGoogleSettings] = useState(false);
+
+  const handleSaveGoogleSettings = (newClientId: string, newApiKey: string) => {
+    localStorage.setItem('google-client-id', newClientId);
+    localStorage.setItem('google-api-key', newApiKey);
+    setClientId(newClientId);
+    setApiKey(newApiKey);
+
+    if (googleToken) {
+      handleSignOut();
+      setAppNotification({
+        title: 'Settings Saved',
+        message: 'Google Integration settings updated. Please sign in again to authorize with the new credentials.'
+      });
+    } else {
+      setAppNotification({
+        title: 'Settings Saved',
+        message: 'Google Integration settings saved successfully.'
+      });
+    }
+  };
 
   const syncTimeoutRef = useRef<any>(null);
   const isSilentAuthRef = useRef(false);
@@ -929,6 +954,36 @@ export default function App() {
     }
   };
 
+  const handleOpenGooglePicker = async (): Promise<string | null> => {
+    const token = googleTokenRef.current;
+    if (!token) {
+      throw new Error('Please sign in to Google Drive first.');
+    }
+
+    const currentApiKey = localStorage.getItem('google-api-key') || (import.meta.env.VITE_GOOGLE_API_KEY as string) || '';
+    if (!currentApiKey) {
+      throw new Error('Google Developer API Key is missing. Please configure it in Google Integration Settings (gear icon in header).');
+    }
+
+    await loadGapiScript();
+
+    return new Promise((resolve, reject) => {
+      initPicker(
+        token,
+        currentApiKey,
+        clientId,
+        (fileId) => {
+          resolve(fileId);
+        },
+        () => {
+          resolve(null);
+        }
+      ).catch((err) => {
+        reject(err);
+      });
+    });
+  };
+
   const handleImportSharedTrip = async (urlOrId: string) => {
     const token = googleTokenRef.current;
     const folderId = googleFolderIdRef.current;
@@ -1031,6 +1086,7 @@ export default function App() {
             onSignIn={handleSignIn}
             onSignOut={handleSignOut}
             onManualSync={handleManualSync}
+            onOpenSettings={() => setShowGoogleSettings(true)}
           />
         </div>
       </header>
@@ -1055,6 +1111,7 @@ export default function App() {
             onLeaveTrip={handleLeaveTrip}
             onUpdateTrip={handleUpdateTrip}
             onImportSharedTrip={handleImportSharedTrip}
+            onOpenGooglePicker={handleOpenGooglePicker}
           />
         )}
       </main>
@@ -1091,6 +1148,14 @@ export default function App() {
         onClose={() => setShowAiSettings(false)}
         onSaved={handleAiSettingsSaved}
         isGoogleSignedIn={!!googleToken}
+      />
+
+      <GoogleSettingsModal
+        isOpen={showGoogleSettings}
+        onClose={() => setShowGoogleSettings(false)}
+        clientId={clientId}
+        apiKey={apiKey}
+        onSave={handleSaveGoogleSettings}
       />
 
     </div>

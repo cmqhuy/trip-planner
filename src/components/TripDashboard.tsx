@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Trip } from '../types';
-import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2 } from 'lucide-react';
+import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2, FolderOpen } from 'lucide-react';
 import { shiftTripDates, getDaysDiff } from '../utils/dateUtils';
 import ConfirmationModal from './ConfirmationModal';
 import EditTripModal from './EditTripModal';
@@ -15,6 +15,7 @@ interface TripDashboardProps {
   onLeaveTrip?: (trip: Trip) => void;
   onUpdateTrip?: (trip: Trip) => void;
   onImportSharedTrip?: (urlOrId: string) => Promise<void>;
+  onOpenGooglePicker?: () => Promise<string | null>;
 }
 
 export default function TripDashboard({ 
@@ -22,11 +23,12 @@ export default function TripDashboard({
   onCreateTrip, 
   onDeleteTrip, 
   onSelectTrip, 
-  isGoogleSignedIn,
+  isGoogleSignedIn = false,
   onShareTrip,
   onLeaveTrip,
   onUpdateTrip,
-  onImportSharedTrip
+  onImportSharedTrip,
+  onOpenGooglePicker
 }: TripDashboardProps) {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
@@ -64,6 +66,23 @@ export default function TripDashboard({
       setShowImportModal(false);
     } catch (err: any) {
       setImportError(err.message || 'An error occurred during import.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleOpenPickerClick = async () => {
+    if (!onOpenGooglePicker || !onImportSharedTrip) return;
+    setIsImporting(true);
+    setImportError('');
+    try {
+      const fileId = await onOpenGooglePicker();
+      if (fileId) {
+        await onImportSharedTrip(fileId);
+        setShowImportModal(false);
+      }
+    } catch (err: any) {
+      setImportError(err.message || 'An error occurred using Google Picker.');
     } finally {
       setIsImporting(false);
     }
@@ -480,6 +499,26 @@ export default function TripDashboard({
             </div>
             
             <form onSubmit={handleImportSubmit}>
+              {isGoogleSignedIn && onOpenGooglePicker && (
+                <div style={{ marginBottom: '16px' }}>
+                  <button
+                    type="button"
+                    className="btn-primary flex-align"
+                    style={{ gap: '8px', width: '100%', justifyContent: 'center', padding: '10px' }}
+                    onClick={handleOpenPickerClick}
+                    disabled={isImporting}
+                  >
+                    <FolderOpen size={16} />
+                    Select File from Google Drive
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0 8px 0', color: 'var(--text-muted)', fontSize: '11px' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }}></div>
+                    <span style={{ padding: '0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>or paste manually</span>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }}></div>
+                  </div>
+                </div>
+              )}
+
               <div className="form-group">
                 <label htmlFor="share-link">Google Drive Share Link or File ID</label>
                 <input 
@@ -488,8 +527,8 @@ export default function TripDashboard({
                   placeholder="Paste GDrive link or file ID here..." 
                   value={shareLink} 
                   onChange={(e) => setShareLink(e.target.value)}
-                  required 
-                  autoFocus
+                  required={!isGoogleSignedIn} 
+                  autoFocus={!isGoogleSignedIn}
                 />
                 <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px' }}>
                   Paste a link like `https://drive.google.com/file/d/...` or the raw file ID.
@@ -507,7 +546,7 @@ export default function TripDashboard({
                 <button type="button" className="btn-secondary" onClick={() => setShowImportModal(false)} disabled={isImporting}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={isImporting}>
+                <button type="submit" className="btn-primary" disabled={isImporting || (!isGoogleSignedIn && !shareLink.trim())}>
                   {isImporting ? 'Importing...' : 'Import'}
                 </button>
               </div>
