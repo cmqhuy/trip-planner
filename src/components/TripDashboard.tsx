@@ -489,7 +489,7 @@ export default function TripDashboard({
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 18px 0', textTransform: 'none' }}>
                 To import a shared trip, please enter the file name below. 
                 If you don't have the file name, please ask the trip owner to share it with you. 
-                Clicking **Import** will search Google Drive for this file.
+                Clicking <strong style={{ color: 'var(--text-primary)' }}>Import</strong> will search Google Drive for this file.
               </p>
 
               <div className="form-group" style={{ marginBottom: '20px' }}>
