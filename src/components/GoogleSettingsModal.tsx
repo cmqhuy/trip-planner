@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Key, ShieldAlert } from 'lucide-react';
-import { DEFAULT_CLIENT_ID } from '../utils/googleDrive';
+import { DEFAULT_CLIENT_ID, DEFAULT_API_KEY } from '../utils/googleDrive';
 
 interface GoogleSettingsModalProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export default function GoogleSettingsModal({
   useEffect(() => {
     if (isOpen) {
       setInputClientId(clientId === DEFAULT_CLIENT_ID ? '' : clientId);
-      setInputApiKey(apiKey);
+      setInputApiKey(apiKey === DEFAULT_API_KEY ? '' : apiKey);
     }
   }, [isOpen, clientId, apiKey]);
 

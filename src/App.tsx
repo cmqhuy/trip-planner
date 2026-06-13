@@ -21,7 +21,8 @@ import {
   DEFAULT_CLIENT_ID,
   GOOGLE_SCOPES,
   loadGapiScript,
-  initPicker
+  initPicker,
+  DEFAULT_API_KEY
 } from './utils/googleDrive';
 import GoogleAuthSection from './components/GoogleAuthSection';
 import GoogleSettingsModal from './components/GoogleSettingsModal';
@@ -136,7 +137,7 @@ export default function App() {
   }, [activeTripId]);
 
   const [clientId, setClientId] = useState(() => localStorage.getItem('google-client-id') || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_CLIENT_ID);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('google-api-key') || (import.meta.env.VITE_GOOGLE_API_KEY as string) || '');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('google-api-key') || (import.meta.env.VITE_GOOGLE_API_KEY as string) || DEFAULT_API_KEY);
   const [showGoogleSettings, setShowGoogleSettings] = useState(false);
 
   const handleSaveGoogleSettings = (newClientId: string, newApiKey: string) => {

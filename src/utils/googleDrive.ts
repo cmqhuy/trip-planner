@@ -11,6 +11,9 @@ declare global {
 // Default Client ID configured for localhost:5173 and localhost:5174
 export const DEFAULT_CLIENT_ID = '370189493068-6pnu5gv03ctdn87u2mnkbb0jpaakk47r.apps.googleusercontent.com';
 
+// Default API Key for local development (optional, can be overridden by env variable or settings)
+export const DEFAULT_API_KEY = '';
+
 // Restrained scope only allowing access to files created or opened by this app
 export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file email profile openid';
 
