@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { X, Sparkles, Plus, Trash2, AlertCircle, Edit2 } from 'lucide-react';
 import type { Trip } from '../types';
 
 interface TripAiConfigModalProps {
@@ -24,6 +24,12 @@ export default function TripAiConfigModal({
   const [newDesc, setNewDesc] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Edit field states
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       setEnableBabyLogistics(!!trip.enableBabyLogistics);
@@ -32,6 +38,10 @@ export default function TripAiConfigModal({
       setNewKey('');
       setNewDesc('');
       setError(null);
+      setEditingKey(null);
+      setEditTitle('');
+      setEditDesc('');
+      setEditError(null);
     }
   }, [isOpen, trip]);
 
@@ -66,8 +76,37 @@ export default function TripAiConfigModal({
     setNewDesc('');
   };
 
+  const handleStartEdit = (field: { title: string; key: string; description: string }) => {
+    setEditingKey(field.key);
+    setEditTitle(field.title);
+    setEditDesc(field.description);
+    setEditError(null);
+  };
+
+  const handleSaveEdit = (key: string) => {
+    setEditError(null);
+    const title = editTitle.trim();
+    const desc = editDesc.trim();
+
+    if (!title || !desc) {
+      setEditError('Title and description cannot be empty.');
+      return;
+    }
+
+    setCustomAiFields(customAiFields.map(f => {
+      if (f.key === key) {
+        return { ...f, title, description: desc };
+      }
+      return f;
+    }));
+    setEditingKey(null);
+  };
+
   const handleRemoveField = (keyToRemove: string) => {
     setCustomAiFields(customAiFields.filter(f => f.key !== keyToRemove));
+    if (editingKey === keyToRemove) {
+      setEditingKey(null);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -126,43 +165,121 @@ export default function TripAiConfigModal({
 
               {/* Current fields list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                {customAiFields.map(field => (
-                  <div 
-                    key={field.key} 
-                    className="glass-panel" 
-                    style={{ 
-                      padding: '10px 12px', 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'flex-start',
-                      borderColor: 'rgba(255,255,255,0.05)',
-                      backgroundColor: 'rgba(255,255,255,0.01)',
-                      gap: '12px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <strong style={{ fontSize: '13px', color: 'var(--text-primary)', textTransform: 'none' }}>{field.title}</strong>
-                        <code style={{ fontSize: '10px', color: 'var(--accent-primary)', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
-                          key: {field.key}
-                        </code>
-                      </div>
-                      <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'none', lineHeight: 1.3 }}>
-                        {field.description}
-                      </span>
+                {customAiFields.map(field => {
+                  const isEditing = editingKey === field.key;
+                  return (
+                    <div 
+                      key={field.key} 
+                      className="glass-panel" 
+                      style={{ 
+                        padding: '10px 12px', 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        borderColor: 'rgba(255,255,255,0.05)',
+                        backgroundColor: 'rgba(255,255,255,0.01)',
+                        gap: '8px'
+                      }}
+                    >
+                      {isEditing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                              Editing Custom Field
+                            </span>
+                            <code style={{ fontSize: '10px', color: 'var(--accent-primary)', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                              key: {field.key} (read-only)
+                            </code>
+                          </div>
+                          
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: '11px', marginBottom: '2px' }}>Field Title</label>
+                            <input
+                              type="text"
+                              value={editTitle}
+                              onChange={e => setEditTitle(e.target.value)}
+                              style={{ padding: '5px 8px', fontSize: '12px', height: '30px' }}
+                            />
+                          </div>
+
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: '11px', marginBottom: '2px' }}>Instructions for Gemini</label>
+                            <textarea
+                              value={editDesc}
+                              onChange={e => setEditDesc(e.target.value)}
+                              rows={2}
+                              style={{ padding: '6px 8px', fontSize: '12px', minHeight: '48px', resize: 'vertical' }}
+                            />
+                          </div>
+
+                          {editError && (
+                            <div className="ai-settings-test-panel error" style={{ padding: '4px 8px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <AlertCircle size={12} style={{ flexShrink: 0 }} />
+                              <span style={{ fontSize: '11px', textTransform: 'none' }}>{editError}</span>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px' }}
+                              onClick={() => {
+                                setEditingKey(null);
+                                setEditError(null);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-primary"
+                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px' }}
+                              onClick={() => handleSaveEdit(field.key)}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <strong style={{ fontSize: '13px', color: 'var(--text-primary)', textTransform: 'none' }}>{field.title}</strong>
+                              <code style={{ fontSize: '10px', color: 'var(--accent-primary)', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                                key: {field.key}
+                              </code>
+                            </div>
+                            <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'none', lineHeight: 1.3 }}>
+                              {field.description}
+                            </span>
+                          </div>
+                          {trip.canEdit !== false && (
+                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginTop: '2px' }}>
+                              <button 
+                                type="button" 
+                                className="btn-secondary" 
+                                onClick={() => handleStartEdit(field)}
+                                style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}
+                                title="Edit Field"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                              <button 
+                                type="button" 
+                                className="trip-delete-btn" 
+                                onClick={() => handleRemoveField(field.key)}
+                                style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Delete Field"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {trip.canEdit !== false && (
-                      <button 
-                        type="button" 
-                        className="trip-delete-btn" 
-                        onClick={() => handleRemoveField(field.key)}
-                        style={{ padding: '4px', marginTop: '2px' }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 {customAiFields.length === 0 && (
                   <div style={{ padding: '16px', textTransform: 'none', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
