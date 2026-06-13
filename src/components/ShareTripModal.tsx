@@ -121,7 +121,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
   const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1100 }}>
+    <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={onClose}>
       <div className="modal-content glass-panel" style={{ maxWidth: '540px', padding: '24px', position: 'relative' }} onClick={e => e.stopPropagation()}>
         
         {/* Header */}
