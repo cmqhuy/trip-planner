@@ -569,7 +569,7 @@ export default function TripAiConfigModal({
                         opacity: draggedFieldIndex === idx ? 0.4 : 1,
                         cursor: trip.canEdit !== false && !isEditing ? 'grab' : 'default',
                         transition: 'opacity 0.2s ease',
-                        zIndex: activeIconPickerKey === field.key ? 100 : (draggedFieldIndex === idx ? 0.4 : 1)
+                        zIndex: (activeIconPickerKey === field.key || (editingKey === field.key && activeIconPickerKey === 'edit-field')) ? 100 : (draggedFieldIndex === idx ? 0.4 : 1)
                       }}
                     >
                       {isDragOver && (
@@ -801,7 +801,9 @@ export default function TripAiConfigModal({
                     padding: '12px', 
                     borderStyle: 'dashed', 
                     borderColor: 'rgba(255,255,255,0.12)',
-                    backgroundColor: 'rgba(255,255,255,0.01)'
+                    backgroundColor: 'rgba(255,255,255,0.01)',
+                    position: 'relative',
+                    zIndex: activeIconPickerKey === 'new-field' ? 100 : 1
                   }}
                 >
                   <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>Add Custom Field</span>
