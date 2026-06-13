@@ -15,7 +15,10 @@ export default function ImagePreview({ url, alt = 'Preview', height = 120, width
 
   if (!url.trim()) return null;
 
-  const optimizedUrl = getOptimizedImageUrl(url, width || (height ? height * 2 : 240));
+  // Request a higher resolution preview (e.g. 3x the fixed width, or 1200px for full-width banners)
+  // to support Retina/high-DPI screens and prevent pixelation.
+  const previewWidth = width ? width * 3 : 1200;
+  const optimizedUrl = getOptimizedImageUrl(url, previewWidth);
 
   return (
     <div
