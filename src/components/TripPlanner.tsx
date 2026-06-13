@@ -405,6 +405,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // Manual checklist inputs
   const [manualChecklistInput, setManualChecklistInput] = useState('');
   const [draggedChecklistIndex, setDraggedChecklistIndex] = useState<number | null>(null);
+  const [dragOverChecklistIndex, setDragOverChecklistIndex] = useState<number | null>(null);
 
   // Trigger search on place query changes (Day timeline inline search)
   useEffect(() => {
@@ -2855,121 +2856,158 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                   )}
  
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto', paddingRight: '2px' }}>
-                    {(activePlan.manualChecklist || []).map((item, idx) => (
-                      <div 
-                        key={item.id} 
-                        className="flex-between glass-panel"
-                        draggable={trip.canEdit !== false}
-                        onDragStart={(e) => {
-                          setDraggedChecklistIndex(idx);
-                          e.dataTransfer.effectAllowed = 'move';
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (draggedChecklistIndex === null || draggedChecklistIndex === idx) return;
-                          onUpdateTrip(prevTrip => {
-                            const updatedPlans = prevTrip.plans.map(p => {
-                              if (p.id === activePlan.id) {
-                                const list = [...(p.manualChecklist || [])];
-                                const [removed] = list.splice(draggedChecklistIndex, 1);
-                                list.splice(idx, 0, removed);
-                                return {
-                                  ...p,
-                                  manualChecklist: list
-                                };
-                              }
-                              return p;
-                            });
-                            return {
-                              ...prevTrip,
-                              plans: updatedPlans
-                            };
-                          });
-                        }}
-                        onDragEnd={() => setDraggedChecklistIndex(null)}
-                        style={{ 
-                          padding: '6px 10px', 
-                          borderColor: 'rgba(255,255,255,0.04)',
-                          backgroundColor: 'rgba(255,255,255,0.01)',
-                          borderRadius: '8px',
-                          opacity: draggedChecklistIndex === idx ? 0.4 : 1,
-                          cursor: trip.canEdit !== false ? 'grab' : 'default',
-                          transition: 'opacity 0.2s ease, background-color 0.2s ease'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                          {trip.canEdit !== false && (
-                            <span 
-                              style={{ 
-                                cursor: 'grab', 
-                                color: 'var(--text-muted)', 
-                                display: 'flex', 
-                                alignItems: 'center',
-                                opacity: 0.6,
-                                paddingRight: '2px'
-                              }}
-                            >
-                              <GripVertical size={11} />
-                            </span>
+                    {(activePlan.manualChecklist || []).map((item, idx) => {
+                      const isDragOver = idx === dragOverChecklistIndex && draggedChecklistIndex !== null && draggedChecklistIndex !== idx;
+                      const showLineAtBottom = draggedChecklistIndex !== null && draggedChecklistIndex < idx;
+                      console.log('RENDER checklist item idx:', idx, 'isDragOver:', isDragOver, 'draggedIndex:', draggedChecklistIndex, 'dragOverIndex:', dragOverChecklistIndex);
+                      return (
+                        <div key={item.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                          {isDragOver && (
+                            <div style={{
+                              position: 'absolute',
+                              top: showLineAtBottom ? 'auto' : '-5px',
+                              bottom: showLineAtBottom ? '-5px' : 'auto',
+                              left: 0,
+                              right: 0,
+                              height: '4px',
+                              background: 'var(--accent-primary)',
+                              borderRadius: '2px',
+                              boxShadow: '0 0 8px var(--accent-primary)',
+                              zIndex: 10,
+                              pointerEvents: 'none'
+                            }} />
                           )}
-                          <label className="flex-align" style={{ gap: '8px', cursor: trip.canEdit !== false ? 'pointer' : 'default', textTransform: 'none', flex: 1, minWidth: 0 }}>
-                            <input 
-                              type="checkbox" 
-                              checked={item.completed} 
-                              disabled={trip.canEdit === false}
-                              onChange={() => handleToggleManualChecklistItem(item.id)}
-                              style={{ width: '14px', height: '14px', margin: 0, cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
-                            />
-                          <span style={{ 
-                            fontSize: '12px', 
-                            color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
-                            textDecoration: item.completed ? 'line-through' : 'none',
-                            textOverflow: 'ellipsis',
-                            overflow: 'hidden',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {item.text}
-                          </span>
-                        </label>
-                      </div>
-                        {trip.canEdit !== false && (
-                          <div style={{ display: 'flex', gap: '2px', alignItems: 'center', marginLeft: '6px' }}>
-                            <button 
-                              type="button" 
-                              className="mini-icon-btn" 
-                              onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
-                              disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
-                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
-                              data-tooltip="Move Up"
-                            >
-                              <ChevronUp size={12} />
-                            </button>
-                            <button 
-                              type="button" 
-                              className="mini-icon-btn" 
-                              onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
-                              disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
-                              style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
-                              data-tooltip="Move Down"
-                            >
-                              <ChevronDown size={12} />
-                            </button>
-                            <button 
-                              type="button" 
-                              className="trip-delete-btn" 
-                              onClick={() => handleDeleteManualChecklistItem(item.id)}
-                              style={{ padding: '2px', marginLeft: '4px' }}
-                              data-tooltip="Delete Task"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                          <div 
+                            className="flex-between glass-panel"
+                            draggable={trip.canEdit !== false}
+                            onDragStart={(e) => {
+                              console.log('DRAGSTART checklist idx:', idx);
+                              setDraggedChecklistIndex(idx);
+                              if (e.dataTransfer) {
+                                e.dataTransfer.effectAllowed = 'move';
+                              }
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              console.log('DRAGOVER checklist idx:', idx, 'draggedIndex:', draggedChecklistIndex, 'dragOverIndex:', dragOverChecklistIndex);
+                              if (dragOverChecklistIndex !== idx) {
+                                setDragOverChecklistIndex(idx);
+                              }
+                            }}
+                            onDragLeave={() => {
+                              console.log('DRAGLEAVE checklist idx:', idx);
+                              setDragOverChecklistIndex(null);
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              setDragOverChecklistIndex(null);
+                              if (draggedChecklistIndex === null || draggedChecklistIndex === idx) return;
+                              onUpdateTrip(prevTrip => {
+                                const updatedPlans = prevTrip.plans.map(p => {
+                                  if (p.id === activePlan.id) {
+                                    const list = [...(p.manualChecklist || [])];
+                                    const [removed] = list.splice(draggedChecklistIndex, 1);
+                                    list.splice(idx, 0, removed);
+                                    return {
+                                      ...p,
+                                      manualChecklist: list
+                                    };
+                                  }
+                                  return p;
+                                });
+                                return {
+                                  ...prevTrip,
+                                  plans: updatedPlans
+                                };
+                              });
+                            }}
+                            onDragEnd={() => {
+                              console.log('DRAGEND checklist idx:', idx);
+                              setDraggedChecklistIndex(null);
+                              setDragOverChecklistIndex(null);
+                            }}
+                            style={{ 
+                              padding: '6px 10px', 
+                              borderColor: 'rgba(255,255,255,0.04)',
+                              backgroundColor: 'rgba(255,255,255,0.01)',
+                              borderRadius: '8px',
+                              opacity: draggedChecklistIndex === idx ? 0.4 : 1,
+                              cursor: trip.canEdit !== false ? 'grab' : 'default',
+                              transition: 'opacity 0.2s ease, background-color 0.2s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                              {trip.canEdit !== false && (
+                                <span 
+                                  style={{ 
+                                    cursor: 'grab', 
+                                    color: 'var(--text-muted)', 
+                                    display: 'flex', 
+                                    alignItems: 'center',
+                                    opacity: 0.6,
+                                    paddingRight: '2px'
+                                  }}
+                                >
+                                  <GripVertical size={11} />
+                                </span>
+                              )}
+                              <label className="flex-align" style={{ gap: '8px', cursor: trip.canEdit !== false ? 'pointer' : 'default', textTransform: 'none', flex: 1, minWidth: 0 }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={item.completed} 
+                                  disabled={trip.canEdit === false}
+                                  onChange={() => handleToggleManualChecklistItem(item.id)}
+                                  style={{ width: '14px', height: '14px', margin: 0, cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
+                                />
+                                <span style={{ 
+                                  fontSize: '12px', 
+                                  color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
+                                  textDecoration: item.completed ? 'line-through' : 'none',
+                                  textOverflow: 'ellipsis',
+                                  overflow: 'hidden',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {item.text}
+                                </span>
+                              </label>
+                            </div>
+                            {trip.canEdit !== false && (
+                              <div style={{ display: 'flex', gap: '2px', alignItems: 'center', marginLeft: '6px' }}>
+                                <button 
+                                  type="button" 
+                                  className="mini-icon-btn" 
+                                  onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
+                                  disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
+                                  style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
+                                  data-tooltip="Move Up"
+                                >
+                                  <ChevronUp size={12} />
+                                </button>
+                                <button 
+                                  type="button" 
+                                  className="mini-icon-btn" 
+                                  onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
+                                  disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
+                                  style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
+                                  data-tooltip="Move Down"
+                                >
+                                  <ChevronDown size={12} />
+                                </button>
+                                <button 
+                                  type="button" 
+                                  className="trip-delete-btn" 
+                                  onClick={() => handleDeleteManualChecklistItem(item.id)}
+                                  style={{ padding: '2px', marginLeft: '4px' }}
+                                  data-tooltip="Delete Task"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
  
                     {(activePlan.manualChecklist || []).length === 0 && (
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
@@ -3308,7 +3346,9 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     activePlan.aiChecklistUpdatedAt,
     trip.customAiFields,
     activePlan.hotels,
-    activePlan.transports
+    activePlan.transports,
+    draggedChecklistIndex,
+    dragOverChecklistIndex
   ]);
 
   return (

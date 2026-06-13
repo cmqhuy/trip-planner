@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import TripPlanner from './TripPlanner';
 import type { Trip } from '../types';
@@ -545,6 +545,97 @@ describe('TripPlanner Component', () => {
     const lineIndicatorUp = indicatorsUp[0] as HTMLElement;
     expect(lineIndicatorUp.style.top).toBe('-5px');
     expect(lineIndicatorUp.style.bottom).toBe('auto');
+  });
+
+  it('renders manual checklist and supports drag-and-drop with line indicator positioning', async () => {
+    const handleUpdateTrip = vi.fn();
+    const handleBack = vi.fn();
+
+    const tripWithChecklist = {
+      ...mockTrip,
+      plans: [
+        {
+          ...mockTrip.plans[0],
+          manualChecklist: [
+            { id: 'todo-1', text: 'Pack bags', completed: false },
+            { id: 'todo-2', text: 'Get passport', completed: false },
+            { id: 'todo-3', text: 'Buy tickets', completed: false }
+          ]
+        }
+      ]
+    };
+
+    const { container } = render(
+      <TripPlanner
+        trip={tripWithChecklist}
+        onBack={handleBack}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    // Click the Checklist header to expand it
+    const checklistHeader = screen.getByText('Checklist');
+    fireEvent.click(checklistHeader);
+
+    // Verify task items are rendered
+    expect(screen.getByText('Pack bags')).toBeInTheDocument();
+    expect(screen.getByText('Get passport')).toBeInTheDocument();
+    expect(screen.getByText('Buy tickets')).toBeInTheDocument();
+
+    // Find the draggable items
+    const todo1 = screen.getByText('Pack bags').closest('[draggable="true"]');
+    const todo2 = screen.getByText('Get passport').closest('[draggable="true"]');
+    const todo3 = screen.getByText('Buy tickets').closest('[draggable="true"]');
+
+    expect(todo1).toBeDefined();
+    expect(todo2).toBeDefined();
+    expect(todo3).toBeDefined();
+
+    // 1. Drag todo-1 (index 0) over todo-2 (index 1) - dragging DOWN
+    fireEvent.dragStart(todo1!);
+    
+    // Re-query elements to ensure we get the updated DOM nodes
+    const todo2Active = screen.getByText('Get passport').closest('[draggable="true"]');
+    fireEvent.dragOver(todo2Active!);
+
+    // Find the line indicator using waitFor to allow React state updates to commit
+    await waitFor(() => {
+      const todo2WrapperCurrent = screen.getByText('Get passport').closest('[draggable="true"]')!.parentElement;
+      const indicatorsDown = Array.from(todo2WrapperCurrent!.children).filter(
+        child => (child as HTMLElement).style.background === 'var(--accent-primary)'
+      );
+      expect(indicatorsDown.length).toBe(1);
+      const lineIndicatorDown = indicatorsDown[0] as HTMLElement;
+      expect(lineIndicatorDown.style.bottom).toBe('-5px');
+      expect(lineIndicatorDown.style.top).toBe('auto');
+    });
+
+    // End drag
+    const todo1Active = screen.getByText('Pack bags').closest('[draggable="true"]');
+    fireEvent.dragEnd(todo1Active!);
+
+    // 2. Drag todo-3 (index 2) over todo-2 (index 1) - dragging UP
+    const todo3Active = screen.getByText('Buy tickets').closest('[draggable="true"]');
+    fireEvent.dragStart(todo3Active!);
+
+    const todo2Active2 = screen.getByText('Get passport').closest('[draggable="true"]');
+    fireEvent.dragOver(todo2Active2!);
+
+    await waitFor(() => {
+      const todo2WrapperCurrent = screen.getByText('Get passport').closest('[draggable="true"]')!.parentElement;
+      const indicatorsUp = Array.from(todo2WrapperCurrent!.children).filter(
+        child => (child as HTMLElement).style.background === 'var(--accent-primary)'
+      );
+      expect(indicatorsUp.length).toBe(1);
+      const lineIndicatorUp = indicatorsUp[0] as HTMLElement;
+      expect(lineIndicatorUp.style.top).toBe('-5px');
+      expect(lineIndicatorUp.style.bottom).toBe('auto');
+    });
+
+    // End drag and drop
+    const todo2Active3 = screen.getByText('Get passport').closest('[draggable="true"]');
+    fireEvent.drop(todo2Active3!);
+    expect(handleUpdateTrip).toHaveBeenCalled();
   });
 
   it('closes dropdowns when clicking outside', () => {
