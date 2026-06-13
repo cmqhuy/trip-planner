@@ -57,6 +57,8 @@ export default function GoogleAuthSection({
     }
   };
 
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       {user ? (
@@ -128,15 +130,17 @@ export default function GoogleAuthSection({
         </button>
       )}
 
-      <button 
-        className="mini-icon-btn" 
-        onClick={onOpenSettings}
-        data-tooltip="Google Integration Settings"
-        data-tooltip-position="bottom"
-        style={{ padding: '6px', display: 'flex', borderRadius: '50%' }}
-      >
-        <Settings size={14} />
-      </button>
+      {isLocalhost && (
+        <button 
+          className="mini-icon-btn" 
+          onClick={onOpenSettings}
+          data-tooltip="Google Integration Settings"
+          data-tooltip-position="bottom"
+          style={{ padding: '6px', display: 'flex', borderRadius: '50%' }}
+        >
+          <Settings size={14} />
+        </button>
+      )}
     </div>
   );
 }
