@@ -5,7 +5,6 @@ import {
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
 import { getOptimizedImageUrl } from '../utils/image';
-import AiDetailsView from './AiDetailsView';
 
 interface CatalogSectionProps {
   trip: Trip;
@@ -24,8 +23,6 @@ interface CatalogSectionProps {
   onAddLocation: () => void;
   onAddPlaceToDay: (place: Place) => void;
   onOpenEditPlace: (place: Place) => void;
-  onGenerateSinglePlaceAiDetails: (placeId: string) => void;
-  placeGeneratingIds: Set<string>;
   draggedPlaceId: string | null;
   dragOverGroupId: string | null;
   dragOverPlaceId: string | null;
@@ -75,8 +72,6 @@ export default function CatalogSection({
   onAddLocation,
   onAddPlaceToDay,
   onOpenEditPlace,
-  onGenerateSinglePlaceAiDetails,
-  placeGeneratingIds,
   draggedPlaceId,
   dragOverGroupId,
   dragOverPlaceId,
@@ -591,17 +586,6 @@ export default function CatalogSection({
                                 </>
                               )}
                             </div>
-                            <AiDetailsView
-                              place={place}
-                              onGenerate={() => onGenerateSinglePlaceAiDetails(place.id)}
-                              canEdit={trip.canEdit !== false}
-                              isGenerating={placeGeneratingIds.has(place.id)}
-                              layoutMode="single-col"
-                              customAiFields={trip.customAiFields}
-                              disabledPlaceFields={trip.disabledPlaceFields}
-                              fieldIcons={trip.fieldIcons}
-                              placeFieldsOrder={trip.placeFieldsOrder}
-                            />
                           </div>
                         )}
                       </div>

@@ -26,8 +26,6 @@ interface LeftPanelAccordionProps {
   onAddLocation: () => void;
   onAddPlaceToDay: (place: Place) => void;
   onOpenEditPlace: (place: Place) => void;
-  onGenerateSinglePlaceAiDetails: (placeId: string) => void;
-  placeGeneratingIds: Set<string>;
   draggedPlaceId: string | null;
   dragOverGroupId: string | null;
   dragOverPlaceId: string | null;
@@ -90,8 +88,6 @@ export default function LeftPanelAccordion({
   onAddLocation,
   onAddPlaceToDay,
   onOpenEditPlace,
-  onGenerateSinglePlaceAiDetails,
-  placeGeneratingIds,
   draggedPlaceId,
   dragOverGroupId,
   dragOverPlaceId,
@@ -189,8 +185,6 @@ export default function LeftPanelAccordion({
             onAddLocation={onAddLocation}
             onAddPlaceToDay={onAddPlaceToDay}
             onOpenEditPlace={onOpenEditPlace}
-            onGenerateSinglePlaceAiDetails={onGenerateSinglePlaceAiDetails}
-            placeGeneratingIds={placeGeneratingIds}
             draggedPlaceId={draggedPlaceId}
             dragOverGroupId={dragOverGroupId}
             dragOverPlaceId={dragOverPlaceId}

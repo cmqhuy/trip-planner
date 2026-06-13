@@ -342,6 +342,16 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     onConfirm: () => void;
   } | null>(null);
 
+  const showApiKeyMissingModal = () => {
+    setConfirmModal({
+      title: 'Gemini API Keys Missing',
+      message: 'Gemini API keys are missing. Please add them in the AI Settings (top-right header).',
+      confirmText: 'OK',
+      isAlert: true,
+      onConfirm: () => {}
+    });
+  };
+
   // Edit Location Modal state
   const [showEditLocationModal, setShowEditLocationModal] = useState(false);
 
@@ -644,7 +654,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     if (!targetPlace || !targetLoc) return;
 
     if (!GeminiService.hasApiKey()) {
-      alert('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      showApiKeyMissingModal();
       return;
     }
 
@@ -1677,7 +1687,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // Generate tips for a single day
   const handleGenerateSingleDayTips = async (dateStr: string) => {
     if (!GeminiService.hasApiKey()) {
-      alert('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      showApiKeyMissingModal();
       return;
     }
 
@@ -1861,7 +1871,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   // Generate trip checklist
   const handleGenerateTripChecklist = async () => {
     if (!GeminiService.hasApiKey()) {
-      alert('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      showApiKeyMissingModal();
       return;
     }
 
@@ -1944,7 +1954,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       return;
     }
     if (!GeminiService.hasApiKey()) {
-      alert('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      showApiKeyMissingModal();
       return;
     }
 
@@ -2182,8 +2192,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         }}
         onAddPlaceToDay={handleAddPlaceToDay}
         onOpenEditPlace={handleOpenEditPlace}
-        onGenerateSinglePlaceAiDetails={handleGenerateSinglePlaceAiDetails}
-        placeGeneratingIds={placeGeneratingIds}
         draggedPlaceId={draggedPlaceId}
         dragOverGroupId={dragOverGroupId}
         dragOverPlaceId={dragOverPlaceId}
