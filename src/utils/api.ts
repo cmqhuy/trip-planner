@@ -119,7 +119,7 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
   );
 
   const localResults = localMatches.map((c, index) => ({
-    id: `local-city-${c.city.replace(/\s/g, '-')}-${index}`,
+    id: `location-local-${c.city.replace(/\s/g, '-')}-${index}`,
     city: c.city,
     state: c.state,
     country: c.country,
@@ -159,7 +159,7 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
       }
       
       return {
-        id: `osm-city-${item.osm_id || Math.random().toString(36).substr(2, 9)}`,
+        id: `location-osm-${item.osm_id || Math.random().toString(36).substr(2, 9)}`,
         city,
         state,
         country,

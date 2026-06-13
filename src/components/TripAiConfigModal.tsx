@@ -88,7 +88,6 @@ interface TripAiConfigModalProps {
   onClose: () => void;
   trip: Trip;
   onSave: (
-    enableBabyLogistics: boolean,
     customAiFields: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[],
     disabledPlaceFields: string[],
     disabledDayFields: string[],
@@ -137,17 +136,7 @@ export default function TripAiConfigModal({
 
   useEffect(() => {
     if (isOpen) {
-      const isBabyEnabled = !!trip.enableBabyLogistics;
-      const initialDisabledDays = trip.disabledDayFields || [];
-      let days = [...initialDisabledDays];
-      if (isBabyEnabled) {
-        days = days.filter(d => d !== 'baby_logistics');
-      } else {
-        if (!days.includes('baby_logistics')) {
-          days.push('baby_logistics');
-        }
-      }
-      setDisabledDayFields(days);
+      setDisabledDayFields(trip.disabledDayFields || []);
 
       // Construct Place-Level fields
       const disabledPlaces = trip.disabledPlaceFields || [];
@@ -306,7 +295,6 @@ export default function TripAiConfigModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const babyLogisticsEnabled = !disabledDayFields.includes('baby_logistics');
 
     const disabledPlaceFields = allPlaceFields.filter(f => f.isDefault && f.disabled).map(f => f.key);
     const customFields = allPlaceFields.filter(f => !f.isDefault).map(f => ({
@@ -318,7 +306,7 @@ export default function TripAiConfigModal({
     }));
     const placeFieldsOrder = allPlaceFields.map(f => f.key);
 
-    onSave(babyLogisticsEnabled, customFields, disabledPlaceFields, disabledDayFields, placeFieldsOrder);
+    onSave(customFields, disabledPlaceFields, disabledDayFields, placeFieldsOrder);
     onClose();
   };
 

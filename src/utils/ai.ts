@@ -371,25 +371,38 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     disabledDayFields?: string[]
   ): Promise<{
     dateStr: string;
-    tips?: string;
-    babyLogistics?: string;
+    aiDetails?: {
+      [key: string]: string;
+    };
   }[]> {
     if (days.length === 0) return [];
+
+    const aiDetailsProps: any = {};
+    const aiDetailsRequired: string[] = [];
+
+    const tipsDisabled = disabledDayFields?.includes('daily_tips');
+    if (!tipsDisabled) {
+      aiDetailsProps['daily_tips'] = { type: 'STRING' };
+      aiDetailsRequired.push('daily_tips');
+    }
+
+    if (enableBabyLogistics) {
+      aiDetailsProps['baby_logistics'] = { type: 'STRING' };
+      aiDetailsRequired.push('baby_logistics');
+    }
 
     const properties: any = {
       dateStr: { type: 'STRING' }
     };
     const required = ['dateStr'];
 
-    const tipsDisabled = disabledDayFields?.includes('daily_tips');
-    if (!tipsDisabled) {
-      properties['tips'] = { type: 'STRING' };
-      required.push('tips');
-    }
-
-    if (enableBabyLogistics) {
-      properties['babyLogistics'] = { type: 'STRING' };
-      required.push('babyLogistics');
+    if (Object.keys(aiDetailsProps).length > 0) {
+      properties['aiDetails'] = {
+        type: 'OBJECT',
+        properties: aiDetailsProps,
+        required: aiDetailsRequired
+      };
+      required.push('aiDetails');
     }
 
     const daysPrompt = days.map((d, i) => {
@@ -417,7 +430,7 @@ ${transportsList || 'None'}`;
 ${daysPrompt}
 
 For each day, write daily tips (in Markdown format). Keep the response structured, clear, and relatively brief (under 8-10 sentences total or a clean, bulleted checklist/list of tips, avoiding long essays).
-Specifically, cover the following in the tips field:
+Specifically, cover the following in the daily_tips field under the aiDetails object:
 
 1. **Daily Route Sequence & Summary**: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates. For example: "Start at [Hotel], take [transit] to [station X] for [Place 1], then walk along [street/path Y] to get to [Place 2], then take [transit] to [station Z]...".
 2. **Timing & Optimization Suggestions**:
@@ -431,7 +444,7 @@ Specifically, cover the following in the tips field:
    - Essential safety warnings (pickpocket warnings, local scams, walking terrain/comfort).
 
 ${enableBabyLogistics ? `IMPORTANT BABY LOGISTICS REQUIREMENT:
-Since the user is traveling with a baby, generate a specific "babyLogistics" text (in Markdown format) for each day, describing what to be aware of regarding having a baby (e.g. stroller friendliness, diaper changing spots, safety, nursing facilities, nap planning). Keep it brief, 2-3 sentences or bullet points.` : ''}
+Since the user is traveling with a baby, generate a specific "baby_logistics" text (in Markdown format) under the "baby_logistics" key of the aiDetails object for each day, describing what to be aware of regarding having a baby (e.g. stroller friendliness, diaper changing spots, safety, nursing facilities, nap planning). Keep it brief, 2-3 sentences or bullet points.` : ''}
 
 Ensure the returned JSON lists the exact "dateStr" for each day so it can be matched.`;
 
@@ -503,8 +516,9 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
     disabledDayFields?: string[]
   ): Promise<{
     dateStr: string;
-    tips?: string;
-    babyLogistics?: string;
+    aiDetails?: {
+      [key: string]: string;
+    };
   }[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {

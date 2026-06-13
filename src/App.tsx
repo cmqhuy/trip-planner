@@ -790,6 +790,7 @@ export default function App() {
       locations: [],
       plans: [defaultPlan],
       placeGroups: [...DEFAULT_PLACE_GROUPS],
+      disabledDayFields: ['baby_logistics'],
       updatedAt: Date.now()
     };
 

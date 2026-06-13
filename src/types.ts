@@ -42,8 +42,12 @@ export interface Location {
   lng: number;
   places: Place[];
   color?: string; // Hex color for color coding
-  aiLocalEssentials?: string;
-  aiLocalEssentialsUpdatedAt?: number;
+  aiDetails?: {
+    [key: string]: string;
+  };
+  aiUpdatedAt?: {
+    [key: string]: number;
+  };
 }
 
 export interface Transportation {
@@ -75,9 +79,10 @@ export interface PlanDay {
   dateStr: string; // YYYY-MM-DD
   locationId?: string; // Reference to Location.id (where the day ends)
   placeIds: string[];  // Scheduled places on this day
-  aiTips?: string;
-  aiBabyLogistics?: string;
-  aiTipsUpdatedAt?: number;
+  aiDetails?: {
+    [key: string]: string;
+  };
+  aiUpdatedAt?: number;
 }
 
 export interface Plan {
@@ -89,8 +94,12 @@ export interface Plan {
   hotels: Hotel[];
   transports: Transportation[];
   manualChecklist?: { id: string; text: string; completed: boolean; }[];
-  aiChecklist?: string;
-  aiChecklistUpdatedAt?: number;
+  aiDetails?: {
+    [key: string]: string;
+  };
+  aiUpdatedAt?: {
+    [key: string]: number;
+  };
 }
 
 export interface Trip {
@@ -109,10 +118,15 @@ export interface Trip {
   isOwner?: boolean;         // True if the current user is the owner
   canEdit?: boolean;         // True if the current user has edit permission
   shared?: boolean;          // True if the trip is shared with others
-  enableBabyLogistics?: boolean;
   disabledPlaceFields?: string[];
   disabledDayFields?: string[];
   fieldIcons?: { [key: string]: string };
   placeFieldsOrder?: string[];
   customAiFields?: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[];
+  aiDetails?: {
+    [key: string]: string;
+  };
+  aiUpdatedAt?: {
+    [key: string]: number;
+  };
 }

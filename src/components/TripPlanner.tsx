@@ -1198,7 +1198,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   const handleCreateCustomPlace = (placeData: Omit<Place, 'id'>) => {
     if (!catalogLocation) return;
 
-    const customId = `custom-place-${Date.now()}`;
+    const customId = `place-${Date.now()}`;
     const newPlace: Place = {
       id: customId,
       ...placeData
@@ -1692,7 +1692,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
   // Save Trip AI Config (baby logistics checkbox & custom AI fields)
   const handleSaveTripAiConfig = (
-    enableBabyLogistics: boolean,
     customAiFields: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[],
     disabledPlaceFields?: string[],
     disabledDayFields?: string[],
@@ -1700,7 +1699,6 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
   ) => {
     onUpdateTrip({
       ...trip,
-      enableBabyLogistics,
       customAiFields,
       disabledPlaceFields: disabledPlaceFields || [],
       disabledDayFields: disabledDayFields || [],
@@ -1758,7 +1756,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           hotels: dayHotels,
           transports: dayTransports
         }],
-        !!trip.enableBabyLogistics,
+        !trip.disabledDayFields?.includes('baby_logistics'),
         undefined, // model
         trip.disabledDayFields
       );
@@ -1772,9 +1770,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 ...p.days,
                 [dateStr]: {
                   ...p.days[dateStr],
-                  aiTips: res.tips,
-                  aiBabyLogistics: res.babyLogistics,
-                  aiTipsUpdatedAt: Date.now()
+                  aiDetails: res.aiDetails,
+                  aiUpdatedAt: Date.now()
                 }
               };
               return {
@@ -1853,7 +1850,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
       const results = await GeminiService.generateDailyTipsWithRotation(
         daysPayload,
-        !!trip.enableBabyLogistics,
+        !trip.disabledDayFields?.includes('baby_logistics'),
         undefined, // model
         trip.disabledDayFields
       );
@@ -1867,9 +1864,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
               if (day) {
                 updatedDays[res.dateStr] = {
                    ...day,
-                   aiTips: res.tips,
-                   aiBabyLogistics: res.babyLogistics,
-                   aiTipsUpdatedAt: Date.now()
+                   aiDetails: res.aiDetails,
+                   aiUpdatedAt: Date.now()
                 };
               }
             });
@@ -1938,7 +1934,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
       const result = await GeminiService.generateTripChecklistWithRotation(
         tripInfo,
-        !!trip.enableBabyLogistics
+        !trip.disabledDayFields?.includes('baby_logistics')
       );
 
       onUpdateTrip(prevTrip => {
@@ -1946,8 +1942,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           if (p.id === activePlan.id) {
             return {
               ...p,
-              aiChecklist: result,
-              aiChecklistUpdatedAt: Date.now()
+              aiDetails: {
+                ...(p.aiDetails || {}),
+                checklist: result
+              },
+              aiUpdatedAt: {
+                ...(p.aiUpdatedAt || {}),
+                checklist: Date.now()
+              }
             };
           }
           return p;
@@ -1987,8 +1989,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           if (l.id === locId) {
             return {
               ...l,
-              aiLocalEssentials: result,
-              aiLocalEssentialsUpdatedAt: Date.now()
+              aiDetails: {
+                ...(l.aiDetails || {}),
+                local_essentials: result
+              },
+              aiUpdatedAt: {
+                ...(l.aiUpdatedAt || {}),
+                local_essentials: Date.now()
+              }
             };
           }
           return l;
@@ -2110,8 +2118,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         if (p.id === activePlan.id) {
           return {
             ...p,
-            aiChecklist: newContent,
-            aiChecklistUpdatedAt: Date.now()
+            aiDetails: {
+              ...(p.aiDetails || {}),
+              checklist: newContent
+            },
+            aiUpdatedAt: {
+              ...(p.aiUpdatedAt || {}),
+              checklist: Date.now()
+            }
           };
         }
         return p;
@@ -2130,8 +2144,14 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
         if (l.id === locId) {
           return {
             ...l,
-            aiLocalEssentials: newContent,
-            aiLocalEssentialsUpdatedAt: Date.now()
+            aiDetails: {
+              ...(l.aiDetails || {}),
+              local_essentials: newContent
+            },
+            aiUpdatedAt: {
+              ...(l.aiUpdatedAt || {}),
+              local_essentials: Date.now()
+            }
           };
         }
         return l;
@@ -2150,8 +2170,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       ...activePlan.days,
       [dateStr]: {
         ...day,
-        aiTips: newContent,
-        aiTipsUpdatedAt: Date.now()
+        aiDetails: {
+          ...(day.aiDetails || {}),
+          daily_tips: newContent
+        },
+        aiUpdatedAt: Date.now()
       }
     };
     onUpdateTrip({
@@ -2167,8 +2190,11 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       ...activePlan.days,
       [dateStr]: {
         ...day,
-        aiBabyLogistics: newContent,
-        aiTipsUpdatedAt: Date.now()
+        aiDetails: {
+          ...(day.aiDetails || {}),
+          baby_logistics: newContent
+        },
+        aiUpdatedAt: Date.now()
       }
     };
     onUpdateTrip({
@@ -3048,17 +3074,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                         disabled={generatingChecklist}
                       >
                         {generatingChecklist ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
-                        {activePlan.aiChecklist ? 'Regenerate' : 'Generate'}
+                        {activePlan.aiDetails?.checklist ? 'Regenerate' : 'Generate'}
                       </button>
                     )}
                   </div>
  
                   {generatingChecklist ? (
                     <FunGeneratingLoader message="Analyzing trip logistics & requirements..." />
-                  ) : activePlan.aiChecklist ? (
+                  ) : activePlan.aiDetails?.checklist ? (
                     <AiMarkdownSection 
-                      content={activePlan.aiChecklist} 
-                      updatedAt={activePlan.aiChecklistUpdatedAt} 
+                      content={activePlan.aiDetails.checklist} 
+                      updatedAt={activePlan.aiUpdatedAt?.checklist} 
                       onSave={handleSaveAiChecklist}
                       canEdit={trip.canEdit !== false}
                       style={{ maxHeight: 'none', overflowY: 'auto', flex: 1 }}
@@ -3251,7 +3277,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
               Tips (Local Essentials)
             </span>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              {catalogLocation && catalogLocation.aiLocalEssentials ? 'Ready' : 'Empty'}
+              {catalogLocation && catalogLocation.aiDetails?.local_essentials ? 'Ready' : 'Empty'}
             </span>
           </div>
           
@@ -3285,17 +3311,17 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                       disabled={generatingLocalEssentials}
                     >
                       {generatingLocalEssentials ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
-                      {catalogLocation.aiLocalEssentials ? 'Regenerate' : 'Generate'}
+                      {catalogLocation.aiDetails?.local_essentials ? 'Regenerate' : 'Generate'}
                     </button>
                   )}
                 </div>
 
                 {generatingLocalEssentials ? (
                   <FunGeneratingLoader message="Gathering destination reference guide..." />
-                ) : catalogLocation && catalogLocation.aiLocalEssentials ? (
+                ) : catalogLocation && catalogLocation.aiDetails?.local_essentials ? (
                   <AiMarkdownSection 
-                    content={catalogLocation.aiLocalEssentials} 
-                    updatedAt={catalogLocation.aiLocalEssentialsUpdatedAt} 
+                    content={catalogLocation.aiDetails.local_essentials} 
+                    updatedAt={catalogLocation.aiUpdatedAt?.local_essentials} 
                     onSave={handleSaveAiLocalEssentials}
                     canEdit={trip.canEdit !== false}
                     style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}
@@ -3359,8 +3385,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
     generatingChecklist,
     generatingLocalEssentials,
     activePlan.manualChecklist,
-    activePlan.aiChecklist,
-    activePlan.aiChecklistUpdatedAt,
+    activePlan.aiDetails?.checklist,
+    activePlan.aiUpdatedAt?.checklist,
     trip.customAiFields,
     activePlan.hotels,
     activePlan.transports,
@@ -3772,7 +3798,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {(() => {
                     const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
-                    const isBabyLogisticsEnabled = !!trip.enableBabyLogistics;
+                    const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
                     const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
                     return (
                       <>
@@ -3786,10 +3812,10 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
                               }
                             }}
                             disabled={daysGeneratingDates.has(activeDayStr) || !isAnyDayFieldEnabled}
-                            data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : (activeDay?.aiTips ? 'Regenerate Tips' : 'Generate Tips')}
+                            data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : (activeDay?.aiDetails?.daily_tips ? 'Regenerate Tips' : 'Generate Tips')}
                           >
                             {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={10} className="spin" /> : <RefreshCw size={10} />}
-                            {activeDay?.aiTips ? 'Regenerate Tips' : 'Generate Tips'}
+                            {activeDay?.aiDetails?.daily_tips ? 'Regenerate Tips' : 'Generate Tips'}
                           </button>
                         )}
                         {trip.canEdit !== false && (
@@ -3815,35 +3841,35 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
 
               {(() => {
                 const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
-                const isBabyLogisticsEnabled = !!trip.enableBabyLogistics;
+                const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
                 const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
 
                 return daysGeneratingDates.has(activeDayStr) ? (
                   <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
-                ) : (isDailyTipsEnabled && activeDay?.aiTips) || (isBabyLogisticsEnabled && activeDay?.aiBabyLogistics) ? (
+                ) : (isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips) || (isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics) ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     
                     {/* Daily Tips */}
-                    {isDailyTipsEnabled && activeDay?.aiTips && (
+                    {isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips && (
                       <AiMarkdownSection 
-                        content={activeDay.aiTips} 
-                        updatedAt={activeDay.aiTipsUpdatedAt}
+                        content={activeDay.aiDetails.daily_tips} 
+                        updatedAt={activeDay.aiUpdatedAt}
                         onSave={(newVal) => handleSaveDayTips(activeDayStr, newVal)}
                         canEdit={trip.canEdit !== false}
                       />
                     )}
 
                     {/* Baby Logistics (if enabled and generated) */}
-                    {isBabyLogisticsEnabled && activeDay.aiBabyLogistics && (
+                    {isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics && (
                       <div 
                         style={{ 
-                          borderTop: isDailyTipsEnabled && activeDay?.aiTips ? '1px solid rgba(255, 255, 255, 0.05)' : 'none', 
-                          paddingTop: isDailyTipsEnabled && activeDay?.aiTips ? '8px' : '0', 
-                          marginTop: isDailyTipsEnabled && activeDay?.aiTips ? '4px' : '0' 
+                          borderTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '1px solid rgba(255, 255, 255, 0.05)' : 'none', 
+                          paddingTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '8px' : '0', 
+                          marginTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '4px' : '0' 
                         }}
                       >
                         <AiMarkdownSection 
-                          content={activeDay.aiBabyLogistics} 
+                          content={activeDay.aiDetails.baby_logistics} 
                           onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
                           canEdit={trip.canEdit !== false}
                           title={
@@ -4612,8 +4638,8 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           days={daysList.map(d => ({
             dateStr: d,
             label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`,
-            hasTips: !!activePlan.days[d]?.aiTips,
-            tipsUpdatedAt: activePlan.days[d]?.aiTipsUpdatedAt
+            hasTips: !!activePlan.days[d]?.aiDetails?.daily_tips,
+            tipsUpdatedAt: activePlan.days[d]?.aiUpdatedAt
           }))}
           onGenerate={handleGenerateDaysTips}
         />
