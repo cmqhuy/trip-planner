@@ -163,7 +163,7 @@ export default function AiMarkdownSection({
               ) : (
                 <button 
                   type="button"
-                  className="mini-icon-btn flex-align" 
+                  className="mini-icon-btn flex-align ai-markdown-edit-btn" 
                   onClick={() => setIsEditing(true)}
                   style={{ 
                     fontSize: '10px', 
@@ -174,7 +174,7 @@ export default function AiMarkdownSection({
                     height: '20px'
                   }}
                 >
-                  <Edit2 size={10} /> Edit
+                  <Edit2 size={10} /> <span className="btn-text">Edit</span>
                 </button>
               )}
             </div>

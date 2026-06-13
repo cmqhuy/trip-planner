@@ -291,9 +291,10 @@ describe('TripPlanner Component', () => {
     );
 
     // Find and click the place options dropdown button first to reveal the edit button
-    const placeOptionsBtns = container.querySelectorAll('[data-tooltip="Place Options"]');
-    expect(placeOptionsBtns.length).toBeGreaterThan(0);
-    fireEvent.click(placeOptionsBtns[0]);
+    const timelineCard = container.querySelector('.timeline-card');
+    const placeOptionsBtn = timelineCard?.querySelector('[data-tooltip="Place Options"]');
+    expect(placeOptionsBtn).toBeDefined();
+    fireEvent.click(placeOptionsBtn!);
 
     // Find and click the edit button for "Eiffel Tower" inside the day schedule
     const editPlaceBtns = container.querySelectorAll('[data-tooltip="Edit Place"]');
@@ -651,9 +652,10 @@ describe('TripPlanner Component', () => {
     );
 
     // Open timeline place dropdown
-    const placeOptionsBtns = container.querySelectorAll('[data-tooltip="Place Options"]');
-    expect(placeOptionsBtns.length).toBeGreaterThan(0);
-    fireEvent.click(placeOptionsBtns[0]);
+    const timelineCard = container.querySelector('.timeline-card');
+    const placeOptionsBtn = timelineCard?.querySelector('[data-tooltip="Place Options"]');
+    expect(placeOptionsBtn).toBeDefined();
+    fireEvent.click(placeOptionsBtn!);
 
     // Verify "Edit Place" is visible
     expect(screen.getByText('Edit Place')).toBeInTheDocument();

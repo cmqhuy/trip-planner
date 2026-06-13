@@ -72,7 +72,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
       if (!target.closest('.day-options-dropdown-container')) {
         setShowDayOptionsMenu(false);
       }
-      if (!target.closest('.timeline-place-dropdown-container')) {
+      if (!target.closest('.timeline-place-dropdown-container') && !target.closest('.timeline-place-dropdown-container-mobile') && !target.closest('.day-place-dropdown-container-mobile')) {
         setActiveTimelinePlaceDropdownKey(null);
       }
     };
@@ -2333,6 +2333,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           onMapClick={handleMapClick}
           previewMarker={previewMarker}
           onPlaceSelect={setActivePlaceId}
+          activeMobileTab={activeMobileTab}
         />
       </div>
 
@@ -2343,7 +2344,7 @@ export default function TripPlanner({ trip, onBack, onUpdateTrip, onShareTrip, i
           onClick={() => setActiveMobileTab('catalog')}
         >
           <BookOpen size={20} />
-          <span>Catalog</span>
+          <span>Overview</span>
         </button>
         <button 
           className={`mobile-tab-btn ${activeMobileTab === 'itinerary' ? 'active' : ''}`}

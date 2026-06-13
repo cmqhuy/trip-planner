@@ -31,7 +31,8 @@ import ConfirmationModal from './components/ConfirmationModal';
 import SyncConflictModal from './components/SyncConflictModal';
 import { GeminiService } from './utils/ai';
 import AiSettingsModal from './components/AiSettingsModal';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, ArrowLeft } from 'lucide-react';
+
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
@@ -1067,7 +1068,17 @@ export default function App() {
       {/* Premium Header */}
       <header className="app-header glass-panel" style={{ borderRadius: '0', borderWidth: '0 0 1px 0' }}>
         <div className="logo-section">
-          <img src="logo.png" alt="Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+          {activeTrip && (
+            <button 
+              className="mini-icon-btn header-back-btn" 
+              onClick={() => setActiveTripId(null)}
+              title="Back to Dashboard"
+              style={{ padding: '6px', marginRight: '4px', display: 'flex', alignItems: 'center' }}
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <img src="logo.png" alt="Logo" className="header-logo-img" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           <h1>Trip Planner</h1>
         </div>
         

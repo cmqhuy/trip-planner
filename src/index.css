@@ -1071,8 +1071,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   /* Layout adjustments */
   .planner-view {
     flex-direction: column !important;
-    height: calc(100vh - 64px - 60px) !important; /* Adjust for header (64px) and bottom tab nav (60px) */
+    height: 100% !important;
     position: relative;
+    overflow: hidden;
   }
 
   .catalog-panel,
@@ -1086,6 +1087,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     border-right: none !important;
     border-left: none !important;
     height: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 60px !important; /* Space for absolute bottom nav */
   }
 
   .catalog-panel.mobile-active,
@@ -1117,7 +1120,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   select,
   input,
   textarea {
-    min-height: 44px !important; /* Standard touch target height */
+    min-height: 40px !important; /* Touch target height */
   }
 
   .mini-icon-btn {
@@ -1710,4 +1713,450 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .accordion-content::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
+
+/* ==========================================================================
+   MOBILE FRIENDLY STYLING UPDATES (max-width: 768px)
+   ========================================================================== */
+
+/* Header back arrow and title adjustments */
+.header-back-btn {
+  display: none;
+}
+
+/* Share form modal layout */
+.share-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+/* Catalog section layouts */
+.catalog-place-actions-mobile {
+  display: none;
+}
+.catalog-place-actions-desktop {
+  display: flex;
+}
+.catalog-place-dropdown-container-mobile,
+.day-place-dropdown-container-mobile {
+  display: none !important;
+}
+
+/* Day timeline place layouts */
+.day-place-actions-mobile {
+  display: none;
+}
+.day-place-actions-desktop {
+  display: flex;
+}
+
+/* Google auth dropdown styling */
+.google-auth-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass);
+}
+.user-avatar-img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  display: block;
+}
+.user-avatar-initial {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+.user-name-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.user-name-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+.google-auth-desktop-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.google-auth-mobile-dropdown {
+  display: none;
+}
+.google-auth-avatar-desktop {
+  display: block;
+}
+div.google-auth-avatar-desktop {
+  display: flex;
+}
+.google-auth-avatar-mobile {
+  display: none !important;
+}
+.day-location-select-wrapper svg.day-location-select-mobile-icon {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Title single line and back arrow */
+  .logo-section h1 {
+    font-size: 16px !important;
+    white-space: nowrap !important;
+  }
+  .header-back-btn {
+    display: flex !important;
+  }
+  .header-logo-img {
+    display: none !important;
+  }
+
+  /* Google auth responsive expander */
+  .google-auth-container {
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  .google-auth-avatar-desktop {
+    display: none !important;
+  }
+  .google-auth-avatar-mobile {
+    display: flex !important;
+  }
+  .user-avatar-img, .user-avatar-initial {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+    border-radius: 50% !important;
+  }
+  .user-name-wrapper {
+    display: none !important;
+  }
+  .google-auth-desktop-actions {
+    display: none !important;
+  }
+  .google-auth-mobile-dropdown {
+    display: flex !important;
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    backdrop-filter: blur(16px) !important;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    min-width: 200px !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    z-index: 1200 !important;
+    box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5) !important;
+  }
+  .dropdown-user-info {
+    display: flex;
+    flex-direction: column;
+    text-transform: none;
+  }
+  .dropdown-user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .dropdown-user-email {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border-glass);
+    margin: 4px 0;
+  }
+  .dropdown-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .dropdown-actions-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  /* Dashboard buttons wrapping */
+  .dashboard-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 16px !important;
+    margin-bottom: 24px !important;
+  }
+  .dashboard-header-buttons {
+    width: 100% !important;
+  }
+  .dashboard-header-buttons button {
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+
+  /* Share Itinerary Dialog layout */
+  .share-form {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-rows: auto auto !important;
+    gap: 10px !important;
+  }
+  .share-form input[type="email"] {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+  .share-form select {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 110px !important;
+  }
+  .share-form button[type="submit"] {
+    grid-column: 1 / span 2 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Hide back button inside left accordion panel on mobile */
+  .back-to-dashboard-btn {
+    display: none !important;
+  }
+
+
+
+  /* Catalog details: Add Location and combo box height */
+  .add-location-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+  }
+  .catalog-location-select {
+    min-height: 36px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* Catalog details: spacings and margins */
+  .left-panel-accordion .catalog-content {
+    padding: 0 !important;
+  }
+  .place-group-section {
+    margin-bottom: 16px !important;
+  }
+  .place-group-header {
+    margin-bottom: 8px !important;
+    padding-bottom: 4px !important;
+  }
+  .catalog-places-list {
+    gap: 6px !important;
+  }
+  .catalog-place-card {
+    padding: 8px !important;
+  }
+  .place-card-header {
+    gap: 8px !important;
+  }
+
+  /* Catalog place move up/down bottom row */
+  .catalog-place-actions-desktop {
+    display: none !important;
+  }
+  .catalog-place-actions-mobile {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+    border-top: 1px dashed rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Trip Meta Grid Header Layout */
+  .trip-meta-info-container {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 12px !important;
+    row-gap: 8px !important;
+    align-items: center !important;
+    margin-bottom: 16px !important;
+    width: 100% !important;
+  }
+  .trip-title-row {
+    grid-column: 1 / span 2 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .trip-title-text {
+    font-size: 20px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: calc(100% - 100px) !important;
+  }
+  .trip-duration-text {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    font-size: 11px !important;
+    margin: 0 !important;
+  }
+  .trip-plan-picker-column {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    align-self: center !important;
+  }
+
+  /* Location Hero Image height & 1 line name */
+  .day-location-picker {
+    min-height: 54px !important;
+    padding: 8px 12px !important;
+  }
+  .day-location-name-text {
+    font-size: 15px !important;
+    max-width: 100% !important;
+  }
+  
+  /* Location Hero Select collapsed to ... */
+  .day-location-select-wrapper {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 50% !important;
+    background: rgba(15, 23, 42, 0.8) !important;
+    border: 1px solid var(--border-glass) !important;
+    padding: 0 !important;
+  }
+  .day-location-select-wrapper svg.day-location-select-mobile-icon {
+    display: block !important;
+  }
+  .day-location-select {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+    cursor: pointer !important;
+  }
+
+  /* AI Day Assistant */
+  .ai-day-assistant-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .ai-markdown-edit-btn {
+    height: 22px !important;
+    padding: 2px 6px !important;
+  }
+  .ai-markdown-edit-btn .btn-text {
+    display: none !important;
+  }
+
+  /* Day Itinerary Schedule */
+  .day-schedule-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .timeline-card {
+    padding: 8px !important;
+  }
+  .day-timeline {
+    gap: 8px !important;
+  }
+
+  /* Day Schedule card buttons bottom row */
+  .day-place-actions-desktop {
+    display: none !important;
+  }
+  .day-place-actions-mobile {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+    border-top: 1px dashed rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Absolute mobile tab navigation to position relative to planner-view container */
+  .mobile-tab-nav {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 60px !important;
+    z-index: 1000 !important;
+  }
+
+  /* Compact touch target for specific buttons inside place cards */
+  .catalog-place-card button,
+  .timeline-card button {
+    min-height: 32px !important;
+  }
+  .catalog-place-card .mini-icon-btn,
+  .timeline-card .mini-icon-btn {
+    min-width: 32px !important;
+    min-height: 32px !important;
+  }
+
+  /* Mobile dropdown styles and positioning */
+  .catalog-place-dropdown-container-mobile,
+  .day-place-dropdown-container-mobile {
+    display: flex !important;
+  }
+  .catalog-place-card {
+    position: relative !important;
+  }
+  .place-card-header {
+    padding-right: 28px !important;
+    position: relative !important;
+  }
+  .timeline-card {
+    position: relative !important;
+  }
+  .timeline-card-content {
+    padding-right: 28px !important;
+    position: relative !important;
+  }
+  .catalog-place-card.dropdown-active,
+  .timeline-card.dropdown-active {
+    z-index: 1100 !important;
+  }
+  .dropdown-menu {
+    z-index: 2000 !important;
+  }
+  .timeline-dot {
+    top: 22px !important;
+  }
+}
+
 

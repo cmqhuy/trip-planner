@@ -10,6 +10,7 @@ interface MapComponentProps {
   onMapClick?: (lat: number, lng: number) => void;
   previewMarker?: { lat: number; lng: number };
   onPlaceSelect?: (placeId: string | undefined) => void;
+  activeMobileTab?: string;
 }
 
 // Helpers for serializing to determine semantic value changes
@@ -43,7 +44,8 @@ export default function MapComponent({
   placeGroups, 
   onMapClick, 
   previewMarker,
-  onPlaceSelect
+  onPlaceSelect,
+  activeMobileTab
 }: MapComponentProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -103,6 +105,29 @@ export default function MapComponent({
       polylineRef.current = null;
     };
   }, []);
+
+  // Invalidate map size when tab switches to map to fix zoom/pan layout offsets
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (map && activeMobileTab === 'map') {
+      setTimeout(() => {
+        if (mapInstance.current) {
+          mapInstance.current.invalidateSize({ animate: false });
+          
+          // Force re-centering after invalidation
+          if (activePlaceId) {
+            const activePlace = places.find(p => p.id === activePlaceId);
+            if (activePlace) {
+              mapInstance.current.setView([activePlace.lat, activePlace.lng], Math.max(mapInstance.current.getZoom(), 15));
+            }
+          } else if (places.length > 0) {
+            const latlngs = places.map(p => [p.lat, p.lng] as [number, number]);
+            mapInstance.current.fitBounds(L.latLngBounds(latlngs), { padding: [50, 50] });
+          }
+        }
+      }, 150);
+    }
+  }, [activeMobileTab, activePlaceId, places]);
 
   // Update Markers & Lines
   useEffect(() => {
@@ -357,6 +382,7 @@ export default function MapComponent({
 
     // Smart Map View Adjustments (zoom/pan) - Only run when the focus/day changes to avoid map snapping
     if (!previewMarker) {
+      map.invalidateSize({ animate: false });
       // Scenario A: User newly selected a place/neighborhood
       if (activePlaceChanged && activePlaceId) {
         if (activePlace) {

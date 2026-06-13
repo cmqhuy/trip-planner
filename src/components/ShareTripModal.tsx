@@ -162,7 +162,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
         )}
 
         {/* Share Form */}
-        <form onSubmit={handleAddPermission} style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+        <form onSubmit={handleAddPermission} className="share-form">
           <input
             type="email"
             placeholder="Add Google account email..."

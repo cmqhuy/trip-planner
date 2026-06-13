@@ -214,10 +214,10 @@ export default function ItineraryPanel({
   return (
     <div className={`itinerary-panel ${activeMobileTab === 'itinerary' ? 'mobile-active' : ''}`}>
       <div className="itinerary-header">
-        <div className="trip-meta-info">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '24px' }}>{trip.name}</h2>
+        <div className="trip-meta-info-container">
+          <div className="trip-title-row">
+            <h2 className="trip-title-text" style={{ fontSize: '24px', margin: 0 }}>{trip.name}</h2>
+            <div className="trip-action-buttons" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {trip.isOwner !== false && (
                 <button 
                   className="mini-icon-btn" 
@@ -264,129 +264,132 @@ export default function ItineraryPanel({
                 </span>
               )}
             </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px', display: 'flex', gap: '8px' }}>
-              <span className="flex-align" style={{ gap: '6px' }}>
-                <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
-                {formatDisplayDate(trip.startDate)} - {formatDisplayDate(trip.endDate)}
-              </span>
-            </div>
           </div>
           
-          {isRenamingPlan ? (
-            <div className="flex-align" style={{ gap: '4px' }}>
-              <input 
-                type="text" 
-                value={editPlanName} 
-                onChange={e => setEditPlanName(e.target.value)}
-                style={{ padding: '4px 8px', fontSize: '13px', width: '140px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '4px' }}
-                autoFocus
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleRenamePlan();
-                  if (e.key === 'Escape') setIsRenamingPlan(false);
-                }}
-              />
-              <button className="mini-icon-btn" onClick={handleRenamePlan} data-tooltip="Save Name" style={{ color: 'var(--color-success)', padding: '4px' }}>
-                <Check size={14} />
-              </button>
-              <button className="mini-icon-btn" onClick={() => setIsRenamingPlan(false)} data-tooltip="Cancel" style={{ color: 'var(--text-muted)', padding: '4px' }}>
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className="plan-picker-wrapper">
-              <Layers size={16} style={{ color: 'var(--text-muted)' }} />
-              <select 
-                className="plan-picker" 
-                value={activePlanId} 
-                onChange={(e) => {
-                  const nextPlanId = e.target.value;
-                  if (daysTabsNavRef.current) {
-                    lastScrollLeft.current = daysTabsNavRef.current.scrollLeft;
-                  }
-                  setActivePlanId(nextPlanId);
-                  // Reset day string to first day of new plan if bounds differ
-                  const newPlanDays = Object.keys(trip.plans.find(p => p.id === nextPlanId)?.days || {}).sort();
-                  if (newPlanDays.length > 0) {
-                    if (newPlanDays.includes(activeDayStr)) {
-                      // Keep current activeDayStr
-                    } else {
-                      setActiveDayStr(newPlanDays[0]);
+          <div className="trip-duration-text" style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', gap: '8px' }}>
+            <span className="flex-align" style={{ gap: '6px' }}>
+              <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+              {formatDisplayDate(trip.startDate)} - {formatDisplayDate(trip.endDate)}
+            </span>
+          </div>
+          
+          <div className="trip-plan-picker-column">
+            {isRenamingPlan ? (
+              <div className="flex-align" style={{ gap: '4px' }}>
+                <input 
+                  type="text" 
+                  value={editPlanName} 
+                  onChange={e => setEditPlanName(e.target.value)}
+                  style={{ padding: '4px 8px', fontSize: '13px', width: '140px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '4px' }}
+                  autoFocus
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleRenamePlan();
+                    if (e.key === 'Escape') setIsRenamingPlan(false);
+                  }}
+                />
+                <button className="mini-icon-btn" onClick={handleRenamePlan} data-tooltip="Save Name" style={{ color: 'var(--color-success)', padding: '4px' }}>
+                  <Check size={14} />
+                </button>
+                <button className="mini-icon-btn" onClick={() => setIsRenamingPlan(false)} data-tooltip="Cancel" style={{ color: 'var(--text-muted)', padding: '4px' }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="plan-picker-wrapper">
+                <Layers size={16} style={{ color: 'var(--text-muted)' }} />
+                <select 
+                  className="plan-picker" 
+                  value={activePlanId} 
+                  onChange={(e) => {
+                    const nextPlanId = e.target.value;
+                    if (daysTabsNavRef.current) {
+                      lastScrollLeft.current = daysTabsNavRef.current.scrollLeft;
                     }
-                  }
-                }}
-              >
-                {trip.plans.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              {trip.canEdit !== false && (
-                <div className="plan-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
-                  <button 
-                    className="mini-icon-btn"
-                    onClick={() => setShowPlanMenu(!showPlanMenu)}
-                    data-tooltip="Plan Options"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <MoreVertical size={16} />
-                  </button>
-                  {showPlanMenu && (
-                    <div className="dropdown-menu">
-                      <button 
-                        className="dropdown-item"
-                        onClick={() => {
-                          setShowNewPlanModal(true);
-                          setShowPlanMenu(false);
-                        }}
-                      >
-                        <Plus size={14} /> Add Plan
-                      </button>
-                      <button 
-                        className="dropdown-item"
-                        disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
-                        onClick={() => {
-                          handleMovePlan('up');
-                          setShowPlanMenu(false);
-                        }}
-                      >
-                        <ChevronUp size={14} /> Move Plan Up
-                      </button>
-                      <button 
-                        className="dropdown-item"
-                        disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
-                        onClick={() => {
-                          handleMovePlan('down');
-                          setShowPlanMenu(false);
-                        }}
-                      >
-                        <ChevronDown size={14} /> Move Plan Down
-                      </button>
-                      <button 
-                        className="dropdown-item"
-                        onClick={() => {
-                          setIsRenamingPlan(true);
-                          setEditPlanName(activePlan.name);
-                          setShowPlanMenu(false);
-                        }}
-                      >
-                        <Edit2 size={14} /> Rename Plan
-                      </button>
-                      {trip.plans.length > 1 && (
+                    setActivePlanId(nextPlanId);
+                    // Reset day string to first day of new plan if bounds differ
+                    const newPlanDays = Object.keys(trip.plans.find(p => p.id === nextPlanId)?.days || {}).sort();
+                    if (newPlanDays.length > 0) {
+                      if (newPlanDays.includes(activeDayStr)) {
+                        // Keep current activeDayStr
+                      } else {
+                        setActiveDayStr(newPlanDays[0]);
+                      }
+                    }
+                  }}
+                >
+                  {trip.plans.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                {trip.canEdit !== false && (
+                  <div className="plan-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
+                    <button 
+                      className="mini-icon-btn"
+                      onClick={() => setShowPlanMenu(!showPlanMenu)}
+                      data-tooltip="Plan Options"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {showPlanMenu && (
+                      <div className="dropdown-menu">
                         <button 
-                          className="dropdown-item danger"
+                          className="dropdown-item"
                           onClick={() => {
-                            handleDeletePlan(activePlan.id);
+                            setShowNewPlanModal(true);
                             setShowPlanMenu(false);
                           }}
                         >
-                          <Trash2 size={14} /> Delete Plan
+                          <Plus size={14} /> Add Plan
                         </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                        <button 
+                          className="dropdown-item"
+                          disabled={trip.plans.findIndex(p => p.id === activePlanId) === 0}
+                          onClick={() => {
+                            handleMovePlan('up');
+                            setShowPlanMenu(false);
+                          }}
+                        >
+                          <ChevronUp size={14} /> Move Plan Up
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          disabled={trip.plans.findIndex(p => p.id === activePlanId) === trip.plans.length - 1}
+                          onClick={() => {
+                            handleMovePlan('down');
+                            setShowPlanMenu(false);
+                          }}
+                        >
+                          <ChevronDown size={14} /> Move Plan Down
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
+                            setIsRenamingPlan(true);
+                            setEditPlanName(activePlan.name);
+                            setShowPlanMenu(false);
+                          }}
+                        >
+                          <Edit2 size={14} /> Rename Plan
+                        </button>
+                        {trip.plans.length > 1 && (
+                          <button 
+                            className="dropdown-item danger"
+                            onClick={() => {
+                              handleDeletePlan(activePlan.id);
+                              setShowPlanMenu(false);
+                            }}
+                          >
+                            <Trash2 size={14} /> Delete Plan
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Days selector tabs */}
@@ -452,23 +455,24 @@ export default function ItineraryPanel({
                 : `linear-gradient(135deg, rgba(30,41,59,0.4), ${hexToRgba(activeDayLocation?.color || '#6366f1', 0.15)})` 
             }}
           >
-            <div className="day-location-info">
+            <div className="day-location-info" style={{ minWidth: 0, flex: 1 }}>
               {activeDayLocation ? (
-                <span style={{ fontSize: '24px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '24px', marginRight: '8px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                   {getLocIcon(activeDayLocation)}
                 </span>
               ) : (
-                <MapPin size={24} style={{ color: 'var(--color-danger)' }} />
+                <MapPin size={24} style={{ color: 'var(--color-danger)', flexShrink: 0 }} />
               )}
-              <div>
-                <h3 style={{ fontSize: '18px', color: 'var(--text-primary)' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h3 className="day-location-name-text" style={{ fontSize: '18px', color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {activeDayLocation ? getFormattedLocationName(activeDayLocation, trip.locations) : 'Not Selected'}
                 </h3>
               </div>
             </div>
 
             {trip.canEdit !== false && (
-              <div className="flex-align" style={{ gap: '8px' }}>
+              <div className="day-location-select-wrapper mini-icon-btn" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <MoreVertical size={16} className="day-location-select-mobile-icon" style={{ color: 'var(--text-primary)' }} />
                 <select
                   value={activeDay?.locationId || ''}
                   onChange={(e) => {
@@ -479,6 +483,7 @@ export default function ItineraryPanel({
                       handleSetDayLocation(e.target.value);
                     }
                   }}
+                  className="day-location-select"
                   style={{ 
                     padding: '8px 12px', 
                     fontSize: '13px', 
@@ -503,7 +508,7 @@ export default function ItineraryPanel({
             <div className="timeline-section-title flex-between">
               <span className="flex-align"><Building size={16} /> Hotel Stays</span>
               {trip.canEdit !== false && (
-                <button className="mini-icon-btn" onClick={() => setShowHotelModal(true)} style={{ color: 'var(--color-success)' }}>
+                <button className="mini-icon-btn flex-align" onClick={() => setShowHotelModal(true)} style={{ gap: '4px', color: 'var(--color-success)' }}>
                   <Plus size={14} /> Add Hotel
                 </button>
               )}
@@ -543,7 +548,7 @@ export default function ItineraryPanel({
             <div className="timeline-section-title flex-between">
               <span className="flex-align"><Plane size={16} /> Transit Schedule</span>
               {trip.canEdit !== false && (
-                <button className="mini-icon-btn" onClick={() => setShowTransportModal(true)} style={{ color: 'var(--color-warning)' }}>
+                <button className="mini-icon-btn flex-align" onClick={() => setShowTransportModal(true)} style={{ gap: '4px', color: 'var(--color-warning)' }}>
                   <Plus size={14} /> Add Transit
                 </button>
               )}
@@ -600,10 +605,10 @@ export default function ItineraryPanel({
           </div>
 
           {/* AI Day Assistant (Daily Tips & Baby Logistics) */}
-          <div className="glass-panel ai-day-assistant-card" style={{ padding: '12px 14px', margin: '8px 0 16px 0', borderColor: 'rgba(99, 102, 241, 0.15)', background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.45) 0%, rgba(99, 102, 241, 0.03) 100%)' }}>
-            <div className="flex-between" style={{ marginBottom: '8px' }}>
-              <span className="flex-align" style={{ gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
+          <div style={{ marginBottom: '16px' }}>
+            <div className="timeline-section-title flex-between ai-day-assistant-header">
+              <span className="flex-align" style={{ gap: '6px' }}>
+                <Sparkles size={16} style={{ color: 'var(--accent-primary)' }} />
                 AI Day Assistant
               </span>
               
@@ -617,7 +622,7 @@ export default function ItineraryPanel({
                       {trip.canEdit !== false && (
                         <button 
                           className="mini-icon-btn flex-align"
-                          style={{ fontSize: '10px', padding: '2px 8px', gap: '4px' }}
+                          style={{ gap: '4px', color: '#a5b4fc' }}
                           onClick={() => {
                             if (isAnyDayFieldEnabled) {
                               handleGenerateSingleDayTips(activeDayStr);
@@ -626,14 +631,14 @@ export default function ItineraryPanel({
                           disabled={daysGeneratingDates.has(activeDayStr) || !isAnyDayFieldEnabled}
                           data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : (activeDay?.aiDetails?.daily_tips ? 'Regenerate Tips' : 'Generate Tips')}
                         >
-                          {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={10} className="spin" /> : <RefreshCw size={10} />}
+                          {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
                           {activeDay?.aiDetails?.daily_tips ? 'Regenerate Tips' : 'Generate Tips'}
                         </button>
                       )}
                       {trip.canEdit !== false && (
                         <button 
                           className="mini-icon-btn flex-align"
-                          style={{ fontSize: '10px', padding: '2px 8px', gap: '4px' }}
+                          style={{ gap: '4px' }}
                           onClick={() => {
                             if (isAnyDayFieldEnabled) {
                               setShowAiGenerateDaysModal(true);
@@ -642,7 +647,7 @@ export default function ItineraryPanel({
                           disabled={!isAnyDayFieldEnabled}
                           data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : 'Batch Generate Tips'}
                         >
-                          <Sparkles size={10} /> Batch Generate Tips
+                          <Sparkles size={14} /> Batch Generate Tips
                         </button>
                       )}
                     </>
@@ -651,73 +656,75 @@ export default function ItineraryPanel({
               </div>
             </div>
 
-            {(() => {
-              const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
-              const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
-              const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
+            <div className="glass-panel ai-day-assistant-card" style={{ padding: '12px 14px', margin: '0', borderColor: 'rgba(99, 102, 241, 0.15)', background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.45) 0%, rgba(99, 102, 241, 0.03) 100%)' }}>
+              {(() => {
+                const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
+                const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
+                const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
 
-              return daysGeneratingDates.has(activeDayStr) ? (
-                <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
-              ) : (isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips) || (isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics) ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  
-                  {/* Daily Tips */}
-                  {isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips && (
-                    <AiMarkdownSection 
-                      content={activeDay.aiDetails.daily_tips} 
-                      updatedAt={activeDay.aiUpdatedAt}
-                      onSave={(newVal) => handleSaveDayTips(activeDayStr, newVal)}
-                      canEdit={trip.canEdit !== false}
-                    />
-                  )}
-
-                  {/* Baby Logistics (if enabled and generated) */}
-                  {isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics && (
-                    <div 
-                      style={{ 
-                        borderTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '1px solid rgba(255, 255, 255, 0.05)' : 'none', 
-                        paddingTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '8px' : '0', 
-                        marginTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '4px' : '0' 
-                      }}
-                    >
+                return daysGeneratingDates.has(activeDayStr) ? (
+                  <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
+                ) : (isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips) || (isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics) ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    
+                    {/* Daily Tips */}
+                    {isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips && (
                       <AiMarkdownSection 
-                        content={activeDay.aiDetails.baby_logistics} 
-                        onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
+                        content={activeDay.aiDetails.daily_tips} 
+                        updatedAt={activeDay.aiUpdatedAt}
+                        onSave={(newVal) => handleSaveDayTips(activeDayStr, newVal)}
                         canEdit={trip.canEdit !== false}
-                        title={
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8' }}>
-                            👶 Baby Logistics
-                          </span>
-                        }
                       />
-                    </div>
-                  )}
+                    )}
 
-                </div>
-              ) : (
-                <div style={{ padding: '8px 0', textAlign: 'center' }}>
-                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '6px' }}>
-                    {!isAnyDayFieldEnabled 
-                      ? 'All day-level AI fields are disabled in Settings.' 
-                      : 'No daily tips or transit warnings generated for this day yet.'}
-                  </span>
-                  {trip.canEdit !== false && isAnyDayFieldEnabled && (
-                    <button 
-                      className="btn-secondary flex-align"
-                      style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px', borderColor: 'rgba(99, 102, 241, 0.15)' }}
-                      onClick={() => handleGenerateSingleDayTips(activeDayStr)}
-                    >
-                      <Sparkles size={11} /> Generate Day Tips
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
+                    {/* Baby Logistics (if enabled and generated) */}
+                    {isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics && (
+                      <div 
+                        style={{ 
+                          borderTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '1px solid rgba(255, 255, 255, 0.05)' : 'none', 
+                          paddingTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '8px' : '0', 
+                          marginTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '4px' : '0' 
+                        }}
+                      >
+                        <AiMarkdownSection 
+                          content={activeDay.aiDetails.baby_logistics} 
+                          onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
+                          canEdit={trip.canEdit !== false}
+                          title={
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8' }}>
+                              👶 Baby Logistics
+                            </span>
+                          }
+                        />
+                      </div>
+                    )}
+
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 0', textAlign: 'center' }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '6px' }}>
+                      {!isAnyDayFieldEnabled 
+                        ? 'All day-level AI fields are disabled in Settings.' 
+                        : 'No daily tips or transit warnings generated for this day yet.'}
+                    </span>
+                    {trip.canEdit !== false && isAnyDayFieldEnabled && (
+                      <button 
+                        className="btn-secondary flex-align"
+                        style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px', borderColor: 'rgba(99, 102, 241, 0.15)' }}
+                        onClick={() => handleGenerateSingleDayTips(activeDayStr)}
+                      >
+                        <Sparkles size={11} /> Generate Day Tips
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
 
           {/* 4. Timeline Schedule Places */}
           <div>
-            <div className="timeline-section-title flex-between">
+            <div className="timeline-section-title flex-between day-schedule-header">
               <span className="flex-align"><Navigation size={16} /> Day Schedule</span>
               {trip.canEdit !== false && (
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -889,7 +896,7 @@ export default function ItineraryPanel({
                       }} />
                     )}
                     <div 
-                      className={`timeline-card glass-panel ${isTemporary ? 'timeline-card-preview' : ''}`}
+                      className={`timeline-card glass-panel ${isTemporary ? 'timeline-card-preview' : ''} ${activeTimelinePlaceDropdownKey === `${place.id}-${index}-mobile` ? 'dropdown-active' : ''}`}
                       data-place-id={place.id}
                       draggable={trip.canEdit !== false && !isTemporary}
                       onDragStart={() => handleDayPlaceDragStart(actualIndex)}
@@ -942,7 +949,7 @@ export default function ItineraryPanel({
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '16px' }}>
-                        <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: isTemporary ? 'default' : 'grab' }}>
+                        <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: isTemporary ? 'default' : 'grab' }}>
                           <div 
                             style={{ 
                               width: '24px', 
@@ -1101,7 +1108,7 @@ export default function ItineraryPanel({
                         </div>
 
                         {trip.canEdit !== false && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                          <div className="day-place-actions-desktop" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                             {isTemporary ? (
                               <>
                                 <button 
@@ -1188,6 +1195,101 @@ export default function ItineraryPanel({
                           </div>
                         )}
                       </div>
+
+                      {/* Mobile dropdown for scheduled places (visible on mobile only, positioned absolutely top-right) */}
+                      {trip.canEdit !== false && !isTemporary && (
+                        <div 
+                          className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === `${place.id}-${index}-mobile` ? 'dropdown-active' : ''}`}
+                          style={{ position: 'absolute', top: '0', right: '0' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <button 
+                            className="mini-icon-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const key = `${place.id}-${index}-mobile`;
+                              setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === key ? null : key);
+                            }}
+                            data-tooltip="Place Options"
+                            style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          {activeTimelinePlaceDropdownKey === `${place.id}-${index}-mobile` && (
+                            <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
+                              <button 
+                                className="dropdown-item" 
+                                disabled={actualIndex === 0} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMovePlaceOrder(actualIndex, 'up');
+                                  setActiveTimelinePlaceDropdownKey(null);
+                                }}
+                                style={{ opacity: actualIndex === 0 ? 0.3 : 1 }}
+                              >
+                                <ChevronUp size={12} /> Move Up
+                              </button>
+                              <button 
+                                className="dropdown-item" 
+                                disabled={actualIndex === scheduledPlaces.length - 1} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMovePlaceOrder(actualIndex, 'down');
+                                  setActiveTimelinePlaceDropdownKey(null);
+                                }}
+                                style={{ opacity: actualIndex === scheduledPlaces.length - 1 ? 0.3 : 1 }}
+                              >
+                                <ChevronDown size={12} /> Move Down
+                              </button>
+                              <button 
+                                className="dropdown-item" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditPlace(place);
+                                  setActiveTimelinePlaceDropdownKey(null);
+                                }}
+                              >
+                                <Edit2 size={12} /> Edit Place
+                              </button>
+                              <button 
+                                className="dropdown-item danger" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemovePlaceFromDay(actualIndex);
+                                  setActiveTimelinePlaceDropdownKey(null);
+                                }}
+                              >
+                                <Trash2 size={12} /> Remove from Day
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Mobile action bar for temporary previews (visible on mobile only) */}
+                      {trip.canEdit !== false && isTemporary && (
+                        <div 
+                          className="day-place-actions-mobile"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <button 
+                            className="mini-icon-btn" 
+                            onClick={() => handleAddPlaceToDay(place)}
+                            data-tooltip="Keep / Add to Day"
+                            style={{ padding: '4px', color: 'var(--color-success)' }}
+                          >
+                            <Plus size={16} />
+                          </button>
+                          <button 
+                            className="mini-icon-btn" 
+                            onClick={() => setActivePlaceId(undefined)}
+                            data-tooltip="Remove Preview"
+                            style={{ padding: '4px', color: 'var(--color-danger)' }}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
 
                       {/* Expand Details if selected */}
                       {activePlaceId === place.id && (

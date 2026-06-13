@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { 
   MapPin, Plus, Edit2, ExternalLink, ChevronUp, ChevronDown, 
   Clock, FileText, Sparkles, MoreVertical, Check
@@ -103,6 +104,18 @@ export default function CatalogSection({
   activeGroupDropdownId,
   setActiveGroupDropdownId
 }: CatalogSectionProps) {
+  const [activePlaceDropdownId, setActivePlaceDropdownId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.catalog-place-dropdown-container-mobile')) {
+        setActivePlaceDropdownId(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   return (
     <div className="accordion-content">
@@ -112,6 +125,7 @@ export default function CatalogSection({
           <select
             value={selectedCatalogLocId}
             onChange={(e) => setSelectedCatalogLocId(e.target.value)}
+            className="catalog-location-select"
             style={{ flex: 1, padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)', minWidth: 0 }}
           >
             {trip.locations.length === 0 && <option value="">No Locations Added</option>}
@@ -132,7 +146,7 @@ export default function CatalogSection({
           )}
           {trip.canEdit !== false && (
             <button 
-              className="btn-primary flex-align"
+              className="btn-primary flex-align mini-icon-btn add-location-btn"
               style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
               onClick={onAddLocation}
               data-tooltip="Add Location"
@@ -352,7 +366,7 @@ export default function CatalogSection({
                         }} />
                       )}
                       <div 
-                        className="catalog-place-card"
+                        className={`catalog-place-card ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''}`}
                         draggable={trip.canEdit !== false}
                         onDragStart={() => handlePlaceDragStart(place.id)}
                         onDragEnd={() => {
@@ -447,6 +461,7 @@ export default function CatalogSection({
                           </div>
                           {trip.canEdit !== false && (
                             <div 
+                              className="catalog-place-actions-desktop"
                               style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignSelf: 'center', flexShrink: 0 }} 
                               onClick={e => e.stopPropagation()}
                             >
@@ -475,6 +490,73 @@ export default function CatalogSection({
                             </div>
                           )}
                         </div>
+                        {trip.canEdit !== false && (
+                          <div 
+                            className="catalog-place-dropdown-container-mobile"
+                            style={{ position: 'absolute', top: '0', right: '0' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <button 
+                              className="mini-icon-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActivePlaceDropdownId(activePlaceDropdownId === place.id ? null : place.id);
+                              }}
+                              data-tooltip="Place Options"
+                              style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            >
+                              <MoreVertical size={14} />
+                            </button>
+                            {activePlaceDropdownId === place.id && (
+                              <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
+                                <button 
+                                  className="dropdown-item" 
+                                  disabled={placeIndexInGroup === 0}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveCatalogPlace(place.id, 'up');
+                                    setActivePlaceDropdownId(null);
+                                  }}
+                                  style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1 }}
+                                >
+                                  <ChevronUp size={12} /> Move Up
+                                </button>
+                                <button 
+                                  className="dropdown-item" 
+                                  disabled={placeIndexInGroup === filteredPlaces.length - 1}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveCatalogPlace(place.id, 'down');
+                                    setActivePlaceDropdownId(null);
+                                  }}
+                                  style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1 }}
+                                >
+                                  <ChevronDown size={12} /> Move Down
+                                </button>
+                                <button 
+                                  className="dropdown-item" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenEditPlace(place);
+                                    setActivePlaceDropdownId(null);
+                                  }}
+                                >
+                                  <Edit2 size={12} /> Edit Details
+                                </button>
+                                <button 
+                                  className="dropdown-item" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAddPlaceToDay(place);
+                                    setActivePlaceDropdownId(null);
+                                  }}
+                                >
+                                  <Plus size={12} /> Add to Day
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Expand Details if selected */}
                         {activePlaceId === place.id && (
@@ -562,7 +644,7 @@ export default function CatalogSection({
                                 Map <ExternalLink size={10} />
                               </a>
                               {trip.canEdit !== false && (
-                                <>
+                                <div className="catalog-place-actions-desktop" style={{ display: 'flex', gap: '4px' }}>
                                   <button 
                                     className="btn-secondary flex-align"
                                     onClick={(e) => {
@@ -583,7 +665,7 @@ export default function CatalogSection({
                                   >
                                     + Add to Day
                                   </button>
-                                </>
+                                </div>
                               )}
                             </div>
                           </div>

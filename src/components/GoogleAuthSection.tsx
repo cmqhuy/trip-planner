@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { LogIn, LogOut, Cloud, RefreshCw, AlertCircle, Settings } from 'lucide-react';
 
 export interface GoogleAuthSectionProps {
@@ -17,6 +18,18 @@ export default function GoogleAuthSection({
   onManualSync,
   onOpenSettings,
 }: GoogleAuthSectionProps) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const clickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', clickOutside);
+    return () => document.removeEventListener('mousedown', clickOutside);
+  }, []);
 
   const getSyncBadge = () => {
     switch (syncStatus) {
@@ -60,41 +73,59 @@ export default function GoogleAuthSection({
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} ref={dropdownRef}>
       {user ? (
         // Signed-in UI
         <div 
-          className="glass-panel" 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px', 
-            padding: '4px 12px', 
-            borderRadius: '99px',
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid var(--border-glass)',
-          }}
+          className="google-auth-container glass-panel" 
         >
+          {/* Desktop avatar - visible on desktop, hidden on mobile */}
           {user.picture ? (
             <img 
               src={user.picture} 
               alt={user.name} 
+              className="google-auth-avatar-desktop"
               style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)' }} 
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--accent-primary)', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>
+            <div 
+              className="google-auth-avatar-desktop"
+              style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--accent-primary)', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}
+            >
               {user.name.charAt(0).toUpperCase()}
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: '0' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>
+          {/* Mobile avatar - clickable on mobile to toggle dropdown (hidden on desktop) */}
+          <div 
+            className="user-avatar-trigger google-auth-avatar-mobile"
+            onClick={() => setShowDropdown(prev => !prev)}
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          >
+            {user.picture ? (
+              <img 
+                src={user.picture} 
+                alt={user.name} 
+                className="user-avatar-img"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="user-avatar-initial">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+
+          {/* User Name - visible on desktop, hidden on mobile */}
+          <div className="user-name-wrapper">
+            <span className="user-name-text">
               {user.name}
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Sync status and buttons - visible on desktop, hidden on mobile */}
+          <div className="google-auth-desktop-actions">
             {getSyncBadge()}
             
             <button 
@@ -118,6 +149,46 @@ export default function GoogleAuthSection({
               <LogOut size={12} />
             </button>
           </div>
+
+          {/* Expander Dropdown for Mobile only */}
+          {showDropdown && (
+            <div className="google-auth-mobile-dropdown glass-panel">
+              <div className="dropdown-user-info">
+                <span className="dropdown-user-name">{user.name}</span>
+                <span className="dropdown-user-email">{user.email}</span>
+              </div>
+              <div className="dropdown-divider" />
+              <div className="dropdown-status-row">
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Status:</span>
+                {getSyncBadge()}
+              </div>
+              <div className="dropdown-actions-row">
+                <button 
+                  className="btn-secondary flex-align" 
+                  onClick={() => {
+                    onManualSync();
+                    setShowDropdown(false);
+                  }}
+                  disabled={syncStatus === 'syncing'}
+                  style={{ width: '100%', justifyContent: 'center', fontSize: '12px', padding: '6px 12px', gap: '6px' }}
+                >
+                  <RefreshCw size={12} className={syncStatus === 'syncing' ? 'spin' : ''} />
+                  Sync Now
+                </button>
+                <button 
+                  className="btn-danger flex-align" 
+                  onClick={() => {
+                    onSignOut();
+                    setShowDropdown(false);
+                  }}
+                  style={{ width: '100%', justifyContent: 'center', fontSize: '12px', padding: '6px 12px', gap: '6px' }}
+                >
+                  <LogOut size={12} />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         // Signed-out UI

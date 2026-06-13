@@ -132,7 +132,7 @@ export default function LeftPanelAccordion({
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
       {/* Back to dashboard button (always visible at the top) */}
       <button 
-        className="mini-icon-btn" 
+        className="mini-icon-btn back-to-dashboard-btn" 
         onClick={onBack} 
         style={{ 
           display: 'flex', 

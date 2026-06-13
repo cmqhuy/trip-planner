@@ -181,7 +181,7 @@ export default function TripDashboard({
             Plan your itineraries, route options, and travel details in one place.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="dashboard-header-buttons" style={{ display: 'flex', gap: '8px' }}>
           {isGoogleSignedIn && (
             <button className="btn-secondary flex-align" onClick={handleOpenImportModal}>
               <Users size={18} /> Import Shared Trip
