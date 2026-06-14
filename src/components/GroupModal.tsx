@@ -71,12 +71,12 @@ export default function GroupModal({ isOpen, onClose, group, onSave, onDelete }:
                 }}
                 style={{ marginRight: 'auto', gap: '6px' }}
               >
-                <Trash2 size={16} /> Delete Group
+                <Trash2 size={16} /> Delete
               </button>
             )}
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary">
-              {group ? 'Save Changes' : 'Add Group'}
+              {group ? 'Save' : 'Add Group'}
             </button>
           </div>
         </form>

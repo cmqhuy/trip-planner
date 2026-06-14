@@ -56,6 +56,8 @@ export default function LocationSelect({
             height: '36px',
             minWidth: '36px',
             borderRadius: '50%',
+            boxSizing: 'border-box',
+            flexShrink: 0,
             background: 'rgba(15, 23, 42, 0.8)',
             border: '1px solid var(--border-glass)',
             color: 'var(--text-primary)',

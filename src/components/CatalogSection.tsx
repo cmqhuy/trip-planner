@@ -557,8 +557,18 @@ export default function CatalogSection({
                             <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(99,102,241,0.04)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 4px 4px 0' }}>
                               <label style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
                                 <FileText size={11} /> Notes
+                                {trip.canEdit !== false && editingPlaceNotesId !== place.id && (
+                                  <button
+                                    className="mini-icon-btn"
+                                    onClick={() => startEditingNotes(place)}
+                                    style={{ marginLeft: 'auto', padding: '1px' }}
+                                    data-tooltip="Edit Note"
+                                  >
+                                    <Edit2 size={12} />
+                                  </button>
+                                )}
                               </label>
-                              
+
                               {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
                                   <textarea 
@@ -595,30 +605,16 @@ export default function CatalogSection({
                                   </div>
                                 </div>
                               ) : (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                  <span style={{ 
-                                    fontStyle: 'italic', 
-                                    color: place.notes ? 'var(--text-primary)' : 'var(--text-muted)',
-                                    whiteSpace: 'pre-wrap',
-                                    display: 'block',
-                                    width: '100%',
-                                    lineHeight: 1.4,
-                                    fontSize: '12.5px'
-                                  }}>
-                                    {place.notes || 'No notes added yet.'}
-                                  </span>
-                                  {trip.canEdit !== false && (
-                                    <button 
-                                      className="mini-icon-btn" 
-                                      onClick={() => startEditingNotes(place)} 
-                                      style={{ padding: '2px' }}
-                                      data-tooltip="Edit Note"
-                                      aria-label="Edit Note"
-                                    >
-                                      <Edit2 size={10} />
-                                    </button>
-                                  )}
-                                </div>
+                                <span style={{
+                                  fontStyle: 'italic',
+                                  color: place.notes ? 'var(--text-primary)' : 'var(--text-muted)',
+                                  whiteSpace: 'pre-wrap',
+                                  display: 'block',
+                                  lineHeight: 1.4,
+                                  fontSize: '12.5px'
+                                }}>
+                                  {place.notes || 'No notes added yet.'}
+                                </span>
                               )}
                             </div>
 

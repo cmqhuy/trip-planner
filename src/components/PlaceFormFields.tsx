@@ -1,4 +1,4 @@
-import { Sparkles, RefreshCw, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Sparkles, RefreshCw, AlertTriangle, HelpCircle, RotateCcw } from 'lucide-react';
 import ImagePreview from './ImagePreview';
 import CategoryGroupSelect from './CategoryGroupSelect';
 import MapPicker from './MapPicker';
@@ -37,6 +37,15 @@ interface PlaceFormFieldsProps {
   disabledPlaceFields?: string[];
   fieldIcons?: { [key: string]: string };
   placeFieldsOrder?: string[];
+  savedValues?: {
+    title?: string;
+    description?: string;
+    openingHours?: string;
+    mapsLink?: string;
+    photoUrl?: string;
+    notes?: string;
+    aiDetails?: { [key: string]: string };
+  };
 }
 
 export default function PlaceFormFields({
@@ -68,7 +77,8 @@ export default function PlaceFormFields({
   customAiFields,
   disabledPlaceFields = [],
   fieldIcons = {},
-  placeFieldsOrder = []
+  placeFieldsOrder = [],
+  savedValues
 }: PlaceFormFieldsProps) {
   const hasKeys = GeminiService.hasApiKey();
 
@@ -84,40 +94,69 @@ export default function PlaceFormFields({
     return ` (Last updated: ${new Date(timestamp).toLocaleDateString()})`;
   };
 
+  const undoBtn = (currentVal: string, savedVal: string | undefined, onRestore: () => void) => {
+    if (!savedValues || savedVal === undefined || currentVal === savedVal) return null;
+    return (
+      <button
+        type="button"
+        title="Restore saved value"
+        onClick={onRestore}
+        data-tooltip="Restore saved value"
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+          color: 'var(--text-muted)', display: 'flex', alignItems: 'center', lineHeight: 1
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-primary)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+      >
+        <RotateCcw size={11} />
+      </button>
+    );
+  };
+
   const orderedFields = getOrderedPlaceFields(customAiFields, disabledPlaceFields, placeFieldsOrder);
 
   return (
     <div className="place-form-grid">
       <div className="place-form-left-col">
         <div className="form-group">
-          <label>Place Title</label>
-          <input 
-            type="text" 
-            value={title} 
-            onChange={e => setTitle(e.target.value)} 
-            placeholder="e.g. Eiffel Tower" 
-            required 
+          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Place Title
+            {undoBtn(title, savedValues?.title, () => setTitle(savedValues!.title!))}
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="e.g. Eiffel Tower"
+            required
           />
         </div>
-        
+
         <div className="form-group">
-          <label>Description</label>
-          <textarea 
-            value={description} 
-            onChange={e => setDescription(e.target.value)} 
-            placeholder="Short summary..." 
-            rows={2} 
+          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Description
+            {undoBtn(description, savedValues?.description, () => setDescription(savedValues!.description!))}
+          </label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Short summary..."
+            rows={2}
           />
         </div>
 
         <div className="form-row" style={{ alignItems: 'flex-start' }}>
           <div className="form-group" style={{ flex: 1 }}>
-            <label>Opening Hours</label>
-            <input 
-              type="text" 
-              value={openingHours} 
-              onChange={e => setOpeningHours(e.target.value)} 
-              placeholder="e.g. 09:00 - 18:00" 
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              Opening Hours
+              {undoBtn(openingHours, savedValues?.openingHours, () => setOpeningHours(savedValues!.openingHours!))}
+            </label>
+            <input
+              type="text"
+              value={openingHours}
+              onChange={e => setOpeningHours(e.target.value)}
+              placeholder="e.g. 09:00 - 18:00"
             />
           </div>
           <div className="form-group" style={{ flex: 1 }}>
@@ -131,33 +170,42 @@ export default function PlaceFormFields({
         </div>
 
         <div className="form-group">
-          <label>Google Maps Link (Optional)</label>
-          <input 
-            type="text" 
-            value={mapsLink} 
-            onChange={e => setMapsLink(e.target.value)} 
-            placeholder="e.g. https://maps.google.com/..." 
+          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Google Maps Link (Optional)
+            {undoBtn(mapsLink, savedValues?.mapsLink, () => setMapsLink(savedValues!.mapsLink!))}
+          </label>
+          <input
+            type="text"
+            value={mapsLink}
+            onChange={e => setMapsLink(e.target.value)}
+            placeholder="e.g. https://maps.google.com/..."
           />
         </div>
 
         <div className="form-group">
-          <label>Hero Image Photo URL (Optional)</label>
-          <input 
-            type="text" 
-            value={photoUrl} 
-            onChange={e => setPhotoUrl(e.target.value)} 
-            placeholder="Photo URL..." 
+          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Hero Image Photo URL (Optional)
+            {undoBtn(photoUrl, savedValues?.photoUrl, () => setPhotoUrl(savedValues!.photoUrl!))}
+          </label>
+          <input
+            type="text"
+            value={photoUrl}
+            onChange={e => setPhotoUrl(e.target.value)}
+            placeholder="Photo URL..."
           />
           <ImagePreview url={photoUrl} alt="Place image preview" width={120} height={120} />
         </div>
 
         <div className="form-group">
-          <label>Notes</label>
-          <textarea 
-            value={notes} 
-            onChange={e => setNotes(e.target.value)} 
-            placeholder="Travel notes, tips, things to try..." 
-            rows={3} 
+          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Notes
+            {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes!))}
+          </label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Travel notes, tips, things to try..."
+            rows={3}
           />
         </div>
       </div>
@@ -250,8 +298,13 @@ export default function PlaceFormFields({
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {getFieldIcon(field.key, field.icon || '')}
                     {field.title}
+                    {undoBtn(
+                      aiDetails[field.key] || '',
+                      savedValues?.aiDetails !== undefined ? (savedValues.aiDetails[field.key] ?? '') : undefined,
+                      () => setAiDetails({ ...aiDetails, [field.key]: savedValues!.aiDetails![field.key] ?? '' })
+                    )}
                   </span>
-                  <span title="AI Generated Field" style={{ display: 'flex', alignItems: 'center' }}>
+                  <span data-tooltip="AI generated field" style={{ display: 'flex', alignItems: 'center' }}>
                     <Sparkles size={12} style={{ color: '#c084fc' }} />
                   </span>
                 </label>

@@ -238,7 +238,7 @@ export default function LocationModal({
                 onClose();
               }}
             >
-              <Trash2 size={14} /> Delete Location
+              <Trash2 size={14} /> Delete
             </button>
             
             <div style={{ display: 'flex', gap: '8px' }}>

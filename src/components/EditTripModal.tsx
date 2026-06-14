@@ -113,7 +113,7 @@ export default function EditTripModal({ isOpen, onClose, trip, onSave }: EditTri
 
           <div className="modal-actions" style={{ marginTop: '24px' }}>
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary">Save Changes</button>
+            <button type="submit" className="btn-primary">Save</button>
           </div>
         </form>
       </div>

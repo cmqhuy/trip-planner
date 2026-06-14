@@ -1418,6 +1418,24 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setEditingPlaceNotesId(null);
   }, [trip, tempNotes, onUpdateTrip]);
 
+  const handleSaveScheduleNote = useCallback((dateStr: string, slot: string, text: string) => {
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id !== activePlan.id) return p;
+        const day = p.days[dateStr];
+        if (!day) return p;
+        const scheduleNotes = { ...(day.scheduleNotes || {}) };
+        if (text.trim()) {
+          scheduleNotes[slot] = text.trim();
+        } else {
+          delete scheduleNotes[slot];
+        }
+        return { ...p, days: { ...p.days, [dateStr]: { ...day, scheduleNotes } } };
+      });
+      return { ...prevTrip, plans: updatedPlans };
+    });
+  }, [activePlan.id, onUpdateTrip]);
+
   // ----------------------------------------------------
   // Custom Groups Operations
   // ----------------------------------------------------
@@ -2331,6 +2349,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleGenerateSinglePlaceAiDetails={handleGenerateSinglePlaceAiDetails}
         startEditingNotes={startEditingNotes}
         savePlaceNotes={savePlaceNotes}
+        onSaveScheduleNote={handleSaveScheduleNote}
         activeTimelinePlaceDropdownKey={activeTimelinePlaceDropdownKey}
         setActiveTimelinePlaceDropdownKey={setActiveTimelinePlaceDropdownKey}
         daysGeneratingDates={daysGeneratingDates}

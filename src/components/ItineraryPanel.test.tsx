@@ -160,6 +160,7 @@ describe('ItineraryPanel Component', () => {
         handleGenerateSinglePlaceAiDetails={vi.fn()}
         startEditingNotes={vi.fn()}
         savePlaceNotes={vi.fn()}
+        onSaveScheduleNote={vi.fn()}
         activeTimelinePlaceDropdownKey={null}
         setActiveTimelinePlaceDropdownKey={vi.fn()}
         daysGeneratingDates={new Set()}

@@ -304,8 +304,8 @@ describe('TripPlanner Component', () => {
     // Verify Edit modal is shown
     expect(screen.getByText('Edit Place Details')).toBeInTheDocument();
 
-    // Click "Delete Place" button in Edit Place Modal
-    const deleteBtn = screen.getByRole('button', { name: /Delete Place/i });
+    // Click "Delete" button in Edit Place Modal
+    const deleteBtn = screen.getByRole('button', { name: /^Delete$/i });
     fireEvent.click(deleteBtn);
 
     // Click "Delete Place" inside the styled confirmation modal

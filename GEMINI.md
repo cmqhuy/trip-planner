@@ -168,3 +168,7 @@ Glassmorphism dark theme. Key CSS variables from `index.css`:
 - `.modal-field-title` / `.modal-field-details` — field label and description
 - `.modal-section-divider` — dashed separator between card detail and AI sections
 - `.modal-ai-header` / `.modal-ai-title` — AI trigger layout inside modals
+
+### Tooltips
+
+**All tooltips must use `data-tooltip` (never `title`).** The `[data-tooltip]` CSS in `index.css` renders a styled dark glassmorphic bubble with animation. Using a bare `title` attribute bypasses the system and shows the browser's unstyled default. Use `data-tooltip-position="bottom"` to flip the bubble below the element.

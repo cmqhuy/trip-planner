@@ -1120,7 +1120,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     border-left: none !important;
     height: 100% !important;
     box-sizing: border-box !important;
-    padding-bottom: 60px !important; /* Space for absolute bottom nav */
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important; /* Space for bottom nav + safe area */
     overflow-x: hidden !important;
   }
 
@@ -1196,15 +1196,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--border-glass);
   display: flex;
   justify-content: space-around;
-  align-items: center;
+  align-items: flex-start;
   padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 1000;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
 }
@@ -1636,6 +1637,70 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .dropdown-item.danger:hover {
   background: rgba(239, 68, 68, 0.15);
+}
+
+/* Day Schedule Inline Notes */
+.day-schedule-note-filled {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 32px 5px 8px; /* right padding leaves room for action buttons */
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.2);
+  border: 1px solid var(--border-glass);
+  text-transform: none;
+}
+.day-schedule-note-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 1px;
+}
+.day-schedule-note-editing {
+  padding: 6px 4px;
+}
+.day-schedule-note-empty {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 0;
+  margin: -8px 0;
+  overflow: visible;
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 0.15s ease;
+}
+.day-timeline:hover .day-schedule-note-empty,
+.day-schedule-note-empty:focus-within {
+  opacity: 1;
+}
+.day-schedule-note-add-btn {
+  background: none !important;
+  border: none !important;
+  border-radius: 4px !important;
+  color: var(--text-muted) !important;
+  font-size: 10px !important;
+  padding: 2px 10px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-height: 0 !important;
+  height: auto !important;
+  transition: color 0.15s ease !important;
+}
+.day-schedule-note-add-btn:hover {
+  color: var(--accent-primary) !important;
+  background: none !important;
+  border: none !important;
+}
+
+/* Place note edit button: always visible, top-right corner */
+.place-note-wrapper {
+  position: relative;
 }
 
 /* Timeline Preview Card Style */
@@ -2171,7 +2236,10 @@ div.google-auth-avatar-desktop {
     padding: 8px !important;
   }
   .day-timeline {
-    gap: 8px !important;
+    gap: 16px !important;
+  }
+  .day-schedule-note-empty {
+    display: none !important;
   }
 
   /* Day Schedule card buttons bottom row */
@@ -2188,13 +2256,19 @@ div.google-auth-avatar-desktop {
     border-top: 1px dashed rgba(255, 255, 255, 0.05) !important;
   }
 
+  /* Extra bottom breathing room for the last left-panel section (Tips) above the nav bar */
+  .accordion-section:last-child {
+    padding-bottom: 20px !important;
+  }
+
   /* Sticky mobile tab navigation fixed to viewport bottom */
   .mobile-tab-nav {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    height: 60px !important;
+    height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     z-index: 1000 !important;
   }
 
@@ -2264,7 +2338,16 @@ div.google-auth-avatar-desktop {
     z-index: 2000 !important;
   }
   .timeline-dot {
-    top: 22px !important;
+    top: 20px !important;
+  }
+  /* Round location-picker button: override global min-height touch rule */
+  .day-location-picker button {
+    min-height: 0 !important;
+    height: 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
   }
 }
 

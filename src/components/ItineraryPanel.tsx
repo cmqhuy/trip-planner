@@ -1,5 +1,5 @@
-import React from 'react';
-import { 
+import React, { useState } from 'react';
+import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building,
@@ -103,6 +103,7 @@ interface ItineraryPanelProps {
   handleGenerateSinglePlaceAiDetails: (placeId: string) => void;
   startEditingNotes: (place: Place) => void;
   savePlaceNotes: (placeId: string) => void;
+  onSaveScheduleNote: (dateStr: string, slot: string, text: string) => void;
   activeTimelinePlaceDropdownKey: string | null;
   setActiveTimelinePlaceDropdownKey: (key: string | null) => void;
   daysGeneratingDates: Set<string>;
@@ -197,6 +198,7 @@ export default function ItineraryPanel({
   handleGenerateSinglePlaceAiDetails,
   startEditingNotes,
   savePlaceNotes,
+  onSaveScheduleNote,
   activeTimelinePlaceDropdownKey,
   setActiveTimelinePlaceDropdownKey,
   daysGeneratingDates,
@@ -208,6 +210,99 @@ export default function ItineraryPanel({
   rightCollapsed,
   setRightCollapsed
 }: ItineraryPanelProps) {
+
+  const [editingNoteSlot, setEditingNoteSlot] = useState<string | null>(null);
+  const [tempNoteSlotText, setTempNoteSlotText] = useState('');
+
+  const renderNoteSlot = (slot: string, canEdit: boolean) => {
+    const noteText = (activeDay as any)?.scheduleNotes?.[slot] || '';
+    const isEditing = editingNoteSlot === slot;
+
+    if (!canEdit && !noteText) return null;
+
+    if (isEditing) {
+      return (
+        <div className="day-schedule-note-editing" onClick={e => e.stopPropagation()}>
+          <textarea
+            autoFocus
+            value={tempNoteSlotText}
+            onChange={e => setTempNoteSlotText(e.target.value)}
+            placeholder="Add a note here..."
+            rows={2}
+            style={{
+              width: '100%', padding: '6px 8px', fontSize: '12px',
+              background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
+              borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
+              textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
+            }}
+          />
+          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
+            <button
+              className="btn-secondary"
+              onClick={() => setEditingNoteSlot(null)}
+              style={{ padding: '2px 8px', fontSize: '10px' }}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary flex-align"
+              onClick={() => {
+                onSaveScheduleNote(activeDayStr, slot, tempNoteSlotText);
+                setEditingNoteSlot(null);
+              }}
+              style={{ padding: '2px 8px', fontSize: '10px', gap: '4px' }}
+            >
+              <Check size={10} /> Save
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (noteText) {
+      return (
+        <div className="day-schedule-note-filled" onClick={e => e.stopPropagation()}>
+          <FileText size={13} style={{ marginTop: '2px', color: 'var(--accent-primary)', flexShrink: 0 }} />
+          <span style={{ flex: 1, textTransform: 'none', whiteSpace: 'pre-wrap', lineHeight: 1.4, fontStyle: 'italic', fontSize: '12.5px', color: 'var(--accent-primary)' }}>{noteText}</span>
+          {canEdit && (
+            <div className="day-schedule-note-actions">
+              <button
+                className="mini-icon-btn"
+                onClick={e => { e.stopPropagation(); setEditingNoteSlot(slot); setTempNoteSlotText(noteText); }}
+                data-tooltip="Edit Note"
+                style={{ padding: '2px' }}
+              >
+                <Edit2 size={12} />
+              </button>
+              <button
+                className="mini-icon-btn"
+                onClick={e => { e.stopPropagation(); onSaveScheduleNote(activeDayStr, slot, ''); }}
+                data-tooltip="Delete Note"
+                style={{ padding: '2px', color: 'var(--color-danger)' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (canEdit) {
+      return (
+        <div className="day-schedule-note-empty">
+          <button
+            className="day-schedule-note-add-btn"
+            onClick={e => { e.stopPropagation(); setEditingNoteSlot(slot); setTempNoteSlotText(''); }}
+          >
+            <FileText size={10} /> Add note
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   const getCategoryIconComponent = (iconName: string, size = 12, className?: string, style?: React.CSSProperties) => {
     switch (iconName) {
@@ -903,10 +998,12 @@ export default function ItineraryPanel({
                 const isTempActive = (displayScheduledPlaces[0] as any)?.isTemporary;
                 const actualIndex = isTempActive ? index - 1 : index;
                 const dropTargetIndex = actualIndex < 0 ? 0 : actualIndex;
+                const canEdit = trip.canEdit !== false;
 
                 return (
-                  <div 
-                    key={`${place.id}-${index}`} 
+                  <React.Fragment key={`${place.id}-${index}`}>
+                    {!isTemporary && actualIndex >= 0 && renderNoteSlot(String(actualIndex), canEdit)}
+                  <div
                     style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
                   >
                     {dragOverDayPlaceIndex === index && (
@@ -1085,15 +1182,14 @@ export default function ItineraryPanel({
                                 </div>
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                <div style={{ 
-                                  fontSize: '12.5px', 
-                                  color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', 
-                                  fontStyle: 'italic', 
+                              <div className="place-note-wrapper" style={{ marginTop: '4px', paddingRight: trip.canEdit !== false && !isTemporary ? '22px' : '0' }}>
+                                <div style={{
+                                  fontSize: '12.5px',
+                                  color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)',
+                                  fontStyle: 'italic',
                                   whiteSpace: 'pre-wrap',
                                   lineHeight: 1.4,
                                   margin: 0,
-                                  flex: 1,
                                   textTransform: 'none',
                                   display: 'flex',
                                   alignItems: 'flex-start',
@@ -1103,16 +1199,16 @@ export default function ItineraryPanel({
                                   <span>{place.notes || 'Add notes...'}</span>
                                 </div>
                                 {trip.canEdit !== false && !isTemporary && (
-                                  <button 
-                                    className="mini-icon-btn" 
+                                  <button
+                                    className="mini-icon-btn place-note-edit-btn"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       startEditingNotes(place);
-                                    }} 
-                                    style={{ padding: '2px' }}
+                                    }}
+                                    style={{ position: 'absolute', top: 0, right: 0, padding: '2px' }}
                                     data-tooltip="Edit Note"
                                   >
-                                    <Edit2 size={10} />
+                                    <Edit2 size={12} />
                                   </button>
                                 )}
                               </div>
@@ -1138,7 +1234,7 @@ export default function ItineraryPanel({
                                   data-tooltip="Remove Preview"
                                   style={{ padding: '4px', color: 'var(--color-danger)' }}
                                 >
-                                  <X size={16} />
+                                  <X size={14} />
                                 </button>
                               </>
                             ) : (
@@ -1299,7 +1395,7 @@ export default function ItineraryPanel({
                             data-tooltip="Remove Preview"
                             style={{ padding: '4px', color: 'var(--color-danger)' }}
                           >
-                            <X size={16} />
+                            <X size={14} />
                           </button>
                         </div>
                       )}
@@ -1338,8 +1434,10 @@ export default function ItineraryPanel({
                       )}
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })}
+              {scheduledPlaces.length > 0 && renderNoteSlot(String(scheduledPlaces.length), trip.canEdit !== false)}
 
               {displayScheduledPlaces.length === 0 && (
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '6px' }}>

@@ -79,6 +79,7 @@ export interface PlanDay {
   dateStr: string; // YYYY-MM-DD
   locationId?: string; // Reference to Location.id (where the day ends)
   placeIds: string[];  // Scheduled places on this day
+  scheduleNotes?: { [slot: string]: string }; // slot "i" = note before placeIds[i]; slot String(placeIds.length) = note after last place
   aiDetails?: {
     [key: string]: string;
   };

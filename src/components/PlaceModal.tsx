@@ -194,8 +194,15 @@ export default function PlaceModal({
       setLat(aiResult.lat.toFixed(6));
       setLng(aiResult.lng.toFixed(6));
 
-      const resolvedPhoto = aiResult.photoUrl || wikiResult.photoUrl;
-      if (resolvedPhoto) setPhotoUrl(resolvedPhoto);
+      // Prefer wikiResult.photoUrl (real Wikipedia API URL); AI-generated URLs are often hallucinated
+      if (wikiResult.photoUrl) {
+        setPhotoUrl(wikiResult.photoUrl);
+      } else if (aiResult.photoUrl) {
+        // Validate the AI URL before using it — probe the image to confirm it loads
+        const probe = new Image();
+        probe.onload = () => setPhotoUrl(aiResult.photoUrl);
+        probe.src = aiResult.photoUrl;
+      }
 
       const generatedMapsLink = buildMapsLink(aiResult.title, aiResult.lat, aiResult.lng, city);
       setMapsLink(generatedMapsLink);
@@ -421,6 +428,15 @@ export default function PlaceModal({
               disabledPlaceFields={disabledPlaceFields}
               fieldIcons={fieldIcons}
               placeFieldsOrder={placeFieldsOrder}
+              savedValues={place ? {
+                title: place.title,
+                description: place.description || '',
+                openingHours: place.openingHours || '',
+                mapsLink: place.mapsLink || '',
+                photoUrl: place.photoUrl || '',
+                notes: place.notes || '',
+                aiDetails: place.aiDetails || {}
+              } : undefined}
             />
           </div>
 
@@ -435,7 +451,7 @@ export default function PlaceModal({
                   onClose();
                 }}
               >
-                <Trash2 size={14} /> Delete Place
+                <Trash2 size={14} /> Delete
               </button>
             ) : (
               <div /> // Spacer
@@ -444,7 +460,7 @@ export default function PlaceModal({
             <div style={{ display: 'flex', gap: '8px' }}>
               <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn-primary">
-                {isEdit ? 'Save Changes' : 'Add Place'}
+                {isEdit ? 'Save' : 'Add Place'}
               </button>
             </div>
           </div>
