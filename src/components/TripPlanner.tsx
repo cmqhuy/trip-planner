@@ -298,6 +298,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [aiGenerateCity, setAiGenerateCity] = useState('');
   const [aiGenerateCountry, setAiGenerateCountry] = useState('');
   const [placeGeneratingIds, setPlaceGeneratingIds] = useState<Set<string>>(new Set());
+
+  // AI Suggested Places States
+  const [aiSuggestedPlaces, setAiSuggestedPlaces] = useState<Place[]>([]);
+  const [isLoadingAiSuggestions, setIsLoadingAiSuggestions] = useState(false);
+  const [aiSuggestionsLocId, setAiSuggestionsLocId] = useState<string | null>(null);
+  const [aiSuggestionsError, setAiSuggestionsError] = useState<string | null>(null);
   
   // Rename plan state
   const [isRenamingPlan, setIsRenamingPlan] = useState(false);
@@ -1130,7 +1136,59 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
     setPlaceQuery('');
     setPlaceSuggestions([]);
+    setActivePlaceId(placeId);
+    // Remove from AI suggestions if it was suggested
+    if (placeId.startsWith('ai-suggest-')) {
+      setAiSuggestedPlaces(prev => prev.filter(p => p.id !== placeId));
+    }
   }, [catalogLocation, trip, activePlan, onUpdateTrip]);
+
+  const handleAiSuggestPlaces = useCallback(async () => {
+    if (!catalogLocation) return;
+    setIsLoadingAiSuggestions(true);
+    setAiSuggestedPlaces([]);
+    setAiSuggestionsError(null);
+    try {
+      const existingTitles = catalogLocation.places.map(p => p.title);
+      const suggestions = await GeminiService.generateSuggestedPlacesWithRotation(
+        catalogLocation.city,
+        catalogLocation.country,
+        existingTitles
+      );
+      const places: Place[] = suggestions.map((s, i) => ({
+        id: `ai-suggest-${Date.now()}-${i}`,
+        title: s.title,
+        description: s.description,
+        openingHours: s.openingHours,
+        notes: s.notes,
+        lat: s.lat,
+        lng: s.lng,
+        photoUrl: s.photoUrl,
+        placeGroupId: s.category,
+        mapsLink: buildMapsLink(s.title, s.lat, s.lng, catalogLocation.city)
+      }));
+      setAiSuggestedPlaces(places);
+      setAiSuggestionsLocId(catalogLocation.id);
+    } catch (err: any) {
+      setAiSuggestionsError(err?.message || 'Failed to generate suggestions.');
+    } finally {
+      setIsLoadingAiSuggestions(false);
+    }
+  }, [catalogLocation]);
+
+  const handleAddAiSuggestionToCatalog = useCallback((place: Place) => {
+    if (!catalogLocation) return;
+    const newPlace: Place = { ...place, placeGroupId: 'new' };
+    const updatedLocations = trip.locations.map(l => {
+      if (l.id === catalogLocation.id) {
+        return { ...l, places: [...l.places, newPlace] };
+      }
+      return l;
+    });
+    onUpdateTrip({ ...trip, locations: updatedLocations });
+    setAiSuggestedPlaces(prev => prev.filter(p => p.id !== place.id));
+    setActivePlaceId(newPlace.id);
+  }, [catalogLocation, trip, onUpdateTrip]);
 
   const handleAddPlaceFromDayTimeline = (place: Omit<Place, 'placeGroupId'>) => {
     if (!activeDayLocation) return;
@@ -2110,15 +2168,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     })
     .filter(Boolean) as Place[];
 
-  // Find the selected catalog place if activePlaceId is set
+  // Find the selected catalog place if activePlaceId is set (also checks AI suggestions)
   const selectedCatalogPlace = useMemo(() => {
     if (!activePlaceId) return null;
+    const aiSuggested = aiSuggestedPlaces.find(p => p.id === activePlaceId);
+    if (aiSuggested) return aiSuggested;
     for (const loc of trip.locations) {
       const p = loc.places.find(place => place.id === activePlaceId);
       if (p) return p;
     }
     return null;
-  }, [activePlaceId, trip.locations]);
+  }, [activePlaceId, trip.locations, aiSuggestedPlaces]);
 
   const isSelectedPlaceScheduledOnActiveDay = useMemo(() => {
     if (!activePlaceId || !activeDay) return false;
@@ -2129,10 +2189,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const displayScheduledPlaces = useMemo(() => {
     let list = [...scheduledPlaces];
     if (selectedCatalogPlace && !isSelectedPlaceScheduledOnActiveDay) {
-      list = [{ ...selectedCatalogPlace, isTemporary: true } as Place, ...list];
+      const isAiSuggestion = aiSuggestedPlaces.some(p => p.id === selectedCatalogPlace.id);
+      list = [{ ...selectedCatalogPlace, isTemporary: true, isAiSuggestion } as Place, ...list];
     }
     return list;
-  }, [scheduledPlaces, selectedCatalogPlace, isSelectedPlaceScheduledOnActiveDay]);
+  }, [scheduledPlaces, selectedCatalogPlace, isSelectedPlaceScheduledOnActiveDay, aiSuggestedPlaces]);
 
   // Scroll selected place into view in the Day Schedule timeline
   useEffect(() => {
@@ -2224,6 +2285,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         savePlaceNotes={savePlaceNotes}
         activeGroupDropdownId={activeGroupDropdownId}
         setActiveGroupDropdownId={setActiveGroupDropdownId}
+        aiSuggestedPlaces={aiSuggestedPlaces}
+        isLoadingAiSuggestions={isLoadingAiSuggestions}
+        aiSuggestionsLocId={aiSuggestionsLocId}
+        aiSuggestionsError={aiSuggestionsError}
+        onAiSuggestPlaces={handleAiSuggestPlaces}
         generatingChecklist={generatingChecklist}
         onGenerateTripChecklist={handleGenerateTripChecklist}
         onSaveAiChecklist={handleSaveAiChecklist}
@@ -2318,6 +2384,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleUpdateScheduleNote={handleUpdateScheduleNote}
         handleDeleteScheduleNote={handleDeleteScheduleNote}
         handleAddPlaceToDay={handleAddPlaceToDay}
+        handleAddAiSuggestionToCatalog={handleAddAiSuggestionToCatalog}
         handleOpenEditPlace={handleOpenEditPlace}
         handleGenerateSinglePlaceAiDetails={handleGenerateSinglePlaceAiDetails}
         startEditingNotes={startEditingNotes}

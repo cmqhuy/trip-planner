@@ -160,6 +160,7 @@ describe('ItineraryPanel Component', () => {
         handleUpdateScheduleNote={vi.fn()}
         handleDeleteScheduleNote={vi.fn()}
         handleAddPlaceToDay={vi.fn()}
+        handleAddAiSuggestionToCatalog={vi.fn()}
         handleOpenEditPlace={vi.fn()}
         handleGenerateSinglePlaceAiDetails={vi.fn()}
         startEditingNotes={vi.fn()}

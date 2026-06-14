@@ -55,6 +55,11 @@ interface LeftPanelAccordionProps {
   savePlaceNotes: (placeId: string) => void;
   activeGroupDropdownId: string | null;
   setActiveGroupDropdownId: (id: string | null) => void;
+  aiSuggestedPlaces: Place[];
+  isLoadingAiSuggestions: boolean;
+  aiSuggestionsLocId: string | null;
+  aiSuggestionsError: string | null;
+  onAiSuggestPlaces: () => void;
   generatingChecklist: boolean;
   onGenerateTripChecklist: () => void;
   onSaveAiChecklist: (content: string) => void;
@@ -116,6 +121,11 @@ export default function LeftPanelAccordion({
   savePlaceNotes,
   activeGroupDropdownId,
   setActiveGroupDropdownId,
+  aiSuggestedPlaces = [],
+  isLoadingAiSuggestions = false,
+  aiSuggestionsLocId = null,
+  aiSuggestionsError = null,
+  onAiSuggestPlaces,
   generatingChecklist,
   onGenerateTripChecklist,
   onSaveAiChecklist,
@@ -192,6 +202,11 @@ export default function LeftPanelAccordion({
             savePlaceNotes={savePlaceNotes}
             activeGroupDropdownId={activeGroupDropdownId}
             setActiveGroupDropdownId={setActiveGroupDropdownId}
+            aiSuggestedPlaces={aiSuggestedPlaces}
+            isLoadingAiSuggestions={isLoadingAiSuggestions}
+            aiSuggestionsLocId={aiSuggestionsLocId}
+            aiSuggestionsError={aiSuggestionsError}
+            onAiSuggestPlaces={onAiSuggestPlaces}
           />
         )}
       </div>

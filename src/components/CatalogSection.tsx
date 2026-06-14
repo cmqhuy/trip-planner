@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import LocationSelect from './LocationSelect';
-import { 
-  MapPin, Plus, Edit2, ExternalLink, ChevronUp, ChevronDown, 
-  Clock, FileText, Sparkles, MoreVertical, Check
+import {
+  MapPin, Plus, Edit2, ExternalLink, ChevronUp, ChevronDown,
+  Clock, FileText, Sparkles, MoreVertical, Check, RefreshCw
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
 import { DEFAULT_PLACE_GROUPS, buildMapsLink } from '../utils/api';
@@ -55,6 +55,11 @@ interface CatalogSectionProps {
   savePlaceNotes: (placeId: string) => void;
   activeGroupDropdownId: string | null;
   setActiveGroupDropdownId: (id: string | null) => void;
+  aiSuggestedPlaces: Place[];
+  isLoadingAiSuggestions: boolean;
+  aiSuggestionsLocId: string | null;
+  aiSuggestionsError: string | null;
+  onAiSuggestPlaces: () => void;
 }
 
 export default function CatalogSection({
@@ -103,7 +108,12 @@ export default function CatalogSection({
   startEditingNotes,
   savePlaceNotes,
   activeGroupDropdownId,
-  setActiveGroupDropdownId
+  setActiveGroupDropdownId,
+  aiSuggestedPlaces = [],
+  isLoadingAiSuggestions = false,
+  aiSuggestionsLocId = null,
+  aiSuggestionsError = null,
+  onAiSuggestPlaces
 }: CatalogSectionProps) {
   const [activePlaceDropdownId, setActivePlaceDropdownId] = useState<string | null>(null);
 
@@ -131,21 +141,37 @@ export default function CatalogSection({
           />
           
           {catalogLocation && trip.canEdit !== false && (
-            <button 
-              className="mini-icon-btn" 
+            <button
+              className="mini-icon-btn"
+              onClick={onAiSuggestPlaces}
+              disabled={isLoadingAiSuggestions}
+              data-tooltip="AI Suggest Places"
+              data-tooltip-position="bottom"
+              style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#a78bfa' }}
+            >
+              {isLoadingAiSuggestions
+                ? <RefreshCw size={12} style={{ animation: 'spin-cw 1s linear infinite' }} />
+                : <Sparkles size={12} />}
+            </button>
+          )}
+          {catalogLocation && trip.canEdit !== false && (
+            <button
+              className="mini-icon-btn"
               onClick={onEditLocation}
               data-tooltip="Edit Location Settings"
+              data-tooltip-position="bottom"
               style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
             >
               <Edit2 size={12} />
             </button>
           )}
           {trip.canEdit !== false && (
-            <button 
+            <button
               className="btn-primary flex-align add-location-btn"
               style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
               onClick={onAddLocation}
               data-tooltip="Add Location"
+              data-tooltip-position="bottom"
             >
               <Plus size={12} />
             </button>
@@ -563,6 +589,7 @@ export default function CatalogSection({
                                     onClick={() => startEditingNotes(place)}
                                     style={{ marginLeft: 'auto', padding: '4px' }}
                                     data-tooltip="Edit Note"
+                                    aria-label="Edit Note"
                                   >
                                     <Edit2 size={12} />
                                   </button>
@@ -663,6 +690,97 @@ export default function CatalogSection({
               </div>
             );
           })}
+          {/* AI Suggestions Group */}
+          {aiSuggestionsError && aiSuggestionsLocId === selectedCatalogLocId && (
+            <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '12px', color: '#f87171', marginTop: '4px' }}>
+              {aiSuggestionsError}
+            </div>
+          )}
+          {aiSuggestedPlaces.length > 0 && aiSuggestionsLocId === selectedCatalogLocId && (
+            <div className="place-group-section" style={{ borderTop: '1px dashed rgba(167,139,250,0.25)', marginTop: '8px', paddingTop: '8px' }}>
+              <div className="place-group-header">
+                <span className="place-group-title">
+                  <Sparkles size={12} style={{ color: '#a78bfa', flexShrink: 0 }} />
+                  <span style={{ color: '#c4b5fd' }}>AI Suggestions</span>
+                </span>
+                <div className="flex-align" style={{ gap: '4px' }}>
+                  <button
+                    className="mini-icon-btn"
+                    onClick={onAiSuggestPlaces}
+                    disabled={isLoadingAiSuggestions}
+                    data-tooltip="Refresh suggestions"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0, color: '#a78bfa' }}
+                  >
+                    <RefreshCw size={13} style={isLoadingAiSuggestions ? { animation: 'spin-cw 1s linear infinite' } : undefined} />
+                  </button>
+                  <span className="badge" style={{ background: 'rgba(167,139,250,0.12)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
+                    {aiSuggestedPlaces.length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="catalog-places-list">
+                {aiSuggestedPlaces.map(place => (
+                  <div key={place.id}>
+                    <div
+                      className={`catalog-place-card ${activePlaceId === place.id ? 'details-expanded' : ''}`}
+                      onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
+                      style={{
+                        borderColor: activePlaceId === place.id ? '#a78bfa' : 'rgba(167,139,250,0.15)',
+                        background: 'rgba(167,139,250,0.04)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div className="place-card-header">
+                        {place.photoUrl ? (
+                          <div className="place-card-thumb-container">
+                            <img src={place.photoUrl} alt="" loading="lazy" decoding="async" />
+                          </div>
+                        ) : (
+                          <div className="place-card-thumb-container">
+                            <Sparkles size={14} style={{ color: '#a78bfa' }} />
+                          </div>
+                        )}
+                        <div className="place-card-info" style={{ minWidth: 0, flex: 1 }}>
+                          <h4 className="place-card-title" style={{ margin: 0 }}>{place.title}</h4>
+                          {place.openingHours && (
+                            <div className="place-card-hours" style={{ marginTop: '2px' }}>
+                              <Clock size={10} /> {place.openingHours}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Expanded details */}
+                      {activePlaceId === place.id && (
+                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(167,139,250,0.12)', fontSize: '13px' }} onClick={e => e.stopPropagation()}>
+                          {place.description && (
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>
+                          )}
+                          {place.notes && (
+                            <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(167,139,250,0.06)', borderLeft: '2px solid #a78bfa', borderRadius: '0 4px 4px 0', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.4, fontStyle: 'italic', textTransform: 'none' }}>
+                              {place.notes}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
+                            <a
+                              href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-secondary flex-align"
+                              style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                            >
+                              Map <ExternalLink size={10} />
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ padding: '40px 20px', textTransform: 'none', color: 'var(--text-muted)', textAlign: 'center', fontSize: '14px' }}>

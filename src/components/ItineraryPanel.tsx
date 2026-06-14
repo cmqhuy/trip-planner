@@ -3,7 +3,7 @@ import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building,
-  Search, FileText, RefreshCw, ArrowRight
+  Search, FileText, RefreshCw, ArrowRight, BookmarkPlus
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
@@ -103,6 +103,7 @@ interface ItineraryPanelProps {
   handleUpdateScheduleNote: (itemIndex: number, text: string) => void;
   handleDeleteScheduleNote: (itemIndex: number) => void;
   handleAddPlaceToDay: (place: Place) => void;
+  handleAddAiSuggestionToCatalog: (place: Place) => void;
   handleOpenEditPlace: (place: Place) => void;
   handleGenerateSinglePlaceAiDetails: (placeId: string) => void;
   startEditingNotes: (place: Place) => void;
@@ -201,6 +202,7 @@ export default function ItineraryPanel({
   handleUpdateScheduleNote,
   handleDeleteScheduleNote,
   handleAddPlaceToDay,
+  handleAddAiSuggestionToCatalog,
   handleOpenEditPlace,
   handleGenerateSinglePlaceAiDetails,
   startEditingNotes,
@@ -301,7 +303,8 @@ export default function ItineraryPanel({
         }}
         onDrop={(e) => {
           e.stopPropagation();
-          if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
+          if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
+          else if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
           setDragOverDayPlaceIndex(null);
         }}
       >
@@ -1109,18 +1112,23 @@ export default function ItineraryPanel({
                 }
               }}
             >
-              {/* Preview place (not yet scheduled, shown as preview card at top) */}
+              {/* Preview place (not yet scheduled, shown as expanded preview card at top) */}
               {(() => {
                 const previewPlace = (displayScheduledPlaces[0] as any)?.isTemporary ? displayScheduledPlaces[0] : null;
                 if (!previewPlace) return null;
+                const isAiSuggestion = !!(previewPlace as any).isAiSuggestion;
+                const dotColor = isAiSuggestion ? '#a78bfa' : ((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.color || '#6b7280');
                 return (
                   <div className="timeline-card glass-panel timeline-card-preview" data-place-id={previewPlace.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0, cursor: 'default', marginBottom: '4px' }}>
-                    <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.color || '#6b7280' }}>
-                      {getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
+                    <div className="timeline-dot" style={{ backgroundColor: dotColor }}>
+                      {isAiSuggestion ? <Sparkles size={12} style={{ color: '#ffffff' }} /> : getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
                     </div>
+                    {/* Header row */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
                       <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: 'default' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>P</div>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: isAiSuggestion ? 'rgba(167, 139, 250, 0.2)' : 'rgba(99, 102, 241, 0.2)', color: isAiSuggestion ? '#c4b5fd' : '#a5b4fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
+                          {isAiSuggestion ? <Sparkles size={12} /> : 'P'}
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
                           {previewPlace.photoUrl ? (
                             <div className="place-card-thumb-container"><img src={getOptimizedImageUrl(previewPlace.photoUrl, 80)} alt="" loading="lazy" decoding="async" /></div>
@@ -1130,18 +1138,54 @@ export default function ItineraryPanel({
                           <a href={previewPlace.mapsLink || buildMapsLink(previewPlace.title, previewPlace.lat, previewPlace.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary" onClick={(e) => e.stopPropagation()} style={{ padding: '2px 4px', fontSize: '9px', textDecoration: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', boxSizing: 'border-box', textAlign: 'center', height: '18px' }}>Map</a>
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{previewPlace.title}</h4>
-                            <span className="preview-badge">Preview</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{previewPlace.title}</h4>
+                            <span className="preview-badge" style={isAiSuggestion ? { background: 'rgba(167,139,250,0.15)', color: '#c4b5fd', borderColor: 'rgba(167,139,250,0.3)' } : undefined}>
+                              {isAiSuggestion ? 'AI Suggestion' : 'Preview'}
+                            </span>
                           </div>
-                          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{previewPlace.description ? previewPlace.description.substring(0, 50) + '...' : 'Attraction'}</p>
+                          {previewPlace.openingHours && (
+                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>{previewPlace.openingHours}</p>
+                          )}
                         </div>
                       </div>
                       {trip.canEdit !== false && (
                         <div className="day-place-actions-temporary" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                          <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
+                          {isAiSuggestion ? (
+                            <>
+                              <button className="mini-icon-btn" onClick={() => handleAddAiSuggestionToCatalog(previewPlace)} data-tooltip="Add to Catalog" style={{ padding: '4px', color: '#a78bfa' }}><BookmarkPlus size={15} /></button>
+                              <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Add to Day Schedule" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
+                            </>
+                          ) : (
+                            <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
+                          )}
                           <button className="mini-icon-btn" onClick={() => setActivePlaceId(undefined)} data-tooltip="Remove Preview" style={{ padding: '4px', color: 'var(--color-danger)' }}><X size={14} /></button>
                         </div>
+                      )}
+                    </div>
+                    {/* Always-expanded details */}
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', cursor: 'default', width: '100%' }} onClick={e => e.stopPropagation()}>
+                      {previewPlace.description && (
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.4, textTransform: 'none' }}>{previewPlace.description}</p>
+                      )}
+                      {isAiSuggestion ? (
+                        previewPlace.notes && (
+                          <div style={{ padding: '6px 10px', background: 'rgba(167,139,250,0.06)', borderLeft: '2px solid #a78bfa', borderRadius: '0 4px 4px 0', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.4, fontStyle: 'italic', textTransform: 'none' }}>
+                            {previewPlace.notes}
+                          </div>
+                        )
+                      ) : (
+                        <AiDetailsView
+                          place={previewPlace}
+                          onGenerate={() => handleGenerateSinglePlaceAiDetails(previewPlace.id)}
+                          canEdit={trip.canEdit !== false}
+                          isGenerating={placeGeneratingIds.has(previewPlace.id)}
+                          layoutMode="adaptive-2-col"
+                          customAiFields={trip.customAiFields}
+                          disabledPlaceFields={trip.disabledPlaceFields}
+                          fieldIcons={trip.fieldIcons}
+                          placeFieldsOrder={trip.placeFieldsOrder}
+                        />
                       )}
                     </div>
                   </div>

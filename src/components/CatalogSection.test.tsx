@@ -99,6 +99,11 @@ describe('CatalogSection Component', () => {
         savePlaceNotes={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
+        aiSuggestedPlaces={[]}
+        isLoadingAiSuggestions={false}
+        aiSuggestionsLocId={null}
+        aiSuggestionsError={null}
+        onAiSuggestPlaces={vi.fn()}
       />
     );
 
@@ -161,6 +166,11 @@ describe('CatalogSection Component', () => {
         savePlaceNotes={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
+        aiSuggestedPlaces={[]}
+        isLoadingAiSuggestions={false}
+        aiSuggestionsLocId={null}
+        aiSuggestionsError={null}
+        onAiSuggestPlaces={vi.fn()}
       />
     );
 

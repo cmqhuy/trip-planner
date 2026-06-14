@@ -798,6 +798,144 @@ Output ONLY raw Markdown. Do not include any greeting or conversational filler.`
   }
 
   /**
+   * Suggests must-visit places for a given city.
+   */
+  static async generateSuggestedPlaces(
+    city: string,
+    country: string,
+    existingPlaceTitles: string[],
+    apiKey: string,
+    model = 'gemini-2.5-flash'
+  ): Promise<Array<{
+    title: string;
+    description: string;
+    openingHours: string;
+    notes: string;
+    lat: number;
+    lng: number;
+    photoUrl: string;
+    category: string;
+  }>> {
+    const locationContext = [city, country].filter(Boolean).join(', ') || 'unknown location';
+    const excludeList = existingPlaceTitles.length > 0
+      ? `\nExclude these places (already in the user's list): ${existingPlaceTitles.join(', ')}.`
+      : '';
+    const promptText = `You are a travel expert. Suggest 10 diverse, must-visit places in ${locationContext} for tourists.${excludeList}
+
+Include a mix of categories: iconic attractions, hidden gems, popular restaurants/food spots, shopping areas, and unique local experiences.
+
+For each place provide:
+- title: Official or most commonly used name
+- description: 2-sentence factual description of what it is and why it is notable
+- openingHours: Typical hours (e.g. "09:00-18:00", "24/7", "Mon-Sun 10:00-22:00"). Use empty string if unknown.
+- notes: The single most useful tip for a first-time visitor (1-2 sentences)
+- lat: Precise decimal latitude coordinate
+- lng: Precise decimal longitude coordinate
+- photoUrl: A real, publicly accessible image URL for this place. Wikipedia or other well-known sources are good options. Only provide a URL you are highly confident is correct and resolves to an actual image file. Use empty string if you are not certain.
+- category: Exactly one of "attractions", "restaurants", "shopping", "other"
+
+Ensure coordinates are accurate and the places span a variety of types.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              places: {
+                type: 'ARRAY',
+                items: {
+                  type: 'OBJECT',
+                  properties: {
+                    title: { type: 'STRING' },
+                    description: { type: 'STRING' },
+                    openingHours: { type: 'STRING' },
+                    notes: { type: 'STRING' },
+                    lat: { type: 'NUMBER' },
+                    lng: { type: 'NUMBER' },
+                    photoUrl: { type: 'STRING' },
+                    category: { type: 'STRING', enum: ['attractions', 'restaurants', 'shopping', 'other'] }
+                  },
+                  required: ['title', 'description', 'openingHours', 'notes', 'lat', 'lng', 'photoUrl', 'category']
+                }
+              }
+            },
+            required: ['places']
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) throw new Error('Gemini API returned an empty response.');
+
+    const parsed = JSON.parse(resultText);
+    if (!Array.isArray(parsed.places)) throw new Error('Invalid response structure from Gemini API.');
+
+    // Validate photo URLs in parallel — clear any that don't resolve to a real image
+    const validated = await Promise.all(
+      parsed.places.map(async (place: any) => {
+        if (!place.photoUrl) return place;
+        try {
+          const res = await fetch(place.photoUrl, { method: 'HEAD' });
+          return { ...place, photoUrl: res.ok ? place.photoUrl : '' };
+        } catch {
+          return { ...place, photoUrl: '' };
+        }
+      })
+    );
+
+    return validated;
+  }
+
+  /**
+   * Generates suggested places rotating through API keys.
+   */
+  static async generateSuggestedPlacesWithRotation(
+    city: string,
+    country: string,
+    existingPlaceTitles: string[],
+    model?: string
+  ): Promise<Array<{
+    title: string;
+    description: string;
+    openingHours: string;
+    notes: string;
+    lat: number;
+    lng: number;
+    photoUrl: string;
+    category: string;
+  }>> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) {
+      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+    }
+
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+
+    for (const key of keys) {
+      try {
+        return await this.generateSuggestedPlaces(city, country, existingPlaceTitles, key, selectedModel);
+      } catch (err) {
+        console.warn(`Gemini suggested places call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  /**
    * Generates local essentials rotating through API keys.
    */
   static async generateLocalEssentialsWithRotation(
