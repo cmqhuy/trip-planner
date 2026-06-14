@@ -3,7 +3,7 @@ import ImagePreview from './ImagePreview';
 import CategoryGroupSelect from './CategoryGroupSelect';
 import MapPicker from './MapPicker';
 import type { PlaceGroup } from '../types';
-import { GeminiService, getOrderedPlaceFields } from '../utils/ai';
+import { GeminiService, getOrderedPlaceFields, NO_API_KEY_TOOLTIP } from '../utils/ai';
 import { FIELD_ICONS_MAP, getIconColor } from './TripAiConfigModal';
 
 interface PlaceFormFieldsProps {
@@ -205,7 +205,7 @@ export default function PlaceFormFields({
             </h4>
 
             <div 
-              data-tooltip={!hasKeys ? 'Configure AI API keys in settings to use this feature' : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Auto-populate these fields with AI')}
+              data-tooltip={!hasKeys ? NO_API_KEY_TOOLTIP : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Auto-populate these fields with AI')}
               data-tooltip-position="bottom"
               style={{ display: 'inline-block' }}
             >
@@ -229,7 +229,7 @@ export default function PlaceFormFields({
                 ) : (
                   <Sparkles size={11} />
                 )}
-                {isAiGenerating ? 'Generating...' : 'Auto-Fill with AI'}
+                {isAiGenerating ? 'Generating...' : 'Fill with AI'}
               </button>
             </div>
           </div>

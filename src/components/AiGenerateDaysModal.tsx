@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
-import { GeminiService } from '../utils/ai';
+import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
 import FunGeneratingLoader from './FunGeneratingLoader';
 import { formatFreshness } from './AiMarkdownSection';
 
@@ -121,7 +121,7 @@ export default function AiGenerateDaysModal({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <strong style={{ fontSize: '12px' }}>API Keys Missing</strong>
                     <span style={{ fontSize: '11.5px', textTransform: 'none', lineHeight: 1.3 }}>
-                      You need a Gemini API key to run AI calls. Please open AI Settings in the top-right header to configure your keys.
+                      {NO_API_KEY_TOOLTIP}
                     </span>
                   </div>
                 </div>

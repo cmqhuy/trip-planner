@@ -115,6 +115,8 @@ export function getOrderedPlaceFields(
   return allFields;
 }
 
+export const NO_API_KEY_TOOLTIP = 'You need a Gemini API key to run AI calls. Please open AI Settings in the top-right header to configure your keys.';
+
 const KEYS_STORAGE_KEY = 'vacation-itineraries-gemini-api-keys';
 const MODEL_STORAGE_KEY = 'vacation-itineraries-gemini-model';
 const SYNC_STORAGE_KEY = 'vacation-itineraries-gemini-sync-drive';
@@ -634,6 +636,119 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
         return await this.generateTripChecklist(tripInfo, key, selectedModel, enableBabyLogistics);
       } catch (err) {
         console.warn(`Gemini checklist call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  /**
+   * Generates basic place info (title, description, hours, notes, coordinates) from a name query.
+   */
+  static async generatePlaceBasicInfo(
+    query: string,
+    city: string,
+    country: string,
+    apiKey: string,
+    model = 'gemini-2.5-flash'
+  ): Promise<{
+    title: string;
+    description: string;
+    openingHours: string;
+    notes: string;
+    lat: number;
+    lng: number;
+    photoUrl: string;
+  }> {
+    const locationContext = [city, country].filter(Boolean).join(', ') || 'unknown location';
+    const promptText = `You are a knowledgeable travel information assistant. For the following place in ${locationContext}, provide accurate basic information.
+
+Place name: "${query}"
+
+Fill in:
+- title: The official or most commonly used name of this specific place
+- description: A factual 2-sentence description of what this place is and why it is notable
+- openingHours: Typical visiting/opening hours (e.g. "09:00 - 18:00", "24/7", "Mon-Sat 10:00-20:00"). Use empty string if truly unknown.
+- notes: The single most useful practical tip for a first-time visitor (1-2 sentences)
+- lat: Precise decimal latitude coordinate
+- lng: Precise decimal longitude coordinate
+- photoUrl: A real, publicly accessible image URL from Wikimedia Commons (e.g. https://upload.wikimedia.org/wikipedia/commons/...) for this place. Use empty string if you are not certain the URL exists.
+
+Use the location context to resolve ambiguous names. Ensure coordinates are accurate.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              title: { type: 'STRING' },
+              description: { type: 'STRING' },
+              openingHours: { type: 'STRING' },
+              notes: { type: 'STRING' },
+              lat: { type: 'NUMBER' },
+              lng: { type: 'NUMBER' },
+              photoUrl: { type: 'STRING' }
+            },
+            required: ['title', 'description', 'openingHours', 'notes', 'lat', 'lng', 'photoUrl']
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) {
+      throw new Error('Gemini API returned an empty response.');
+    }
+
+    const parsed = JSON.parse(resultText);
+    if (!parsed.title || typeof parsed.lat !== 'number' || typeof parsed.lng !== 'number') {
+      throw new Error('Invalid response structure from Gemini API.');
+    }
+
+    return parsed;
+  }
+
+  /**
+   * Generates basic place info rotating through configured API keys.
+   */
+  static async generatePlaceBasicInfoWithRotation(
+    query: string,
+    city: string,
+    country: string,
+    model?: string
+  ): Promise<{
+    title: string;
+    description: string;
+    openingHours: string;
+    notes: string;
+    lat: number;
+    lng: number;
+    photoUrl: string;
+  }> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) {
+      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+    }
+
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+
+    for (const key of keys) {
+      try {
+        return await this.generatePlaceBasicInfo(query, city, country, key, selectedModel);
+      } catch (err) {
+        console.warn(`Gemini basic info call failed with key starting with "${key.substring(0, 5)}...". Error:`, err);
         lastError = err;
       }
     }

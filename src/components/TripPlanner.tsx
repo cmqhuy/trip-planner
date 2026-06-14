@@ -4,7 +4,7 @@ import { Navigation, BookOpen, Clock } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
-import { GeminiService } from '../utils/ai';
+import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
 import AiGenerateModal from './AiGenerateModal';
 
 
@@ -345,7 +345,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const showApiKeyMissingModal = () => {
     setConfirmModal({
       title: 'API Keys Missing',
-      message: 'You need a Gemini API key to run AI calls. Please open AI Settings in the top-right header to configure your keys.',
+      message: NO_API_KEY_TOOLTIP,
       confirmText: 'OK',
       isAlert: true,
       onConfirm: () => {}

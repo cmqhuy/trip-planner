@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Trash2 } from 'lucide-react';
+import { X, Search, Trash2, Sparkles, RefreshCw } from 'lucide-react';
 import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
-import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from '../utils/api';
+import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, fetchWikipediaData } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
-import { GeminiService } from '../utils/ai';
+import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
 
 interface PlaceModalProps {
   isOpen: boolean;
@@ -56,12 +56,18 @@ export default function PlaceModal({
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchTimeoutRef = useRef<any>(null);
 
+  // AI quick-fill states
+  const [isAiQuickFilling, setIsAiQuickFilling] = useState(false);
+  const [aiQuickFillError, setAiQuickFillError] = useState<string | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
       setSuggestions([]);
       setAiError(null);
       setIsAiGenerating(false);
+      setAiQuickFillError(null);
+      setIsAiQuickFilling(false);
       if (place) {
         // Edit mode
         setTitle(place.title);
@@ -157,6 +163,53 @@ export default function PlaceModal({
 
   if (!isOpen) return null;
 
+  const handleAiQuickFill = async () => {
+    const inputQuery = title.trim() || searchQuery.trim();
+    if (!inputQuery) {
+      setAiQuickFillError('Enter a place name in the title or search box first.');
+      return;
+    }
+
+    if (!GeminiService.hasApiKey()) {
+      setAiQuickFillError(NO_API_KEY_TOOLTIP);
+      return;
+    }
+
+    setIsAiQuickFilling(true);
+    setAiQuickFillError(null);
+
+    const city = catalogLocation?.city || '';
+    const country = catalogLocation?.country || '';
+
+    try {
+      const [aiResult, wikiResult] = await Promise.all([
+        GeminiService.generatePlaceBasicInfoWithRotation(inputQuery, city, country),
+        fetchWikipediaData(inputQuery)
+      ]);
+
+      setTitle(aiResult.title);
+      setDescription(aiResult.description);
+      setOpeningHours(aiResult.openingHours);
+      setNotes(aiResult.notes);
+      setLat(aiResult.lat.toFixed(6));
+      setLng(aiResult.lng.toFixed(6));
+
+      const resolvedPhoto = aiResult.photoUrl || wikiResult.photoUrl;
+      if (resolvedPhoto) setPhotoUrl(resolvedPhoto);
+
+      const generatedMapsLink = buildMapsLink(aiResult.title, aiResult.lat, aiResult.lng, city);
+      setMapsLink(generatedMapsLink);
+
+      setSearchQuery('');
+      setSuggestions([]);
+    } catch (err: any) {
+      console.error('AI quick-fill error:', err);
+      setAiQuickFillError(err?.message || 'Failed to generate place info with AI.');
+    } finally {
+      setIsAiQuickFilling(false);
+    }
+  };
+
   const handleAutoFillWithAi = async () => {
     if (!title.trim()) {
       setAiError('Please enter a place title first to generate insights.');
@@ -164,7 +217,7 @@ export default function PlaceModal({
     }
 
     if (!GeminiService.hasApiKey()) {
-      setAiError('Gemini API keys are missing. Please add them in the AI Settings (top-right header).');
+      setAiError(NO_API_KEY_TOOLTIP);
       return;
     }
 
@@ -242,7 +295,36 @@ export default function PlaceModal({
 
         {/* Suggestions Search / Auto-Populate */}
         <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-          <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
+            <div
+              data-tooltip={!GeminiService.hasApiKey() ? NO_API_KEY_TOOLTIP : (!title.trim() && !searchQuery.trim() ? 'Enter a place name or title first' : 'Fill all basic fields with AI')}
+              data-tooltip-position="bottom"
+              style={{ display: 'inline-block' }}
+            >
+              <button
+                type="button"
+                className="btn-secondary flex-align"
+                style={{
+                  fontSize: '11px',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  gap: '5px',
+                  borderColor: 'rgba(139, 92, 246, 0.25)',
+                  background: 'rgba(139, 92, 246, 0.06)',
+                  cursor: (isAiQuickFilling || (!title.trim() && !searchQuery.trim()) || !GeminiService.hasApiKey()) ? 'not-allowed' : 'pointer'
+                }}
+                onClick={handleAiQuickFill}
+                disabled={isAiQuickFilling || (!title.trim() && !searchQuery.trim()) || !GeminiService.hasApiKey()}
+              >
+                {isAiQuickFilling ? <RefreshCw size={11} className="spin" /> : <Sparkles size={11} />}
+                {isAiQuickFilling ? 'Generating...' : 'Fill with AI'}
+              </button>
+            </div>
+          </div>
+          {aiQuickFillError && (
+            <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{aiQuickFillError}</div>
+          )}
           <div style={{ position: 'relative', marginTop: '6px' }}>
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
             <input
