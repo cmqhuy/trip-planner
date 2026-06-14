@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
@@ -213,8 +213,17 @@ export default function ItineraryPanel({
 
   const [editingNoteSlot, setEditingNoteSlot] = useState<string | null>(null);
   const [tempNoteSlotText, setTempNoteSlotText] = useState('');
+  const [hoveredSchedulePlaceIndex, setHoveredSchedulePlaceIndex] = useState<number | null>(null);
+  const hideNoteSlotTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const renderNoteSlot = (slot: string, canEdit: boolean) => {
+  const scheduleHideNoteSlot = () => {
+    hideNoteSlotTimer.current = setTimeout(() => setHoveredSchedulePlaceIndex(null), 150);
+  };
+  const cancelHideNoteSlot = () => {
+    if (hideNoteSlotTimer.current) { clearTimeout(hideNoteSlotTimer.current); hideNoteSlotTimer.current = null; }
+  };
+
+  const renderNoteSlot = (slot: string, canEdit: boolean, showEmpty?: boolean) => {
     const noteText = (activeDay as any)?.scheduleNotes?.[slot] || '';
     const isEditing = editingNoteSlot === slot;
 
@@ -222,7 +231,7 @@ export default function ItineraryPanel({
 
     if (isEditing) {
       return (
-        <div className="day-schedule-note-editing" onClick={e => e.stopPropagation()}>
+        <div className="day-schedule-note-editing" onClick={e => e.stopPropagation()} onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot}>
           <textarea
             autoFocus
             value={tempNoteSlotText}
@@ -261,7 +270,7 @@ export default function ItineraryPanel({
 
     if (noteText) {
       return (
-        <div className="day-schedule-note-filled" onClick={e => e.stopPropagation()}>
+        <div className="day-schedule-note-filled" onClick={e => e.stopPropagation()} onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot}>
           <FileText size={13} style={{ marginTop: '2px', color: 'var(--accent-primary)', flexShrink: 0 }} />
           <span style={{ flex: 1, textTransform: 'none', whiteSpace: 'pre-wrap', lineHeight: 1.4, fontStyle: 'italic', fontSize: '12.5px', color: 'var(--accent-primary)' }}>{noteText}</span>
           {canEdit && (
@@ -288,9 +297,9 @@ export default function ItineraryPanel({
       );
     }
 
-    if (canEdit) {
+    if (canEdit && showEmpty) {
       return (
-        <div className="day-schedule-note-empty">
+        <div className="day-schedule-note-empty" onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot}>
           <button
             className="day-schedule-note-add-btn"
             onClick={e => { e.stopPropagation(); setEditingNoteSlot(slot); setTempNoteSlotText(''); }}
@@ -1002,9 +1011,11 @@ export default function ItineraryPanel({
 
                 return (
                   <React.Fragment key={`${place.id}-${index}`}>
-                    {!isTemporary && actualIndex >= 0 && renderNoteSlot(String(actualIndex), canEdit)}
+                    {!isTemporary && actualIndex >= 0 && renderNoteSlot(String(actualIndex), canEdit, hoveredSchedulePlaceIndex === actualIndex || hoveredSchedulePlaceIndex === actualIndex - 1)}
                   <div
                     style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                    onMouseEnter={() => { if (!isTemporary) { cancelHideNoteSlot(); setHoveredSchedulePlaceIndex(actualIndex); } }}
+                    onMouseLeave={scheduleHideNoteSlot}
                   >
                     {dragOverDayPlaceIndex === index && (
                       <div style={{
@@ -1437,7 +1448,7 @@ export default function ItineraryPanel({
                   </React.Fragment>
                 );
               })}
-              {scheduledPlaces.length > 0 && renderNoteSlot(String(scheduledPlaces.length), trip.canEdit !== false)}
+              {scheduledPlaces.length > 0 && renderNoteSlot(String(scheduledPlaces.length), trip.canEdit !== false, hoveredSchedulePlaceIndex === scheduledPlaces.length - 1)}
 
               {displayScheduledPlaces.length === 0 && (
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '6px' }}>
