@@ -44,7 +44,7 @@ export default function GroupModal({ isOpen, onClose, group, onSave, onDelete }:
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>{group ? 'Edit Group' : 'Create Custom Group'}</h3>
+          <h3>{group ? 'Edit Group' : 'Create Group'}</h3>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
           </button>

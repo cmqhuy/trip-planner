@@ -140,7 +140,7 @@ export default function LeftPanelAccordion({
             Catalog
           </span>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {catalogLocation ? `${catalogLocation.places.length} places` : 'Empty'}
+            {catalogLocation ? `${catalogLocation.places.length} place${catalogLocation.places.length === 1 ? '' : 's'}` : 'Empty'}
           </span>
         </div>
         

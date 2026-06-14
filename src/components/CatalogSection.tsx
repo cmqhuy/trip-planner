@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import LocationSelect from './LocationSelect';
 import { 
   MapPin, Plus, Edit2, ExternalLink, ChevronUp, ChevronDown, 
   Clock, FileText, Sparkles, MoreVertical, Check
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
-import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
+import { DEFAULT_PLACE_GROUPS, buildMapsLink } from '../utils/api';
 import { getOptimizedImageUrl } from '../utils/image';
 
 interface CatalogSectionProps {
@@ -122,17 +123,12 @@ export default function CatalogSection({
       {/* Back to dashboard and select location inside catalog */}
       <div className="panel-header" style={{ padding: '0 0 12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '12px' }}>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <select
+          <LocationSelect
             value={selectedCatalogLocId}
-            onChange={(e) => setSelectedCatalogLocId(e.target.value)}
-            className="catalog-location-select"
-            style={{ flex: 1, padding: '6px 28px 6px 10px', fontSize: '12px', background: 'var(--bg-dark)', minWidth: 0 }}
-          >
-            {trip.locations.length === 0 && <option value="">No Locations Added</option>}
-            {trip.locations.map(loc => (
-              <option key={loc.id} value={loc.id}>{getLocIcon(loc)} {getFormattedLocationName(loc, trip.locations)}</option>
-            ))}
-          </select>
+            onChange={setSelectedCatalogLocId}
+            locations={trip.locations}
+            style={{ flex: 1, minWidth: 0 }}
+          />
           
           {catalogLocation && trip.canEdit !== false && (
             <button 
@@ -176,7 +172,7 @@ export default function CatalogSection({
                 <button 
                   className="mini-icon-btn" 
                   onClick={() => setShowGroupModal(true)} 
-                  data-tooltip="Add Custom Category"
+                  data-tooltip="Add Group"
                   data-tooltip-position="bottom"
                   style={{ color: 'var(--accent-secondary)', padding: '2px' }}
                 >
@@ -234,7 +230,9 @@ export default function CatalogSection({
                 <div className="place-group-header">
                   <span className="place-group-title">
                     <span className="group-badge-dot" style={{ backgroundColor: group.color }} />
-                    {group.name}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={group.name}>
+                      {group.name}
+                    </span>
                   </span>
                   <div className="flex-align" style={{ gap: '4px' }}>
                     {trip.canEdit !== false && (
@@ -248,9 +246,9 @@ export default function CatalogSection({
                             setShowAiGenerateModal(true);
                           }} 
                           data-tooltip={`AI Travel Guide for ${group.name}`} 
-                          style={{ padding: '2px', color: '#a5b4fc', display: 'flex', alignItems: 'center' }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0, color: '#a5b4fc' }}
                         >
-                          <Sparkles size={12} />
+                          <Sparkles size={14} />
                         </button>
                         
                         <button 
@@ -272,9 +270,9 @@ export default function CatalogSection({
                             setShowCustomPlaceModal(true);
                           }} 
                           data-tooltip={`Add Place to ${group.name}`} 
-                          style={{ padding: '2px' }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0 }}
                         >
-                          <Plus size={10} />
+                          <Plus size={14} />
                         </button>
                       </>
                     )}
@@ -288,12 +286,12 @@ export default function CatalogSection({
                           }}
                           data-tooltip="Group Options"
                           style={{ 
-                            padding: '6px', 
-                            height: '28px', 
-                            width: '28px', 
                             display: 'flex', 
                             alignItems: 'center', 
-                            justifyContent: 'center',
+                            justifyContent: 'center', 
+                            width: '24px', 
+                            height: '24px', 
+                            padding: 0,
                             cursor: 'pointer'
                           }}
                         >
@@ -366,7 +364,7 @@ export default function CatalogSection({
                         }} />
                       )}
                       <div 
-                        className={`catalog-place-card ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''}`}
+                        className={`catalog-place-card ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                         draggable={trip.canEdit !== false}
                         onDragStart={() => handlePlaceDragStart(place.id)}
                         onDragEnd={() => {
@@ -399,24 +397,17 @@ export default function CatalogSection({
                       >
                         <div className="place-card-header">
                           {place.photoUrl ? (
-                            <img 
-                              src={getOptimizedImageUrl(place.photoUrl, 120)} 
-                              className="place-card-thumb" 
-                              alt="" 
-                              loading="lazy"
-                              decoding="async"
-                            />
+                            <div className="place-card-thumb-container">
+                              <img 
+                                src={getOptimizedImageUrl(place.photoUrl, 120)} 
+                                alt="" 
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            </div>
                           ) : (
-                            <div 
-                              className="place-card-thumb" 
-                              style={{ 
-                                background: 'rgba(255,255,255,0.05)', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center'
-                              }}
-                            >
-                              <MapPin size={16} />
+                            <div className="place-card-thumb-container">
+                              <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
                             </div>
                           )}
                           <div className="place-card-info" style={{ minWidth: 0, flex: 1 }}>
@@ -461,15 +452,14 @@ export default function CatalogSection({
                           </div>
                           {trip.canEdit !== false && (
                             <div 
-                              className="catalog-place-actions-desktop"
-                              style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignSelf: 'center', flexShrink: 0 }} 
+                              className="place-card-move-buttons catalog-place-actions-desktop"
                               onClick={e => e.stopPropagation()}
                             >
                               <button 
                                 className="mini-icon-btn" 
                                 disabled={placeIndexInGroup === 0} 
                                 onClick={() => handleMoveCatalogPlace(place.id, 'up')}
-                                style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1, padding: '2px' }}
+                                style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1 }}
                                 data-tooltip="Move Up"
                                 draggable={false}
                                 onDragStart={e => e.stopPropagation()}
@@ -480,7 +470,7 @@ export default function CatalogSection({
                                 className="mini-icon-btn" 
                                 disabled={placeIndexInGroup === filteredPlaces.length - 1} 
                                 onClick={() => handleMoveCatalogPlace(place.id, 'down')}
-                                style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
+                                style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1 }}
                                 data-tooltip="Move Down"
                                 draggable={false}
                                 onDragStart={e => e.stopPropagation()}
@@ -509,6 +499,16 @@ export default function CatalogSection({
                             </button>
                             {activePlaceDropdownId === place.id && (
                               <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
+                                <button 
+                                  className="dropdown-item" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAddPlaceToDay(place);
+                                    setActivePlaceDropdownId(null);
+                                  }}
+                                >
+                                  <Plus size={12} /> Add to Day
+                                </button>
                                 <button 
                                   className="dropdown-item" 
                                   disabled={placeIndexInGroup === 0}
@@ -542,16 +542,6 @@ export default function CatalogSection({
                                   }}
                                 >
                                   <Edit2 size={12} /> Edit Details
-                                </button>
-                                <button 
-                                  className="dropdown-item" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAddPlaceToDay(place);
-                                    setActivePlaceDropdownId(null);
-                                  }}
-                                >
-                                  <Plus size={12} /> Add to Day
                                 </button>
                               </div>
                             )}

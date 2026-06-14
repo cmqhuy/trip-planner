@@ -53,7 +53,7 @@ export default function CategoryGroupSelect({ value, onChange, placeGroups }: Ca
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
         onMouseLeave={e => !isOpen && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)')}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
           <span
             style={{
               width: '10px',
@@ -62,9 +62,10 @@ export default function CategoryGroupSelect({ value, onChange, placeGroups }: Ca
               backgroundColor: selectedGroup.color,
               display: 'inline-block',
               boxShadow: `0 0 8px ${selectedGroup.color}80`,
+              flexShrink: 0,
             }}
           />
-          <span>{selectedGroup.name}</span>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedGroup.name}</span>
         </div>
         <ChevronDown size={14} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>

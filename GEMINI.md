@@ -101,6 +101,40 @@ Futuristic, glassmorphism dark theme. CSS variables (defined in [index.css](file
 - `--border-glass`: Universal glass border (`rgba(255, 255, 255, 0.08)`)
 - **Glassmorphism rule**: Background (`rgba(255,255,255,0.03)`), border (`1px solid rgba(255,255,255,0.08)`), blur (`backdrop-filter: blur(12px)`).
 
+### 📐 Component & Layout Conventions
+To maintain UI consistency and simplify styling updates, always use the following shared classes:
+
+#### 1. Left Panel Subsections
+Apply this layout pattern to segment checklists, transit summaries, and local tips inside the left accordion:
+- `.left-panel-subsection`: Outermost vertical flex container with a top divider border on siblings.
+- `.subsection-header`: Flex row holding the title and header action buttons.
+- `.subsection-title`: Font size `11px`, bold, uppercase header (supports prefix icons).
+- `.subsection-subtitle`: Font size `11px`, italicized, muted subtext for empty lists.
+- `.subsection-actions`: Flex row container aligning subsection action buttons.
+- `.subsection-content`: Scrollable content container for rows/lists.
+
+#### 2. Day Details timeline Sections
+Apply this structure for Hotel Stays, Transit, AI Day Assistant, and Day Schedule subsections:
+- `.timeline-section`: Outer container with standard spacing.
+- `.timeline-section-header`: Flex row grouping the title column and actions.
+- `.timeline-section-title-row`: Layout block for the title and subtitle.
+- `.timeline-section-title`: Font size `14px` bold heading (supports prefix icons).
+- `.timeline-section-subtitle`: Font size `11px` muted section description.
+- `.timeline-section-actions`: Container for section action buttons.
+
+#### 3. Place Cards & Thumbnails (Catalog & Itinerary)
+- `.place-card-thumb-container`: Shared wrapper ensuring identical aspect ratio (`40px` x `40px`) and border-radius (`6px`) for photo thumbs and empty placeholders.
+- `.place-card-move-buttons`: Standard vertical flex container wrapping up/down buttons on cards.
+- **Select Dropdown arrows**: When styling selects, use `.catalog-location-select` or `.tips-location-select` and avoid inline `background` overrides (use `backgroundColor` instead) to prevent browser-rendered chevron dropdown arrows from being hidden.
+- **Mobile Active Location**: Change location switcher trigger on mobile to a `ChevronDown` arrow inside `.day-location-select-wrapper` instead of `MoreVertical` to clarify it is a combo box.
+
+#### 4. Edit/Creation Dialogs (Forms & AI sections)
+- `.modal-field-title`: Font size `12.5px`, bold, matching primary text token (uses flex alignment for AI sparkles).
+- `.modal-field-details`: Font size `10px`, muted color description for the input field.
+- `.modal-section-divider`: Standard dashed top border separating card details and AI options.
+- `.modal-ai-header`: Header flex layout for AI triggers inside modal forms.
+- `.modal-ai-title`: Font size `13px` bold AI heading with Sparkles icon.
+
 ---
 
 ## 💻 Environment Commands (Windows Specific)

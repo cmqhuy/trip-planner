@@ -68,6 +68,7 @@ export default function MapComponent({
   const prevPlaceGroupsSerializedRef = useRef<string>('');
   const prevActivePlaceIdRef = useRef<string | undefined>(undefined);
   const prevPreviewMarkerSerializedRef = useRef<string>('');
+  const prevActiveMobileTabRef = useRef<string>(activeMobileTab);
 
   // Initialize Map
   useEffect(() => {
@@ -109,12 +110,12 @@ export default function MapComponent({
   // Invalidate map size when tab switches to map to fix zoom/pan layout offsets
   useEffect(() => {
     const map = mapInstance.current;
-    if (map && activeMobileTab === 'map') {
+    if (map && activeMobileTab === 'map' && prevActiveMobileTabRef.current !== 'map') {
       setTimeout(() => {
         if (mapInstance.current) {
           mapInstance.current.invalidateSize({ animate: false });
           
-          // Force re-centering after invalidation
+          // Force re-centering after invalidation only once on transition
           if (activePlaceId) {
             const activePlace = places.find(p => p.id === activePlaceId);
             if (activePlace) {
@@ -127,6 +128,7 @@ export default function MapComponent({
         }
       }, 150);
     }
+    prevActiveMobileTabRef.current = activeMobileTab;
   }, [activeMobileTab, activePlaceId, places]);
 
   // Update Markers & Lines
@@ -242,7 +244,7 @@ export default function MapComponent({
           <div class="map-popup-card">
             <h4>${place.title}</h4>
             <p style="margin-bottom: 6px;">${place.description || 'No description available.'}</p>
-            ${place.openingHours ? `<p style="font-size:10px; color:#94a3b8; margin-bottom: 8px;">🕒 ${place.openingHours}</p>` : ''}
+            ${place.openingHours ? `<p style="font-size:10px; color:#94a3b8; margin-bottom: 8px; display: flex; align-items: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; display: inline-block; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${place.openingHours}</p>` : ''}
             <div style="display: flex; gap: 8px; margin-top: 8px;">
               <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#818cf8; font-weight:600; display:inline-block;">Google Maps</a>
               <span style="color:#64748b;">|</span>

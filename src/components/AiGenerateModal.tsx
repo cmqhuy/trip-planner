@@ -119,13 +119,13 @@ export default function AiGenerateModal({
 
   const formatFreshness = (p: Place) => {
     if (!p.aiDetails || Object.keys(p.aiDetails).length === 0) {
-      return <span style={{ color: '#fbbf24', fontSize: '11px' }}>No AI details yet</span>;
+      return <span style={{ color: '#fbbf24', fontSize: '11px', whiteSpace: 'nowrap' }}>No AI details yet</span>;
     }
     const dateStr = new Date(p.aiUpdatedAt || 0).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric'
     });
-    return <span style={{ color: 'var(--color-success)', fontSize: '11px' }}>Updated: {dateStr}</span>;
+    return <span style={{ color: 'var(--color-success)', fontSize: '11px', whiteSpace: 'nowrap' }}>Updated: {dateStr}</span>;
   };
 
   return (

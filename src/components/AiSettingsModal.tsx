@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Key, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { X, Sparkles, Key, RefreshCw, CheckCircle2, XCircle, Plus, Trash2 } from 'lucide-react';
 import { GeminiService } from '../utils/ai';
 
 interface AiSettingsModalProps {
@@ -15,7 +15,7 @@ export default function AiSettingsModal({
   onSaved,
   isGoogleSignedIn
 }: AiSettingsModalProps) {
-  const [keysInput, setKeysInput] = useState('');
+  const [keys, setKeys] = useState<string[]>(['']);
   const [model, setModel] = useState('gemini-2.5-flash');
   const [syncToDrive, setSyncToDrive] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -24,7 +24,7 @@ export default function AiSettingsModal({
   useEffect(() => {
     if (isOpen) {
       const savedKeys = GeminiService.getApiKeys();
-      setKeysInput(savedKeys.join('\n'));
+      setKeys(savedKeys.length > 0 ? savedKeys : ['']);
       setModel(GeminiService.getSelectedModel());
       setSyncToDrive(GeminiService.getSyncToDrive());
       setTestStatus('idle');
@@ -35,8 +35,8 @@ export default function AiSettingsModal({
   if (!isOpen) return null;
 
   const handleTestConnection = async () => {
-    const keys = keysInput.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
-    if (keys.length === 0) {
+    const activeKeys = keys.map(k => k.trim()).filter(Boolean);
+    if (activeKeys.length === 0) {
       setTestStatus('error');
       setTestMessage('Please enter at least one API key first.');
       return;
@@ -45,7 +45,7 @@ export default function AiSettingsModal({
     setTestStatus('testing');
     setTestMessage('Testing connectivity with first key...');
 
-    const success = await GeminiService.testConnection(keys[0]);
+    const success = await GeminiService.testConnection(activeKeys[0]);
     if (success) {
       setTestStatus('success');
       setTestMessage('Successfully connected to Gemini API!');
@@ -56,8 +56,8 @@ export default function AiSettingsModal({
   };
 
   const handleSave = () => {
-    const keys = keysInput.split('\n').map(k => k.trim()).filter(Boolean);
-    GeminiService.saveApiKeys(keys);
+    const activeKeys = keys.map(k => k.trim()).filter(Boolean);
+    GeminiService.saveApiKeys(activeKeys);
     GeminiService.saveSelectedModel(model);
     GeminiService.setSyncToDrive(syncToDrive && isGoogleSignedIn);
     onSaved();
@@ -113,17 +113,74 @@ export default function AiSettingsModal({
               </ol>
             </div>
 
-            <textarea
-              className="ai-modal-textarea"
-              placeholder="Paste your Gemini API keys here (one key per line)..."
-              value={keysInput}
-              onChange={e => {
-                setKeysInput(e.target.value);
-                if (testStatus !== 'idle') setTestStatus('idle');
-              }}
-              rows={4}
-            />
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block', textTransform: 'none' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {keys.map((key, index) => (
+                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder={`Gemini API Key ${index + 1}`}
+                    value={key}
+                    onChange={e => {
+                      const newKeys = [...keys];
+                      newKeys[index] = e.target.value;
+                      setKeys(newKeys);
+                      if (testStatus !== 'idle') setTestStatus('idle');
+                    }}
+                    style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                  />
+                  {keys.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newKeys = keys.filter((_, i) => i !== index);
+                        setKeys(newKeys);
+                        if (testStatus !== 'idle') setTestStatus('idle');
+                      }}
+                      style={{
+                        padding: '10px',
+                        color: 'var(--text-muted)',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'var(--transition-smooth)'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.color = '#f87171';
+                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.color = 'var(--text-muted)';
+                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                      }}
+                      title="Remove Key"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setKeys([...keys, ''])}
+                style={{
+                  fontSize: '12.5px',
+                  padding: '8px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  alignSelf: 'flex-start',
+                  marginTop: '4px'
+                }}
+              >
+                <Plus size={14} /> Add API Key
+              </button>
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', display: 'block', textTransform: 'none' }}>
               Multiple keys will be automatically rotated if one hits a rate limit or error.
             </span>
           </div>

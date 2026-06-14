@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
-  Calendar, Layers, Check, X, ChevronUp, ChevronDown, 
+  Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building,
   Search, FileText, RefreshCw, ArrowRight
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import { getOptimizedImageUrl } from '../utils/image';
 import FunGeneratingLoader from './FunGeneratingLoader';
 import AiMarkdownSection from './AiMarkdownSection';
 import AiDetailsView from './AiDetailsView';
+import LocationSelect from './LocationSelect';
 
 const hexToRgba = (hex: string, alpha: number) => {
   if (!hex || !hex.startsWith('#') || hex.length !== 7) return `rgba(99, 102, 241, ${alpha})`;
@@ -108,6 +109,10 @@ interface ItineraryPanelProps {
   daysTabsNavRef: React.RefObject<HTMLDivElement | null>;
   lastScrollLeft: React.MutableRefObject<number>;
   searchDropdownRef: React.RefObject<HTMLDivElement | null>;
+  leftCollapsed?: boolean;
+  setLeftCollapsed?: (val: boolean) => void;
+  rightCollapsed?: boolean;
+  setRightCollapsed?: (val: boolean) => void;
 }
 
 export default function ItineraryPanel({
@@ -197,7 +202,11 @@ export default function ItineraryPanel({
   daysGeneratingDates,
   daysTabsNavRef,
   lastScrollLeft,
-  searchDropdownRef
+  searchDropdownRef,
+  leftCollapsed,
+  setLeftCollapsed,
+  rightCollapsed,
+  setRightCollapsed
 }: ItineraryPanelProps) {
 
   const getCategoryIconComponent = (iconName: string, size = 12, className?: string, style?: React.CSSProperties) => {
@@ -212,7 +221,27 @@ export default function ItineraryPanel({
   };
 
   return (
-    <div className={`itinerary-panel ${activeMobileTab === 'itinerary' ? 'mobile-active' : ''}`}>
+    <div className={`itinerary-panel ${activeMobileTab === 'itinerary' ? 'mobile-active' : ''}`} style={{ position: 'relative' }}>
+      {setLeftCollapsed && (
+        <button 
+          className="panel-toggle-btn left-toggle" 
+          onClick={() => setLeftCollapsed(!leftCollapsed)}
+          data-tooltip={leftCollapsed ? "Expand Catalog Panel" : "Collapse Catalog Panel"}
+        >
+          {leftCollapsed ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
+        </button>
+      )}
+
+      {setRightCollapsed && (
+        <button 
+          className="panel-toggle-btn right-toggle" 
+          onClick={() => setRightCollapsed(!rightCollapsed)}
+          data-tooltip={rightCollapsed ? "Expand Map Panel" : "Collapse Map Panel"}
+        >
+          {rightCollapsed ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
+        </button>
+      )}
+
       <div className="itinerary-header">
         <div className="trip-meta-info-container">
           <div className="trip-title-row">
@@ -471,47 +500,38 @@ export default function ItineraryPanel({
             </div>
 
             {trip.canEdit !== false && (
-              <div className="day-location-select-wrapper mini-icon-btn" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <MoreVertical size={16} className="day-location-select-mobile-icon" style={{ color: 'var(--text-primary)' }} />
-                <select
-                  value={activeDay?.locationId || ''}
-                  onChange={(e) => {
-                    if (e.target.value === 'ADD_NEW_LOCATION') {
-                      setAddLocationForDay(true);
-                      setShowAddLocationModal(true);
-                    } else {
-                      handleSetDayLocation(e.target.value);
-                    }
-                  }}
-                  className="day-location-select"
-                  style={{ 
-                    padding: '8px 12px', 
-                    fontSize: '13px', 
-                    background: 'rgba(15,23,42,0.8)', 
-                    width: 'auto', 
-                    border: '1px solid var(--border-glass)', 
-                    borderRadius: '8px' 
-                  }}
-                >
-                  <option value="">Select Location...</option>
-                  {trip.locations.map(l => (
-                    <option key={l.id} value={l.id}>{getLocIcon(l)} {getFormattedLocationName(l, trip.locations)}</option>
-                  ))}
-                  <option value="ADD_NEW_LOCATION">Add Location...</option>
-                </select>
-              </div>
+              <LocationSelect
+                value={activeDay?.locationId || ''}
+                onChange={(val) => {
+                  if (val === 'ADD_NEW_LOCATION') {
+                    setAddLocationForDay(true);
+                    setShowAddLocationModal(true);
+                  } else {
+                    handleSetDayLocation(val);
+                  }
+                }}
+                locations={trip.locations}
+                placeholder="Select Location..."
+                showAddNew={true}
+                roundTrigger={true}
+                style={{ zIndex: 50 }}
+              />
             )}
           </div>
 
           {/* 2. Hotel reservations overlapping this day */}
-          <div>
-            <div className="timeline-section-title flex-between">
-              <span className="flex-align"><Building size={16} /> Hotel Stays</span>
-              {trip.canEdit !== false && (
-                <button className="mini-icon-btn flex-align" onClick={() => setShowHotelModal(true)} style={{ gap: '4px', color: 'var(--color-success)' }}>
-                  <Plus size={14} /> Add Hotel
-                </button>
-              )}
+          <div className="timeline-section">
+            <div className="timeline-section-header">
+              <div className="timeline-section-title-row">
+                <h4 className="timeline-section-title"><Building size={16} /> Hotel Stays</h4>
+              </div>
+              <div className="timeline-section-actions">
+                {trip.canEdit !== false && (
+                  <button className="mini-icon-btn flex-align" onClick={() => setShowHotelModal(true)} style={{ gap: '4px', color: 'var(--color-success)' }}>
+                    <Plus size={14} /> Add Hotel
+                  </button>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -544,14 +564,18 @@ export default function ItineraryPanel({
           </div>
 
           {/* 3. Transportation Schedule */}
-          <div>
-            <div className="timeline-section-title flex-between">
-              <span className="flex-align"><Plane size={16} /> Transit Schedule</span>
-              {trip.canEdit !== false && (
-                <button className="mini-icon-btn flex-align" onClick={() => setShowTransportModal(true)} style={{ gap: '4px', color: 'var(--color-warning)' }}>
-                  <Plus size={14} /> Add Transit
-                </button>
-              )}
+          <div className="timeline-section">
+            <div className="timeline-section-header">
+              <div className="timeline-section-title-row">
+                <h4 className="timeline-section-title"><Plane size={16} /> Transit Schedule</h4>
+              </div>
+              <div className="timeline-section-actions">
+                {trip.canEdit !== false && (
+                  <button className="mini-icon-btn flex-align" onClick={() => setShowTransportModal(true)} style={{ gap: '4px', color: 'var(--color-warning)' }}>
+                    <Plus size={14} /> Add Transit
+                  </button>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -605,14 +629,16 @@ export default function ItineraryPanel({
           </div>
 
           {/* AI Day Assistant (Daily Tips & Baby Logistics) */}
-          <div style={{ marginBottom: '16px' }}>
-            <div className="timeline-section-title flex-between ai-day-assistant-header">
-              <span className="flex-align" style={{ gap: '6px' }}>
-                <Sparkles size={16} style={{ color: 'var(--accent-primary)' }} />
-                AI Day Assistant
-              </span>
+          <div className="timeline-section">
+            <div className="timeline-section-header ai-day-assistant-header">
+              <div className="timeline-section-title-row">
+                <h4 className="timeline-section-title">
+                  <Sparkles size={16} style={{ color: 'var(--accent-primary)' }} />
+                  AI Day Assistant
+                </h4>
+              </div>
               
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div className="timeline-section-actions">
                 {(() => {
                   const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
                   const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
@@ -705,7 +731,7 @@ export default function ItineraryPanel({
                     <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '6px' }}>
                       {!isAnyDayFieldEnabled 
                         ? 'All day-level AI fields are disabled in Settings.' 
-                        : 'No daily tips or transit warnings generated for this day yet.'}
+                        : 'No daily tips generated for this day yet.'}
                     </span>
                     {trip.canEdit !== false && isAnyDayFieldEnabled && (
                       <button 
@@ -723,11 +749,13 @@ export default function ItineraryPanel({
           </div>
 
           {/* 4. Timeline Schedule Places */}
-          <div>
-            <div className="timeline-section-title flex-between day-schedule-header">
-              <span className="flex-align"><Navigation size={16} /> Day Schedule</span>
+          <div className="timeline-section">
+            <div className="timeline-section-header day-schedule-header">
+              <div className="timeline-section-title-row">
+                <h4 className="timeline-section-title"><Navigation size={16} /> Day Schedule</h4>
+              </div>
               {trip.canEdit !== false && (
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="timeline-section-actions">
                   <button 
                     className="mini-icon-btn flex-align" 
                     onClick={() => {
@@ -970,32 +998,16 @@ export default function ItineraryPanel({
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
                             {place.photoUrl ? (
-                              <img 
-                                src={getOptimizedImageUrl(place.photoUrl, 80)} 
-                                alt="" 
-                                style={{ 
-                                  width: '36px', 
-                                  height: '36px', 
-                                  borderRadius: '6px', 
-                                  objectFit: 'cover', 
-                                  flexShrink: 0 
-                                }} 
-                                loading="lazy"
-                                decoding="async"
-                              />
+                              <div className="place-card-thumb-container">
+                                <img 
+                                  src={getOptimizedImageUrl(place.photoUrl, 80)} 
+                                  alt="" 
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              </div>
                             ) : (
-                              <div 
-                                style={{ 
-                                  width: '36px', 
-                                  height: '36px', 
-                                  borderRadius: '6px', 
-                                  background: 'rgba(255,255,255,0.05)', 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center',
-                                  flexShrink: 0
-                                }}
-                              >
+                              <div className="place-card-thumb-container">
                                 <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
                               </div>
                             )}
@@ -1130,24 +1142,24 @@ export default function ItineraryPanel({
                               </>
                             ) : (
                               <>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div className="place-card-move-buttons">
                                   <button 
                                     className="mini-icon-btn" 
                                     disabled={actualIndex === 0} 
                                     onClick={() => handleMovePlaceOrder(actualIndex, 'up')}
-                                    style={{ opacity: actualIndex === 0 ? 0.3 : 1, padding: '2px' }}
+                                    style={{ opacity: actualIndex === 0 ? 0.3 : 1 }}
                                     data-tooltip="Move Up"
                                   >
-                                    <ChevronUp size={14} />
+                                    <ChevronUp size={12} />
                                   </button>
                                   <button 
                                     className="mini-icon-btn" 
                                     disabled={actualIndex === scheduledPlaces.length - 1} 
                                     onClick={() => handleMovePlaceOrder(actualIndex, 'down')}
-                                    style={{ opacity: actualIndex === scheduledPlaces.length - 1 ? 0.3 : 1, padding: '2px' }}
+                                    style={{ opacity: actualIndex === scheduledPlaces.length - 1 ? 0.3 : 1 }}
                                     data-tooltip="Move Down"
                                   >
-                                    <ChevronDown size={14} />
+                                    <ChevronDown size={12} />
                                   </button>
                                 </div>
                                 <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>

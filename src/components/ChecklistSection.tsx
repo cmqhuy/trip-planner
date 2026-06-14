@@ -125,13 +125,13 @@ export default function ChecklistSection({
   return (
     <div className="accordion-content">
       {/* Checklist Content */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
         
         {/* Section A: Manual Checklist */}
-        <div>
-          <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Personal Checklist</span>
-          </h4>
+        <div className="left-panel-subsection">
+          <div className="subsection-header">
+            <h4 className="subsection-title">Personal Checklist</h4>
+          </div>
           
           {trip.canEdit !== false && (
             <form 
@@ -140,7 +140,7 @@ export default function ChecklistSection({
                 handleAddManualChecklistItem(manualChecklistInput);
                 setManualChecklistInput('');
               }}
-              style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}
+              style={{ display: 'flex', gap: '6px', marginBottom: '2px' }}
             >
               <input 
                 type="text" 
@@ -159,7 +159,7 @@ export default function ChecklistSection({
             </form>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto', paddingRight: '2px' }}>
+          <div className="subsection-content" style={{ maxHeight: '160px', overflowY: 'auto', paddingRight: '2px' }}>
             {(activePlan.manualChecklist || []).map((item, idx) => {
               const isDragOver = idx === dragOverChecklistIndex && draggedChecklistIndex !== null && draggedChecklistIndex !== idx;
               const showLineAtBottom = draggedChecklistIndex !== null && draggedChecklistIndex < idx;
@@ -182,7 +182,7 @@ export default function ChecklistSection({
                     }} />
                   )}
                   <div 
-                    className="flex-between glass-panel"
+                    className={`checklist-item-row ${dragOverChecklistIndex === idx ? 'drag-over' : ''}`}
                     draggable={trip.canEdit !== false}
                     onDragStart={(e) => {
                       console.log('DRAGSTART checklist idx:', idx);
@@ -231,13 +231,18 @@ export default function ChecklistSection({
                       setDragOverChecklistIndex(null);
                     }}
                     style={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                       padding: '6px 10px', 
                       borderColor: 'rgba(255,255,255,0.04)',
                       backgroundColor: 'rgba(255,255,255,0.01)',
                       borderRadius: '8px',
                       opacity: draggedChecklistIndex === idx ? 0.4 : 1,
                       cursor: trip.canEdit !== false ? 'grab' : 'default',
-                      transition: 'opacity 0.2s ease, background-color 0.2s ease'
+                      transition: 'opacity 0.2s ease, background-color 0.2s ease',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
@@ -277,32 +282,33 @@ export default function ChecklistSection({
                     </div>
                     {trip.canEdit !== false && (
                       <div style={{ display: 'flex', gap: '2px', alignItems: 'center', marginLeft: '6px' }}>
-                        <button 
-                          type="button" 
-                          className="mini-icon-btn" 
-                          onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
-                          disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
-                          style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
-                          data-tooltip="Move Up"
-                        >
-                          <ChevronUp size={12} />
-                        </button>
-                        <button 
-                          type="button" 
-                          className="mini-icon-btn" 
-                          onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
-                          disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
-                          style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
-                          data-tooltip="Move Down"
-                        >
-                          <ChevronDown size={12} />
-                        </button>
+                        <span className="checklist-move-actions-desktop" style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                          <button 
+                            type="button" 
+                            className="mini-icon-btn" 
+                            onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
+                            disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
+                            style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
+                            data-tooltip="Move Up"
+                          >
+                            <ChevronUp size={12} />
+                          </button>
+                          <button 
+                            type="button" 
+                            className="mini-icon-btn" 
+                            onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
+                            disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
+                            style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
+                            data-tooltip="Move Down"
+                          >
+                            <ChevronDown size={12} />
+                          </button>
+                        </span>
                         <button 
                           type="button" 
                           className="trip-delete-btn" 
                           onClick={() => handleDeleteManualChecklistItem(item.id)}
                           style={{ padding: '2px', marginLeft: '4px' }}
-                          data-tooltip="Delete Task"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -314,7 +320,7 @@ export default function ChecklistSection({
             })}
 
             {(activePlan.manualChecklist || []).length === 0 && (
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              <span className="subsection-subtitle">
                 No personal tasks added.
               </span>
             )}
@@ -322,50 +328,54 @@ export default function ChecklistSection({
         </div>
 
         {/* Section B: AI Generated Checklist */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div className="flex-between" style={{ marginBottom: '8px' }}>
-            <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>
+        <div className="left-panel-subsection" style={{ flex: 1, minHeight: 0 }}>
+          <div className="subsection-header">
+            <h4 className="subsection-title">
               AI Preparation Checklist
             </h4>
-            {trip.canEdit !== false && (
-              <button 
-                className="mini-icon-btn flex-align"
-                style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)' }}
-                onClick={onGenerateTripChecklist}
-                disabled={generatingChecklist}
-              >
-                {generatingChecklist ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
-                {activePlan.aiDetails?.checklist ? 'Regenerate' : 'Generate'}
-              </button>
-            )}
-          </div>
-
-          {generatingChecklist ? (
-            <FunGeneratingLoader message="Analyzing trip logistics & requirements..." />
-          ) : activePlan.aiDetails?.checklist ? (
-            <AiMarkdownSection 
-              content={activePlan.aiDetails.checklist} 
-              updatedAt={activePlan.aiUpdatedAt?.checklist} 
-              onSave={onSaveAiChecklist}
-              canEdit={trip.canEdit !== false}
-              style={{ maxHeight: 'none', overflowY: 'auto', flex: 1 }}
-            />
-          ) : (
-            <div style={{ padding: '16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '8px' }}>
-                No AI checklist generated.
-              </span>
+            <div className="subsection-actions">
               {trip.canEdit !== false && (
                 <button 
-                  className="btn-secondary flex-align"
-                  style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
+                  className="mini-icon-btn flex-align"
+                  style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)' }}
                   onClick={onGenerateTripChecklist}
+                  disabled={generatingChecklist}
                 >
-                  <Sparkles size={11} /> Generate Checklist
+                  {generatingChecklist ? <RefreshCw size={10} className="spin" /> : <Sparkles size={10} />}
+                  {activePlan.aiDetails?.checklist ? 'Regenerate' : 'Generate'}
                 </button>
               )}
             </div>
-          )}
+          </div>
+
+          <div className="subsection-content" style={{ flex: 1, minHeight: 0 }}>
+            {generatingChecklist ? (
+              <FunGeneratingLoader message="Analyzing trip logistics & requirements..." />
+            ) : activePlan.aiDetails?.checklist ? (
+              <AiMarkdownSection 
+                content={activePlan.aiDetails.checklist} 
+                updatedAt={activePlan.aiUpdatedAt?.checklist} 
+                onSave={onSaveAiChecklist}
+                canEdit={trip.canEdit !== false}
+                style={{ maxHeight: 'none', overflowY: 'auto', flex: 1 }}
+              />
+            ) : (
+              <div style={{ padding: '16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
+                <span className="subsection-subtitle" style={{ display: 'block', marginBottom: '8px' }}>
+                  No AI checklist generated.
+                </span>
+                {trip.canEdit !== false && (
+                  <button 
+                    className="btn-secondary flex-align"
+                    style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
+                    onClick={onGenerateTripChecklist}
+                  >
+                    <Sparkles size={11} /> Generate Checklist
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
       </div>

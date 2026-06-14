@@ -197,15 +197,15 @@ export default function PlaceFormFields({
         </div>
 
         {/* AI Fields Section */}
-        <div style={{ borderTop: '1px dashed var(--border-glass)', paddingTop: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#a5b4fc', textTransform: 'none', margin: 0, fontWeight: 600 }}>
+        <div className="modal-section-divider">
+          <div className="modal-ai-header">
+            <h4 className="modal-ai-title">
               <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
               AI Travel Insights {formatFreshness(aiUpdatedAt)}
             </h4>
 
             <div 
-              data-tooltip={!hasKeys ? 'Configure Gemini API keys in settings to use this feature' : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Auto-populate these fields with Gemini AI')}
+              data-tooltip={!hasKeys ? 'Configure AI API keys in settings to use this feature' : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Auto-populate these fields with AI')}
               data-tooltip-position="bottom"
               style={{ display: 'inline-block' }}
             >
@@ -246,9 +246,9 @@ export default function PlaceFormFields({
 
             return (
               <div className="form-group" key={field.key} style={{ marginTop: '12px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '12px', textTransform: 'none', fontWeight: 500 }}>
+                <label className="modal-field-title">
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {getFieldIcon(field.key, field.icon)}
+                    {getFieldIcon(field.key, field.icon || '')}
                     {field.title}
                   </span>
                   <span title="AI Generated Field" style={{ display: 'flex', alignItems: 'center' }}>
@@ -264,11 +264,11 @@ export default function PlaceFormFields({
                       [field.key]: e.target.value
                     });
                   }}
-                  placeholder={field.isDefault ? `Gemini AI will generate details for ${field.title}...` : `Gemini AI will generate custom details...`}
+                  placeholder={field.isDefault ? `AI will generate details for ${field.title}...` : `AI will generate custom details...`}
                   rows={4}
                   style={{ fontSize: '13px', textTransform: 'none', width: '100%', padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)' }}
                 />
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px', textTransform: 'none', lineHeight: 1.3 }}>
+                <span className="modal-field-details">
                   {field.description}
                 </span>
               </div>

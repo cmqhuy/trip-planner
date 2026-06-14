@@ -145,8 +145,8 @@ export class GeminiService {
       if (Array.isArray(parsed)) return parsed.map(String);
       return [String(raw)];
     } catch {
-      // Fallback for simple comma/newline separated strings
-      return raw.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+      // Fallback for simple newline separated strings
+      return raw.split('\n').map(k => k.trim()).filter(Boolean);
     }
   }
 

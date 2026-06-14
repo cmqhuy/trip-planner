@@ -177,17 +177,17 @@ export default function AiGenerateDaysModal({
                           {d.label}
                         </span>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none', whiteSpace: 'nowrap' }}>
                             {d.dateStr}
                           </span>
                           {d.tipsUpdatedAt ? (
-                            <span style={{ color: 'var(--color-success)', fontSize: '11px' }}>
+                            <span style={{ color: 'var(--color-success)', fontSize: '11px', whiteSpace: 'nowrap' }}>
                               Updated: {formatFreshness(d.tipsUpdatedAt)}
                             </span>
                           ) : d.hasTips ? (
-                            <span style={{ color: 'var(--color-success)', fontSize: '11px' }}>Has AI tips</span>
+                            <span style={{ color: 'var(--color-success)', fontSize: '11px', whiteSpace: 'nowrap' }}>Has AI tips</span>
                           ) : (
-                            <span style={{ color: '#fbbf24', fontSize: '11px' }}>No tips generated yet</span>
+                            <span style={{ color: '#fbbf24', fontSize: '11px', whiteSpace: 'nowrap' }}>No tips generated yet</span>
                           )}
                         </div>
                       </div>

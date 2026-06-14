@@ -197,7 +197,9 @@ export default function GoogleAuthSection({
           onClick={onSignIn}
           style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '99px', gap: '6px' }}
         >
-          <LogIn size={14} /> Sign In with Google
+          <LogIn size={14} />
+          <span className="google-signin-text-desktop">Sign In with Google</span>
+          <span className="google-signin-text-mobile">Sign In</span>
         </button>
       )}
 

@@ -683,6 +683,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: center;
   gap: 4px;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .place-card-actions {
@@ -1008,7 +1011,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .map-popup-card {
-  max-width: 200px;
+  min-width: 180px;
+  max-width: 260px;
 }
 
 .map-popup-card h4 {
@@ -1094,13 +1098,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* Mobile responsive layout & touch optimization styles */
-@media (max-width: 768px) {
+@media (max-width: 1080px) {
   /* Layout adjustments */
   .planner-view {
     flex-direction: column !important;
     height: 100% !important;
     position: relative;
-    overflow: hidden;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
   }
 
   .catalog-panel,
@@ -1109,13 +1114,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     display: none !important;
     width: 100% !important;
     min-width: 0 !important;
-    max-width: none !important;
+    max-width: 100vw !important;
     flex: 1 !important;
     border-right: none !important;
     border-left: none !important;
     height: 100% !important;
     box-sizing: border-box !important;
     padding-bottom: 60px !important; /* Space for absolute bottom nav */
+    overflow-x: hidden !important;
   }
 
   .catalog-panel.mobile-active,
@@ -1135,11 +1141,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
   .itinerary-header {
     padding: 12px 16px !important;
+    overflow-x: hidden !important;
   }
 
   .active-day-details {
     padding: 12px 16px !important;
     gap: 16px !important;
+    overflow-x: hidden !important;
   }
 
   /* Touch optimization for mobile on-the-go viewing/editing */
@@ -1165,8 +1173,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
   /* Modals on mobile should fit better */
   .modal-content {
-    max-width: 90% !important;
-    padding: 20px !important;
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 18px !important;
+  }
+  .modal-header {
+    margin-bottom: 24px !important;
+  }
+  .modal-content.scrollable .modal-header {
+    margin-bottom: 20px !important;
   }
 
   /* Header adjustments for smaller screens */
@@ -1226,7 +1241,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   filter: drop-shadow(0 0 4px var(--accent-primary-glow));
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1081px) {
   .mobile-tab-nav {
     display: none !important;
   }
@@ -1491,9 +1506,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 8px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1080px) {
   .ai-details-grid {
     grid-template-columns: 1fr;
+  }
+  .ai-details-container {
+    padding: 6px !important;
+    margin-top: 8px !important;
+  }
+  .ai-detail-block {
+    padding: 6px 8px !important;
   }
 }
 
@@ -1553,7 +1575,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: start;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1080px) {
   .modal-content.place-modal-content {
     width: 95%;
     padding: 16px;
@@ -1596,6 +1618,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   width: 100%;
   text-align: left;
   transition: var(--transition-fast);
+  white-space: nowrap !important;
 }
 
 .dropdown-item:hover:not(:disabled) {
@@ -1838,11 +1861,42 @@ div.google-auth-avatar-desktop {
 .google-auth-avatar-mobile {
   display: none !important;
 }
+.day-location-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  border-radius: 50% !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  border: 1px solid var(--border-glass) !important;
+  padding: 0 !important;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.day-location-select-wrapper:hover {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
 .day-location-select-wrapper svg.day-location-select-mobile-icon {
-  display: none;
+  display: block !important;
+}
+.day-location-select {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0 !important;
+  padding: 0 !important;
+  min-height: auto !important;
+  cursor: pointer !important;
+  z-index: 10;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1080px) {
   /* Title single line and back arrow */
   .logo-section h1 {
     font-size: 16px !important;
@@ -1996,7 +2050,7 @@ div.google-auth-avatar-desktop {
     padding-bottom: 4px !important;
   }
   .catalog-places-list {
-    gap: 6px !important;
+    /* spacing matches desktop */
   }
   .catalog-place-card {
     padding: 8px !important;
@@ -2214,4 +2268,382 @@ div.google-auth-avatar-desktop {
   }
 }
 
+/* --- Restructuring & Visual Consistency Rules --- */
 
+/* Catalog and Tips location select helper classes to avoid inline background overrides */
+.catalog-location-select {
+  background-color: var(--bg-dark) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-glass) !important;
+  border-radius: 6px !important;
+}
+
+.tips-location-select {
+  background-color: var(--bg-dark) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-glass) !important;
+  border-radius: 6px !important;
+}
+
+.trip-meta-info-container {
+  row-gap: 3px !important; /* Reduces space between title and duration */
+}
+
+/* Prevent horizontal scrollbars inside Left Panel */
+.left-panel-accordion,
+.accordion-content,
+.catalog-content {
+  overflow-x: hidden !important;
+}
+
+/* Reusable subsections within Left Panel */
+.left-panel-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.left-panel-subsection:not(:first-child) {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 12px;
+}
+
+.subsection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.subsection-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.subsection-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.subsection-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subsection-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Day Details Timeline Sections */
+.timeline-section {
+  margin-bottom: 20px;
+}
+
+.timeline-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.timeline-section-title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-section-title {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.timeline-section-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.timeline-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Shared Card Thumbnails */
+.place-card-thumb-container {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.place-card-thumb-container img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+/* Place Card Move Buttons */
+.place-card-move-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.place-card-move-buttons button {
+  padding: 2px !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+@media (max-width: 768px) {
+  .place-card-move-buttons button {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}
+
+/* Unified Dialog Styling */
+.modal-field-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.modal-field-details {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin-top: 4px;
+  display: block;
+}
+
+.modal-section-divider {
+  border-top: 1px dashed var(--border-glass);
+  margin: 16px 0;
+  padding-top: 16px;
+}
+
+.modal-ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modal-ai-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a5b4fc;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+/* Responsive sign in button text switcher */
+.google-signin-text-desktop {
+  display: inline;
+}
+.google-signin-text-mobile {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  .google-signin-text-desktop {
+    display: none !important;
+  }
+  .google-signin-text-mobile {
+    display: inline !important;
+  }
+}
+
+/* Collapsible Panel Transitions & Layouts on Desktop */
+.catalog-panel,
+.map-panel,
+.itinerary-panel {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), flex 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@media (min-width: 1081px) {
+  .planner-view.left-collapsed .catalog-panel {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    border-right: none !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .planner-view.right-collapsed .map-panel {
+    flex: 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    overflow: hidden !important;
+    border-left: none !important;
+  }
+}
+
+/* Single line text alignment helpers */
+.trip-title-text,
+.trip-duration-text {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  min-width: 0;
+}
+
+/* No wrapping for timeline and tips action buttons */
+.timeline-section-actions button,
+.subsection-actions button {
+  white-space: nowrap !important;
+}
+
+/* Hide checklist move buttons on mobile */
+@media (max-width: 1080px) {
+  .checklist-move-actions-desktop {
+    display: none !important;
+  }
+}
+
+/* Expanded place card bottom padding */
+.catalog-place-card.details-expanded {
+  padding-bottom: 6px !important;
+}
+
+/* Align accordion-content panel header select margins on mobile */
+.accordion-content .panel-header {
+  padding: 0 0 12px 0 !important;
+}
+
+/* Keep group name long on 1 line */
+.place-group-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+}
+
+/* Unified dialog title margin for mobile */
+@media (max-width: 1080px) {
+  .modal-header {
+    margin-bottom: 24px !important;
+  }
+  .modal-content.scrollable .modal-header {
+    margin-bottom: 20px !important;
+  }
+  .accordion-content .mini-icon-btn,
+  .accordion-content .add-location-btn {
+    min-height: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    width: 36px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+  .accordion-content .mini-icon-btn.flex-align {
+    width: auto !important;
+    min-width: auto !important;
+    padding: 0 10px !important;
+    border-radius: 6px !important;
+  }
+}
+
+/* Prevent AI field label sparkles icon wrap */
+.modal-field-title {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Collapsible panel toggle buttons desktop styling */
+.panel-toggle-btn {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 100 !important;
+  width: 10px !important;
+  height: 80px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(17, 24, 39, 0.85) !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  opacity: 0.8 !important;
+}
+
+.panel-toggle-btn.left-toggle {
+  left: 0 !important;
+  border-radius: 0 8px 8px 0 !important;
+}
+
+.panel-toggle-btn.right-toggle {
+  right: 0 !important;
+  border-radius: 8px 0 0 8px !important;
+}
+
+.panel-toggle-btn:hover {
+  background: var(--accent-primary) !important;
+  color: var(--text-primary) !important;
+  opacity: 1 !important;
+}
+
+@media (max-width: 1080px) {
+  .panel-toggle-btn {
+    display: none !important;
+  }
+}
+
+/* Trip title shrink and plan picker flex-shrink on desktop */
+.trip-title-row {
+  min-width: 0 !important;
+}
+.trip-plan-picker-column {
+  flex-shrink: 0 !important;
+}

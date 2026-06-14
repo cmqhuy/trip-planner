@@ -17,16 +17,18 @@ export default function ReservationsSection({
   formatDisplayDate
 }: ReservationsSectionProps) {
   return (
-    <div className="accordion-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+    <div className="accordion-content">
       {/* Reservations Content */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflowY: 'auto', paddingRight: '2px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
         
         {/* 1. Transits / Flights */}
-        <div>
-          <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Plane size={12} /> Transits & Flights ({activePlan.transports.length})
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div className="left-panel-subsection">
+          <div className="subsection-header">
+            <h4 className="subsection-title">
+              <Plane size={12} /> Transits & Flights ({activePlan.transports.length})
+            </h4>
+          </div>
+          <div className="subsection-content">
             {activePlan.transports.map(t => (
               <div key={t.id} className="glass-panel" style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px' }}>
                 <div className="flex-between">
@@ -45,17 +47,19 @@ export default function ReservationsSection({
               </div>
             ))}
             {activePlan.transports.length === 0 && (
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No transit events.</span>
+              <span className="subsection-subtitle">No transit events.</span>
             )}
           </div>
         </div>
 
         {/* 2. Hotels */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-          <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Building size={12} /> Accommodations ({activePlan.hotels.length})
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div className="left-panel-subsection">
+          <div className="subsection-header">
+            <h4 className="subsection-title">
+              <Building size={12} /> Accommodations ({activePlan.hotels.length})
+            </h4>
+          </div>
+          <div className="subsection-content">
             {activePlan.hotels.map(h => (
               <div key={h.id} className="glass-panel" style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px' }}>
                 <strong style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{h.name}</strong>
@@ -66,17 +70,19 @@ export default function ReservationsSection({
               </div>
             ))}
             {activePlan.hotels.length === 0 && (
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No hotels booked.</span>
+              <span className="subsection-subtitle">No hotels booked.</span>
             )}
           </div>
         </div>
 
         {/* 3. Places requiring early reservations */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-          <h4 style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Ticket size={12} /> Reservations Required
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div className="left-panel-subsection">
+          <div className="subsection-header">
+            <h4 className="subsection-title">
+              <Ticket size={12} /> Reservations Required
+            </h4>
+          </div>
+          <div className="subsection-content">
             {(() => {
               const allScheduledPlaceIds = new Set<string>();
               Object.values(activePlan.days).forEach(day => {
@@ -102,7 +108,7 @@ export default function ReservationsSection({
               });
 
               if (placesNeedBooking.length === 0) {
-                return <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No scheduled places require reservations.</span>;
+                return <span className="subsection-subtitle">No scheduled places require reservations.</span>;
               }
 
               // Sort by earliest scheduled date

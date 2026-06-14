@@ -344,8 +344,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
   const showApiKeyMissingModal = () => {
     setConfirmModal({
-      title: 'Gemini API Keys Missing',
-      message: 'Gemini API keys are missing. Please add them in the AI Settings (top-right header).',
+      title: 'API Keys Missing',
+      message: 'You need a Gemini API key to run AI calls. Please open AI Settings in the top-right header to configure your keys.',
       confirmText: 'OK',
       isAlert: true,
       onConfirm: () => {}
@@ -378,6 +378,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
   // Accordion state for left panel
   const [expandedLeftSection, setExpandedLeftSection] = useState<'catalog' | 'checklist' | 'reservations' | 'tips'>('catalog');
+  
+  // Left and Right panel collapsed states (desktop only)
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   
   // Trip AI settings modal state
   const [showTripAiConfigModal, setShowTripAiConfigModal] = useState(false);
@@ -2166,7 +2170,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   }, [activePlan]);
 
   return (
-    <div className="planner-view">
+    <div className={`planner-view${leftCollapsed ? ' left-collapsed' : ''}${rightCollapsed ? ' right-collapsed' : ''}`}>
       {/* LEFT PANEL: Accordion (Catalog, Checklist, Reservations, Tips) */}
       <LeftPanelAccordion
         activeMobileTab={activeMobileTab}
@@ -2321,6 +2325,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         daysTabsNavRef={daysTabsNavRef}
         lastScrollLeft={lastScrollLeft}
         searchDropdownRef={searchDropdownRef}
+        leftCollapsed={leftCollapsed}
+        setLeftCollapsed={setLeftCollapsed}
+        rightCollapsed={rightCollapsed}
+        setRightCollapsed={setRightCollapsed}
       />
       
       {/* RIGHT PANEL: Interactive Leaflet Map */}
