@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, MapPin } from 'lucide-react';
 import type { Location } from '../types';
 import { getLocIcon, getFormattedLocationName } from '../utils/api';
 
@@ -12,6 +12,7 @@ interface LocationSelectProps {
   showAddNew?: boolean;
   buttonStyle?: React.CSSProperties;
   roundTrigger?: boolean;
+  showClearOption?: boolean;
 }
 
 export default function LocationSelect({ 
@@ -22,7 +23,8 @@ export default function LocationSelect({
   style,
   showAddNew = false,
   buttonStyle,
-  roundTrigger = false
+  roundTrigger = false,
+  showClearOption = false
 }: LocationSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -132,6 +134,50 @@ export default function LocationSelect({
             boxShadow: 'var(--shadow-lg)'
           }}
         >
+          {showClearOption && locations.length > 0 && (
+            <>
+              <div
+                onClick={() => {
+                  onChange('');
+                  setIsOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: !value ? 'var(--text-primary)' : 'var(--text-muted)',
+                  background: !value ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                  transition: 'all 0.15s ease',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={e => {
+                  if (value) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (value) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                  }
+                }}
+              >
+                <MapPin size={14} style={{ flexShrink: 0 }} />
+                <span style={{ fontWeight: !value ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {placeholder && placeholder !== "No Locations Added" ? placeholder : "Select Location..."}
+                </span>
+              </div>
+              <div style={{ height: '1px', background: 'var(--border-glass)', margin: '4px 0' }} />
+            </>
+          )}
           {locations.map(loc => {
             const isSelected = loc.id === value;
             return (

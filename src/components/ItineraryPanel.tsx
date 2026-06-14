@@ -514,6 +514,7 @@ export default function ItineraryPanel({
                 placeholder="Select Location..."
                 showAddNew={true}
                 roundTrigger={true}
+                showClearOption={true}
                 style={{ zIndex: 50 }}
               />
             )}
