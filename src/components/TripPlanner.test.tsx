@@ -58,15 +58,21 @@ const mockTrip: Trip = {
         '2026-07-01': {
           dateStr: '2026-07-01',
           locationId: 'loc-paris',
-          placeIds: ['place-eiffel', 'place-louvre']
+          placeIds: ['place-eiffel', 'place-louvre'],
+          scheduleItems: [
+            { type: 'place', placeId: 'place-eiffel' },
+            { type: 'place', placeId: 'place-louvre' }
+          ]
         },
         '2026-07-02': {
           dateStr: '2026-07-02',
-          placeIds: []
+          placeIds: [],
+          scheduleItems: []
         },
         '2026-07-03': {
           dateStr: '2026-07-03',
-          placeIds: []
+          placeIds: [],
+          scheduleItems: []
         }
       },
       hotels: [],
@@ -167,21 +173,21 @@ describe('TripPlanner Component', () => {
     const moveDayBtn = screen.getByRole('button', { name: /Move Day/i });
     fireEvent.click(moveDayBtn);
 
-    expect(screen.getByRole('heading', { name: 'Move Scheduled Places', level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Move Day', level: 3 })).toBeInTheDocument();
 
     // Get select element inside Move Day Modal
-    const modal = screen.getByRole('heading', { name: 'Move Scheduled Places', level: 3 }).closest('.modal-content');
+    const modal = screen.getByRole('heading', { name: 'Move Day', level: 3 }).closest('.modal-content');
     const select = modal?.querySelector('select');
     expect(select).toBeDefined();
     fireEvent.change(select!, { target: { value: '2026-07-02' } });
 
-    // Click "Move Places" button
-    const confirmBtn = screen.getByRole('button', { name: 'Move Places' });
+    // Click "Move Day" button
+    const confirmBtn = screen.getByRole('button', { name: 'Move Day' });
     fireEvent.click(confirmBtn);
 
-    // Click "Move Places" button inside the styled confirmation modal
-    const movePlacesBtn = screen.getByRole('button', { name: 'Move Places' });
-    fireEvent.click(movePlacesBtn);
+    // Click "Move Day" button inside the styled confirmation modal
+    const moveDayBtn2 = screen.getByRole('button', { name: 'Move Day' });
+    fireEvent.click(moveDayBtn2);
 
     expect(handleUpdateTrip).toHaveBeenCalled();
     const updatedTrip = handleUpdateTrip.mock.calls[0][0] as Trip;

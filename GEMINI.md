@@ -100,6 +100,20 @@ Refer to `src/types.ts` for full detail:
 - **`Plan`** — itinerary version with `PlanDay[]`, hotels, transports, checklists.
 - **`PlanDay`** — maps a date to place IDs and AI daily tips.
 
+> **IMPORTANT — `scheduleItems` / `placeIds` sync invariant**: `PlanDay` holds two redundant fields that must always stay in sync:
+> - `scheduleItems: ScheduleItem[]` — the ordered list of places and notes rendered in the day schedule (source of truth for display).
+> - `placeIds: string[]` — derived from `scheduleItems`; kept for backward compat with map display and AI generation.
+>
+> **Never write `scheduleItems` and `placeIds` independently.** Always go through the `updateDayItems(day, items)` helper in `TripPlanner.tsx`, which sets both atomically:
+> ```typescript
+> const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
+>   ...day,
+>   scheduleItems: items,
+>   placeIds: items.filter((i): i is SchedulePlaceItem => i.type === 'place').map(i => i.placeId)
+> });
+> ```
+> All new-day stubs must include `scheduleItems: []` alongside `placeIds: []` — they are created together everywhere (App.tsx, TripPlanner.tsx, dateUtils.ts).
+
 ### Google Drive Sync
 
 - All logic in `src/utils/googleDrive.ts`.

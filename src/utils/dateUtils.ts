@@ -74,7 +74,8 @@ export function shiftTripDates(trip: Trip, newStartDate: string, newEndDate: str
       } else {
         newDays[newDate] = {
           dateStr: newDate,
-          placeIds: []
+          placeIds: [],
+          scheduleItems: []
         };
       }
     });

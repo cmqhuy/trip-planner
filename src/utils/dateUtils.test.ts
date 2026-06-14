@@ -106,8 +106,8 @@ describe('dateUtils tests', () => {
     expect(plan.days['2026-06-13'].placeIds).toEqual(['p3']);
 
     // Brand new days appended empty
-    expect(plan.days['2026-06-14']).toEqual({ dateStr: '2026-06-14', placeIds: [] });
-    expect(plan.days['2026-06-15']).toEqual({ dateStr: '2026-06-15', placeIds: [] });
+    expect(plan.days['2026-06-14']).toEqual({ dateStr: '2026-06-14', placeIds: [], scheduleItems: [] });
+    expect(plan.days['2026-06-15']).toEqual({ dateStr: '2026-06-15', placeIds: [], scheduleItems: [] });
   });
 
   test('shiftTripDates shifts and shortens duration (truncating days)', () => {

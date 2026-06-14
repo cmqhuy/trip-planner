@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Transportation, Hotel } from '../types';
+import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Transportation, Hotel, ScheduleItem, SchedulePlaceItem } from '../types';
+
+const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
+  ...day,
+  scheduleItems: items,
+  placeIds: items.filter((i): i is SchedulePlaceItem => i.type === 'place').map(i => i.placeId)
+});
 import { Navigation, BookOpen, Clock } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
@@ -535,16 +541,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           const updatedDays = { ...p.days };
           Object.keys(updatedDays).forEach(dateStr => {
             const day = updatedDays[dateStr];
-            const newDay = { ...day };
-            if (day.locationId === locId) {
-              newDay.locationId = undefined;
-            }
-            
-            // Remove scheduled places that belonged to the deleted location
+            let newDay: PlanDay = day.locationId === locId ? { ...day, locationId: undefined } : { ...day };
+
+            // Remove scheduled items that belonged to the deleted location
             const deletedLoc = trip.locations.find(l => l.id === locId);
             if (deletedLoc) {
               const deletedPlaceIds = new Set(deletedLoc.places.map(pl => pl.id));
-              newDay.placeIds = day.placeIds.filter(pid => !deletedPlaceIds.has(pid));
+              const newItems = (newDay.scheduleItems || []).filter(item => {
+                if (item.type === 'place') return !deletedPlaceIds.has(item.placeId);
+                return true;
+              });
+              newDay = updateDayItems(newDay, newItems);
             }
             updatedDays[dateStr] = newDay;
           });
@@ -791,82 +798,53 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
-        const currentPlaces = [...(p.days[activeDayStr]?.placeIds || [])];
-        const draggedItem = currentPlaces[draggedDayPlaceIndex];
-        
+        const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
+        const draggedItem = currentItems[draggedDayPlaceIndex];
+
         let destIndex = targetIndex;
-        if (position === 'bottom') {
-          destIndex = targetIndex + 1;
-        }
+        if (position === 'bottom') destIndex = targetIndex + 1;
 
-        // Remove from old index
-        currentPlaces.splice(draggedDayPlaceIndex, 1);
-        
-        // Calculate insertion index in the remaining list
+        currentItems.splice(draggedDayPlaceIndex, 1);
         let insertIndex = destIndex;
-        if (draggedDayPlaceIndex < destIndex) {
-          insertIndex = destIndex - 1;
-        }
-
-        // Insert at new index
-        currentPlaces.splice(insertIndex, 0, draggedItem);
+        if (draggedDayPlaceIndex < destIndex) insertIndex = destIndex - 1;
+        currentItems.splice(insertIndex, 0, draggedItem);
 
         return {
           ...p,
-          days: {
-            ...p.days,
-            [activeDayStr]: {
-              ...p.days[activeDayStr],
-              placeIds: currentPlaces
-            }
-          }
+          days: { ...p.days, [activeDayStr]: updateDayItems(p.days[activeDayStr]!, currentItems) }
         };
       }
       return p;
     });
 
-    onUpdateTrip({
-      ...trip,
-      plans: updatedPlans
-    });
-
+    onUpdateTrip({ ...trip, plans: updatedPlans });
     setDraggedDayPlaceIndex(null);
     setDragOverDayPlaceIndex(null);
   };
 
   const handleCatalogPlaceDropOnTimeline = (placeId: string, targetIndex: number, position: 'top' | 'bottom') => {
-    const currentPlaceIds = [...(activePlan.days[activeDayStr]?.placeIds || [])];
-    
     let destIndex = targetIndex;
-    if (position === 'bottom') {
-      destIndex = targetIndex + 1;
-    }
-
-    // Insert the place at the target index
-    currentPlaceIds.splice(destIndex, 0, placeId);
+    if (position === 'bottom') destIndex = targetIndex + 1;
 
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
+        const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
+        currentItems.splice(destIndex, 0, { type: 'place', placeId });
         return {
           ...p,
           days: {
             ...p.days,
-            [activeDayStr]: {
-              ...p.days[activeDayStr],
+            [activeDayStr]: updateDayItems({
+              ...p.days[activeDayStr]!,
               locationId: p.days[activeDayStr]?.locationId || catalogLocation?.id || trip.locations[0]?.id,
-              placeIds: currentPlaceIds
-            }
+            }, currentItems)
           }
         };
       }
       return p;
     });
 
-    onUpdateTrip({
-      ...trip,
-      plans: updatedPlans
-    });
-
+    onUpdateTrip({ ...trip, plans: updatedPlans });
     setDraggedPlaceId(null);
     setDragOverDayPlaceIndex(null);
   };
@@ -916,21 +894,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       const updatedPlans = trip.plans.map(p => {
         if (p.id === activePlan.id) {
           const updatedDays = { ...p.days };
-          // Copy to destination day (and update locationId to match source day)
-          updatedDays[destDateStr] = {
-            ...updatedDays[destDateStr],
-            locationId: sourceLocId,
-            placeIds: [...(currentDayData.placeIds || [])]
-          };
-          // Clear source day
-          updatedDays[activeDayStr] = {
-            ...updatedDays[activeDayStr],
-            placeIds: []
-          };
-          return {
-            ...p,
-            days: updatedDays
-          };
+          // Copy place and note items to destination day
+          const sourceItems = (currentDayData.scheduleItems || []).filter(
+            item => item.type === 'place' || item.type === 'note'
+          );
+          updatedDays[destDateStr] = updateDayItems({ ...updatedDays[destDateStr]!, locationId: sourceLocId }, sourceItems);
+          // Remove place and note items from source day; keep any future item types
+          const remainingItems = (currentDayData.scheduleItems || []).filter(
+            item => item.type !== 'place' && item.type !== 'note'
+          );
+          updatedDays[activeDayStr] = updateDayItems(updatedDays[activeDayStr]!, remainingItems);
+          return { ...p, days: updatedDays };
         }
         return p;
       });
@@ -952,16 +926,16 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       const destName = destLoc ? `${destLoc.city}, ${destLoc.country}` : 'Not Selected';
 
       setConfirmModal({
-        title: 'Move Scheduled Places',
-        message: `Are you sure you want to move ${getFormattedDayLabel(activeDayStr)} scheduled places to ${getFormattedDayLabel(destDateStr)}? This will override all scheduled places on ${getFormattedDayLabel(destDateStr)}.\n\n⚠️ Warning: The location of ${getFormattedDayLabel(activeDayStr)} (${sourceName}) is different from ${getFormattedDayLabel(destDateStr)} (${destName}). Proceeding will update ${getFormattedDayLabel(destDateStr)}'s location to ${sourceName}.`,
-        confirmText: 'Move Places',
+        title: 'Move Day',
+        message: `Are you sure you want to move ${getFormattedDayLabel(activeDayStr)} to ${getFormattedDayLabel(destDateStr)}? This will override all scheduled items on ${getFormattedDayLabel(destDateStr)}.\n\n⚠️ Warning: The location of ${getFormattedDayLabel(activeDayStr)} (${sourceName}) is different from ${getFormattedDayLabel(destDateStr)} (${destName}). Proceeding will update ${getFormattedDayLabel(destDateStr)}'s location to ${sourceName}.`,
+        confirmText: 'Move Day',
         onConfirm: executeMove
       });
     } else {
       setConfirmModal({
-        title: 'Move Scheduled Places',
-        message: `Are you sure you want to move ${getFormattedDayLabel(activeDayStr)} scheduled places to ${getFormattedDayLabel(destDateStr)}? This will override all scheduled places on ${getFormattedDayLabel(destDateStr)}.`,
-        confirmText: 'Move Places',
+        title: 'Move Day',
+        message: `Are you sure you want to move ${getFormattedDayLabel(activeDayStr)} to ${getFormattedDayLabel(destDateStr)}? This will override all scheduled items on ${getFormattedDayLabel(destDateStr)}.`,
+        confirmText: 'Move Day',
         onConfirm: executeMove
       });
     }
@@ -979,15 +953,14 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       onConfirm: () => {
         const updatedPlans = trip.plans.map(p => {
           if (p.id === activePlan.id) {
+            const day = p.days[activeDayStr];
+            // Only remove place and note items; keep any future item types
+            const remainingItems = (day?.scheduleItems || []).filter(
+              item => item.type !== 'place' && item.type !== 'note'
+            );
             return {
               ...p,
-              days: {
-                ...p.days,
-                [activeDayStr]: {
-                  ...p.days[activeDayStr],
-                  placeIds: []
-                }
-              }
+              days: { ...p.days, [activeDayStr]: updateDayItems(day!, remainingItems) }
             };
           }
           return p;
@@ -1012,7 +985,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     Object.keys(activePlan.days).forEach(date => {
       clonedDays[date] = {
         dateStr: date,
-        placeIds: []
+        placeIds: [],
+        scheduleItems: []
       };
     });
 
@@ -1132,16 +1106,16 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     // Add to active day's scheduled list, auto-setting the day location if not set
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
-        const currentPlaces = p.days[currentDayStr]?.placeIds || [];
+        const currentItems = [...(p.days[currentDayStr]?.scheduleItems || [])];
+        currentItems.push({ type: 'place', placeId });
         return {
           ...p,
           days: {
             ...p.days,
-            [currentDayStr]: {
-              ...p.days[currentDayStr],
+            [currentDayStr]: updateDayItems({
+              ...p.days[currentDayStr]!,
               locationId: p.days[currentDayStr]?.locationId || catalogLocation.id,
-              placeIds: [...currentPlaces, placeId]
-            }
+            }, currentItems)
           }
         };
       }
@@ -1213,15 +1187,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       updatedPlans = trip.plans.map(p => {
         if (p.id === activePlan.id) {
           const daysCopy = { ...p.days };
-          const dayData = daysCopy[activeDayStr] || { dateStr: activeDayStr, placeIds: [] };
-          daysCopy[activeDayStr] = {
-            ...dayData,
-            placeIds: [...dayData.placeIds, customId]
-          };
-          return {
-            ...p,
-            days: daysCopy
-          };
+          const dayData = daysCopy[activeDayStr] ?? { dateStr: activeDayStr, placeIds: [], scheduleItems: [] };
+          const newItems = [...(dayData.scheduleItems || []), { type: 'place' as const, placeId: customId }];
+          daysCopy[activeDayStr] = updateDayItems(dayData, newItems);
+          return { ...p, days: daysCopy };
         }
         return p;
       });
@@ -1259,17 +1228,14 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         const updatedPlans = trip.plans.map(p => {
           const updatedDays = { ...p.days };
           Object.keys(updatedDays).forEach(dateStr => {
-            if (updatedDays[dateStr]?.placeIds) {
-              updatedDays[dateStr] = {
-                ...updatedDays[dateStr],
-                placeIds: updatedDays[dateStr].placeIds.filter(id => id !== placeId)
-              };
-            }
+            const day = updatedDays[dateStr];
+            if (!day) return;
+            const newItems = (day.scheduleItems || []).filter(
+              item => !(item.type === 'place' && item.placeId === placeId)
+            );
+            updatedDays[dateStr] = updateDayItems(day, newItems);
           });
-          return {
-            ...p,
-            days: updatedDays
-          };
+          return { ...p, days: updatedDays };
         });
 
         onUpdateTrip({
@@ -1285,61 +1251,36 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     });
   };
 
-  const handleRemovePlaceFromDay = (index: number) => {
+  const handleRemovePlaceFromDay = (scheduleIndex: number) => {
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
-        const currentPlaces = [...(p.days[activeDayStr]?.placeIds || [])];
-        currentPlaces.splice(index, 1);
+        const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
+        currentItems.splice(scheduleIndex, 1);
         return {
           ...p,
-          days: {
-            ...p.days,
-            [activeDayStr]: {
-              ...p.days[activeDayStr],
-              placeIds: currentPlaces
-            }
-          }
+          days: { ...p.days, [activeDayStr]: updateDayItems(p.days[activeDayStr]!, currentItems) }
         };
       }
       return p;
     });
-
-    onUpdateTrip({
-      ...trip,
-      plans: updatedPlans
-    });
+    onUpdateTrip({ ...trip, plans: updatedPlans });
   };
 
-  const handleMovePlaceOrder = (index: number, direction: 'up' | 'down') => {
+  const handleMoveScheduleItem = (index: number, direction: 'up' | 'down') => {
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
-        const currentPlaces = [...(p.days[activeDayStr]?.placeIds || [])];
+        const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
         const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= currentPlaces.length) return p;
-
-        // Swap
-        const temp = currentPlaces[index];
-        currentPlaces[index] = currentPlaces[targetIndex];
-        currentPlaces[targetIndex] = temp;
-
+        if (targetIndex < 0 || targetIndex >= currentItems.length) return p;
+        [currentItems[index], currentItems[targetIndex]] = [currentItems[targetIndex], currentItems[index]];
         return {
           ...p,
-          days: {
-            ...p.days,
-            [activeDayStr]: {
-              ...p.days[activeDayStr],
-              placeIds: currentPlaces
-            }
-          }
+          days: { ...p.days, [activeDayStr]: updateDayItems(p.days[activeDayStr]!, currentItems) }
         };
       }
       return p;
     });
-
-    onUpdateTrip({
-      ...trip,
-      plans: updatedPlans
-    });
+    onUpdateTrip({ ...trip, plans: updatedPlans });
   };
 
   const handleMoveCatalogPlace = useCallback((placeId: string, direction: 'up' | 'down') => {
@@ -1418,23 +1359,49 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setEditingPlaceNotesId(null);
   }, [trip, tempNotes, onUpdateTrip]);
 
-  const handleSaveScheduleNote = useCallback((dateStr: string, slot: string, text: string) => {
+  const handleAddScheduleNote = useCallback((insertAtIndex: number, text: string) => {
     onUpdateTrip(prevTrip => {
       const updatedPlans = prevTrip.plans.map(p => {
         if (p.id !== activePlan.id) return p;
-        const day = p.days[dateStr];
+        const day = p.days[activeDayStr];
         if (!day) return p;
-        const scheduleNotes = { ...(day.scheduleNotes || {}) };
-        if (text.trim()) {
-          scheduleNotes[slot] = text.trim();
-        } else {
-          delete scheduleNotes[slot];
-        }
-        return { ...p, days: { ...p.days, [dateStr]: { ...day, scheduleNotes } } };
+        const currentItems = [...(day.scheduleItems || [])];
+        currentItems.splice(insertAtIndex, 0, { type: 'note', id: crypto.randomUUID(), text: text.trim() });
+        return { ...p, days: { ...p.days, [activeDayStr]: updateDayItems(day, currentItems) } };
       });
       return { ...prevTrip, plans: updatedPlans };
     });
-  }, [activePlan.id, onUpdateTrip]);
+  }, [activePlan.id, activeDayStr, onUpdateTrip]);
+
+  const handleUpdateScheduleNote = useCallback((itemIndex: number, text: string) => {
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id !== activePlan.id) return p;
+        const day = p.days[activeDayStr];
+        if (!day) return p;
+        const currentItems = day.scheduleItems ? [...day.scheduleItems] : [];
+        const item = currentItems[itemIndex];
+        if (!item || item.type !== 'note') return p;
+        currentItems[itemIndex] = { ...item, text: text.trim() };
+        return { ...p, days: { ...p.days, [activeDayStr]: { ...day, scheduleItems: currentItems } } };
+      });
+      return { ...prevTrip, plans: updatedPlans };
+    });
+  }, [activePlan.id, activeDayStr, onUpdateTrip]);
+
+  const handleDeleteScheduleNote = useCallback((itemIndex: number) => {
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id !== activePlan.id) return p;
+        const day = p.days[activeDayStr];
+        if (!day) return p;
+        const currentItems = [...(day.scheduleItems || [])];
+        currentItems.splice(itemIndex, 1);
+        return { ...p, days: { ...p.days, [activeDayStr]: updateDayItems(day, currentItems) } };
+      });
+      return { ...prevTrip, plans: updatedPlans };
+    });
+  }, [activePlan.id, activeDayStr, onUpdateTrip]);
 
   // ----------------------------------------------------
   // Custom Groups Operations
@@ -2130,11 +2097,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     previewMarker = { lat: catalogLocation.lat, lng: catalogLocation.lng };
   }
 
-  // List of scheduled Place objects for the active day
-  const scheduledPlaces: Place[] = (activeDay?.placeIds || [])
-    .map(id => {
+  // List of scheduled Place objects for the active day (for map display and backward compat)
+  const scheduledPlaces: Place[] = (activeDay?.scheduleItems || [])
+    .filter(item => item.type === 'place')
+    .map(item => {
+      const placeId = (item as SchedulePlaceItem).placeId;
       for (const loc of trip.locations) {
-        const p = loc.places.find(place => place.id === id);
+        const p = loc.places.find(place => place.id === placeId);
         if (p) return p;
       }
       return undefined;
@@ -2342,14 +2311,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleDayPlaceDragStart={handleDayPlaceDragStart}
         handleDayPlaceDrop={handleDayPlaceDrop}
         handleCatalogPlaceDropOnTimeline={handleCatalogPlaceDropOnTimeline}
-        handleMovePlaceOrder={handleMovePlaceOrder}
+        scheduleItems={activeDay?.scheduleItems || []}
+        handleMoveScheduleItem={handleMoveScheduleItem}
         handleRemovePlaceFromDay={handleRemovePlaceFromDay}
+        handleAddScheduleNote={handleAddScheduleNote}
+        handleUpdateScheduleNote={handleUpdateScheduleNote}
+        handleDeleteScheduleNote={handleDeleteScheduleNote}
         handleAddPlaceToDay={handleAddPlaceToDay}
         handleOpenEditPlace={handleOpenEditPlace}
         handleGenerateSinglePlaceAiDetails={handleGenerateSinglePlaceAiDetails}
         startEditingNotes={startEditingNotes}
         savePlaceNotes={savePlaceNotes}
-        onSaveScheduleNote={handleSaveScheduleNote}
         activeTimelinePlaceDropdownKey={activeTimelinePlaceDropdownKey}
         setActiveTimelinePlaceDropdownKey={setActiveTimelinePlaceDropdownKey}
         daysGeneratingDates={daysGeneratingDates}

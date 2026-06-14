@@ -75,11 +75,24 @@ export interface Hotel {
   notes?: string;
 }
 
+export interface SchedulePlaceItem {
+  type: 'place';
+  placeId: string;
+}
+
+export interface ScheduleNoteItem {
+  type: 'note';
+  id: string;
+  text: string;
+}
+
+export type ScheduleItem = SchedulePlaceItem | ScheduleNoteItem;
+
 export interface PlanDay {
   dateStr: string; // YYYY-MM-DD
   locationId?: string; // Reference to Location.id (where the day ends)
-  placeIds: string[];  // Scheduled places on this day
-  scheduleNotes?: { [slot: string]: string }; // slot "i" = note before placeIds[i]; slot String(placeIds.length) = note after last place
+  placeIds: string[];  // Kept in sync with scheduleItems (derived); used for backward compat
+  scheduleItems?: ScheduleItem[]; // Unified ordered list of all schedule items
   aiDetails?: {
     [key: string]: string;
   };

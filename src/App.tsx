@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Trip, Plan, PlanDay } from './types';
+import type { Trip, Plan, PlanDay, ScheduleItem } from './types';
 import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { DEFAULT_PLACE_GROUPS } from './utils/api';
@@ -35,6 +35,30 @@ import { Sparkles, ArrowLeft } from 'lucide-react';
 
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
+
+function migrateTrips(rawTrips: any[]): Trip[] {
+  return rawTrips.map((trip: any) => ({
+    ...trip,
+    plans: (trip.plans || []).map((plan: any) => ({
+      ...plan,
+      days: Object.fromEntries(
+        Object.entries(plan.days || {}).map(([dateStr, day]: [string, any]) => {
+          if (day.scheduleItems?.length) return [dateStr, day];
+          const items: ScheduleItem[] = [];
+          const placeIds: string[] = day.placeIds || [];
+          const scheduleNotes: Record<string, string> = day.scheduleNotes || {};
+          for (let i = 0; i <= placeIds.length; i++) {
+            const noteText = scheduleNotes[String(i)];
+            if (noteText) items.push({ type: 'note', id: crypto.randomUUID(), text: noteText });
+            if (i < placeIds.length) items.push({ type: 'place', placeId: placeIds[i] });
+          }
+          const { scheduleNotes: _sn, ...rest } = day;
+          return [dateStr, { ...rest, scheduleItems: items }];
+        })
+      )
+    }))
+  }));
+}
 
 function tripsAreEqual(a: Trip, b: Trip): boolean {
   const cleanTrip = (t: Trip) => {
@@ -205,7 +229,10 @@ export default function App() {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
       try {
-        setTrips(JSON.parse(saved));
+        const migrated = migrateTrips(JSON.parse(saved));
+        setTrips(migrated);
+        // Write migrated format back so performSync and other localStorage readers see new format
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(migrated));
       } catch (e) {
         console.error('Failed to parse trips from LocalStorage:', e);
       }
@@ -215,7 +242,7 @@ export default function App() {
       if (e.key === LOCAL_STORAGE_KEY) {
         if (e.newValue) {
           try {
-            const parsed = JSON.parse(e.newValue);
+            const parsed = migrateTrips(JSON.parse(e.newValue));
             setTrips(parsed);
             
             // If the currently active trip was deleted in another tab, reset activeTripId
@@ -393,9 +420,9 @@ export default function App() {
       const cloudDeletedTripIds = syncResult?.deletedTripIds || [];
       fetchedCloudTripsRef.current = cloudTrips;
 
-      // 2. Load local trips
+      // 2. Load local trips (always migrate in case localStorage predates the scheduleItems schema)
       const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
-      let localTrips: Trip[] = localTripsOverride || (savedLocal ? JSON.parse(savedLocal) : []);
+      let localTrips: Trip[] = migrateTrips(localTripsOverride || (savedLocal ? JSON.parse(savedLocal) : []));
 
       // 3. Apply cloud deletions
       if (cloudDeletedTripIds.length > 0) {
@@ -477,13 +504,14 @@ export default function App() {
         }
       });
 
-      // Apply silent pulls to localTrips
+      // Apply silent pulls to localTrips (migrate Drive data before merging)
+      const migratedPulls = migrateTrips(silentPullTrips);
       let finalLocalTrips = localTrips.map(t => {
-        const pulled = silentPullTrips.find(pt => pt.id === t.id);
+        const pulled = migratedPulls.find(pt => pt.id === t.id);
         return pulled || t;
       });
       // Add new pulled trips
-      silentPullTrips.forEach(pt => {
+      migratedPulls.forEach(pt => {
         if (!finalLocalTrips.some(t => t.id === pt.id)) {
           finalLocalTrips.push(pt);
         }
@@ -699,12 +727,13 @@ export default function App() {
 
     let updatedTrips = [...trips];
     if (choice === 'cloud') {
-      // Replaces the local version with the cloud version
-      updatedTrips = updatedTrips.map(t => 
-        t.id === activeConflict.tripId ? activeConflict.cloudTrip : t
+      // Replaces the local version with the cloud version (migrate before applying)
+      const cloudTrip = migrateTrips([activeConflict.cloudTrip])[0];
+      updatedTrips = updatedTrips.map(t =>
+        t.id === activeConflict.tripId ? cloudTrip : t
       );
       if (!updatedTrips.some(t => t.id === activeConflict.tripId)) {
-        updatedTrips.push(activeConflict.cloudTrip);
+        updatedTrips.push(cloudTrip);
       }
       syncTimestampsRef.current[activeConflict.tripId] = activeConflict.cloudTrip.updatedAt || 0;
     } else {
@@ -734,7 +763,7 @@ export default function App() {
         updatedTrips.forEach(t => finalTripsMap.set(t.id, t));
         cloudTrips.forEach(ct => {
           if (!finalTripsMap.has(ct.id)) {
-            finalTripsMap.set(ct.id, ct);
+            finalTripsMap.set(ct.id, migrateTrips([ct])[0]);
           }
         });
 
@@ -795,7 +824,8 @@ export default function App() {
     dates.forEach(date => {
       defaultDays[date] = {
         dateStr: date,
-        placeIds: []
+        placeIds: [],
+        scheduleItems: []
       };
     });
 

@@ -5,7 +5,7 @@ import {
   Plane, Train, Bus, Car, Anchor, Navigation, Building,
   Search, FileText, RefreshCw, ArrowRight
 } from 'lucide-react';
-import type { Trip, Plan, Location, Place, Hotel, Transportation } from '../types';
+import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
 import { getOptimizedImageUrl } from '../utils/image';
 import FunGeneratingLoader from './FunGeneratingLoader';
@@ -96,14 +96,17 @@ interface ItineraryPanelProps {
   handleDayPlaceDragStart: (index: number) => void;
   handleDayPlaceDrop: (targetIndex: number, position: 'top' | 'bottom') => void;
   handleCatalogPlaceDropOnTimeline: (placeId: string, targetIndex: number, position: 'top' | 'bottom') => void;
-  handleMovePlaceOrder: (index: number, direction: 'up' | 'down') => void;
-  handleRemovePlaceFromDay: (index: number) => void;
+  scheduleItems: ScheduleItem[];
+  handleMoveScheduleItem: (index: number, direction: 'up' | 'down') => void;
+  handleRemovePlaceFromDay: (scheduleIndex: number) => void;
+  handleAddScheduleNote: (insertAtIndex: number, text: string) => void;
+  handleUpdateScheduleNote: (itemIndex: number, text: string) => void;
+  handleDeleteScheduleNote: (itemIndex: number) => void;
   handleAddPlaceToDay: (place: Place) => void;
   handleOpenEditPlace: (place: Place) => void;
   handleGenerateSinglePlaceAiDetails: (placeId: string) => void;
   startEditingNotes: (place: Place) => void;
   savePlaceNotes: (placeId: string) => void;
-  onSaveScheduleNote: (dateStr: string, slot: string, text: string) => void;
   activeTimelinePlaceDropdownKey: string | null;
   setActiveTimelinePlaceDropdownKey: (key: string | null) => void;
   daysGeneratingDates: Set<string>;
@@ -191,14 +194,17 @@ export default function ItineraryPanel({
   handleDayPlaceDragStart,
   handleDayPlaceDrop,
   handleCatalogPlaceDropOnTimeline,
-  handleMovePlaceOrder,
+  scheduleItems,
+  handleMoveScheduleItem,
   handleRemovePlaceFromDay,
+  handleAddScheduleNote,
+  handleUpdateScheduleNote,
+  handleDeleteScheduleNote,
   handleAddPlaceToDay,
   handleOpenEditPlace,
   handleGenerateSinglePlaceAiDetails,
   startEditingNotes,
   savePlaceNotes,
-  onSaveScheduleNote,
   activeTimelinePlaceDropdownKey,
   setActiveTimelinePlaceDropdownKey,
   daysGeneratingDates,
@@ -211,106 +217,213 @@ export default function ItineraryPanel({
   setRightCollapsed
 }: ItineraryPanelProps) {
 
-  const [editingNoteSlot, setEditingNoteSlot] = useState<string | null>(null);
-  const [tempNoteSlotText, setTempNoteSlotText] = useState('');
-  const [hoveredSchedulePlaceIndex, setHoveredSchedulePlaceIndex] = useState<number | null>(null);
-  const hideNoteSlotTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoveredScheduleItemIndex, setHoveredScheduleItemIndex] = useState<number | null>(null);
+  const [editingNoteItemIndex, setEditingNoteItemIndex] = useState<number | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [activeAddDropdownIndex, setActiveAddDropdownIndex] = useState<number | null>(null);
+  const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const scheduleHideNoteSlot = () => {
-    hideNoteSlotTimer.current = setTimeout(() => setHoveredSchedulePlaceIndex(null), 150);
+  const scheduleHideItem = () => {
+    hideItemTimer.current = setTimeout(() => setHoveredScheduleItemIndex(null), 150);
   };
-  const cancelHideNoteSlot = () => {
-    if (hideNoteSlotTimer.current) { clearTimeout(hideNoteSlotTimer.current); hideNoteSlotTimer.current = null; }
+  const cancelHideItem = () => {
+    if (hideItemTimer.current) { clearTimeout(hideItemTimer.current); hideItemTimer.current = null; }
   };
 
-  const renderNoteSlot = (slot: string, canEdit: boolean, showEmpty?: boolean) => {
-    const noteText = (activeDay as any)?.scheduleNotes?.[slot] || '';
-    const isEditing = editingNoteSlot === slot;
-
-    if (!canEdit && !noteText) return null;
-
-    if (isEditing) {
-      return (
-        <div className="day-schedule-note-editing" onClick={e => e.stopPropagation()} onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot}>
-          <textarea
-            autoFocus
-            value={tempNoteSlotText}
-            onChange={e => setTempNoteSlotText(e.target.value)}
-            placeholder="Add a note here..."
-            rows={4}
-            style={{
-              width: '100%', padding: '6px 8px', fontSize: '12.5px',
-              background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
-              borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
-              textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
-            }}
-          />
-          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
+  const renderAddSlot = (insertAtIndex: number, canEdit: boolean) => {
+    if (!canEdit) return null;
+    const isVisible = hoveredScheduleItemIndex === insertAtIndex || hoveredScheduleItemIndex === insertAtIndex - 1;
+    return (
+      <div
+        className={`schedule-add-slot${isVisible ? ' visible' : ''}`}
+        onMouseEnter={cancelHideItem}
+        onMouseLeave={scheduleHideItem}
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          className="schedule-add-btn"
+          onClick={e => { e.stopPropagation(); setActiveAddDropdownIndex(activeAddDropdownIndex === insertAtIndex ? null : insertAtIndex); }}
+          data-tooltip="Add item"
+        >
+          <Plus size={12} />
+        </button>
+        {activeAddDropdownIndex === insertAtIndex && (
+          <div className="schedule-add-dropdown dropdown-menu">
             <button
-              className="btn-secondary"
-              onClick={() => setEditingNoteSlot(null)}
-              style={{ padding: '2px 8px', fontSize: '10px' }}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn-primary flex-align"
-              onClick={() => {
-                onSaveScheduleNote(activeDayStr, slot, tempNoteSlotText);
-                setEditingNoteSlot(null);
+              className="dropdown-item"
+              onClick={e => {
+                e.stopPropagation();
+                setActiveAddDropdownIndex(null);
+                setEditingNoteItemIndex(-insertAtIndex - 1);
+                setEditingNoteText('');
               }}
-              style={{ padding: '2px 8px', fontSize: '10px', gap: '4px' }}
             >
-              <Check size={10} /> Save
+              <FileText size={12} /> Add Note
             </button>
           </div>
-        </div>
-      );
-    }
+        )}
+        {editingNoteItemIndex === -insertAtIndex - 1 && (
+          <div className="schedule-note-inline-editor" onClick={e => e.stopPropagation()}>
+            <textarea
+              autoFocus
+              value={editingNoteText}
+              onChange={e => setEditingNoteText(e.target.value)}
+              placeholder="Add a note here..."
+              rows={3}
+              style={{
+                width: '100%', padding: '6px 8px', fontSize: '12.5px',
+                background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
+                borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
+                textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
+              <button className="btn-secondary" onClick={() => setEditingNoteItemIndex(null)} style={{ padding: '2px 8px', fontSize: '10px' }}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary flex-align"
+                onClick={() => {
+                  if (editingNoteText.trim()) handleAddScheduleNote(insertAtIndex, editingNoteText);
+                  setEditingNoteItemIndex(null);
+                  setEditingNoteText('');
+                }}
+                style={{ padding: '2px 8px', fontSize: '10px', gap: '4px' }}
+              >
+                <Check size={10} /> Save
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
-    if (noteText) {
-      return (
-        <div className="day-schedule-note-filled" onClick={e => { e.stopPropagation(); if (canEdit) { setEditingNoteSlot(slot); setTempNoteSlotText(noteText); } }} onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot} style={canEdit ? { cursor: 'pointer' } : undefined}>
-          <FileText size={13} style={{ marginTop: '2px', color: 'var(--accent-primary)', flexShrink: 0 }} />
-          <span style={{ flex: 1, textTransform: 'none', whiteSpace: 'pre-wrap', lineHeight: 1.4, fontStyle: 'italic', fontSize: '12.5px', color: 'var(--accent-primary)' }}>{noteText}</span>
-          {canEdit && (
-            <div className="day-schedule-note-actions">
-              <button
-                className="mini-icon-btn"
-                onClick={e => { e.stopPropagation(); setEditingNoteSlot(slot); setTempNoteSlotText(noteText); }}
-                data-tooltip="Edit Note"
-                style={{ padding: '4px' }}
+  const renderNoteCard = (note: ScheduleNoteItem, idx: number, isFirst: boolean, isLast: boolean, canEdit: boolean) => {
+    const dropdownKey = `note-${note.id}-${idx}`;
+    const mobileDropdownKey = `note-${note.id}-${idx}-mobile`;
+    const isEditingThis = editingNoteItemIndex === idx;
+
+    return (
+      <div
+        className="timeline-card glass-panel"
+        style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0, borderColor: 'var(--border-glass)', cursor: 'default' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="timeline-dot" style={{ backgroundColor: 'var(--accent-primary)' }}>
+          <FileText size={12} style={{ color: '#fff' }} />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
+          <div className="timeline-card-content" style={{ flex: 1, minWidth: 0, paddingTop: '2px' }}>
+            {isEditingThis ? (
+              <div onClick={e => e.stopPropagation()}>
+                <textarea
+                  autoFocus
+                  value={editingNoteText}
+                  onChange={e => setEditingNoteText(e.target.value)}
+                  placeholder="Add a note here..."
+                  rows={4}
+                  style={{
+                    width: '100%', padding: '6px 8px', fontSize: '12.5px',
+                    background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
+                    borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
+                    textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                  <button className="btn-secondary" onClick={() => setEditingNoteItemIndex(null)} style={{ padding: '2px 8px', fontSize: '10px' }}>Cancel</button>
+                  <button
+                    className="btn-primary flex-align"
+                    onClick={() => {
+                      if (editingNoteText.trim()) handleUpdateScheduleNote(idx, editingNoteText);
+                      setEditingNoteItemIndex(null);
+                    }}
+                    style={{ padding: '2px 8px', fontSize: '10px', gap: '4px' }}
+                  >
+                    <Check size={10} /> Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <span
+                className="schedule-note-text"
+                onClick={canEdit ? () => { setEditingNoteItemIndex(idx); setEditingNoteText(note.text); } : undefined}
+                style={canEdit ? { cursor: 'pointer' } : undefined}
               >
-                <Edit2 size={12} />
-              </button>
-              <button
-                className="mini-icon-btn"
-                onClick={e => { e.stopPropagation(); onSaveScheduleNote(activeDayStr, slot, ''); }}
-                data-tooltip="Delete Note"
-                style={{ padding: '4px', color: 'var(--color-danger)' }}
-              >
-                <X size={14} />
-              </button>
+                {note.text}
+              </span>
+            )}
+          </div>
+
+          {canEdit && !isEditingThis && (
+            <div className="day-place-actions-desktop" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+              <div className="place-card-move-buttons">
+                <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up">
+                  <ChevronUp size={12} />
+                </button>
+                <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down">
+                  <ChevronDown size={12} />
+                </button>
+              </div>
+              <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>
+                <button
+                  className="mini-icon-btn"
+                  onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }}
+                  data-tooltip="Note Options"
+                  style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <MoreVertical size={14} />
+                </button>
+                {activeTimelinePlaceDropdownKey === dropdownKey && (
+                  <div className="dropdown-menu" style={{ right: 0, bottom: '100%', top: 'auto', marginBottom: '4px' }}>
+                    <button className="dropdown-item" onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setEditingNoteText(note.text); setActiveTimelinePlaceDropdownKey(null); }}>
+                      <Edit2 size={12} /> Edit Note
+                    </button>
+                    <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleDeleteScheduleNote(idx); setActiveTimelinePlaceDropdownKey(null); }}>
+                      <Trash2 size={12} /> Delete Note
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
-      );
-    }
 
-    if (canEdit && showEmpty) {
-      return (
-        <div className="day-schedule-note-empty" onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot}>
-          <button
-            className="day-schedule-note-add-btn"
-            onClick={e => { e.stopPropagation(); setEditingNoteSlot(slot); setTempNoteSlotText(''); }}
+        {canEdit && (
+          <div
+            className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+            style={{ position: 'absolute', top: '0', right: '0' }}
+            onClick={e => e.stopPropagation()}
           >
-            <FileText size={10} /> Add note
-          </button>
-        </div>
-      );
-    }
-
-    return null;
+            <button
+              className="mini-icon-btn"
+              onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }}
+              data-tooltip="Note Options"
+              style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <MoreVertical size={14} />
+            </button>
+            {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
+              <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
+                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}>
+                  <ChevronUp size={12} /> Move Up
+                </button>
+                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}>
+                  <ChevronDown size={12} /> Move Down
+                </button>
+                <button className="dropdown-item" onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setEditingNoteText(note.text); setActiveTimelinePlaceDropdownKey(null); }}>
+                  <Edit2 size={12} /> Edit Note
+                </button>
+                <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleDeleteScheduleNote(idx); setActiveTimelinePlaceDropdownKey(null); }}>
+                  <Trash2 size={12} /> Delete Note
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const getCategoryIconComponent = (iconName: string, size = 12, className?: string, style?: React.CSSProperties) => {
@@ -985,7 +1098,7 @@ export default function ItineraryPanel({
               </div>
             )}
 
-            <div 
+            <div
               className="day-timeline"
               style={{ minHeight: '60px' }}
               onDragOver={(e) => {
@@ -996,437 +1109,225 @@ export default function ItineraryPanel({
               onDragLeave={() => setDragOverDayPlaceIndex(null)}
               onDrop={() => {
                 if (draggedPlaceId) {
-                  handleCatalogPlaceDropOnTimeline(draggedPlaceId, scheduledPlaces.length, 'top');
+                  handleCatalogPlaceDropOnTimeline(draggedPlaceId, scheduleItems.length, 'top');
                 } else if (draggedDayPlaceIndex !== null) {
-                  handleDayPlaceDrop(scheduledPlaces.length - 1, 'bottom');
+                  handleDayPlaceDrop(scheduleItems.length - 1, 'bottom');
                 }
               }}
             >
-              {displayScheduledPlaces.map((place, index) => {
-                const isTemporary = (place as any).isTemporary;
-                const isTempActive = (displayScheduledPlaces[0] as any)?.isTemporary;
-                const actualIndex = isTempActive ? index - 1 : index;
-                const dropTargetIndex = actualIndex < 0 ? 0 : actualIndex;
-                const canEdit = trip.canEdit !== false;
-
+              {/* Preview place (not yet scheduled, shown as preview card at top) */}
+              {(() => {
+                const previewPlace = (displayScheduledPlaces[0] as any)?.isTemporary ? displayScheduledPlaces[0] : null;
+                if (!previewPlace) return null;
                 return (
-                  <React.Fragment key={`${place.id}-${index}`}>
-                    {!isTemporary && actualIndex >= 0 && renderNoteSlot(String(actualIndex), canEdit, hoveredSchedulePlaceIndex === actualIndex || hoveredSchedulePlaceIndex === actualIndex - 1)}
-                  <div
-                    style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
-                    onMouseEnter={() => { if (!isTemporary) { cancelHideNoteSlot(); setHoveredSchedulePlaceIndex(actualIndex); } }}
-                    onMouseLeave={scheduleHideNoteSlot}
-                  >
-                    {dragOverDayPlaceIndex === index && (
-                      <div style={{
-                        position: 'absolute',
-                        top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto',
-                        bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto',
-                        left: 0,
-                        right: 0,
-                        height: '4px',
-                        background: 'var(--accent-primary)',
-                        borderRadius: '2px',
-                        boxShadow: '0 0 8px var(--accent-primary)',
-                        zIndex: 10,
-                        pointerEvents: 'none'
-                      }} />
-                    )}
-                    <div 
-                      className={`timeline-card glass-panel ${isTemporary ? 'timeline-card-preview' : ''} ${activeTimelinePlaceDropdownKey === `${place.id}-${index}-mobile` ? 'dropdown-active' : ''}`}
-                      data-place-id={place.id}
-                      draggable={trip.canEdit !== false && !isTemporary}
-                      onDragStart={() => handleDayPlaceDragStart(actualIndex)}
-                      onDragEnd={() => {
-                        setDraggedDayPlaceIndex(null);
-                        setDragOverDayPlaceIndex(null);
-                      }}
-                      onDragOver={(e) => {
-                        if (draggedDayPlaceIndex === index) return;
-                        if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
-                        if (isTemporary && draggedDayPlaceIndex !== null) return;
-                        e.preventDefault();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const relativeY = e.clientY - rect.top;
-                        const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
-                        
-                        if (dragOverDayPlaceIndex !== index || dragOverDayPlacePosition !== position) {
-                          setDragOverDayPlaceIndex(index);
-                          setDragOverDayPlacePosition(position);
-                        }
-                      }}
-                      onDrop={(e) => {
-                        e.stopPropagation();
-                        if (draggedDayPlaceIndex !== null) {
-                          handleDayPlaceDrop(dropTargetIndex, dragOverDayPlacePosition);
-                        } else if (draggedPlaceId) {
-                          handleCatalogPlaceDropOnTimeline(draggedPlaceId, dropTargetIndex, dragOverDayPlacePosition);
-                        }
-                        setDragOverDayPlaceIndex(null);
-                      }}
-                      onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
-                      style={{
-                        flexDirection: 'column',
-                        alignItems: 'stretch',
-                        borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
-                        cursor: 'pointer',
-                        gap: '0'
-                      }}
-                    >
-                      <div 
-                        className="timeline-dot" 
-                        style={{ 
-                          backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' 
-                        }}
-                      >
-                        {(() => {
-                          const group = (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId);
-                          return getCategoryIconComponent(group?.icon || 'map-pin', 12, undefined, { color: '#ffffff' });
-                        })()}
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
-                        <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: isTemporary ? 'default' : 'grab' }}>
-                          <div 
-                            style={{ 
-                              width: '24px', 
-                              height: '24px', 
-                              borderRadius: '50%', 
-                              background: isTemporary ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.08)',
-                              color: isTemporary ? '#a5b4fc' : 'var(--text-primary)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              flexShrink: 0
-                            }}
-                          >
-                            {isTemporary ? 'P' : actualIndex + 1}
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
-                            {place.photoUrl ? (
-                              <div className="place-card-thumb-container">
-                                <img 
-                                  src={getOptimizedImageUrl(place.photoUrl, 80)} 
-                                  alt="" 
-                                  loading="lazy"
-                                  decoding="async"
-                                />
-                              </div>
-                            ) : (
-                              <div className="place-card-thumb-container">
-                                <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
-                              </div>
-                            )}
-                            <a 
-                              href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="btn-secondary"
-                              onClick={(e) => e.stopPropagation()}
-                              style={{ 
-                                padding: '2px 4px', 
-                                fontSize: '9px', 
-                                textDecoration: 'none', 
-                                borderRadius: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '36px',
-                                boxSizing: 'border-box',
-                                textAlign: 'center',
-                                height: '18px'
-                              }}
-                            >
-                              Map
-                            </a>
-                          </div>
-
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
-                                {place.title}
-                              </h4>
-                              {isTemporary && (
-                                <span className="preview-badge">Preview</span>
-                              )}
-                            </div>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                              {place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}
-                            </p>
-                            {editingPlaceNotesId === place.id ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
-                                <textarea
-                                  value={tempNotes}
-                                  onChange={(e) => setTempNotes(e.target.value)}
-                                  placeholder="Add notes..."
-                                  rows={4}
-                                  style={{ 
-                                    padding: '6px',
-                                    fontSize: '12.5px',
-                                    width: '100%',
-                                    background: 'var(--bg-dark)',
-                                    border: '1px solid var(--border-glass)',
-                                    color: 'var(--text-primary)',
-                                    borderRadius: '4px',
-                                    resize: 'vertical',
-                                    textTransform: 'none'
-                                  }}
-                                />
-                                <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
-                                  <button 
-                                    className="btn-secondary" 
-                                    onClick={() => setEditingPlaceNotesId(null)} 
-                                    style={{ padding: '2px 6px', fontSize: '10px' }}
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button 
-                                    className="btn-primary flex-align" 
-                                    onClick={() => savePlaceNotes(place.id)} 
-                                    style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}
-                                  >
-                                    <Check size={10} /> Save
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="place-note-wrapper" style={{ marginTop: '4px', paddingRight: trip.canEdit !== false && !isTemporary ? '22px' : '0', cursor: trip.canEdit !== false && !isTemporary ? 'pointer' : undefined }} onClick={trip.canEdit !== false && !isTemporary ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
-                                <div style={{
-                                  fontSize: '12.5px',
-                                  color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)',
-                                  fontStyle: 'italic',
-                                  whiteSpace: 'pre-wrap',
-                                  lineHeight: 1.4,
-                                  margin: 0,
-                                  textTransform: 'none',
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: '6px'
-                                }}>
-                                  <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                                  <span>{place.notes || 'Add notes...'}</span>
-                                </div>
-                                {trip.canEdit !== false && !isTemporary && (
-                                  <button
-                                    className="mini-icon-btn place-note-edit-btn"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      startEditingNotes(place);
-                                    }}
-                                    style={{ position: 'absolute', top: 0, right: 0, padding: '4px' }}
-                                    data-tooltip="Edit Note"
-                                  >
-                                    <Edit2 size={12} />
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {trip.canEdit !== false && (
-                          <div className={isTemporary ? "day-place-actions-temporary" : "day-place-actions-desktop"} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                            {isTemporary ? (
-                              <>
-                                <button 
-                                  className="mini-icon-btn" 
-                                  onClick={() => handleAddPlaceToDay(place)}
-                                  data-tooltip="Keep / Add to Day"
-                                  style={{ padding: '4px', color: 'var(--color-success)' }}
-                                >
-                                  <Plus size={16} />
-                                </button>
-                                <button 
-                                  className="mini-icon-btn" 
-                                  onClick={() => setActivePlaceId(undefined)}
-                                  data-tooltip="Remove Preview"
-                                  style={{ padding: '4px', color: 'var(--color-danger)' }}
-                                >
-                                  <X size={14} />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <div className="place-card-move-buttons">
-                                  <button 
-                                    className="mini-icon-btn" 
-                                    disabled={actualIndex === 0} 
-                                    onClick={() => handleMovePlaceOrder(actualIndex, 'up')}
-                                    style={{ opacity: actualIndex === 0 ? 0.3 : 1 }}
-                                    data-tooltip="Move Up"
-                                  >
-                                    <ChevronUp size={12} />
-                                  </button>
-                                  <button 
-                                    className="mini-icon-btn" 
-                                    disabled={actualIndex === scheduledPlaces.length - 1} 
-                                    onClick={() => handleMovePlaceOrder(actualIndex, 'down')}
-                                    style={{ opacity: actualIndex === scheduledPlaces.length - 1 ? 0.3 : 1 }}
-                                    data-tooltip="Move Down"
-                                  >
-                                    <ChevronDown size={12} />
-                                  </button>
-                                </div>
-                                <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>
-                                  <button 
-                                    className="mini-icon-btn"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const key = `${place.id}-${index}`;
-                                      setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === key ? null : key);
-                                    }}
-                                    data-tooltip="Place Options"
-                                    style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                  >
-                                    <MoreVertical size={14} />
-                                  </button>
-                                  {activeTimelinePlaceDropdownKey === `${place.id}-${index}` && (
-                                    <div className="dropdown-menu" style={{ right: 0, bottom: '100%', top: 'auto', marginBottom: '4px' }}>
-                                      <button 
-                                        className="dropdown-item" 
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenEditPlace(place);
-                                          setActiveTimelinePlaceDropdownKey(null);
-                                        }}
-                                        data-tooltip="Edit Place"
-                                      >
-                                        <Edit2 size={12} /> Edit Place
-                                      </button>
-                                      <button 
-                                        className="dropdown-item danger" 
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleRemovePlaceFromDay(actualIndex);
-                                          setActiveTimelinePlaceDropdownKey(null);
-                                        }}
-                                        data-tooltip="Remove from Day"
-                                      >
-                                        <Trash2 size={12} /> Remove from Day
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Mobile dropdown for scheduled places (visible on mobile only, positioned absolutely top-right) */}
-                      {trip.canEdit !== false && !isTemporary && (
-                        <div 
-                          className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === `${place.id}-${index}-mobile` ? 'dropdown-active' : ''}`}
-                          style={{ position: 'absolute', top: '0', right: '0' }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <button 
-                            className="mini-icon-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const key = `${place.id}-${index}-mobile`;
-                              setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === key ? null : key);
-                            }}
-                            data-tooltip="Place Options"
-                            style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                          >
-                            <MoreVertical size={14} />
-                          </button>
-                          {activeTimelinePlaceDropdownKey === `${place.id}-${index}-mobile` && (
-                            <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
-                              <button 
-                                className="dropdown-item" 
-                                disabled={actualIndex === 0} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMovePlaceOrder(actualIndex, 'up');
-                                  setActiveTimelinePlaceDropdownKey(null);
-                                }}
-                                style={{ opacity: actualIndex === 0 ? 0.3 : 1 }}
-                              >
-                                <ChevronUp size={12} /> Move Up
-                              </button>
-                              <button 
-                                className="dropdown-item" 
-                                disabled={actualIndex === scheduledPlaces.length - 1} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMovePlaceOrder(actualIndex, 'down');
-                                  setActiveTimelinePlaceDropdownKey(null);
-                                }}
-                                style={{ opacity: actualIndex === scheduledPlaces.length - 1 ? 0.3 : 1 }}
-                              >
-                                <ChevronDown size={12} /> Move Down
-                              </button>
-                              <button 
-                                className="dropdown-item" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenEditPlace(place);
-                                  setActiveTimelinePlaceDropdownKey(null);
-                                }}
-                              >
-                                <Edit2 size={12} /> Edit Place
-                              </button>
-                              <button 
-                                className="dropdown-item danger" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemovePlaceFromDay(actualIndex);
-                                  setActiveTimelinePlaceDropdownKey(null);
-                                }}
-                              >
-                                <Trash2 size={12} /> Remove from Day
-                              </button>
-                            </div>
+                  <div className="timeline-card glass-panel timeline-card-preview" data-place-id={previewPlace.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0, cursor: 'default', marginBottom: '4px' }}>
+                    <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.color || '#6b7280' }}>
+                      {getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
+                      <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: 'default' }}>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>P</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                          {previewPlace.photoUrl ? (
+                            <div className="place-card-thumb-container"><img src={getOptimizedImageUrl(previewPlace.photoUrl, 80)} alt="" loading="lazy" decoding="async" /></div>
+                          ) : (
+                            <div className="place-card-thumb-container"><MapPin size={16} style={{ color: 'var(--text-muted)' }} /></div>
                           )}
+                          <a href={previewPlace.mapsLink || buildMapsLink(previewPlace.title, previewPlace.lat, previewPlace.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary" onClick={(e) => e.stopPropagation()} style={{ padding: '2px 4px', fontSize: '9px', textDecoration: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', boxSizing: 'border-box', textAlign: 'center', height: '18px' }}>Map</a>
                         </div>
-                      )}
-
-
-                      {/* Expand Details if selected */}
-                      {activePlaceId === place.id && (
-                        <div 
-                          style={{ 
-                            marginTop: '12px', 
-                            paddingTop: '12px', 
-                            borderTop: '1px solid rgba(255,255,255,0.05)', 
-                            fontSize: '13px',
-                            cursor: 'default',
-                            width: '100%'
-                          }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {place.description && (
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>
-                              {place.description}
-                            </p>
-                          )}
-                          
-                          <AiDetailsView
-                            place={place}
-                            onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)}
-                            canEdit={trip.canEdit !== false}
-                            isGenerating={placeGeneratingIds.has(place.id)}
-                            layoutMode="adaptive-2-col"
-                            customAiFields={trip.customAiFields}
-                            disabledPlaceFields={trip.disabledPlaceFields}
-                            fieldIcons={trip.fieldIcons}
-                            placeFieldsOrder={trip.placeFieldsOrder}
-                          />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{previewPlace.title}</h4>
+                            <span className="preview-badge">Preview</span>
+                          </div>
+                          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{previewPlace.description ? previewPlace.description.substring(0, 50) + '...' : 'Attraction'}</p>
+                        </div>
+                      </div>
+                      {trip.canEdit !== false && (
+                        <div className="day-place-actions-temporary" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                          <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
+                          <button className="mini-icon-btn" onClick={() => setActivePlaceId(undefined)} data-tooltip="Remove Preview" style={{ padding: '4px', color: 'var(--color-danger)' }}><X size={14} /></button>
                         </div>
                       )}
                     </div>
                   </div>
-                  </React.Fragment>
                 );
-              })}
-              {scheduledPlaces.length > 0 && renderNoteSlot(String(scheduledPlaces.length), trip.canEdit !== false, hoveredSchedulePlaceIndex === scheduledPlaces.length - 1)}
+              })()}
 
-              {displayScheduledPlaces.length === 0 && (
+              {/* Unified schedule items (places + notes) */}
+              {(() => {
+                const canEdit = trip.canEdit !== false;
+                let placeCount = 0;
+                return (
+                  <>
+                    {scheduleItems.map((item, idx) => {
+                      const isFirst = idx === 0;
+                      const isLast = idx === scheduleItems.length - 1;
+
+                      if (item.type === 'note') {
+                        const note = item as ScheduleNoteItem;
+                        return (
+                          <React.Fragment key={`note-${note.id}`}>
+                            {renderAddSlot(idx, canEdit)}
+                            <div
+                              style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                              onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
+                              onMouseLeave={scheduleHideItem}
+                            >
+                              {renderNoteCard(note, idx, isFirst, isLast, canEdit)}
+                            </div>
+                          </React.Fragment>
+                        );
+                      }
+
+                      // Place item
+                      const placeItem = item as SchedulePlaceItem;
+                      const placeNumber = ++placeCount;
+                      let place: Place | undefined;
+                      for (const loc of trip.locations) {
+                        const found = loc.places.find(p => p.id === placeItem.placeId);
+                        if (found) { place = found; break; }
+                      }
+                      if (!place) return null;
+
+                      const dropdownKey = `${place.id}-${idx}`;
+                      const mobileDropdownKey = `${place.id}-${idx}-mobile`;
+
+                      return (
+                        <React.Fragment key={`place-${place.id}-${idx}`}>
+                          {renderAddSlot(idx, canEdit)}
+                          <div
+                            style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                            onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
+                            onMouseLeave={scheduleHideItem}
+                          >
+                            {dragOverDayPlaceIndex === idx && (
+                              <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                            )}
+                            <div
+                              className={`timeline-card glass-panel ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+                              data-place-id={place.id}
+                              draggable={canEdit}
+                              onDragStart={() => handleDayPlaceDragStart(idx)}
+                              onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
+                              onDragOver={(e) => {
+                                if (draggedDayPlaceIndex === idx) return;
+                                if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
+                                e.preventDefault();
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const position = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
+                                if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
+                                  setDragOverDayPlaceIndex(idx);
+                                  setDragOverDayPlacePosition(position);
+                                }
+                              }}
+                              onDrop={(e) => {
+                                e.stopPropagation();
+                                if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
+                                else if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
+                                setDragOverDayPlaceIndex(null);
+                              }}
+                              onClick={() => setActivePlaceId(activePlaceId === place!.id ? undefined : place!.id)}
+                              style={{ flexDirection: 'column', alignItems: 'stretch', borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)', cursor: 'pointer', gap: '0' }}
+                            >
+                              <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.color || '#6b7280' }}>
+                                {getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
+                                <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: 'grab' }}>
+                                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
+                                    {placeNumber}
+                                  </div>
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                                    {place.photoUrl ? (
+                                      <div className="place-card-thumb-container"><img src={getOptimizedImageUrl(place.photoUrl, 80)} alt="" loading="lazy" decoding="async" /></div>
+                                    ) : (
+                                      <div className="place-card-thumb-container"><MapPin size={16} style={{ color: 'var(--text-muted)' }} /></div>
+                                    )}
+                                    <a href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary" onClick={(e) => e.stopPropagation()} style={{ padding: '2px 4px', fontSize: '9px', textDecoration: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', boxSizing: 'border-box', textAlign: 'center', height: '18px' }}>Map</a>
+                                  </div>
+
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{place.title}</h4>
+                                    </div>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
+                                    {editingPlaceNotesId === place.id ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
+                                        <textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Add notes..." rows={4} style={{ padding: '6px', fontSize: '12.5px', width: '100%', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', borderRadius: '4px', resize: 'vertical', textTransform: 'none' }} />
+                                        <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
+                                          <button className="btn-secondary" onClick={() => setEditingPlaceNotesId(null)} style={{ padding: '2px 6px', fontSize: '10px' }}>Cancel</button>
+                                          <button className="btn-primary flex-align" onClick={() => savePlaceNotes(place!.id)} style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}><Check size={10} /> Save</button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="place-note-wrapper" style={{ marginTop: '4px', paddingRight: canEdit ? '22px' : '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place!); } : undefined}>
+                                        <div style={{ fontSize: '12.5px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', fontStyle: 'italic', whiteSpace: 'pre-wrap', lineHeight: 1.4, margin: 0, textTransform: 'none', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                          <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                                          <span>{place.notes || 'Add notes...'}</span>
+                                        </div>
+                                        {canEdit && (
+                                          <button className="mini-icon-btn place-note-edit-btn" onClick={(e) => { e.stopPropagation(); startEditingNotes(place!); }} style={{ position: 'absolute', top: 0, right: 0, padding: '4px' }} data-tooltip="Edit Note"><Edit2 size={12} /></button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {canEdit && (
+                                  <div className="day-place-actions-desktop" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                    <div className="place-card-move-buttons">
+                                      <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
+                                      <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
+                                    </div>
+                                    <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>
+                                      <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip="Place Options" style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MoreVertical size={14} /></button>
+                                      {activeTimelinePlaceDropdownKey === dropdownKey && (
+                                        <div className="dropdown-menu" style={{ right: 0, bottom: '100%', top: 'auto', marginBottom: '4px' }}>
+                                          <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
+                                          <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Mobile dropdown */}
+                              {canEdit && (
+                                <div className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`} style={{ position: 'absolute', top: '0', right: '0' }} onClick={e => e.stopPropagation()}>
+                                  <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Place Options" style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MoreVertical size={14} /></button>
+                                  {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
+                                    <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
+                                      <button className="dropdown-item" disabled={isFirst} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
+                                      <button className="dropdown-item" disabled={isLast} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                                      <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
+                                      <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Expand Details if selected */}
+                              {activePlaceId === place.id && (
+                                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', cursor: 'default', width: '100%' }} onClick={e => e.stopPropagation()}>
+                                  {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
+                                  <AiDetailsView place={place} onGenerate={() => handleGenerateSinglePlaceAiDetails(place!.id)} canEdit={canEdit} isGenerating={placeGeneratingIds.has(place.id)} layoutMode="adaptive-2-col" customAiFields={trip.customAiFields} disabledPlaceFields={trip.disabledPlaceFields} fieldIcons={trip.fieldIcons} placeFieldsOrder={trip.placeFieldsOrder} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                    {scheduleItems.length > 0 && renderAddSlot(scheduleItems.length, canEdit)}
+                  </>
+                );
+              })()}
+
+              {scheduleItems.length === 0 && !(displayScheduledPlaces[0] as any)?.isTemporary && (
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '6px' }}>
                   Itinerary is empty. Search above or click catalog places to schedule.
                 </p>
