@@ -1708,7 +1708,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   z-index: 100;
 }
 .schedule-add-dropdown.dropdown-menu {
-  min-width: fit-content;
+  min-width: 0;
+  width: max-content;
 }
 
 /* Place note edit button: always visible, top-right corner */
