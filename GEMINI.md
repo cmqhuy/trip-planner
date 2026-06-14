@@ -148,7 +148,33 @@ External APIs (no keys required): OSM Nominatim (geocoding), Photon/Komoot (plac
 
 - New fields on interfaces must be optional (`?`).
 - Provide defaults/fallbacks wherever new fields are read.
-- If restructuring existing fields, add a one-time migration in the `localStorage` mount `useEffect` in `App.tsx`.
+- If restructuring existing fields, use the versioned migration system below — do **not** add ad-hoc checks scattered through the code.
+
+### Versioned migration system (`App.tsx`)
+
+`Trip.schemaVersion` tracks which migrations have been applied. `CURRENT_SCHEMA_VERSION` is the target. `migrateTrips()` is called on every external data entry point (localStorage load, Drive sync pull, conflict resolution) and is a **no-op for trips already at the current version** — just a version check.
+
+**To add a new migration (e.g., v1 → v2):**
+
+1. Increment `CURRENT_SCHEMA_VERSION = 2` in `App.tsx`.
+2. Add a migration block inside `migrateTrips()`:
+   ```typescript
+   // v1 → v2: describe what changed
+   if ((trip.schemaVersion ?? 0) < 2) {
+     // transform trip data
+   }
+   return { ...trip, schemaVersion: CURRENT_SCHEMA_VERSION };
+   ```
+3. Add the new field(s) as optional (`?`) to the relevant interface in `types.ts`.
+4. Provide read-time fallbacks wherever the new field is consumed.
+
+`migrateTrips()` is called in six places — do not add a seventh; all external data flows through these already:
+- Mount `useEffect` (localStorage load) — also writes migrated data back to localStorage immediately
+- `StorageEvent` handler (cross-tab sync)
+- `performSync` local trips load (Drive sync)
+- `performSync` silent pull merge
+- `handleResolveConflict` cloud-wins path
+- Post-conflict final merge
 
 ---
 
