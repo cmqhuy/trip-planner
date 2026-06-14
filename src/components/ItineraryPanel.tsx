@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
@@ -230,6 +230,14 @@ export default function ItineraryPanel({
     if (hideItemTimer.current) { clearTimeout(hideItemTimer.current); hideItemTimer.current = null; }
   };
 
+  // Close Add Item dropdown when clicking outside
+  useEffect(() => {
+    if (activeAddDropdownIndex === null) return;
+    const handler = () => setActiveAddDropdownIndex(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [activeAddDropdownIndex]);
+
   const renderAddSlot = (insertAtIndex: number, canEdit: boolean) => {
     if (!canEdit) return null;
     const isVisible = hoveredScheduleItemIndex === insertAtIndex || hoveredScheduleItemIndex === insertAtIndex - 1;
@@ -243,9 +251,9 @@ export default function ItineraryPanel({
         <button
           className="schedule-add-btn"
           onClick={e => { e.stopPropagation(); setActiveAddDropdownIndex(activeAddDropdownIndex === insertAtIndex ? null : insertAtIndex); }}
-          data-tooltip="Add item"
+          data-tooltip="Add Item"
         >
-          <Plus size={12} />
+          <Plus size={11} /><span style={{ fontSize: '11px', fontWeight: 500 }}>Add Item</span>
         </button>
         {activeAddDropdownIndex === insertAtIndex && (
           <div className="schedule-add-dropdown dropdown-menu">
@@ -254,45 +262,13 @@ export default function ItineraryPanel({
               onClick={e => {
                 e.stopPropagation();
                 setActiveAddDropdownIndex(null);
-                setEditingNoteItemIndex(-insertAtIndex - 1);
+                handleAddScheduleNote(insertAtIndex, '');
+                setEditingNoteItemIndex(insertAtIndex);
                 setEditingNoteText('');
               }}
             >
               <FileText size={12} /> Add Note
             </button>
-          </div>
-        )}
-        {editingNoteItemIndex === -insertAtIndex - 1 && (
-          <div className="schedule-note-inline-editor" onClick={e => e.stopPropagation()}>
-            <textarea
-              autoFocus
-              value={editingNoteText}
-              onChange={e => setEditingNoteText(e.target.value)}
-              placeholder="Add a note here..."
-              rows={3}
-              style={{
-                width: '100%', padding: '6px 8px', fontSize: '12.5px',
-                background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
-                borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
-                textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
-              }}
-            />
-            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
-              <button className="btn-secondary" onClick={() => setEditingNoteItemIndex(null)} style={{ padding: '2px 8px', fontSize: '10px' }}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary flex-align"
-                onClick={() => {
-                  if (editingNoteText.trim()) handleAddScheduleNote(insertAtIndex, editingNoteText);
-                  setEditingNoteItemIndex(null);
-                  setEditingNoteText('');
-                }}
-                style={{ padding: '2px 8px', fontSize: '10px', gap: '4px' }}
-              >
-                <Check size={10} /> Save
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -306,16 +282,39 @@ export default function ItineraryPanel({
 
     return (
       <div
-        className="timeline-card glass-panel"
+        className={`timeline-card glass-panel schedule-note-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0, borderColor: 'var(--border-glass)', cursor: 'default' }}
         onClick={e => e.stopPropagation()}
+        draggable={canEdit}
+        onDragStart={() => handleDayPlaceDragStart(idx)}
+        onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
+        onDragOver={(e) => {
+          if (draggedDayPlaceIndex === idx) return;
+          if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
+          e.preventDefault();
+          const rect = e.currentTarget.getBoundingClientRect();
+          const position = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
+          if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
+            setDragOverDayPlaceIndex(idx);
+            setDragOverDayPlacePosition(position);
+          }
+        }}
+        onDrop={(e) => {
+          e.stopPropagation();
+          if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
+          setDragOverDayPlaceIndex(null);
+        }}
       >
         <div className="timeline-dot" style={{ backgroundColor: 'var(--accent-primary)' }}>
           <FileText size={12} style={{ color: '#fff' }} />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
-          <div className="timeline-card-content" style={{ flex: 1, minWidth: 0, paddingTop: '2px' }}>
+          <div
+            className="timeline-card-content"
+            style={{ flex: 1, minWidth: 0, paddingTop: '3px', cursor: canEdit && !isEditingThis ? 'pointer' : 'default' }}
+            onClick={canEdit && !isEditingThis ? () => { setEditingNoteItemIndex(idx); setEditingNoteText(note.text); } : undefined}
+          >
             {isEditingThis ? (
               <div onClick={e => e.stopPropagation()}>
                 <textarea
@@ -332,7 +331,7 @@ export default function ItineraryPanel({
                   }}
                 />
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                  <button className="btn-secondary" onClick={() => setEditingNoteItemIndex(null)} style={{ padding: '2px 8px', fontSize: '10px' }}>Cancel</button>
+                  <button className="btn-secondary" onClick={() => { if (!note.text) handleDeleteScheduleNote(idx); setEditingNoteItemIndex(null); }} style={{ padding: '2px 8px', fontSize: '10px' }}>Cancel</button>
                   <button
                     className="btn-primary flex-align"
                     onClick={() => {
@@ -346,11 +345,7 @@ export default function ItineraryPanel({
                 </div>
               </div>
             ) : (
-              <span
-                className="schedule-note-text"
-                onClick={canEdit ? () => { setEditingNoteItemIndex(idx); setEditingNoteText(note.text); } : undefined}
-                style={canEdit ? { cursor: 'pointer' } : undefined}
-              >
+              <span className="schedule-note-text">
                 {note.text}
               </span>
             )}
@@ -358,14 +353,14 @@ export default function ItineraryPanel({
 
           {canEdit && !isEditingThis && (
             <div className="day-place-actions-desktop" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-              <div className="place-card-move-buttons">
-                <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up">
-                  <ChevronUp size={12} />
-                </button>
-                <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down">
-                  <ChevronDown size={12} />
-                </button>
-              </div>
+              <button
+                className="mini-icon-btn place-note-edit-btn"
+                onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setEditingNoteText(note.text); }}
+                data-tooltip="Edit Note"
+                style={{ padding: '4px' }}
+              >
+                <Edit2 size={12} />
+              </button>
               <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>
                 <button
                   className="mini-icon-btn"
@@ -377,9 +372,8 @@ export default function ItineraryPanel({
                 </button>
                 {activeTimelinePlaceDropdownKey === dropdownKey && (
                   <div className="dropdown-menu" style={{ right: 0, bottom: '100%', top: 'auto', marginBottom: '4px' }}>
-                    <button className="dropdown-item" onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setEditingNoteText(note.text); setActiveTimelinePlaceDropdownKey(null); }}>
-                      <Edit2 size={12} /> Edit Note
-                    </button>
+                    <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
+                    <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
                     <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleDeleteScheduleNote(idx); setActiveTimelinePlaceDropdownKey(null); }}>
                       <Trash2 size={12} /> Delete Note
                     </button>
@@ -1174,6 +1168,9 @@ export default function ItineraryPanel({
                               onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
                               onMouseLeave={scheduleHideItem}
                             >
+                              {dragOverDayPlaceIndex === idx && (
+                                <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                              )}
                               {renderNoteCard(note, idx, isFirst, isLast, canEdit)}
                             </div>
                           </React.Fragment>

@@ -212,3 +212,21 @@ Glassmorphism dark theme. Key CSS variables from `index.css`:
 ### Tooltips
 
 **All tooltips must use `data-tooltip` (never `title`).** The `[data-tooltip]` CSS in `index.css` renders a styled dark glassmorphic bubble with animation. Using a bare `title` attribute bypasses the system and shows the browser's unstyled default. Use `data-tooltip-position="bottom"` to flip the bubble below the element.
+
+### Dropdowns
+
+**All dropdowns must close when the user clicks outside.** Use a `useEffect` that adds a `document` click listener whenever the dropdown is open and removes it on cleanup:
+```typescript
+useEffect(() => {
+  if (!isOpen) return;
+  const handler = () => setIsOpen(false);
+  document.addEventListener('click', handler);
+  return () => document.removeEventListener('click', handler);
+}, [isOpen]);
+```
+The dropdown's own click handlers call `e.stopPropagation()` so they don't trigger the document listener.
+
+**Cards with open dropdowns must lift above siblings.** Schedule items (`.timeline-card`) and catalog cards (`.catalog-place-card`) use `backdrop-filter`, which creates a CSS stacking context. Adjacent elements with an explicit `z-index` (e.g., `.schedule-add-slot` at `z-index: 2`) can overlap and obscure the dropdown. When a dropdown opens, add `dropdown-active` to the card's root element — the global CSS rule sets `position: relative; z-index: 1100` to lift it above siblings:
+```tsx
+className={`timeline-card glass-panel ${isDropdownOpen ? 'dropdown-active' : ''}`}
+```
