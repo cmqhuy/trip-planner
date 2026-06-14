@@ -237,9 +237,9 @@ export default function ItineraryPanel({
             value={tempNoteSlotText}
             onChange={e => setTempNoteSlotText(e.target.value)}
             placeholder="Add a note here..."
-            rows={2}
+            rows={4}
             style={{
-              width: '100%', padding: '6px 8px', fontSize: '12px',
+              width: '100%', padding: '6px 8px', fontSize: '12.5px',
               background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
               borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
               textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
@@ -270,7 +270,7 @@ export default function ItineraryPanel({
 
     if (noteText) {
       return (
-        <div className="day-schedule-note-filled" onClick={e => e.stopPropagation()} onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot}>
+        <div className="day-schedule-note-filled" onClick={e => { e.stopPropagation(); if (canEdit) { setEditingNoteSlot(slot); setTempNoteSlotText(noteText); } }} onMouseEnter={cancelHideNoteSlot} onMouseLeave={scheduleHideNoteSlot} style={canEdit ? { cursor: 'pointer' } : undefined}>
           <FileText size={13} style={{ marginTop: '2px', color: 'var(--accent-primary)', flexShrink: 0 }} />
           <span style={{ flex: 1, textTransform: 'none', whiteSpace: 'pre-wrap', lineHeight: 1.4, fontStyle: 'italic', fontSize: '12.5px', color: 'var(--accent-primary)' }}>{noteText}</span>
           {canEdit && (
@@ -279,7 +279,7 @@ export default function ItineraryPanel({
                 className="mini-icon-btn"
                 onClick={e => { e.stopPropagation(); setEditingNoteSlot(slot); setTempNoteSlotText(noteText); }}
                 data-tooltip="Edit Note"
-                style={{ padding: '2px' }}
+                style={{ padding: '4px' }}
               >
                 <Edit2 size={12} />
               </button>
@@ -287,7 +287,7 @@ export default function ItineraryPanel({
                 className="mini-icon-btn"
                 onClick={e => { e.stopPropagation(); onSaveScheduleNote(activeDayStr, slot, ''); }}
                 data-tooltip="Delete Note"
-                style={{ padding: '2px', color: 'var(--color-danger)' }}
+                style={{ padding: '4px', color: 'var(--color-danger)' }}
               >
                 <X size={14} />
               </button>
@@ -1085,7 +1085,7 @@ export default function ItineraryPanel({
                         })()}
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
                         <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: isTemporary ? 'default' : 'grab' }}>
                           <div 
                             style={{ 
@@ -1158,17 +1158,17 @@ export default function ItineraryPanel({
                             </p>
                             {editingPlaceNotesId === place.id ? (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
-                                <textarea 
+                                <textarea
                                   value={tempNotes}
                                   onChange={(e) => setTempNotes(e.target.value)}
                                   placeholder="Add notes..."
-                                  rows={2}
+                                  rows={4}
                                   style={{ 
-                                    padding: '6px', 
-                                    fontSize: '13px', 
-                                    width: '100%', 
-                                    background: 'var(--bg-dark)', 
-                                    border: '1px solid var(--border-glass)', 
+                                    padding: '6px',
+                                    fontSize: '12.5px',
+                                    width: '100%',
+                                    background: 'var(--bg-dark)',
+                                    border: '1px solid var(--border-glass)',
                                     color: 'var(--text-primary)',
                                     borderRadius: '4px',
                                     resize: 'vertical',
@@ -1193,7 +1193,7 @@ export default function ItineraryPanel({
                                 </div>
                               </div>
                             ) : (
-                              <div className="place-note-wrapper" style={{ marginTop: '4px', paddingRight: trip.canEdit !== false && !isTemporary ? '22px' : '0' }}>
+                              <div className="place-note-wrapper" style={{ marginTop: '4px', paddingRight: trip.canEdit !== false && !isTemporary ? '22px' : '0', cursor: trip.canEdit !== false && !isTemporary ? 'pointer' : undefined }} onClick={trip.canEdit !== false && !isTemporary ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
                                 <div style={{
                                   fontSize: '12.5px',
                                   color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)',
@@ -1216,7 +1216,7 @@ export default function ItineraryPanel({
                                       e.stopPropagation();
                                       startEditingNotes(place);
                                     }}
-                                    style={{ position: 'absolute', top: 0, right: 0, padding: '2px' }}
+                                    style={{ position: 'absolute', top: 0, right: 0, padding: '4px' }}
                                     data-tooltip="Edit Note"
                                   >
                                     <Edit2 size={12} />
@@ -1228,7 +1228,7 @@ export default function ItineraryPanel({
                         </div>
 
                         {trip.canEdit !== false && (
-                          <div className="day-place-actions-desktop" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                          <div className={isTemporary ? "day-place-actions-temporary" : "day-place-actions-desktop"} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                             {isTemporary ? (
                               <>
                                 <button 
@@ -1386,30 +1386,6 @@ export default function ItineraryPanel({
                         </div>
                       )}
 
-                      {/* Mobile action bar for temporary previews (visible on mobile only) */}
-                      {trip.canEdit !== false && isTemporary && (
-                        <div 
-                          className="day-place-actions-mobile"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <button 
-                            className="mini-icon-btn" 
-                            onClick={() => handleAddPlaceToDay(place)}
-                            data-tooltip="Keep / Add to Day"
-                            style={{ padding: '4px', color: 'var(--color-success)' }}
-                          >
-                            <Plus size={16} />
-                          </button>
-                          <button 
-                            className="mini-icon-btn" 
-                            onClick={() => setActivePlaceId(undefined)}
-                            data-tooltip="Remove Preview"
-                            style={{ padding: '4px', color: 'var(--color-danger)' }}
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      )}
 
                       {/* Expand Details if selected */}
                       {activePlaceId === place.id && (

@@ -702,6 +702,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 4px;
   border-radius: 4px;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: var(--transition-fast);
 }
 
@@ -2240,6 +2242,22 @@ div.google-auth-avatar-desktop {
   }
   .day-schedule-note-empty {
     display: none !important;
+  }
+  .day-schedule-note-filled {
+    min-height: 32px;
+    align-items: center;
+  }
+  .day-schedule-note-actions {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    margin: 0;
+  }
+  .place-note-wrapper {
+    min-height: 32px;
+    display: flex;
+    align-items: center;
   }
 
   /* Day Schedule card buttons bottom row */

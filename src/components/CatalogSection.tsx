@@ -561,7 +561,7 @@ export default function CatalogSection({
                                   <button
                                     className="mini-icon-btn"
                                     onClick={() => startEditingNotes(place)}
-                                    style={{ marginLeft: 'auto', padding: '1px' }}
+                                    style={{ marginLeft: 'auto', padding: '4px' }}
                                     data-tooltip="Edit Note"
                                   >
                                     <Edit2 size={12} />
@@ -571,14 +571,14 @@ export default function CatalogSection({
 
                               {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                                  <textarea 
+                                  <textarea
                                     value={tempNotes}
                                     onChange={(e) => setTempNotes(e.target.value)}
                                     placeholder="Add notes..."
                                     rows={3}
-                                    style={{ 
-                                      padding: '6px', 
-                                      fontSize: '13px', 
+                                    style={{
+                                      padding: '6px',
+                                      fontSize: '12.5px',
                                       width: '100%', 
                                       background: 'var(--bg-dark)', 
                                       border: '1px solid var(--border-glass)', 
