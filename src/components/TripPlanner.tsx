@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Transportation, Hotel } from '../types';
 import { Navigation, BookOpen, Clock } from 'lucide-react';
-import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink } from '../utils/api';
+import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService } from '../utils/ai';
@@ -406,6 +406,18 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       setPlaceSuggestions([]);
       return;
     }
+
+    const { isGoogleMapsUrl } = parseGoogleMapsUrl(placeQuery);
+    if (isGoogleMapsUrl) {
+      const delayDebounce = setTimeout(async () => {
+        setIsSearchingPlace(true);
+        const { place } = await fetchPlaceFromGoogleMapsUrl(placeQuery, activeDayLocation);
+        setIsSearchingPlace(false);
+        if (place) setPlaceSuggestions([place]);
+      }, 300);
+      return () => clearTimeout(delayDebounce);
+    }
+
     const delayDebounce = setTimeout(async () => {
       setIsSearchingPlace(true);
       const results = await searchPlacesNearLocation(placeQuery, activeDayLocation);

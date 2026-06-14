@@ -146,7 +146,7 @@ export default function PlaceFormFields({
             type="text" 
             value={photoUrl} 
             onChange={e => setPhotoUrl(e.target.value)} 
-            placeholder="e.g. Unsplash URL..." 
+            placeholder="Photo URL..." 
           />
           <ImagePreview url={photoUrl} alt="Place image preview" width={120} height={120} />
         </div>

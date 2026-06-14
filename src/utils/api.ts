@@ -368,6 +368,92 @@ export async function searchPlacesNearLocation(
   return combined;
 }
 
+export function parseGoogleMapsUrl(input: string): { title?: string; lat?: number; lng?: number; isGoogleMapsUrl: boolean; isShortUrl: boolean } {
+  const trimmed = input.trim();
+  const isShortUrl = /https?:\/\/(goo\.gl\/maps|maps\.app\.goo\.gl)/i.test(trimmed);
+  const isGoogleMapsUrl = /https?:\/\/(www\.)?(maps\.google\.com|google\.com\/maps|goo\.gl\/maps|maps\.app\.goo\.gl)/i.test(trimmed);
+  if (!isGoogleMapsUrl) return { isGoogleMapsUrl: false, isShortUrl: false };
+  if (isShortUrl) return { isGoogleMapsUrl: true, isShortUrl: true };
+  try {
+    const url = new URL(trimmed);
+    let title: string | undefined;
+    let lat: number | undefined;
+    let lng: number | undefined;
+    const placeMatch = url.pathname.match(/\/place\/([^/@]+)/);
+    if (placeMatch) title = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+    const coordMatch = url.pathname.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (coordMatch) { lat = parseFloat(coordMatch[1]); lng = parseFloat(coordMatch[2]); }
+    const q = url.searchParams.get('q') || url.searchParams.get('query');
+    if (q) {
+      const coordQ = q.match(/^(-?\d+\.\d+),(-?\d+\.\d+)$/);
+      if (coordQ) { lat = parseFloat(coordQ[1]); lng = parseFloat(coordQ[2]); }
+      else if (!title) title = q;
+    }
+    return { title, lat, lng, isGoogleMapsUrl: true, isShortUrl: false };
+  } catch {
+    return { isGoogleMapsUrl: true, isShortUrl: false };
+  }
+}
+
+export async function fetchPlaceFromGoogleMapsUrl(
+  mapsUrl: string,
+  fallbackLocation?: { city: string; country: string; lat: number; lng: number }
+): Promise<{ place: Omit<Place, 'placeGroupId'> | null; error?: string }> {
+  const parsed = parseGoogleMapsUrl(mapsUrl);
+  if (!parsed.isGoogleMapsUrl) return { place: null, error: 'Not a Google Maps URL.' };
+  if (parsed.isShortUrl) {
+    return { place: null, error: 'Short links are not supported. Please open Google Maps in a browser and copy the URL from the address bar.' };
+  }
+
+  if (parsed.lat !== undefined && parsed.lng !== undefined) {
+    try {
+      const reverseUrl = `https://nominatim.openstreetmap.org/reverse?lat=${parsed.lat}&lon=${parsed.lng}&format=json&addressdetails=1`;
+      const response = await fetch(reverseUrl, { headers: { 'Accept-Language': 'en' } });
+      if (response.ok) {
+        const data = await response.json();
+        const name = parsed.title || data.name || data.display_name?.split(',')[0] || 'Unknown Place';
+        const wikiData = await fetchWikipediaData(name);
+        return {
+          place: {
+            id: `osm-place-${data.osm_id || Math.random().toString(36).substr(2, 9)}`,
+            title: name,
+            description: wikiData.description || (data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1).replace(/_/g, ' ') : 'Point of Interest'),
+            openingHours: data.extratags?.opening_hours || undefined,
+            photoUrl: wikiData.photoUrl || undefined,
+            lat: parsed.lat,
+            lng: parsed.lng,
+            mapsLink: mapsUrl,
+            notes: undefined
+          }
+        };
+      }
+    } catch (e) {
+      console.error('Reverse geocode failed:', e);
+    }
+    // Reverse geocode failed but we still have coordinates — return minimal place
+    return {
+      place: {
+        id: `maps-place-${Date.now()}`,
+        title: parsed.title || 'Unnamed Place',
+        description: '',
+        lat: parsed.lat,
+        lng: parsed.lng,
+        mapsLink: mapsUrl,
+        notes: undefined
+      }
+    };
+  }
+
+  if (parsed.title && fallbackLocation) {
+    const results = await searchPlacesNearLocation(parsed.title, fallbackLocation);
+    if (results.length > 0) {
+      return { place: { ...results[0], mapsLink: mapsUrl } };
+    }
+  }
+
+  return { place: null, error: 'Could not extract place information from this URL.' };
+}
+
 export const getCountryFlag = (countryCode?: string): string => {
   if (!countryCode || countryCode.length !== 2) return '📍';
   const codePoints = countryCode

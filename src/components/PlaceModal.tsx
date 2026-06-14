@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Search, Trash2 } from 'lucide-react';
 import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
-import { searchPlacesNearLocation, buildMapsLink } from '../utils/api';
+import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
 import { GeminiService } from '../utils/ai';
 
@@ -53,6 +53,7 @@ export default function PlaceModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const searchTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
@@ -101,13 +102,40 @@ export default function PlaceModal({
 
   // Handle auto-populate suggestions search with debounce
   useEffect(() => {
-    if (!searchQuery.trim() || searchQuery.length < 3 || !catalogLocation) {
+    setSearchError(null);
+    if (!searchQuery.trim() || searchQuery.length < 3) {
       setSuggestions([]);
       return;
     }
 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    const { isGoogleMapsUrl } = parseGoogleMapsUrl(searchQuery);
+    if (isGoogleMapsUrl) {
+      setIsSearching(true);
+      fetchPlaceFromGoogleMapsUrl(searchQuery, catalogLocation ?? undefined).then(({ place, error }) => {
+        setIsSearching(false);
+        if (error || !place) {
+          setSearchError(error ?? 'Could not extract place info from this link.');
+          return;
+        }
+        setTitle(place.title);
+        setDescription(place.description || '');
+        setOpeningHours(place.openingHours || '');
+        setLat(place.lat.toString());
+        setLng(place.lng.toString());
+        setMapsLink(place.mapsLink || searchQuery);
+        setPhotoUrl(place.photoUrl || '');
+        setNotes(place.notes || '');
+        setSearchQuery('');
+        setSuggestions([]);
+      });
+      return;
+    }
+
+    if (!catalogLocation) {
+      setSuggestions([]);
+      return;
     }
 
     searchTimeoutRef.current = setTimeout(async () => {
@@ -217,9 +245,9 @@ export default function PlaceModal({
           <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
           <div style={{ position: 'relative', marginTop: '6px' }}>
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-            <input 
-              type="text" 
-              placeholder="Search place suggestions to auto-fill..." 
+            <input
+              type="text"
+              placeholder="Type to search, or paste a Google Maps link..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{ paddingLeft: '32px' }}
@@ -228,7 +256,10 @@ export default function PlaceModal({
               <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
             )}
           </div>
-          
+          {searchError && (
+            <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{searchError}</div>
+          )}
+
           {suggestions.length > 0 && (
             <div style={{ 
               background: 'var(--bg-panel)', 

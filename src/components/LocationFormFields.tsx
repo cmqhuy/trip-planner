@@ -140,7 +140,7 @@ export default function LocationFormFields({
           type="text" 
           value={heroPhoto} 
           onChange={e => setHeroPhoto(e.target.value)} 
-          placeholder="Unsplash URL..." 
+          placeholder="Photo URL..."
         />
         <ImagePreview url={heroPhoto} alt="Hero image preview" />
       </div>

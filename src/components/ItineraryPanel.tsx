@@ -839,7 +839,7 @@ export default function ItineraryPanel({
                   <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
                   <input 
                     type="text" 
-                    placeholder="Search and add place to itinerary..." 
+                    placeholder="Type to search, or paste a Google Maps link..." 
                     value={placeQuery}
                     onChange={(e) => setPlaceQuery(e.target.value)}
                     style={{ paddingLeft: '32px' }}

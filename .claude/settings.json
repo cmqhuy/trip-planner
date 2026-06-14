@@ -3,7 +3,8 @@
     "allow": [
       "PowerShell(claude --version)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(npx *)"
     ]
   }
 }
