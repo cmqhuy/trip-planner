@@ -124,6 +124,7 @@ export interface Trip {
   locations: Location[];
   plans: Plan[];
   placeGroups: PlaceGroup[]; // Trip-level categorized lists / place groups
+  schemaVersion?: number;    // Incremented when the data model changes; used to skip no-op migrations
   updatedAt?: number;        // Timestamp of last modification
   driveFileId?: string;      // Google Drive file ID
   shadowFileId?: string;     // Google Drive file ID of the shadow file (for shared users)

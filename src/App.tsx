@@ -36,17 +36,23 @@ import { Sparkles, ArrowLeft } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
+// Bump this when a new migration step is added. Trips already at this version
+// are returned as-is, so the function is a cheap no-op once all data is current.
+const CURRENT_SCHEMA_VERSION = 1;
+
 function migrateTrips(rawTrips: any[]): Trip[] {
-  return rawTrips.map((trip: any) => ({
-    ...trip,
-    plans: (trip.plans || []).map((plan: any) => ({
+  return rawTrips.map((trip: any): Trip => {
+    if (trip.schemaVersion === CURRENT_SCHEMA_VERSION) return trip as Trip;
+
+    // v0 → v1: build scheduleItems from placeIds + scheduleNotes
+    const plans = (trip.plans || []).map((plan: any) => ({
       ...plan,
       days: Object.fromEntries(
         Object.entries(plan.days || {}).map(([dateStr, day]: [string, any]) => {
           if (day.scheduleItems?.length) return [dateStr, day];
-          const items: ScheduleItem[] = [];
           const placeIds: string[] = day.placeIds || [];
           const scheduleNotes: Record<string, string> = day.scheduleNotes || {};
+          const items: ScheduleItem[] = [];
           for (let i = 0; i <= placeIds.length; i++) {
             const noteText = scheduleNotes[String(i)];
             if (noteText) items.push({ type: 'note', id: crypto.randomUUID(), text: noteText });
@@ -56,8 +62,10 @@ function migrateTrips(rawTrips: any[]): Trip[] {
           return [dateStr, { ...rest, scheduleItems: items }];
         })
       )
-    }))
-  }));
+    }));
+
+    return { ...trip, plans, schemaVersion: CURRENT_SCHEMA_VERSION };
+  });
 }
 
 function tripsAreEqual(a: Trip, b: Trip): boolean {
