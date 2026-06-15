@@ -82,7 +82,7 @@ export default function AiDetailsView({
       </div>
 
       {hasAiDetails && place.aiUpdatedAt && !isGenerating && (
-        <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '8px', textTransform: 'none' }}>
+        <div className="ai-freshness-timestamp">
           Updated: {formatFreshness(place.aiUpdatedAt)}
         </div>
       )}
@@ -111,8 +111,8 @@ export default function AiDetailsView({
           })}
         </div>
       ) : (
-        <div style={{ padding: '12px 6px', textAlign: 'center', textTransform: 'none' }}>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+        <div className="ai-empty-state">
+          <p className="ai-empty-state-text">
             No AI travel insights generated for this place yet.
           </p>
           {canEdit && onGenerate && (

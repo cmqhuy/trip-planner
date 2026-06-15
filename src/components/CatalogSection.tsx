@@ -141,42 +141,39 @@ function CatalogSection({
   return (
     <div className="accordion-content">
       {/* Back to dashboard and select location inside catalog */}
-      <div className="panel-header" style={{ padding: '0 0 12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+      <div className="panel-header panel-header--catalog">
+        <div className="catalog-header-row">
           <LocationSelect
             value={selectedCatalogLocId}
             onChange={setSelectedCatalogLocId}
             locations={trip.locations}
             style={{ flex: 1, minWidth: 0 }}
           />
-          
+
           {catalogLocation && trip.canEdit !== false && (
             <button
-              className="mini-icon-btn"
+              className="mini-icon-btn catalog-ai-suggest-btn"
               onClick={onAiSuggestPlaces}
               disabled={isLoadingAiSuggestions}
               data-tooltip={`AI Travel Guide for ${catalogLocation.city}`}
               data-tooltip-position="bottom"
-              style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#a78bfa' }}
             >
               {isLoadingAiSuggestions ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
             </button>
           )}
           {catalogLocation && trip.canEdit !== false && (
             <button
-              className="mini-icon-btn"
+              className="mini-icon-btn catalog-header-icon-btn"
               onClick={onEditLocation}
               data-tooltip="Edit Location Settings"
               data-tooltip-position="bottom"
-              style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
             >
               <Edit2 size={12} />
             </button>
           )}
           {trip.canEdit !== false && (
             <button
-              className="btn-primary flex-align add-location-btn"
-              style={{ padding: '6px', fontSize: '11px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+              className="btn-primary flex-align add-location-btn catalog-header-icon-btn"
               onClick={onAddLocation}
               data-tooltip="Add Location"
               data-tooltip-position="bottom"
@@ -188,12 +185,12 @@ function CatalogSection({
       </div>
 
       {catalogLocation ? (
-        <div className="catalog-content" style={{ padding: 0 }}>
+        <div className="catalog-content catalog-content--no-padding">
           {/* Catalog Group Management */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Groups</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none', gap: '4px' }}>
+          <div className="catalog-groups-header">
+            <span className="catalog-groups-label">Groups</span>
+            <div className="catalog-groups-right">
+              <label className="flex-align catalog-hide-allocated-label">
                 <input
                   type="checkbox"
                   checked={hideAllocatedPlaces}
@@ -203,12 +200,11 @@ function CatalogSection({
                 Hide Allocated
               </label>
               {trip.canEdit !== false && (
-                <button 
-                  className="mini-icon-btn" 
-                  onClick={() => setShowGroupModal(true)} 
+                <button
+                  className="mini-icon-btn catalog-add-group-btn"
+                  onClick={() => setShowGroupModal(true)}
                   data-tooltip="Add Group"
                   data-tooltip-position="bottom"
-                  style={{ color: 'var(--accent-secondary)', padding: '2px' }}
                 >
                   <Plus size={14} />
                 </button>
@@ -240,8 +236,8 @@ function CatalogSection({
             if (placesInGroup.length === 0 && group.id === 'new') return null;
 
             return (
-              <div 
-                key={group.id} 
+              <div
+                key={group.id}
                 className="place-group-section"
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -264,29 +260,28 @@ function CatalogSection({
                 <div className="place-group-header">
                   <span className="place-group-title">
                     <span className="group-badge-dot" style={{ backgroundColor: group.color }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={group.name}>
+                    <span className="catalog-group-name" title={group.name}>
                       {group.name}
                     </span>
                   </span>
                   <div className="flex-align" style={{ gap: '4px' }}>
                     {trip.canEdit !== false && (
                       <>
-                        <button 
-                          className="mini-icon-btn" 
+                        <button
+                          className="mini-icon-btn catalog-group-action-btn catalog-group-ai-btn"
                           onClick={() => {
                             setAiGeneratePlaces(placesInGroup);
                             setAiGenerateCity(catalogLocation?.city || '');
                             setAiGenerateCountry(catalogLocation?.country || '');
                             setShowAiGenerateModal(true);
-                          }} 
-                          data-tooltip={`AI Travel Guide for ${group.name}`} 
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0, color: '#a5b4fc' }}
+                          }}
+                          data-tooltip={`AI Travel Guide for ${group.name}`}
                         >
                           <Sparkles size={14} />
                         </button>
-                        
-                        <button 
-                          className="mini-icon-btn" 
+
+                        <button
+                          className="mini-icon-btn catalog-group-action-btn"
                           onClick={() => {
                             setEditingPlace({
                               id: `new-temp-${Date.now()}`,
@@ -302,38 +297,28 @@ function CatalogSection({
                             });
                             setAutoScheduleOnActiveDay(false);
                             setShowCustomPlaceModal(true);
-                          }} 
-                          data-tooltip={`Add Place to ${group.name}`} 
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0 }}
+                          }}
+                          data-tooltip={`Add Place to ${group.name}`}
                         >
                           <Plus size={14} />
                         </button>
                       </>
                     )}
                     {group.isReorderable && trip.canEdit !== false && (
-                      <div className="group-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
-                        <button 
-                          className="mini-icon-btn"
+                      <div className="group-dropdown-container">
+                        <button
+                          className="mini-icon-btn catalog-group-action-btn"
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveGroupDropdownId(activeGroupDropdownId === group.id ? null : group.id);
                           }}
                           data-tooltip="Group Options"
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            width: '24px', 
-                            height: '24px', 
-                            padding: 0,
-                            cursor: 'pointer'
-                          }}
                         >
                           <MoreVertical size={14} />
                         </button>
                         {activeGroupDropdownId === group.id && (
-                          <div className="dropdown-menu" style={{ right: 0, left: 'auto' }}>
-                            <button 
+                          <div className="dropdown-menu">
+                            <button
                               className="dropdown-item"
                               disabled={group.isFirst}
                               onClick={(e) => {
@@ -344,7 +329,7 @@ function CatalogSection({
                             >
                               <ChevronUp size={12} /> Move Up
                             </button>
-                            <button 
+                            <button
                               className="dropdown-item"
                               disabled={group.isLast}
                               onClick={(e) => {
@@ -355,7 +340,7 @@ function CatalogSection({
                             >
                               <ChevronDown size={12} /> Move Down
                             </button>
-                            <button 
+                            <button
                               className="dropdown-item"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -369,19 +354,18 @@ function CatalogSection({
                         )}
                       </div>
                     )}
-                    <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
+                    <span className="badge badge--count">
                       {filteredPlaces.length}
                     </span>
                   </div>
                 </div>
 
-                <div 
-                  className="catalog-places-list" 
+                <div
+                  className="catalog-places-list catalog-places-list--mh"
                   onDragLeave={() => setDragOverPlaceId(null)}
-                  style={{ minHeight: '30px' }}
                 >
                   {filteredPlaces.map((place, placeIndexInGroup) => (
-                    <div key={place.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                    <div key={place.id} className="catalog-place-wrapper">
                       {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
                         <div style={{
                           position: 'absolute',
@@ -397,7 +381,7 @@ function CatalogSection({
                           pointerEvents: 'none'
                         }} />
                       )}
-                      <div 
+                      <div
                         className={`catalog-place-card ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                         draggable={trip.canEdit !== false}
                         onDragStart={() => handlePlaceDragStart(place.id)}
@@ -412,7 +396,7 @@ function CatalogSection({
                           const rect = e.currentTarget.getBoundingClientRect();
                           const relativeY = e.clientY - rect.top;
                           const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
-                          
+
                           if (dragOverPlaceId !== place.id || dragOverPlacePosition !== position) {
                             setDragOverPlaceId(place.id);
                             setDragOverPlacePosition(position);
@@ -424,7 +408,7 @@ function CatalogSection({
                           setDragOverPlaceId(null);
                         }}
                         onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
-                        style={{ 
+                        style={{
                           borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
                           cursor: 'grab'
                         }}
@@ -432,32 +416,32 @@ function CatalogSection({
                         <div className="place-card-header">
                           {place.photoUrl ? (
                             <div className="place-card-thumb-container">
-                              <img 
-                                src={getOptimizedImageUrl(place.photoUrl, 120)} 
-                                alt="" 
+                              <img
+                                src={getOptimizedImageUrl(place.photoUrl, 120)}
+                                alt=""
                                 loading="lazy"
                                 decoding="async"
                               />
                             </div>
                           ) : (
                             <div className="place-card-thumb-container">
-                              <MapPin size={16} style={{ color: 'var(--text-muted)' }} />
+                              <MapPin size={16} className="text-muted" />
                             </div>
                           )}
-                          <div className="place-card-info" style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '6px' }}>
-                              <h4 className="place-card-title" style={{ margin: 0, flex: 1, minWidth: 0 }}>{place.title}</h4>
+                          <div className="place-card-info">
+                            <div className="catalog-place-info-header">
+                              <h4 className="place-card-title place-card-title--no-margin">{place.title}</h4>
                               {(() => {
                                 const allocatedDays = placeAllocatedDaysMap.get(place.id) || [];
                                 if (allocatedDays.length === 0) return null;
                                 return (
-                                  <div style={{ display: 'flex', gap: '3px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '120px' }}>
+                                  <div className="catalog-allocated-days">
                                     {allocatedDays.map(dateStr => {
                                       const isActiveDay = dateStr === activeDayStr;
                                       const formatted = getCachedFormattedDisplayDate(dateStr);
                                       return (
-                                        <span 
-                                          key={dateStr} 
+                                        <span
+                                          key={dateStr}
                                           style={{
                                             fontSize: '9px',
                                             fontWeight: 600,
@@ -479,19 +463,19 @@ function CatalogSection({
                               })()}
                             </div>
                             {place.openingHours && (
-                              <div className="place-card-hours" style={{ marginTop: '2px' }}>
+                              <div className="place-card-hours">
                                 <Clock size={10} /> {place.openingHours}
                               </div>
                             )}
                           </div>
                           {trip.canEdit !== false && (
-                            <div 
+                            <div
                               className="place-card-move-buttons catalog-place-actions-desktop"
                               onClick={e => e.stopPropagation()}
                             >
-                              <button 
-                                className="mini-icon-btn" 
-                                disabled={placeIndexInGroup === 0} 
+                              <button
+                                className="mini-icon-btn"
+                                disabled={placeIndexInGroup === 0}
                                 onClick={() => handleMoveCatalogPlace(place.id, 'up')}
                                 style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1 }}
                                 data-tooltip="Move Up"
@@ -500,9 +484,9 @@ function CatalogSection({
                               >
                                 <ChevronUp size={12} />
                               </button>
-                              <button 
-                                className="mini-icon-btn" 
-                                disabled={placeIndexInGroup === filteredPlaces.length - 1} 
+                              <button
+                                className="mini-icon-btn"
+                                disabled={placeIndexInGroup === filteredPlaces.length - 1}
                                 onClick={() => handleMoveCatalogPlace(place.id, 'down')}
                                 style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1 }}
                                 data-tooltip="Move Down"
@@ -515,26 +499,24 @@ function CatalogSection({
                           )}
                         </div>
                         {trip.canEdit !== false && (
-                          <div 
-                            className="catalog-place-dropdown-container-mobile"
-                            style={{ position: 'absolute', top: '0', right: '0' }}
+                          <div
+                            className="catalog-place-dropdown-container-mobile catalog-mobile-dropdown"
                             onClick={e => e.stopPropagation()}
                           >
-                            <button 
-                              className="mini-icon-btn"
+                            <button
+                              className="mini-icon-btn catalog-mobile-trigger-btn"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActivePlaceDropdownId(activePlaceDropdownId === place.id ? null : place.id);
                               }}
                               data-tooltip="Place Options"
-                              style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                             >
                               <MoreVertical size={14} />
                             </button>
                             {activePlaceDropdownId === place.id && (
-                              <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
-                                <button 
-                                  className="dropdown-item" 
+                              <div className="dropdown-menu">
+                                <button
+                                  className="dropdown-item"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onAddPlaceToDay(place);
@@ -543,8 +525,8 @@ function CatalogSection({
                                 >
                                   <Plus size={12} /> Add to Day
                                 </button>
-                                <button 
-                                  className="dropdown-item" 
+                                <button
+                                  className="dropdown-item"
                                   disabled={placeIndexInGroup === 0}
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -555,8 +537,8 @@ function CatalogSection({
                                 >
                                   <ChevronUp size={12} /> Move Up
                                 </button>
-                                <button 
-                                  className="dropdown-item" 
+                                <button
+                                  className="dropdown-item"
                                   disabled={placeIndexInGroup === filteredPlaces.length - 1}
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -567,8 +549,8 @@ function CatalogSection({
                                 >
                                   <ChevronDown size={12} /> Move Down
                                 </button>
-                                <button 
-                                  className="dropdown-item" 
+                                <button
+                                  className="dropdown-item"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onOpenEditPlace(place);
@@ -584,18 +566,17 @@ function CatalogSection({
 
                         {/* Expand Details if selected */}
                         {activePlaceId === place.id && (
-                          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }} onClick={e => e.stopPropagation()}>
-                            {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
-                            
+                          <div className="catalog-place-expanded" onClick={e => e.stopPropagation()}>
+                            {place.description && <p className="catalog-place-desc">{place.description}</p>}
+
                             {/* Notes Field (Shared at Trip level) */}
-                            <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(99,102,241,0.04)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 4px 4px 0' }}>
-                              <label style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                            <div className="catalog-notes-box">
+                              <label className="catalog-notes-label">
                                 <FileText size={11} /> Notes
                                 {trip.canEdit !== false && editingPlaceNotesId !== place.id && (
                                   <button
-                                    className="mini-icon-btn"
+                                    className="mini-icon-btn catalog-notes-edit-btn"
                                     onClick={() => startEditingNotes(place)}
-                                    style={{ marginLeft: 'auto', padding: '4px' }}
                                     data-tooltip="Edit Note"
                                     aria-label="Edit Note"
                                   >
@@ -605,34 +586,24 @@ function CatalogSection({
                               </label>
 
                               {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                <div className="catalog-notes-edit-container">
                                   <textarea
                                     value={tempNotes}
                                     onChange={(e) => setTempNotes(e.target.value)}
                                     placeholder="Add notes..."
                                     rows={3}
-                                    style={{
-                                      padding: '6px',
-                                      fontSize: '12.5px',
-                                      width: '100%',
-                                      background: 'var(--bg-dark)',
-                                      border: '1px solid var(--border-glass)',
-                                      color: 'var(--text-primary)',
-                                      borderRadius: '4px'
-                                    }}
+                                    className="catalog-notes-textarea"
                                   />
-                                  <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
-                                    <button 
-                                      className="btn-secondary" 
-                                      onClick={() => setEditingPlaceNotesId(null)} 
-                                      style={{ padding: '4px 8px', fontSize: '11px' }}
+                                  <div className="catalog-notes-actions">
+                                    <button
+                                      className="btn-secondary catalog-place-action-btn"
+                                      onClick={() => setEditingPlaceNotesId(null)}
                                     >
                                       Cancel
                                     </button>
-                                    <button 
-                                      className="btn-primary flex-align" 
-                                      onClick={() => savePlaceNotes(place.id)} 
-                                      style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
+                                    <button
+                                      className="btn-primary flex-align catalog-place-action-btn"
+                                      onClick={() => savePlaceNotes(place.id)}
                                     >
                                       <Check size={12} /> Save Notes
                                     </button>
@@ -653,32 +624,29 @@ function CatalogSection({
                             </div>
 
                             {/* Actions */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', marginBottom: '8px' }}>
-                              <a 
-                                href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)} 
-                                target="_blank" 
+                            <div className="catalog-place-actions-row">
+                              <a
+                                href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)}
+                                target="_blank"
                                 rel="noopener noreferrer"
-                                className="btn-secondary flex-align"
-                                style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                className="btn-secondary flex-align catalog-place-link-btn"
                               >
                                 Map <ExternalLink size={10} />
                               </a>
                               {trip.canEdit !== false && (
-                                <div className="catalog-place-actions-desktop" style={{ display: 'flex', gap: '4px' }}>
-                                  <button 
-                                    className="btn-secondary flex-align"
+                                <div className="catalog-place-actions-desktop catalog-place-actions-desktop--gap">
+                                  <button
+                                    className="btn-secondary flex-align catalog-place-link-btn"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       onOpenEditPlace(place);
                                     }}
-                                    style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', borderRadius: '8px', whiteSpace: 'nowrap' }}
                                     data-tooltip="Edit Place Details"
                                   >
                                     <Edit2 size={12} /> Edit
                                   </button>
-                                  <button 
-                                    className="btn-primary" 
-                                    style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                                  <button
+                                    className="btn-primary catalog-place-link-btn"
                                     onClick={() => {
                                       onAddPlaceToDay(place);
                                     }}
@@ -699,36 +667,35 @@ function CatalogSection({
           })}
           {/* AI Suggestions Group */}
           {aiSuggestionsError && aiSuggestionsLocId === selectedCatalogLocId && (
-            <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '12px', color: '#f87171', marginTop: '4px' }}>
+            <div className="catalog-ai-error-panel">
               {aiSuggestionsError}
             </div>
           )}
           {(isLoadingAiSuggestions || aiSuggestedPlaces.length > 0) && aiSuggestionsLocId === selectedCatalogLocId && (
-            <div ref={aiSuggestionsRef} className="place-group-section" style={{ borderTop: '1px dashed rgba(167,139,250,0.25)', marginTop: '8px', paddingTop: '8px' }}>
+            <div ref={aiSuggestionsRef} className="place-group-section catalog-ai-suggestions-group">
               <div className="place-group-header">
                 <span className="place-group-title">
                   <Sparkles size={12} style={{ color: '#a78bfa', flexShrink: 0 }} />
-                  <span style={{ color: '#c4b5fd' }}>AI Suggestions</span>
+                  <span className="catalog-ai-suggestions-label">AI Suggestions</span>
                 </span>
                 <div className="flex-align" style={{ gap: '4px' }}>
                   <button
-                    className="mini-icon-btn"
+                    className="mini-icon-btn catalog-ai-refresh-btn"
                     onClick={onAiSuggestPlaces}
                     disabled={isLoadingAiSuggestions}
                     data-tooltip="Refresh AI Suggestions"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0, color: '#a78bfa' }}
                   >
                     <RefreshCw size={13} className={isLoadingAiSuggestions ? 'spin' : ''} />
                   </button>
-                  <span className="badge" style={{ background: 'rgba(167,139,250,0.12)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
+                  <span className="badge badge--ai-count">
                     {aiSuggestedPlaces.length}
                   </span>
                 </div>
               </div>
 
               {isLoadingAiSuggestions && aiSuggestedPlaces.length === 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 4px', color: '#a78bfa', fontSize: '12px', textTransform: 'none' }}>
-                  <RefreshCw size={13} className="spin" style={{ flexShrink: 0 }} />
+                <div className="catalog-ai-loading-row">
+                  <RefreshCw size={13} className="spin flex-shrink-0" />
                   Asking Gemini for place suggestions...
                 </div>
               )}
@@ -736,12 +703,10 @@ function CatalogSection({
                 {aiSuggestedPlaces.map(place => (
                   <div key={place.id}>
                     <div
-                      className={`catalog-place-card ${activePlaceId === place.id ? 'details-expanded' : ''}`}
+                      className={`catalog-place-card catalog-ai-card ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                       onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
                       style={{
                         borderColor: activePlaceId === place.id ? '#a78bfa' : 'rgba(167,139,250,0.15)',
-                        background: 'rgba(167,139,250,0.04)',
-                        cursor: 'pointer'
                       }}
                     >
                       <div className="place-card-header">
@@ -754,10 +719,10 @@ function CatalogSection({
                             <Sparkles size={14} style={{ color: '#a78bfa' }} />
                           </div>
                         )}
-                        <div className="place-card-info" style={{ minWidth: 0, flex: 1 }}>
-                          <h4 className="place-card-title" style={{ margin: 0 }}>{place.title}</h4>
+                        <div className="place-card-info">
+                          <h4 className="place-card-title place-card-title--no-margin">{place.title}</h4>
                           {place.openingHours && (
-                            <div className="place-card-hours" style={{ marginTop: '2px' }}>
+                            <div className="place-card-hours">
                               <Clock size={10} /> {place.openingHours}
                             </div>
                           )}
@@ -766,22 +731,21 @@ function CatalogSection({
 
                       {/* Expanded details */}
                       {activePlaceId === place.id && (
-                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(167,139,250,0.12)', fontSize: '13px' }} onClick={e => e.stopPropagation()}>
+                        <div className="catalog-ai-expanded" onClick={e => e.stopPropagation()}>
                           {place.description && (
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>
+                            <p className="catalog-place-desc">{place.description}</p>
                           )}
                           {place.notes && (
-                            <div style={{ margin: '8px 0', padding: '6px 8px', background: 'rgba(167,139,250,0.06)', borderLeft: '2px solid #a78bfa', borderRadius: '0 4px 4px 0', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.4, fontStyle: 'italic', textTransform: 'none' }}>
+                            <div className="catalog-ai-notes-box">
                               {place.notes}
                             </div>
                           )}
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
+                          <div className="catalog-place-actions-row">
                             <a
                               href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, catalogLocation?.city)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="btn-secondary flex-align"
-                              style={{ padding: '4px 8px', fontSize: '11px', gap: '4px', textDecoration: 'none', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                              className="btn-secondary flex-align catalog-place-link-btn"
                             >
                               Map <ExternalLink size={10} />
                             </a>
@@ -796,7 +760,7 @@ function CatalogSection({
           )}
         </div>
       ) : (
-        <div style={{ padding: '40px 20px', textTransform: 'none', color: 'var(--text-muted)', textAlign: 'center', fontSize: '14px' }}>
+        <div className="catalog-empty-state">
           Add locations above to start building your Catalog.
         </div>
       )}

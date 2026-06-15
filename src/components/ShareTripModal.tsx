@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Share2, Users, Trash2, X, Plus, AlertCircle, Shield, User, Loader2 } from 'lucide-react';
 import type { Trip } from '../types';
-import { 
-  listTripFilePermissions, 
-  shareTripFile, 
+import {
+  listTripFilePermissions,
+  shareTripFile,
   removeTripFilePermission,
   updateTripFilePermission
 } from '../utils/googleDrive';
@@ -121,42 +121,30 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
   const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={onClose}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '540px', padding: '24px', position: 'relative' }} onClick={e => e.stopPropagation()}>
-        
+    <div className="modal-overlay modal-overlay--1100" onClick={onClose}>
+      <div className="modal-content glass-panel modal-content--share" onClick={e => e.stopPropagation()}>
+
         {/* Header */}
-        <div className="modal-header" style={{ marginBottom: '16px' }}>
+        <div className="modal-header modal-header--mb16">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px', fontWeight: 600 }}>
-            <Share2 size={20} style={{ color: 'var(--accent-primary)' }} />
+            <Share2 size={20} className="text-accent" />
             Share Itinerary
           </h3>
-          <button className="modal-close" onClick={onClose} style={{ padding: '4px' }}>
+          <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
 
         {/* Trip Title Subheading */}
-        <div style={{ textTransform: 'none', marginBottom: '20px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ITINERARY FILE</span>
-          <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>{trip.name}</h4>
+        <div className="share-itinerary-label">
+          <span className="share-file-type-label">ITINERARY FILE</span>
+          <h4 className="share-trip-name-h4">{trip.name}</h4>
         </div>
 
         {/* Error Notification */}
         {errorMsg && (
-          <div style={{ 
-            display: 'flex', 
-            gap: '8px', 
-            padding: '10px 12px', 
-            borderRadius: '6px', 
-            background: 'rgba(239, 68, 68, 0.08)', 
-            border: '1px solid rgba(239, 68, 68, 0.2)', 
-            color: '#f87171', 
-            fontSize: '12.5px', 
-            marginBottom: '16px',
-            alignItems: 'center',
-            textTransform: 'none'
-          }}>
-            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+          <div className="share-error-panel">
+            <AlertCircle size={16} className="flex-shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -170,39 +158,21 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
             onChange={e => setEmailInput(e.target.value)}
             required
             disabled={loading}
-            style={{ 
-              flex: 1, 
-              padding: '8px 12px', 
-              fontSize: '13px', 
-              background: 'var(--bg-dark)', 
-              border: '1px solid var(--border-glass)',
-              color: 'var(--text-primary)',
-              borderRadius: '6px',
-              textTransform: 'none'
-            }}
+            className="share-email-input"
           />
           <select
             value={roleInput}
             onChange={e => setRoleInput(e.target.value as 'reader' | 'writer')}
             disabled={loading}
-            style={{ 
-              width: '100px', 
-              padding: '8px 24px 8px 10px', 
-              fontSize: '13px', 
-              background: 'var(--bg-dark)', 
-              border: '1px solid var(--border-glass)',
-              color: 'var(--text-primary)',
-              borderRadius: '6px'
-            }}
+            className="share-role-select"
           >
             <option value="reader">Viewer</option>
             <option value="writer">Editor</option>
           </select>
-          <button 
-            type="submit" 
-            className="btn-primary flex-align" 
+          <button
+            type="submit"
+            className="btn-primary flex-align share-submit-btn"
             disabled={loading || !emailInput.trim()}
-            style={{ padding: '0 12px', height: '36px', gap: '6px', fontSize: '13px', borderRadius: '6px' }}
           >
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             Share
@@ -211,57 +181,32 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
 
         {/* File Name Section */}
         {fileId && (
-          <div style={{ 
-            marginBottom: '24px', 
-            padding: '12px 14px', 
-            borderRadius: '8px', 
-            border: '1px solid var(--border-glass)',
-            background: 'rgba(255, 255, 255, 0.02)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-              <Share2 size={13} style={{ color: 'var(--text-muted)' }} />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>File Name</span>
+          <div className="share-filename-box">
+            <div className="share-filename-header">
+              <Share2 size={13} className="text-muted" />
+              <span className="share-section-label">File Name</span>
             </div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+            <div className="share-filename-row">
               <input
                 type="text"
                 readOnly
                 value={filename}
                 onClick={e => (e.target as HTMLInputElement).select()}
-                style={{ 
-                  flex: 1, 
-                  padding: '6px 10px', 
-                  fontSize: '12px', 
-                  background: 'var(--bg-dark)', 
-                  border: '1px solid var(--border-glass)',
-                  color: 'var(--text-secondary)',
-                  borderRadius: '4px',
-                  fontFamily: 'monospace',
-                  textTransform: 'none'
-                }}
+                className="share-filename-input"
               />
-              <button 
-                type="button" 
-                className="btn-secondary"
+              <button
+                type="button"
+                className="btn-secondary share-copy-btn"
                 onClick={() => {
                   navigator.clipboard.writeText(filename);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
-                style={{ 
-                  padding: '0 12px', 
-                  fontSize: '12px', 
-                  height: '30px', 
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
               >
                 {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
-            <p style={{ fontSize: '11.5px', color: 'var(--text-secondary)', margin: 0, textTransform: 'none', lineHeight: 1.4 }}>
+            <p className="share-filename-hint">
               Share this file name with other users so they can import the trip.
             </p>
           </div>
@@ -269,48 +214,20 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
 
         {/* Success Overlay Popup */}
         {successData && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'var(--bg-panel)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            borderRadius: '16px',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10,
-            animation: 'fadeIn 0.2s ease-out'
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px', width: '100%' }}>
-              <div style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                background: 'rgba(16, 185, 129, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--color-success)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                boxShadow: '0 0 15px rgba(16, 185, 129, 0.2)'
-              }}>
+          <div className="share-success-overlay">
+            <div className="share-success-body">
+              <div className="share-success-icon">
                 <Share2 size={24} />
               </div>
-              
+
               <div>
-                <h4 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                <h4 className="share-success-title">
                   Trip Shared Successfully!
                 </h4>
-                <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px 0', textTransform: 'none' }}>
-                  You have shared the trip with <strong style={{ color: 'var(--text-primary)' }}>{successData.email}</strong> as {successData.role === 'writer' ? 'an Editor' : 'a Viewer'}.
+                <p className="share-success-desc">
+                  You have shared the trip with <strong className="text-primary">{successData.email}</strong> as {successData.role === 'writer' ? 'an Editor' : 'a Viewer'}.
                   <br />
-                  <span style={{ display: 'block', marginTop: '8px', color: 'var(--color-warning)', fontWeight: 500 }}>
+                  <span className="share-warning-span">
                     ⚠️ Action Required:
                   </span>
                   Please copy the file name below, send it to them, and ask them to import the trip in their app.
@@ -318,48 +235,22 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
               </div>
 
               {/* Copy Filename Box */}
-              <div style={{ 
-                width: '100%',
-                padding: '12px 14px', 
-                borderRadius: '8px', 
-                border: '1px solid var(--border-glass)',
-                background: 'rgba(255, 255, 255, 0.02)',
-                textAlign: 'left'
-              }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="share-filename-box-in-success">
+                <div className="share-filename-row">
                   <input
                     type="text"
                     readOnly
                     value={filename}
                     onClick={e => (e.target as HTMLInputElement).select()}
-                    style={{ 
-                      flex: 1, 
-                      padding: '6px 10px', 
-                      fontSize: '12px', 
-                      background: 'var(--bg-dark)', 
-                      border: '1px solid var(--border-glass)',
-                      color: 'var(--text-secondary)',
-                      borderRadius: '4px',
-                      fontFamily: 'monospace',
-                      textTransform: 'none'
-                    }}
+                    className="share-filename-input"
                   />
-                  <button 
-                    type="button" 
-                    className="btn-secondary"
+                  <button
+                    type="button"
+                    className="btn-secondary share-copy-btn"
                     onClick={() => {
                       navigator.clipboard.writeText(filename);
                       setSuccessCopied(true);
                       setTimeout(() => setSuccessCopied(false), 2000);
-                    }}
-                    style={{ 
-                      padding: '0 12px', 
-                      fontSize: '12px', 
-                      height: '30px', 
-                      borderRadius: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
                     }}
                   >
                     {successCopied ? 'Copied!' : 'Copy'}
@@ -367,11 +258,10 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
                 </div>
               </div>
 
-              <button 
-                type="button" 
-                className="btn-primary" 
+              <button
+                type="button"
+                className="btn-primary share-got-it-btn"
                 onClick={() => setSuccessData(null)}
-                style={{ marginTop: '16px', padding: '8px 24px', fontSize: '13px' }}
               >
                 Got it
               </button>
@@ -380,16 +270,16 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
         )}
 
         {/* Collaborators List Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-          <Users size={14} style={{ color: 'var(--text-muted)' }} />
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>People with Access</span>
+        <div className="share-collab-header">
+          <Users size={14} className="text-muted" />
+          <span className="share-section-label">People with Access</span>
         </div>
 
         {/* Collaborators List */}
-        <div style={{ maxHeight: '200px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="share-collab-list">
           {permissions.length === 0 && loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />
+            <div className="share-loading-wrapper">
+              <Loader2 size={20} className="animate-spin text-accent" />
             </div>
           ) : (
             permissions.map(perm => {
@@ -397,45 +287,36 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
               const isLoading = actionLoadingId === perm.id;
 
               return (
-                <div 
-                  key={perm.id} 
-                  className="glass-panel" 
-                  style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    padding: '10px 14px', 
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-glass)',
-                    background: 'rgba(255,255,255,0.01)'
-                  }}
+                <div
+                  key={perm.id}
+                  className="glass-panel share-collab-card"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                    <div style={{ 
-                      width: '28px', 
-                      height: '28px', 
-                      borderRadius: '50%', 
-                      background: isOwner ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.05)', 
-                      display: 'flex', 
-                      alignItems: 'center', 
+                  <div className="share-collab-info">
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      background: isOwner ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.05)',
+                      display: 'flex',
+                      alignItems: 'center',
                       justifyContent: 'center',
                       color: isOwner ? 'var(--accent-primary)' : 'var(--text-secondary)'
                     }}>
                       {isOwner ? <Shield size={14} /> : <User size={14} />}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div className="min-w-0">
+                      <div className="share-collab-name">
                         {perm.displayName || (isOwner ? 'Owner' : 'Collaborator')}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className="share-collab-email">
                         {perm.emailAddress}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="share-collab-actions">
                     {isOwner ? (
-                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', padding: '4px 8px', fontStyle: 'italic' }}>
+                      <span className="share-owner-label">
                         Owner
                       </span>
                     ) : (
@@ -444,15 +325,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
                           value={perm.role === 'writer' ? 'writer' : 'reader'}
                           onChange={e => handleRoleChange(perm.id, e.target.value as 'reader' | 'writer')}
                           disabled={isLoading}
-                          style={{
-                            padding: '4px 18px 4px 6px',
-                            fontSize: '11.5px',
-                            background: 'transparent',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '4px',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer'
-                          }}
+                          className="share-role-change-select"
                         >
                           <option value="reader">Viewer</option>
                           <option value="writer">Editor</option>
@@ -479,7 +352,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
             })
           )}
         </div>
-        
+
       </div>
     </div>
   );

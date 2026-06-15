@@ -37,36 +37,35 @@ export default function GoogleAuthSection({
     switch (syncStatus) {
       case 'syncing':
         return (
-          <span className="badge flex-align" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', gap: '4px' }}>
+          <span className="badge flex-align sync-badge-syncing">
             <RefreshCw size={10} className="spin" /> Syncing...
           </span>
         );
       case 'pending':
         return (
           <span
-            className="badge flex-align"
-            style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', gap: '4px' }}
+            className="badge flex-align sync-badge-pending"
             data-tooltip="Changes saved locally. Uploading to Google Drive in 30 seconds..."
             data-tooltip-position="bottom"
           >
-            <Cloud size={10} style={{ opacity: 0.7 }} /> Changes Pending
+            <Cloud size={10} className="icon-opacity-70" /> Changes Pending
           </span>
         );
       case 'synced':
         return (
-          <span className="badge flex-align" style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', gap: '4px' }}>
+          <span className="badge flex-align sync-badge-synced">
             <Cloud size={10} /> Saved to Drive
           </span>
         );
       case 'error':
         return (
-          <span className="badge flex-align" style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', gap: '4px' }}>
+          <span className="badge flex-align sync-badge-error">
             <AlertCircle size={10} /> Sync Error
           </span>
         );
       default:
         return (
-          <span className="badge flex-align" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', gap: '4px' }}>
+          <span className="badge flex-align sync-badge-idle">
             <Cloud size={10} /> Connected
           </span>
         );
@@ -77,40 +76,35 @@ export default function GoogleAuthSection({
 
   return (
     <>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} ref={dropdownRef}>
+    <div className="google-auth-wrapper" ref={dropdownRef}>
       {user ? (
         // Signed-in UI
-        <div 
-          className="google-auth-container glass-panel" 
-        >
+        <div className="google-auth-container glass-panel">
           {/* Desktop avatar - visible on desktop, hidden on mobile */}
           {user.picture ? (
-            <img 
-              src={user.picture} 
-              alt={user.name} 
-              className="google-auth-avatar-desktop"
-              style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)' }} 
+            <img
+              src={user.picture}
+              alt={user.name}
+              className="google-auth-avatar-desktop user-avatar-img"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div 
-              className="google-auth-avatar-desktop"
-              style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--accent-primary)', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}
+            <div
+              className="google-auth-avatar-desktop user-avatar-initial"
             >
               {user.name.charAt(0).toUpperCase()}
             </div>
           )}
 
           {/* Mobile avatar - clickable on mobile to toggle dropdown (hidden on desktop) */}
-          <div 
-            className="user-avatar-trigger google-auth-avatar-mobile"
+          <div
+            className="user-avatar-trigger google-auth-avatar-mobile user-avatar-mobile-trigger"
             onClick={() => setShowDropdown(prev => !prev)}
-            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
             {user.picture ? (
-              <img 
-                src={user.picture} 
-                alt={user.name} 
+              <img
+                src={user.picture}
+                alt={user.name}
                 className="user-avatar-img"
                 referrerPolicy="no-referrer"
               />
@@ -131,24 +125,22 @@ export default function GoogleAuthSection({
           {/* Sync status and buttons - visible on desktop, hidden on mobile */}
           <div className="google-auth-desktop-actions">
             {getSyncBadge()}
-            
-            <button 
-              className="mini-icon-btn" 
-              onClick={onManualSync} 
-              data-tooltip="Sync Now" 
+
+            <button
+              className="mini-icon-btn"
+              onClick={onManualSync}
+              data-tooltip="Sync Now"
               data-tooltip-position="bottom"
               disabled={syncStatus === 'syncing'}
-              style={{ padding: '4px', display: 'flex' }}
             >
               <RefreshCw size={12} className={syncStatus === 'syncing' ? 'spin' : ''} />
             </button>
 
-            <button 
-              className="mini-icon-btn" 
-              onClick={onSignOut} 
-              data-tooltip="Sign Out" 
+            <button
+              className="mini-icon-btn mini-icon-btn-signout"
+              onClick={onSignOut}
+              data-tooltip="Sign Out"
               data-tooltip-position="bottom"
-              style={{ padding: '4px', display: 'flex', color: 'var(--text-muted)' }}
             >
               <LogOut size={12} />
             </button>
@@ -163,29 +155,27 @@ export default function GoogleAuthSection({
               </div>
               <div className="dropdown-divider" />
               <div className="dropdown-status-row">
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Status:</span>
+                <span className="text-muted-sm">Status:</span>
                 {getSyncBadge()}
               </div>
               <div className="dropdown-actions-row">
-                <button 
-                  className="btn-secondary flex-align" 
+                <button
+                  className="btn-secondary flex-align dropdown-full-btn"
                   onClick={() => {
                     onManualSync();
                     setShowDropdown(false);
                   }}
                   disabled={syncStatus === 'syncing'}
-                  style={{ width: '100%', justifyContent: 'center', fontSize: '12px', padding: '6px 12px', gap: '6px' }}
                 >
                   <RefreshCw size={12} className={syncStatus === 'syncing' ? 'spin' : ''} />
                   Sync Now
                 </button>
-                <button 
-                  className="btn-danger flex-align" 
+                <button
+                  className="btn-danger flex-align dropdown-full-btn"
                   onClick={() => {
                     onSignOut();
                     setShowDropdown(false);
                   }}
-                  style={{ width: '100%', justifyContent: 'center', fontSize: '12px', padding: '6px 12px', gap: '6px' }}
                 >
                   <LogOut size={12} />
                   Sign Out
@@ -197,9 +187,8 @@ export default function GoogleAuthSection({
       ) : (
         // Signed-out UI
         <button
-          className="btn-secondary flex-align"
+          className="btn-secondary flex-align google-auth-signin-btn"
           onClick={() => setShowSignInInfo(true)}
-          style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '99px', gap: '6px' }}
         >
           <LogIn size={14} />
           <span className="google-signin-text-desktop">Sign In with Google</span>
@@ -208,12 +197,11 @@ export default function GoogleAuthSection({
       )}
 
       {isLocalhost && (
-        <button 
-          className="mini-icon-btn" 
+        <button
+          className="mini-icon-btn mini-icon-btn-settings"
           onClick={onOpenSettings}
           data-tooltip="Google Integration Settings"
           data-tooltip-position="bottom"
-          style={{ padding: '6px', display: 'flex', borderRadius: '50%' }}
         >
           <Settings size={14} />
         </button>
@@ -222,64 +210,48 @@ export default function GoogleAuthSection({
 
     {showSignInInfo && createPortal(
       <div
-        className="modal-overlay"
+        className="modal-overlay modal-overlay--above"
         onClick={() => setShowSignInInfo(false)}
-        style={{ zIndex: 2000 }}
       >
         <div
-          className="modal-content glass-panel"
+          className="modal-content glass-panel modal-content--signin"
           onClick={e => e.stopPropagation()}
-          style={{ maxWidth: '420px', padding: '32px' }}
         >
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-            <div style={{
-              width: '56px', height: '56px', borderRadius: '50%',
-              background: 'rgba(99, 102, 241, 0.12)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '1px solid rgba(99, 102, 241, 0.25)'
-            }}>
-              <Cloud size={24} style={{ color: 'var(--accent-primary)' }} />
+          <div className="google-signin-icon-wrapper">
+            <div className="google-auth-icon-avatar">
+              <Cloud size={24} className="text-accent" />
             </div>
           </div>
 
-          <h2 style={{ textAlign: 'center', marginBottom: '10px', fontSize: '18px', fontWeight: 600 }}>
+          <h2 className="google-signin-title">
             Sign In with Google
           </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginBottom: '22px', lineHeight: '1.6' }}>
+          <p className="google-signin-intro">
             Your trips will be stored in your personal Google Drive at{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>My Drive / apps / trip_planner</strong>.
+            <strong className="text-primary">My Drive / apps / trip_planner</strong>.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          <div className="google-signin-benefits">
             {[
               'Access your trips from any device',
               'Automatic cloud backup — never lose your plans',
               'Share trips with friends and travel companions',
             ].map(benefit => (
-              <div key={benefit} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                <CheckCircle size={15} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+              <div key={benefit} className="google-signin-benefit-row">
+                <CheckCircle size={15} className="text-success flex-shrink-0" />
                 <span>{benefit}</span>
               </div>
             ))}
           </div>
 
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            borderRadius: '8px',
-            padding: '12px 14px',
-            marginBottom: '22px',
-            display: 'flex',
-            gap: '10px',
-            alignItems: 'flex-start'
-          }}>
-            <Shield size={14} style={{ color: 'var(--text-muted)', marginTop: '1px', flexShrink: 0 }} />
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+          <div className="google-signin-privacy">
+            <Shield size={14} className="shield-icon" />
+            <p className="google-signin-privacy-text">
               This app does not store your data on any server. Everything stays in your own Google Drive folder.
             </p>
           </div>
 
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '22px' }}>
+          <p className="google-signin-drive-link">
             Files stored at:{' '}
             <a
               href={(() => {
@@ -290,27 +262,25 @@ export default function GoogleAuthSection({
               })()}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: 'var(--accent-primary)' }}
+              className="text-accent"
             >
               My Drive / apps / trip_planner
             </a>
           </p>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="google-signin-actions">
             <button
-              className="btn-secondary"
+              className="btn-secondary flex-1"
               onClick={() => setShowSignInInfo(false)}
-              style={{ flex: 1 }}
             >
               Cancel
             </button>
             <button
-              className="btn-primary flex-align"
+              className="btn-primary flex-align google-signin-btn"
               onClick={() => {
                 setShowSignInInfo(false);
                 onSignIn();
               }}
-              style={{ flex: 2, justifyContent: 'center', gap: '8px' }}
             >
               <LogIn size={15} />
               Sign In with Google

@@ -92,14 +92,13 @@ export default function AiGenerateDaysModal({
 
   return (
     <div className="modal-overlay" onClick={generating ? undefined : onClose}>
-      <div 
-        className="modal-content glass-panel" 
-        style={{ maxWidth: '480px' }} 
+      <div
+        className="modal-content glass-panel modal-content--lg"
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} style={{ color: 'var(--accent-primary)' }} />
+          <h3 className="modal-header-title">
+            <Sparkles size={18} className="text-accent" />
             AI Day Tips Generator
           </h3>
           {!generating && (
@@ -109,7 +108,7 @@ export default function AiGenerateDaysModal({
           )}
         </div>
 
-        <div className="modal-scroll-body" style={{ marginTop: '12px' }}>
+        <div className="modal-scroll-body modal-scroll-body--mt12">
           {generating ? (
             <FunGeneratingLoader
               title="Generating Travel Guide"
@@ -117,19 +116,16 @@ export default function AiGenerateDaysModal({
             />
           ) : (
             <>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>
+              <p className="modal-body-intro">
                 Select the days of your plan to generate or update AI daily tips, transit logistics, and weather reminders.
               </p>
 
               {!hasKeys && (
-                <div 
-                  className="ai-settings-test-panel error" 
-                  style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '12px', marginTop: '12px' }}
-                >
-                  <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <strong style={{ fontSize: '12px' }}>API Keys Missing</strong>
-                    <span style={{ fontSize: '11.5px', textTransform: 'none', lineHeight: 1.3 }}>
+                <div className="ai-settings-test-panel error ai-warning-panel">
+                  <AlertTriangle size={16} className="ai-warning-icon" />
+                  <div className="ai-warning-body">
+                    <strong className="ai-warning-title">API Keys Missing</strong>
+                    <span className="ai-warning-text">
                       {NO_API_KEY_TOOLTIP}
                     </span>
                   </div>
@@ -137,26 +133,24 @@ export default function AiGenerateDaysModal({
               )}
 
               {error && (
-                <div className="ai-settings-test-panel error" style={{ marginTop: '12px' }}>
-                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-                  <span style={{ textTransform: 'none', lineHeight: 1.3 }}>{error}</span>
+                <div className="ai-settings-test-panel error ai-panel-mt">
+                  <AlertTriangle size={14} className="flex-shrink-0" />
+                  <span className="ai-error-text">{error}</span>
                 </div>
               )}
 
               {/* Quick selectors */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <div className="ai-selector-row">
                 <button
                   type="button"
-                  className="btn-secondary"
-                  style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}
+                  className="btn-secondary ai-selector-btn"
                   onClick={toggleSelectAll}
                 >
                   {selectedDates.size === days.length ? 'Deselect All' : 'Select All'}
                 </button>
                 <button
                   type="button"
-                  className="btn-secondary"
-                  style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}
+                  className="btn-secondary ai-selector-btn"
                   onClick={selectUnpopulated}
                 >
                   Select Unpopulated Only
@@ -164,39 +158,39 @@ export default function AiGenerateDaysModal({
               </div>
 
               {/* Checklist */}
-              <div className="ai-generate-list" style={{ marginTop: '12px', maxHeight: '300px', overflowY: 'auto' }}>
+              <div className="ai-generate-list ai-generate-list--taller">
                 {days.map(d => {
                   const isChecked = selectedDates.has(d.dateStr);
                   return (
-                    <div 
-                      key={d.dateStr} 
+                    <div
+                      key={d.dateStr}
                       className="ai-generate-item"
                       onClick={() => handleToggleDay(d.dateStr)}
-                      style={{ cursor: 'pointer' }}
                     >
-                      <button 
-                        type="button" 
-                        style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', color: isChecked ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                      <button
+                        type="button"
+                        className="ai-checkbox-icon-btn"
+                        style={{ color: isChecked ? 'var(--accent-primary)' : 'var(--text-muted)' }}
                       >
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
-                      
-                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, marginLeft: '10px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'none' }}>
+
+                      <div className="ai-list-row-body">
+                        <span className="ai-list-item-title">
                           {d.label}
                         </span>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none', whiteSpace: 'nowrap' }}>
+                        <div className="ai-list-item-meta">
+                          <span className="ai-list-item-label">
                             {d.dateStr}
                           </span>
                           {d.tipsUpdatedAt ? (
-                            <span style={{ color: 'var(--color-success)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            <span className="ai-status-success">
                               Updated: {formatFreshness(d.tipsUpdatedAt)}
                             </span>
                           ) : d.hasTips ? (
-                            <span style={{ color: 'var(--color-success)', fontSize: '11px', whiteSpace: 'nowrap' }}>Has AI tips</span>
+                            <span className="ai-status-success">Has AI tips</span>
                           ) : (
-                            <span style={{ color: '#fbbf24', fontSize: '11px', whiteSpace: 'nowrap' }}>No tips generated yet</span>
+                            <span className="ai-status-pending">No tips generated yet</span>
                           )}
                         </div>
                       </div>
@@ -205,7 +199,7 @@ export default function AiGenerateDaysModal({
                 })}
 
                 {days.length === 0 && (
-                  <div style={{ padding: '24px', textTransform: 'none', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                  <div className="ai-modal-empty">
                     No days found in active plan.
                   </div>
                 )}
@@ -215,14 +209,13 @@ export default function AiGenerateDaysModal({
         </div>
 
         {!generating && (
-          <div className="modal-actions" style={{ marginTop: '24px' }}>
+          <div className="modal-actions modal-actions--mt24">
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button 
-              type="button" 
-              className="btn-primary flex-align" 
-              style={{ gap: '6px' }}
+            <button
+              type="button"
+              className="btn-primary flex-align modal-generate-btn"
               onClick={handleGenerate}
               disabled={selectedDates.size === 0 || !hasKeys}
             >

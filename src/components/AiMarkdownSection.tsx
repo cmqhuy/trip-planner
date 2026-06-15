@@ -29,17 +29,7 @@ function parseInlineMarkdown(text: string): React.ReactNode[] {
     }
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
-        <code 
-          key={index} 
-          style={{ 
-            background: 'rgba(255,255,255,0.08)', 
-            padding: '2px 4px', 
-            borderRadius: '4px', 
-            fontFamily: 'monospace',
-            fontSize: '90%',
-            border: '1px solid rgba(255,255,255,0.04)'
-          }}
-        >
+        <code key={index} className="ai-md-code">
           {part.slice(1, -1)}
         </code>
       );
@@ -53,7 +43,7 @@ function parseInlineMarkdown(text: string): React.ReactNode[] {
             href={match[2]}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}
+            className="ai-md-link"
             onClick={(e) => e.stopPropagation()}
           >
             {match[1]}
@@ -98,81 +88,47 @@ export default function AiMarkdownSection({
   const showHeader = (updatedAt !== undefined && updatedAt > 0) || (onSave && canEdit) || !!title;
 
   return (
-    <div className={className} style={{ textTransform: 'none', display: 'flex', flexDirection: 'column', ...style }}>
+    <div className={className} style={style}>
       {showHeader && (
-        <div 
-          style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginBottom: '8px', 
-            borderBottom: '1px solid rgba(255,255,255,0.05)', 
-            paddingBottom: '6px',
-            flexShrink: 0
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="ai-md-header">
+          <div className="ai-md-title-row">
             {title && title}
             {updatedAt !== undefined && updatedAt > 0 && (
-              <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+              <div className="text-muted-xs">
                 Updated: {formatFreshness(updatedAt)}
               </div>
             )}
           </div>
           {onSave && canEdit && (
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div className="ai-md-actions">
               {isEditing ? (
                 <>
-                  <button 
+                  <button
                     type="button"
-                    className="mini-icon-btn" 
+                    className="mini-icon-btn ai-md-save-btn"
                     onClick={() => {
                       onSave(draft);
                       setIsEditing(false);
                     }}
-                    style={{ 
-                      fontSize: '10px', 
-                      padding: '2px 8px', 
-                      background: 'rgba(16, 185, 129, 0.15)', 
-                      color: '#10b981', 
-                      borderColor: 'rgba(16, 185, 129, 0.3)',
-                      height: '20px'
-                    }}
                   >
                     Save
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    className="mini-icon-btn" 
+                    className="mini-icon-btn ai-md-cancel-btn"
                     onClick={() => {
                       setDraft(content);
                       setIsEditing(false);
-                    }}
-                    style={{ 
-                      fontSize: '10px', 
-                      padding: '2px 8px', 
-                      background: 'rgba(239, 68, 68, 0.15)', 
-                      color: '#ef4444', 
-                      borderColor: 'rgba(239, 68, 68, 0.3)',
-                      height: '20px'
                     }}
                   >
                     Cancel
                   </button>
                 </>
               ) : (
-                <button 
+                <button
                   type="button"
-                  className="mini-icon-btn flex-align ai-markdown-edit-btn" 
+                  className="mini-icon-btn flex-align ai-markdown-edit-btn"
                   onClick={() => setIsEditing(true)}
-                  style={{ 
-                    fontSize: '10px', 
-                    padding: '2px 6px', 
-                    gap: '4px',
-                    background: 'rgba(255, 255, 255, 0.05)', 
-                    color: 'var(--text-secondary)',
-                    height: '20px'
-                  }}
                 >
                   <Edit2 size={10} /> <span className="btn-text">Edit</span>
                 </button>
@@ -184,45 +140,33 @@ export default function AiMarkdownSection({
 
       {isEditing ? (
         <textarea
+          className="ai-md-textarea"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          style={{
-            width: '100%',
-            minHeight: '140px',
-            background: 'var(--bg-dark)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-glass)',
-            borderRadius: '6px',
-            padding: '8px',
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            lineHeight: 1.4,
-            flex: 1
-          }}
         />
       ) : (
-        <div style={{ flex: 1 }}>
+        <div className="ai-md-content">
           {lines.map((line, idx) => {
             const trimmed = line.trim();
-            if (!trimmed) return <div key={idx} style={{ height: '4px' }} />;
+            if (!trimmed) return <div key={idx} className="ai-md-spacer" />;
 
             if (line.startsWith('# ')) {
               return (
-                <h3 key={idx} style={{ fontSize: '14px', fontWeight: 700, margin: '12px 0 6px 0', color: 'var(--text-primary)' }}>
+                <h3 key={idx} className="ai-md-h1">
                   {parseInlineMarkdown(line.substring(2))}
                 </h3>
               );
             }
             if (line.startsWith('## ')) {
               return (
-                <h4 key={idx} style={{ fontSize: '13px', fontWeight: 600, margin: '10px 0 4px 0', color: 'var(--text-primary)' }}>
+                <h4 key={idx} className="ai-md-h2">
                   {parseInlineMarkdown(line.substring(3))}
                 </h4>
               );
             }
             if (line.startsWith('### ')) {
               return (
-                <h5 key={idx} style={{ fontSize: '12px', fontWeight: 600, margin: '8px 0 2px 0', color: 'var(--text-primary)' }}>
+                <h5 key={idx} className="ai-md-h3">
                   {parseInlineMarkdown(line.substring(4))}
                 </h5>
               );
@@ -230,19 +174,9 @@ export default function AiMarkdownSection({
             if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')) {
               const contentText = line.startsWith('- ') || line.startsWith('* ') ? line.substring(2) : line.substring(1);
               return (
-                <div 
-                  key={idx} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'flex-start', 
-                    gap: '6px', 
-                    margin: '4px 0', 
-                    paddingLeft: '6px',
-                    lineHeight: 1.4
-                  }}
-                >
-                  <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>•</span>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <div key={idx} className="ai-md-list-item">
+                  <span className="text-accent flex-shrink-0">•</span>
+                  <span className="ai-md-item-text">
                     {parseInlineMarkdown(contentText)}
                   </span>
                 </div>
@@ -250,7 +184,7 @@ export default function AiMarkdownSection({
             }
 
             return (
-              <p key={idx} style={{ margin: '4px 0', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              <p key={idx} className="ai-md-para">
                 {parseInlineMarkdown(line)}
               </p>
             );

@@ -114,16 +114,6 @@ export default function MapPicker({ lat, lng, onPick }: MapPickerProps) {
   }, [lat, lng]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: '100%',
-        height: '200px',
-        borderRadius: '8px',
-        border: '1px solid var(--border-glass)',
-        overflow: 'hidden',
-        marginTop: '4px'
-      }}
-    />
+    <div ref={containerRef} className="map-picker-container" />
   );
 }

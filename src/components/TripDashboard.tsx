@@ -18,11 +18,11 @@ interface TripDashboardProps {
   onOpenGooglePicker?: (searchQuery?: string) => Promise<string | null>;
 }
 
-export default function TripDashboard({ 
-  trips, 
-  onCreateTrip, 
-  onDeleteTrip, 
-  onSelectTrip, 
+export default function TripDashboard({
+  trips,
+  onCreateTrip,
+  onDeleteTrip,
+  onSelectTrip,
   isGoogleSignedIn = false,
   onShareTrip,
   onLeaveTrip,
@@ -177,11 +177,11 @@ export default function TripDashboard({
       <div className="dashboard-header">
         <div>
           <h2>My Trips</h2>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
+          <p className="dashboard-header-desc">
             Plan your itineraries, route options, and travel details in one place.
           </p>
         </div>
-        <div className="dashboard-header-buttons" style={{ display: 'flex', gap: '8px' }}>
+        <div className="dashboard-header-buttons">
           {isGoogleSignedIn && (
             <button className="btn-secondary flex-align" onClick={handleOpenImportModal}>
               <Users size={18} /> <span className="desktop-only">Import Shared Trip</span><span className="mobile-only">Import Trip</span>
@@ -194,22 +194,11 @@ export default function TripDashboard({
       </div>
 
       {trips.length === 0 ? (
-        <div 
-          className="glass-panel" 
-          style={{ 
-            padding: '60px 20px', 
-            textAlign: 'center', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center',
-            gap: '16px',
-            background: 'rgba(30, 41, 59, 0.2)'
-          }}
-        >
-          <Map size={48} style={{ color: 'var(--text-muted)' }} />
+        <div className="glass-panel dashboard-empty-state">
+          <Map size={48} className="text-muted" />
           <div>
-            <h3 style={{ fontSize: '20px', marginBottom: '6px' }}>No Trips Planned Yet</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+            <h3 className="dashboard-empty-title">No Trips Planned Yet</h3>
+            <p className="dashboard-empty-desc">
               Get started by creating your first trip project.
             </p>
           </div>
@@ -220,47 +209,37 @@ export default function TripDashboard({
       ) : (
         <div className="trips-grid">
           {trips.map((trip, idx) => (
-            <div 
-              key={trip.id} 
+            <div
+              key={trip.id}
               className="trip-card glass-panel"
               style={{ background: gradients[idx % gradients.length] }}
               onClick={() => onSelectTrip(trip.id)}
             >
-              <div className="trip-card-top" style={{ gap: '12px' }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <h3 className="flex-align" style={{ gap: '6px', flexWrap: 'nowrap', minWidth: 0 }}>
-                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0, flexShrink: 1 }}>{trip.name}</span>
+              <div className="trip-card-top trip-card-top--gap">
+                <div className="flex-1 min-w-0">
+                  <h3 className="flex-align trip-card-name-h3">
+                    <span className="trip-card-name-text">{trip.name}</span>
                     {isGoogleSignedIn && trip.driveFileId && (
-                      <span data-tooltip="Synced to Google Drive" style={{ display: 'inline-flex', marginLeft: '4px', flexShrink: 0 }}>
+                      <span data-tooltip="Synced to Google Drive" className="trip-card-icon-badge">
                         <Cloud size={14} style={{ color: '#34d399' }} />
                       </span>
                     )}
                     {trip.shared && (
-                      <span data-tooltip="Shared Trip" style={{ display: 'inline-flex', marginLeft: '4px', flexShrink: 0 }}>
+                      <span data-tooltip="Shared Trip" className="trip-card-icon-badge">
                         <Users size={14} style={{ color: '#60a5fa' }} />
                       </span>
                     )}
                   </h3>
 
-                  <div className="trip-card-dates" style={{ marginTop: '4px' }}>
+                  <div className="trip-card-dates trip-card-dates--mt">
                     <Calendar size={13} />
                     <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                <div className="trip-card-actions-row" onClick={e => e.stopPropagation()}>
                   {trip.isOwner === false ? (
-                    <button 
-                      className="trip-delete-btn" 
-                      style={{ 
-                        color: '#ef4444',
-                        width: '28px',
-                        height: '28px',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '6px'
-                      }}
+                    <button
+                      className="trip-delete-btn trip-delete-btn--leave"
                       onClick={() => {
                         setConfirmModal({
                           title: 'Leave Trip',
@@ -274,21 +253,12 @@ export default function TripDashboard({
                       <LogOut size={16} />
                     </button>
                   ) : (
-                    <button 
-                      className="trip-delete-btn" 
-                      style={{ 
-                        width: '28px',
-                        height: '28px',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '6px'
-                      }}
+                    <button
+                      className="trip-delete-btn trip-delete-btn--compact"
                       onClick={() => {
                         setConfirmModal({
                           title: 'Delete Trip',
-                          message: trip.shared 
+                          message: trip.shared
                             ? `This trip is shared with other users. Deleting it will remove access for everyone. Are you sure you want to delete "${trip.name}"?`
                             : `Are you sure you want to delete "${trip.name}"? This action cannot be undone.`,
                           confirmText: 'Delete',
@@ -303,7 +273,7 @@ export default function TripDashboard({
                 </div>
               </div>
 
-              <div className="trip-card-bottom" style={{ marginBottom: '12px' }}>
+              <div className="trip-card-bottom trip-card-bottom--mb">
                 <div className="trip-card-stats">
                   <span className="flex-align">
                     <Layers size={12} /> {trip.plans.length} {trip.plans.length === 1 ? 'Plan' : 'Plans'}
@@ -312,77 +282,32 @@ export default function TripDashboard({
                     <Map size={12} /> {trip.locations.length} {trip.locations.length === 1 ? 'Location' : 'Locations'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <div className="trip-card-days-wrapper">
                   {trip.isOwner === false && (
-                    <span 
-                      style={{ 
-                        position: 'absolute',
-                        bottom: 'calc(100% + 4px)',
-                        right: 0,
-                        whiteSpace: 'nowrap',
-                        fontSize: '9px', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px', 
-                        background: 'rgba(96, 165, 250, 0.15)', 
-                        color: '#60a5fa', 
-                        fontWeight: 600
-                      }}
-                    >
+                    <span className="trip-owner-badge">
                       {trip.canEdit === false ? 'Viewer' : 'Editor'}
                     </span>
                   )}
-                  <div 
-                    style={{ 
-                      fontSize: '12px', 
-                      fontWeight: 600, 
-                      padding: '4px 8px', 
-                      borderRadius: '4px', 
-                      background: 'rgba(255,255,255,0.1)' 
-                    }}
-                  >
+                  <div className="trip-days-badge">
                     {calculateDays(trip.startDate, trip.endDate)}
                   </div>
                 </div>
               </div>
 
-              <div 
-                className="trip-card-actions" 
-                onClick={e => e.stopPropagation()} 
-                style={{ 
-                  display: 'flex', 
-                  gap: '8px', 
-                  paddingTop: '12px', 
-                  borderTop: '1px solid rgba(255, 255, 255, 0.08)' 
-                }}
+              <div
+                className="trip-card-actions trip-card-actions-bar"
+                onClick={e => e.stopPropagation()}
               >
-                <button 
-                  className="btn-primary flex-align"
-                  style={{ 
-                    flex: 1, 
-                    padding: '6px 12px', 
-                    fontSize: '12px', 
-                    height: '30px', 
-                    justifyContent: 'center', 
-                    gap: '6px',
-                    borderRadius: '6px'
-                  }}
+                <button
+                  className="btn-primary flex-align trip-card-action-btn"
                   onClick={() => onSelectTrip(trip.id)}
                 >
                   Open
                 </button>
                 {trip.isOwner !== false && (
                   <>
-                    <button 
-                      className="btn-secondary flex-align"
-                      style={{ 
-                        flex: 1, 
-                        padding: '6px 12px', 
-                        fontSize: '12px', 
-                        height: '30px', 
-                        justifyContent: 'center', 
-                        gap: '6px',
-                        borderRadius: '6px'
-                      }}
+                    <button
+                      className="btn-secondary flex-align trip-card-action-btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingTrip(trip);
@@ -391,17 +316,8 @@ export default function TripDashboard({
                       <Edit2 size={13} /> Edit
                     </button>
                     {isGoogleSignedIn && trip.driveFileId && (
-                      <button 
-                        className="btn-secondary flex-align"
-                        style={{ 
-                          flex: 1, 
-                          padding: '6px 12px', 
-                          fontSize: '12px', 
-                          height: '30px', 
-                          justifyContent: 'center', 
-                          gap: '6px',
-                          borderRadius: '6px'
-                        }}
+                      <button
+                        className="btn-secondary flex-align trip-card-action-btn"
                         onClick={() => onShareTrip && onShareTrip(trip)}
                       >
                         <Share2 size={13} /> Share
@@ -416,19 +332,10 @@ export default function TripDashboard({
       )}
 
       {/* Footer */}
-      <footer style={{
-        marginTop: '40px',
-        paddingTop: '16px',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        justifyContent: 'center',
-        gap: '20px',
-        fontSize: '12px',
-        color: 'rgba(148,163,184,0.5)',
-      }}>
+      <footer className="dashboard-footer">
         <a
           href="?page=privacy"
-          style={{ color: 'inherit', textDecoration: 'none' }}
+          className="dashboard-footer-link"
           onMouseEnter={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.9)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.5)')}
         >
@@ -437,7 +344,7 @@ export default function TripDashboard({
         <span>·</span>
         <a
           href="?page=terms"
-          style={{ color: 'inherit', textDecoration: 'none' }}
+          className="dashboard-footer-link"
           onMouseEnter={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.9)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.5)')}
         >
@@ -454,17 +361,17 @@ export default function TripDashboard({
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label htmlFor="trip-name">Trip Name</label>
-                <input 
-                  type="text" 
-                  id="trip-name" 
-                  placeholder="e.g. Summer in Europe, Tokyo Explorer" 
-                  value={name} 
+                <input
+                  type="text"
+                  id="trip-name"
+                  placeholder="e.g. Summer in Europe, Tokyo Explorer"
+                  value={name}
                   onChange={(e) => setName(e.target.value)}
-                  required 
+                  required
                   autoFocus
                 />
               </div>
@@ -472,22 +379,22 @@ export default function TripDashboard({
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="start-date">Start Date</label>
-                  <input 
-                    type="date" 
-                    id="start-date" 
-                    value={startDate} 
+                  <input
+                    type="date"
+                    id="start-date"
+                    value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    required 
+                    required
                   />
                 </div>
                 <div className="form-group">
                   <label htmlFor="end-date">End Date</label>
-                  <input 
-                    type="date" 
-                    id="end-date" 
-                    value={endDate} 
+                  <input
+                    type="date"
+                    id="end-date"
+                    value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    required 
+                    required
                   />
                 </div>
               </div>
@@ -507,77 +414,58 @@ export default function TripDashboard({
 
       {showImportModal && (
         <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
-          <div className="modal-content glass-panel" style={{ maxWidth: '440px', padding: '24px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header" style={{ marginBottom: '16px' }}>
+          <div className="modal-content glass-panel modal-content--import" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header modal-header--mb16">
               <h3 style={{ fontSize: '18px', fontWeight: 600 }}>
                 <span className="desktop-only">Import Shared Trip</span>
                 <span className="mobile-only">Import Trip</span>
               </h3>
-              <button className="modal-close" onClick={() => setShowImportModal(false)} style={{ padding: '4px' }}>
+              <button className="modal-close" onClick={() => setShowImportModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            
+
             <form onSubmit={handleImportSubmit}>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 18px 0', textTransform: 'none' }}>
-                To import a shared trip, please enter the file name below. 
-                If you don't have the file name, please ask the trip owner to share it with you. 
-                Clicking <strong style={{ color: 'var(--text-primary)' }}>Import</strong> will search Google Drive for this file.
+              <p className="import-modal-desc">
+                To import a shared trip, please enter the file name below.
+                If you don't have the file name, please ask the trip owner to share it with you.
+                Clicking <strong className="text-primary">Import</strong> will search Google Drive for this file.
               </p>
 
-              <div className="form-group" style={{ marginBottom: '20px' }}>
+              <div className="form-group">
                 <label htmlFor="import-filename" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Shared File Name</label>
-                <input 
-                  type="text" 
-                  id="import-filename" 
-                  placeholder="Paste file name (e.g. trip-xxxx.json) here..." 
-                  value={importFileName} 
+                <input
+                  type="text"
+                  id="import-filename"
+                  placeholder="Paste file name (e.g. trip-xxxx.json) here..."
+                  value={importFileName}
                   onChange={(e) => setImportFileName(e.target.value)}
                   required
                   autoFocus
                   disabled={isImporting}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    fontSize: '13px',
-                    background: 'var(--bg-dark)',
-                    border: '1px solid var(--border-glass)',
-                    borderRadius: '6px',
-                    marginTop: '6px',
-                    textTransform: 'none'
-                  }}
+                  className="import-file-input"
                 />
               </div>
 
               {importError && (
-                <div style={{ 
-                  color: '#f87171', 
-                  fontSize: '12.5px', 
-                  marginBottom: '16px',
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  background: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)'
-                }}>
+                <div className="import-error-panel">
                   {importError}
                 </div>
               )}
 
-              <div className="modal-actions" style={{ justifyContent: 'flex-end', marginTop: '0', gap: '8px' }}>
-                <button 
-                  type="button" 
-                  className="btn-secondary" 
-                  onClick={() => setShowImportModal(false)} 
+              <div className="modal-actions modal-actions--import">
+                <button
+                  type="button"
+                  className="btn-secondary import-modal-btn"
+                  onClick={() => setShowImportModal(false)}
                   disabled={isImporting}
-                  style={{ padding: '8px 16px', fontSize: '13px' }}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary flex-align" 
+                <button
+                  type="submit"
+                  className="btn-primary flex-align import-modal-btn"
                   disabled={isImporting || !importFileName.trim()}
-                  style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}
                 >
                   {isImporting ? <Loader2 size={14} className="animate-spin" /> : null}
                   {isImporting ? 'Importing...' : 'Import'}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { 
+import {
   X, Sparkles, Plus, Trash2, AlertCircle, Edit2, ChevronUp, ChevronDown, GripVertical,
-  Calendar, Ticket, Compass, HelpCircle, MapPin, Info, Smile, Camera, Utensils, 
+  Calendar, Ticket, Compass, HelpCircle, MapPin, Info, Smile, Camera, Utensils,
   ShoppingBag, Coffee, DollarSign, BookOpen, Clock, Baby,
   Sparkle, Wand2, Brain, Bot, Activity, TrendingUp, Flame, Gem, Sun, Heart, Globe, Languages, Map
 } from 'lucide-react';
@@ -223,20 +223,20 @@ export default function TripAiConfigModal({
     }
 
     if (
-      allPlaceFields.some(f => f.key === key) || 
+      allPlaceFields.some(f => f.key === key) ||
       DAY_LEVEL_FIELDS.some(f => f.key === key)
     ) {
       setError(`A field with the key "${key}" already exists.`);
       return;
     }
 
-    setAllPlaceFields([...allPlaceFields, { 
-      key, 
-      title, 
-      description: desc, 
-      icon: newIcon, 
-      isDefault: false, 
-      disabled: false 
+    setAllPlaceFields([...allPlaceFields, {
+      key,
+      title,
+      description: desc,
+      icon: newIcon,
+      isDefault: false,
+      disabled: false
     }]);
 
     setNewTitle('');
@@ -316,22 +316,11 @@ export default function TripAiConfigModal({
     const isOpen = activeIconPickerKey === fieldKey;
 
     return (
-      <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, marginTop: '-3px' }}>
+      <div className="ai-config-icon-picker-wrapper">
         <button
           type="button"
-          className="btn-secondary"
-          style={{
-            padding: '4px',
-            borderRadius: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '28px',
-            width: '28px',
-            borderColor: 'rgba(255, 255, 255, 0.08)',
-            background: 'rgba(255, 255, 255, 0.02)',
-            cursor: trip.canEdit !== false ? 'pointer' : 'default'
-          }}
+          className="btn-secondary ai-config-icon-btn"
+          style={{ cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
           disabled={trip.canEdit === false}
           onClick={(e) => {
             e.stopPropagation();
@@ -344,39 +333,15 @@ export default function TripAiConfigModal({
 
         {isOpen && (
           <>
-            <div 
-              style={{ 
-                position: 'fixed', 
-                top: 0, 
-                left: 0, 
-                width: '100vw',
-                height: '100vh',
-                background: 'transparent',
-                zIndex: 999 
-              }} 
+            <div
+              className="ai-config-icon-backdrop"
               onClick={(e) => {
                 e.stopPropagation();
                 setActiveIconPickerKey(null);
-              }} 
-            />
-            <div 
-              className="glass-panel" 
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 6px)',
-                left: 0,
-                padding: '8px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(6, 1fr)',
-                gap: '6px',
-                zIndex: 1000,
-                width: '210px',
-                backgroundColor: 'rgba(11, 15, 25, 0.95)',
-                borderColor: 'rgba(255, 255, 255, 0.12)',
-                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
-                borderRadius: '8px',
-                backdropFilter: 'blur(12px)'
               }}
+            />
+            <div
+              className="glass-panel ai-config-icon-picker-panel"
               onClick={e => e.stopPropagation()}
             >
               {DEFAULT_AI_ICONS.map(iconName => {
@@ -418,7 +383,7 @@ export default function TripAiConfigModal({
     const IconComponent = FIELD_ICONS_MAP[iconName] || HelpCircle;
     const color = getIconColor(iconName);
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '28px', width: '28px', flexShrink: 0, marginTop: '-3px' }}>
+      <div className="ai-config-icon-static">
         <IconComponent size={14} style={{ color }} />
       </div>
     );
@@ -426,14 +391,13 @@ export default function TripAiConfigModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div 
-        className="modal-content glass-panel scrollable" 
-        style={{ maxWidth: '560px' }} 
+      <div
+        className="modal-content glass-panel scrollable modal-content--560"
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} style={{ color: 'var(--accent-primary)' }} />
+          <h3 className="modal-header-title">
+            <Sparkles size={18} className="text-accent" />
             Trip AI Config Settings
           </h3>
           <button className="modal-close" onClick={onClose}>
@@ -442,33 +406,25 @@ export default function TripAiConfigModal({
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="modal-scroll-body" style={{ marginTop: '4px' }}>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '20px', textTransform: 'none' }}>
+          <div className="modal-scroll-body modal-scroll-body--mt4">
+            <p className="modal-body-intro modal-body-intro--mb20">
               Configure and rearrange which AI fields will be generated by Gemini for <strong>{trip.name}</strong>.
             </p>
 
             {/* GROUP 1: Day-Level Fields */}
             <div style={{ marginBottom: '24px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '4px' }}>
+              <span className="ai-config-section-heading">
                 Day-Level Fields
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="ai-config-fields-list">
                 {DAY_LEVEL_FIELDS.map(field => {
                   const isEnabled = !disabledDayFields.includes(field.key);
-                  const iconName = field.defaultIcon; // Static icons for day-level fields as well
+                  const iconName = field.defaultIcon;
 
                   return (
-                    <div 
-                      key={field.key} 
-                      className="glass-panel" 
-                      style={{ 
-                        padding: '10px 12px', 
-                        display: 'flex', 
-                        alignItems: 'flex-start',
-                        gap: '10px',
-                        borderColor: 'rgba(255,255,255,0.04)',
-                        backgroundColor: 'rgba(255,255,255,0.01)'
-                      }}
+                    <div
+                      key={field.key}
+                      className="glass-panel ai-config-day-field-card"
                     >
                       <input
                         type="checkbox"
@@ -483,14 +439,14 @@ export default function TripAiConfigModal({
                         }}
                         style={{ width: '16px', height: '16px', margin: '4px 0 0 0', flexShrink: 0, cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
                       />
-                      
+
                       {renderIcon(iconName)}
 
-                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <div className="ai-config-field-body">
+                        <span className="ai-config-field-name">
                           {field.label}
                         </span>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.3, textTransform: 'none' }}>
+                        <span className="ai-config-field-desc" style={{ marginTop: '2px' }}>
                           {field.description}
                         </span>
                       </div>
@@ -502,20 +458,20 @@ export default function TripAiConfigModal({
 
             {/* GROUP 2: Place-Level Fields */}
             <div style={{ marginBottom: '16px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '4px' }}>
+              <span className="ai-config-section-heading">
                 Place-Level Fields
               </span>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+              <div className="ai-config-fields-list">
                 {allPlaceFields.map((field, idx) => {
                   const isEditing = editingKey === field.key;
                   const isDragOver = idx === dragOverFieldIndex && draggedFieldIndex !== null && draggedFieldIndex !== idx;
                   const showLineAtBottom = draggedFieldIndex !== null && draggedFieldIndex < idx;
 
                   return (
-                    <div 
-                      key={field.key} 
-                      className="glass-panel" 
+                    <div
+                      key={field.key}
+                      className="glass-panel"
                       draggable={trip.canEdit !== false && !isEditing}
                       onDragStart={(e) => {
                         setDraggedFieldIndex(idx);
@@ -546,9 +502,9 @@ export default function TripAiConfigModal({
                         setDraggedFieldIndex(null);
                         setDragOverFieldIndex(null);
                       }}
-                      style={{ 
-                        padding: '10px 12px', 
-                        display: 'flex', 
+                      style={{
+                        padding: '10px 12px',
+                        display: 'flex',
                         flexDirection: 'column',
                         borderColor: 'rgba(255,255,255,0.05)',
                         backgroundColor: 'rgba(255,255,255,0.01)',
@@ -577,18 +533,18 @@ export default function TripAiConfigModal({
                       )}
 
                       {isEditing ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'space-between' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        <div className="ai-config-edit-form">
+                          <div className="ai-config-edit-header">
+                            <span className="ai-config-edit-label">
                               Editing Custom Field
                             </span>
-                            <code style={{ fontSize: '10px', color: 'var(--accent-primary)', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                            <code className="ai-config-key-badge">
                               key: {field.key}
                             </code>
                           </div>
-                          
-                          <div className="form-row" style={{ gap: '8px', alignItems: 'flex-end' }}>
-                            <div className="form-group" style={{ margin: 0, flex: 1 }}>
+
+                          <div className="form-row form-row--compact">
+                            <div className="form-group form-group--no-margin flex-1">
                               <label style={{ fontSize: '11px', marginBottom: '2px' }}>Field Title</label>
                               <input
                                 type="text"
@@ -597,15 +553,15 @@ export default function TripAiConfigModal({
                                 style={{ padding: '5px 8px', fontSize: '12px', height: '30px' }}
                               />
                             </div>
-                            <div className="form-group" style={{ margin: 0, flexShrink: 0 }}>
+                            <div className="form-group form-group--no-margin flex-shrink-0">
                               <label style={{ fontSize: '11px', marginBottom: '2px' }}>Icon</label>
-                              <div style={{ display: 'block' }}>
+                              <div>
                                 {renderIconPicker('edit-field', editIcon)}
                               </div>
                             </div>
                           </div>
 
-                          <div className="form-group" style={{ margin: 0 }}>
+                          <div className="form-group form-group--no-margin">
                             <label style={{ fontSize: '11px', marginBottom: '2px' }}>Instructions for Gemini</label>
                             <textarea
                               value={editDesc}
@@ -617,16 +573,15 @@ export default function TripAiConfigModal({
 
                           {editError && (
                             <div className="ai-settings-test-panel error" style={{ padding: '4px 8px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <AlertCircle size={12} style={{ flexShrink: 0 }} />
+                              <AlertCircle size={12} className="flex-shrink-0" />
                               <span style={{ fontSize: '11px', textTransform: 'none' }}>{editError}</span>
                             </div>
                           )}
 
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                          <div className="ai-config-edit-actions">
                             <button
                               type="button"
-                              className="btn-secondary"
-                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px' }}
+                              className="btn-secondary ai-config-action-btn"
                               onClick={() => {
                                 setEditingKey(null);
                                 setEditError(null);
@@ -636,8 +591,7 @@ export default function TripAiConfigModal({
                             </button>
                             <button
                               type="button"
-                              className="btn-primary"
-                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '4px' }}
+                              className="btn-primary ai-config-action-btn"
                               onClick={() => handleSaveEdit(field.key)}
                             >
                               Save
@@ -645,21 +599,11 @@ export default function TripAiConfigModal({
                           </div>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', width: '100%' }}>
-                          
+                        <div className="ai-config-field-row">
+
                           {/* Drag handle */}
                           {trip.canEdit !== false && (
-                            <div 
-                              style={{ 
-                                cursor: 'grab', 
-                                color: 'var(--text-muted)', 
-                                display: 'flex', 
-                                alignItems: 'center',
-                                alignSelf: 'stretch',
-                                paddingRight: '2px',
-                                opacity: 0.6
-                              }}
-                            >
+                            <div className="ai-config-drag-handle">
                               <GripVertical size={14} />
                             </div>
                           )}
@@ -683,38 +627,29 @@ export default function TripAiConfigModal({
                           {/* Default fields render static icon, Custom fields render picker */}
                           {field.isDefault ? renderIcon(field.icon) : renderIconPicker(field.key, field.icon)}
 
-                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <strong style={{ fontSize: '13px', color: 'var(--text-primary)', textTransform: 'none' }}>{field.title}</strong>
+                          <div className="ai-config-field-body">
+                            <div className="ai-config-field-title-row">
+                              <strong className="ai-config-field-title">{field.title}</strong>
                               {!field.isDefault && (
-                                <code style={{ fontSize: '10px', color: 'var(--accent-primary)', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                                <code className="ai-config-key-badge">
                                   key: {field.key}
                                 </code>
                               )}
                             </div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', textTransform: 'none', lineHeight: 1.3 }}>
+                            <span className="ai-config-field-desc" style={{ marginTop: '4px' }}>
                               {field.description}
                             </span>
                           </div>
 
                           {trip.canEdit !== false && (
-                            <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center', alignSelf: 'center' }}>
+                            <div className="ai-config-field-controls">
                               {/* Move Up */}
                               <button
                                 type="button"
-                                className="mini-icon-btn desktop-only"
+                                className="mini-icon-btn desktop-only ai-config-move-btn"
                                 onClick={() => handleMovePlaceField(idx, 'up')}
                                 disabled={idx === 0}
-                                style={{
-                                  padding: '4px',
-                                  height: '24px',
-                                  width: '24px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  borderRadius: '4px',
-                                  opacity: idx === 0 ? 0.3 : 1
-                                }}
+                                style={{ opacity: idx === 0 ? 0.3 : 1 }}
                                 data-tooltip="Move Up"
                               >
                                 <ChevronUp size={13} />
@@ -722,19 +657,10 @@ export default function TripAiConfigModal({
                               {/* Move Down */}
                               <button
                                 type="button"
-                                className="mini-icon-btn desktop-only"
+                                className="mini-icon-btn desktop-only ai-config-move-btn"
                                 onClick={() => handleMovePlaceField(idx, 'down')}
                                 disabled={idx === allPlaceFields.length - 1}
-                                style={{
-                                  padding: '4px',
-                                  height: '24px',
-                                  width: '24px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  borderRadius: '4px',
-                                  opacity: idx === allPlaceFields.length - 1 ? 0.3 : 1
-                                }}
+                                style={{ opacity: idx === allPlaceFields.length - 1 ? 0.3 : 1 }}
                                 data-tooltip="Move Down"
                               >
                                 <ChevronDown size={13} />
@@ -744,21 +670,19 @@ export default function TripAiConfigModal({
                               {!field.isDefault && (
                                 <>
                                   {/* Edit */}
-                                  <button 
-                                    type="button" 
-                                    className="btn-secondary" 
+                                  <button
+                                    type="button"
+                                    className="btn-secondary ai-config-move-btn"
                                     onClick={() => handleStartEdit(field)}
-                                    style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}
                                     data-tooltip="Edit Field"
                                   >
                                     <Edit2 size={13} />
                                   </button>
                                   {/* Delete */}
-                                  <button 
-                                    type="button" 
-                                    className="trip-delete-btn" 
+                                  <button
+                                    type="button"
+                                    className="trip-delete-btn ai-config-move-btn"
                                     onClick={() => handleRemoveField(field.key)}
-                                    style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     data-tooltip="Delete Field"
                                   >
                                     <Trash2 size={13} />
@@ -774,7 +698,7 @@ export default function TripAiConfigModal({
                 })}
 
                 {allPlaceFields.length === 0 && (
-                  <div style={{ padding: '16px', textTransform: 'none', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
+                  <div className="ai-config-empty">
                     No Place-Level fields active.
                   </div>
                 )}
@@ -782,32 +706,32 @@ export default function TripAiConfigModal({
 
               {/* Add Custom Field Form */}
               {trip.canEdit !== false && (
-                <div 
-                  className="glass-panel" 
-                  style={{ 
-                    marginTop: '12px', 
-                    padding: '12px', 
-                    borderStyle: 'dashed', 
+                <div
+                  className="glass-panel"
+                  style={{
+                    marginTop: '12px',
+                    padding: '12px',
+                    borderStyle: 'dashed',
                     borderColor: 'rgba(255,255,255,0.12)',
                     backgroundColor: 'rgba(255,255,255,0.01)',
                     position: 'relative',
                     zIndex: activeIconPickerKey === 'new-field' ? 100 : 1
                   }}
                 >
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>Add Custom Field</span>
-                  
+                  <span className="ai-config-add-label">Add Custom Field</span>
+
                   {error && (
-                    <div 
-                      className="ai-settings-test-panel error" 
+                    <div
+                      className="ai-settings-test-panel error"
                       style={{ padding: '8px 10px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
-                      <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                      <span style={{ fontSize: '11.5px', textTransform: 'none', lineHeight: 1.3 }}>{error}</span>
+                      <AlertCircle size={14} className="flex-shrink-0" />
+                      <span className="ai-error-text">{error}</span>
                     </div>
                   )}
 
-                  <div className="form-row" style={{ gap: '8px', alignItems: 'flex-end' }}>
-                    <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                  <div className="form-row form-row--compact">
+                    <div className="form-group form-group--no-margin flex-1">
                       <label htmlFor="new-field-title" style={{ fontSize: '11px' }}>Field Title</label>
                       <input
                         type="text"
@@ -822,7 +746,7 @@ export default function TripAiConfigModal({
                         style={{ padding: '5px 8px', fontSize: '12px', height: '30px' }}
                       />
                     </div>
-                    <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                    <div className="form-group form-group--no-margin flex-1">
                       <label htmlFor="new-field-key" style={{ fontSize: '11px' }}>System Key (alphanumeric)</label>
                       <input
                         type="text"
@@ -833,15 +757,15 @@ export default function TripAiConfigModal({
                         style={{ padding: '5px 8px', fontSize: '12px', height: '30px' }}
                       />
                     </div>
-                    <div className="form-group" style={{ flexShrink: 0, margin: 0 }}>
+                    <div className="form-group form-group--no-margin flex-shrink-0">
                       <label style={{ fontSize: '11px', marginBottom: '2px' }}>Icon</label>
-                      <div style={{ display: 'block' }}>
+                      <div>
                         {renderIconPicker('new-field', newIcon)}
                       </div>
                     </div>
                   </div>
 
-                  <div className="form-group" style={{ marginTop: '8px', marginBottom: 0 }}>
+                  <div className="form-group form-group--spaced">
                     <label htmlFor="new-field-desc" style={{ fontSize: '11px' }}>Instructions for Gemini</label>
                     <textarea
                       id="new-field-desc"
@@ -855,8 +779,7 @@ export default function TripAiConfigModal({
 
                   <button
                     type="button"
-                    className="btn-secondary flex-align"
-                    style={{ fontSize: '11px', padding: '6px 12px', gap: '4px', marginTop: '10px', width: '100%', justifyContent: 'center' }}
+                    className="btn-secondary flex-align ai-config-add-btn"
                     onClick={handleAddField}
                   >
                     <Plus size={12} /> Add Field
@@ -866,7 +789,7 @@ export default function TripAiConfigModal({
             </div>
           </div>
 
-          <div className="modal-actions" style={{ marginTop: '16px', flexShrink: 0 }}>
+          <div className="modal-actions modal-actions--mt16">
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>

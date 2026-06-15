@@ -31,24 +31,17 @@ export default function ConfirmationModal({
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content glass-panel modal-content--sm" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="modal-close" onClick={onCancel}>
             <X size={20} />
           </button>
         </div>
-        <div style={{ 
-          padding: '16px 0', 
-          color: 'var(--text-secondary)', 
-          fontSize: '14px', 
-          lineHeight: '1.5', 
-          textTransform: 'none', 
-          whiteSpace: 'pre-wrap' 
-        }}>
+        <div className="confirmation-modal-message">
           {message}
         </div>
-        <div className="modal-actions" style={{ marginTop: '20px' }}>
+        <div className="modal-actions modal-actions--sm">
           {!isAlert && (
             <button type="button" className="btn-secondary" onClick={onCancel}>
               {cancelText}

@@ -101,10 +101,7 @@ export default function PlaceFormFields({
         type="button"
         onClick={onRestore}
         data-tooltip="Restore saved value"
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
-          color: 'var(--text-muted)', display: 'flex', alignItems: 'center', lineHeight: 1
-        }}
+        className="undo-btn"
         onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-primary)')}
         onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
       >
@@ -145,8 +142,8 @@ export default function PlaceFormFields({
           />
         </div>
 
-        <div className="form-row" style={{ alignItems: 'flex-start' }}>
-          <div className="form-group" style={{ flex: 1 }}>
+        <div className="form-row form-row--top">
+          <div className="form-group flex-1">
             <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               Opening Hours
               {undoBtn(openingHours, savedValues?.openingHours, () => setOpeningHours(savedValues!.openingHours!))}
@@ -158,7 +155,7 @@ export default function PlaceFormFields({
               placeholder="e.g. 09:00 - 18:00"
             />
           </div>
-          <div className="form-group" style={{ flex: 1 }}>
+          <div className="form-group flex-1">
             <label style={{ marginBottom: '6px', display: 'block' }}>Category Group</label>
             <CategoryGroupSelect 
               value={groupId} 
@@ -231,7 +228,7 @@ export default function PlaceFormFields({
           </div>
         </div>
 
-        <div className="form-group" style={{ marginBottom: '16px' }}>
+        <div className="form-group form-group--mb16">
           <label>📍 Click on the map to set coordinates</label>
           <MapPicker
             lat={parseFloat(lat)}
@@ -247,27 +244,19 @@ export default function PlaceFormFields({
         <div className="modal-section-divider">
           <div className="modal-ai-header">
             <h4 className="modal-ai-title">
-              <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
+              <Sparkles size={14} className="text-accent" />
               AI Travel Insights {formatFreshness(aiUpdatedAt)}
             </h4>
 
-            <div 
+            <div
               data-tooltip={!hasKeys ? NO_API_KEY_TOOLTIP : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Auto-populate these fields with AI')}
               data-tooltip-position="bottom"
-              style={{ display: 'inline-block' }}
+              className="ai-fill-btn-wrapper"
             >
               <button
                 type="button"
-                className="btn-secondary flex-align"
-                style={{ 
-                  fontSize: '11px', 
-                  padding: '4px 10px', 
-                  borderRadius: '6px',
-                  gap: '6px',
-                  borderColor: 'rgba(99, 102, 241, 0.2)',
-                  background: 'rgba(99, 102, 241, 0.05)',
-                  cursor: (isAiGenerating || !title.trim() || !hasKeys) ? 'not-allowed' : 'pointer'
-                }}
+                className="btn-secondary flex-align ai-fill-btn"
+                style={{ cursor: (isAiGenerating || !title.trim() || !hasKeys) ? 'not-allowed' : 'pointer' }}
                 onClick={onAutoFill}
                 disabled={isAiGenerating || !title.trim() || !hasKeys}
               >
@@ -282,9 +271,9 @@ export default function PlaceFormFields({
           </div>
 
           {aiError && (
-            <div className="ai-settings-test-panel error" style={{ margin: '8px 0 16px 0', padding: '8px 10px' }}>
-              <AlertTriangle size={13} style={{ flexShrink: 0 }} />
-              <span style={{ textTransform: 'none', fontSize: '11.5px', lineHeight: 1.3 }}>{aiError}</span>
+            <div className="ai-settings-test-panel error ai-error-panel-override">
+              <AlertTriangle size={13} className="flex-shrink-0" />
+              <span className="ai-error-text">{aiError}</span>
             </div>
           )}
 
@@ -292,9 +281,9 @@ export default function PlaceFormFields({
             if (field.disabled) return null;
 
             return (
-              <div className="form-group" key={field.key} style={{ marginTop: '12px' }}>
+              <div className="form-group form-group--mt12" key={field.key}>
                 <label className="modal-field-title">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="label-icon-row">
                     {getFieldIcon(field.key, field.icon || '')}
                     {field.title}
                     {undoBtn(
@@ -303,7 +292,7 @@ export default function PlaceFormFields({
                       () => setAiDetails({ ...aiDetails, [field.key]: savedValues!.aiDetails![field.key] ?? '' })
                     )}
                   </span>
-                  <span data-tooltip="AI generated field" style={{ display: 'flex', alignItems: 'center' }}>
+                  <span data-tooltip="AI generated field" className="flex-row">
                     <Sparkles size={12} style={{ color: '#c084fc' }} />
                   </span>
                 </label>
@@ -318,7 +307,6 @@ export default function PlaceFormFields({
                   }}
                   placeholder={field.isDefault ? `AI will generate details for ${field.title}...` : `AI will generate custom details...`}
                   rows={4}
-                  style={{ fontSize: '13px', textTransform: 'none', width: '100%', padding: '8px 12px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)' }}
                 />
                 <span className="modal-field-details">
                   {field.description}

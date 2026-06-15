@@ -145,11 +145,11 @@ export default function LeftPanelAccordion({
           className="accordion-header flex-between"
           onClick={() => setExpandedLeftSection('catalog')}
         >
-          <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
-            <BookOpen size={16} style={{ color: 'var(--accent-primary)' }} />
+          <span className="flex-align accordion-section-title">
+            <BookOpen size={16} className="text-accent" />
             Catalog
           </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span className="text-muted-sm">
             {catalogLocation ? `${catalogLocation.places.length} place${catalogLocation.places.length === 1 ? '' : 's'}` : 'Empty'}
           </span>
         </div>
@@ -217,11 +217,11 @@ export default function LeftPanelAccordion({
           className="accordion-header flex-between"
           onClick={() => setExpandedLeftSection(expandedLeftSection === 'checklist' ? 'catalog' : 'checklist')}
         >
-          <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
-            <CheckSquare size={16} style={{ color: 'var(--accent-secondary)' }} />
+          <span className="flex-align accordion-section-title">
+            <CheckSquare size={16} className="text-accent-secondary" />
             Checklist
           </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span className="text-muted-sm">
             {(() => {
               const total = (activePlan.manualChecklist || []).length;
               const done = (activePlan.manualChecklist || []).filter(c => c.completed).length;
@@ -248,11 +248,11 @@ export default function LeftPanelAccordion({
           className="accordion-header flex-between"
           onClick={() => setExpandedLeftSection(expandedLeftSection === 'reservations' ? 'catalog' : 'reservations')}
         >
-          <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
-            <Building size={16} style={{ color: 'var(--color-success)' }} />
+          <span className="flex-align accordion-section-title">
+            <Building size={16} className="text-success" />
             Reservations
           </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span className="text-muted-sm">
             {(() => {
               const hotelsCount = activePlan.hotels.length;
               const transitCount = activePlan.transports.length;
@@ -281,11 +281,11 @@ export default function LeftPanelAccordion({
           className="accordion-header flex-between"
           onClick={() => setExpandedLeftSection(expandedLeftSection === 'tips' ? 'catalog' : 'tips')}
         >
-          <span className="flex-align" style={{ gap: '8px', fontSize: '14px', fontWeight: 600 }}>
-            <Sparkles size={16} style={{ color: 'var(--accent-primary)' }} />
+          <span className="flex-align accordion-section-title">
+            <Sparkles size={16} className="text-accent" />
             Tips (Local Essentials)
           </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span className="text-muted-sm">
             {catalogLocation && catalogLocation.aiDetails?.local_essentials ? 'Ready' : 'Empty'}
           </span>
         </div>

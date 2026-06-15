@@ -66,14 +66,13 @@ export default function AiSettingsModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div 
-        className="modal-content glass-panel" 
-        style={{ maxWidth: '450px' }} 
+      <div
+        className="modal-content glass-panel modal-content--md"
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} style={{ color: 'var(--accent-primary)' }} />
+          <h3 className="modal-header-title">
+            <Sparkles size={18} className="text-accent" />
             Gemini AI Settings
           </h3>
           <button className="modal-close" onClick={onClose}>
@@ -81,8 +80,8 @@ export default function AiSettingsModal({
           </button>
         </div>
 
-        <div className="modal-scroll-body" style={{ marginTop: '12px' }}>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '16px', textTransform: 'none' }}>
+        <div className="modal-scroll-body modal-scroll-body--mt12">
+          <p className="modal-body-intro modal-body-intro--mb16">
             Enter your Gemini developer API key(s) to enable automated travel insights (story, best times, reservations, directions, and pro-tips).
           </p>
 
@@ -90,32 +89,20 @@ export default function AiSettingsModal({
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Key size={14} /> Gemini API Keys
             </label>
-            
-            <div 
-              style={{ 
-                margin: '4px 0 8px 0', 
-                padding: '8px 12px', 
-                fontSize: '11.5px', 
-                color: 'var(--text-secondary)', 
-                lineHeight: 1.4, 
-                background: 'rgba(255, 255, 255, 0.02)', 
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                borderRadius: '6px',
-                textTransform: 'none'
-              }}
-            >
+
+            <div className="api-key-info-box">
               🔑 <strong>How to get a key:</strong>
-              <ol style={{ margin: '4px 0 0 14px', padding: 0, listStyleType: 'decimal' }}>
-                <li>Go to the <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}>Google AI Studio</a>.</li>
+              <ol className="api-key-steps">
+                <li>Go to the <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="ai-md-link">Google AI Studio</a>.</li>
                 <li>Sign in with your Google Account.</li>
                 <li>Click <strong>Create API Key</strong> in the top-left menu.</li>
                 <li>Create and copy your key, then paste it below. (Free tier available!)</li>
               </ol>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="api-key-list">
               {keys.map((key, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div key={index} className="api-key-row">
                   <input
                     type="text"
                     placeholder={`Gemini API Key ${index + 1}`}
@@ -126,27 +113,16 @@ export default function AiSettingsModal({
                       setKeys(newKeys);
                       if (testStatus !== 'idle') setTestStatus('idle');
                     }}
-                    style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                    className="api-key-input"
                   />
                   {keys.length > 1 && (
                     <button
                       type="button"
+                      className="api-key-remove-btn"
                       onClick={() => {
                         const newKeys = keys.filter((_, i) => i !== index);
                         setKeys(newKeys);
                         if (testStatus !== 'idle') setTestStatus('idle');
-                      }}
-                      style={{
-                        padding: '10px',
-                        color: 'var(--text-muted)',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'var(--transition-smooth)'
                       }}
                       onMouseEnter={e => {
                         e.currentTarget.style.color = '#f87171';
@@ -165,27 +141,18 @@ export default function AiSettingsModal({
               ))}
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary ai-add-key-btn"
                 onClick={() => setKeys([...keys, ''])}
-                style={{
-                  fontSize: '12.5px',
-                  padding: '8px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  alignSelf: 'flex-start',
-                  marginTop: '4px'
-                }}
               >
                 <Plus size={14} /> Add API Key
               </button>
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', display: 'block', textTransform: 'none' }}>
+            <span className="api-key-hint">
               Multiple keys will be automatically rotated if one hits a rate limit or error.
             </span>
           </div>
 
-          <div className="form-group" style={{ marginTop: '16px' }}>
+          <div className="form-group form-group--mt16">
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isGoogleSignedIn ? 'pointer' : 'not-allowed', textTransform: 'none', fontWeight: 'normal' }}>
               <input
                 type="checkbox"
@@ -194,31 +161,19 @@ export default function AiSettingsModal({
                 disabled={!isGoogleSignedIn}
                 style={{ width: '16px', height: '16px', padding: 0, margin: 0, cursor: isGoogleSignedIn ? 'pointer' : 'not-allowed' }}
               />
-              <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>Sync API Keys to Google Drive</span>
+              <span className="form-label-text">Sync API Keys to Google Drive</span>
             </label>
             {!isGoogleSignedIn && (
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block', textTransform: 'none' }}>
+              <span className="drive-hint">
                 Sign in to Google Drive (via dashboard) to enable cross-device sync.
               </span>
             )}
-            <div 
-              className="glass-panel" 
-              style={{ 
-                marginTop: '8px', 
-                padding: '8px 12px', 
-                fontSize: '11px', 
-                color: 'var(--text-secondary)', 
-                lineHeight: 1.4, 
-                textTransform: 'none',
-                borderColor: 'rgba(255, 255, 255, 0.05)',
-                backgroundColor: 'rgba(255, 255, 255, 0.01)'
-              }}
-            >
+            <div className="glass-panel ai-security-note">
               🔒 <strong>Security Note</strong>: Keys are stored in a private settings file (<code>ai-settings.json</code>) in your Google Drive's <code>apps/trip_planner</code> folder. They are never shared with collaborators, even if you share your trips.
             </div>
           </div>
 
-          <div className="form-group" style={{ marginTop: '16px' }}>
+          <div className="form-group form-group--mt16">
             <label>API Model</label>
             <select
               className="ai-modal-select"
@@ -232,11 +187,10 @@ export default function AiSettingsModal({
           </div>
 
           {/* Test connection row */}
-          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="ai-test-row">
             <button
               type="button"
-              className="btn-secondary flex-align"
-              style={{ alignSelf: 'flex-start', fontSize: '12px', padding: '6px 12px', gap: '6px' }}
+              className="btn-secondary flex-align ai-test-btn"
               onClick={handleTestConnection}
               disabled={testStatus === 'testing'}
             >
@@ -253,13 +207,13 @@ export default function AiSettingsModal({
                 {testStatus === 'success' && <CheckCircle2 size={14} />}
                 {testStatus === 'error' && <XCircle size={14} />}
                 {testStatus === 'testing' && <RefreshCw size={14} className="spin" />}
-                <span style={{ textTransform: 'none' }}>{testMessage}</span>
+                <span className="ai-test-msg">{testMessage}</span>
               </div>
             )}
           </div>
         </div>
 
-        <div className="modal-actions" style={{ marginTop: '24px' }}>
+        <div className="modal-actions modal-actions--mt24">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>

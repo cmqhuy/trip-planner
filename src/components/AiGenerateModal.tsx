@@ -76,7 +76,7 @@ export default function AiGenerateModal({
 
   const handleGenerate = async () => {
     if (selectedIds.size === 0) return;
-    
+
     setError(null);
     setGenerating(true);
     setProgressMsg(`Asking Gemini to generate insights for ${selectedIds.size} place(s) in ${city}...`);
@@ -120,25 +120,24 @@ export default function AiGenerateModal({
 
   const formatFreshness = (p: Place) => {
     if (!p.aiDetails || Object.keys(p.aiDetails).length === 0) {
-      return <span style={{ color: '#fbbf24', fontSize: '11px', whiteSpace: 'nowrap' }}>No AI details yet</span>;
+      return <span className="ai-status-pending">No AI details yet</span>;
     }
     const dateStr = new Date(p.aiUpdatedAt || 0).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric'
     });
-    return <span style={{ color: 'var(--color-success)', fontSize: '11px', whiteSpace: 'nowrap' }}>Updated: {dateStr}</span>;
+    return <span className="ai-status-success">Updated: {dateStr}</span>;
   };
 
   return (
     <div className="modal-overlay" onClick={generating ? undefined : onClose}>
-      <div 
-        className="modal-content glass-panel" 
-        style={{ maxWidth: '480px' }} 
+      <div
+        className="modal-content glass-panel modal-content--lg"
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} style={{ color: 'var(--accent-primary)' }} />
+          <h3 className="modal-header-title">
+            <Sparkles size={18} className="text-accent" />
             AI Place Tips Generator
           </h3>
           {!generating && (
@@ -148,24 +147,21 @@ export default function AiGenerateModal({
           )}
         </div>
 
-        <div className="modal-scroll-body" style={{ marginTop: '12px' }}>
+        <div className="modal-scroll-body modal-scroll-body--mt12">
           {generating ? (
             <FunGeneratingLoader title="Generating Travel Guide" message={progressMsg} />
           ) : (
             <>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>
+              <p className="modal-body-intro">
                 Select the places in <strong>{city}, {country}</strong> to populate with AI-generated details.
               </p>
 
               {!hasKeys && (
-                <div 
-                  className="ai-settings-test-panel error" 
-                  style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '12px', marginTop: '12px' }}
-                >
-                  <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <strong style={{ fontSize: '12px' }}>API Keys Missing</strong>
-                    <span style={{ fontSize: '11.5px', textTransform: 'none', lineHeight: 1.3 }}>
+                <div className="ai-settings-test-panel error ai-warning-panel">
+                  <AlertTriangle size={16} className="ai-warning-icon" />
+                  <div className="ai-warning-body">
+                    <strong className="ai-warning-title">API Keys Missing</strong>
+                    <span className="ai-warning-text">
                       {NO_API_KEY_TOOLTIP}
                     </span>
                   </div>
@@ -173,26 +169,24 @@ export default function AiGenerateModal({
               )}
 
               {error && (
-                <div className="ai-settings-test-panel error" style={{ marginTop: '12px' }}>
-                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-                  <span style={{ textTransform: 'none', lineHeight: 1.3 }}>{error}</span>
+                <div className="ai-settings-test-panel error ai-panel-mt">
+                  <AlertTriangle size={14} className="flex-shrink-0" />
+                  <span className="ai-error-text">{error}</span>
                 </div>
               )}
 
               {/* Quick selectors */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <div className="ai-selector-row">
                 <button
                   type="button"
-                  className="btn-secondary"
-                  style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}
+                  className="btn-secondary ai-selector-btn"
                   onClick={toggleSelectAll}
                 >
                   {selectedIds.size === places.length ? 'Deselect All' : 'Select All'}
                 </button>
                 <button
                   type="button"
-                  className="btn-secondary"
-                  style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}
+                  className="btn-secondary ai-selector-btn"
                   onClick={selectUnpopulated}
                 >
                   Select Unpopulated Only
@@ -204,24 +198,25 @@ export default function AiGenerateModal({
                 {places.map(p => {
                   const isChecked = selectedIds.has(p.id);
                   return (
-                    <div 
-                      key={p.id} 
+                    <div
+                      key={p.id}
                       className="ai-generate-item"
                       onClick={() => handleTogglePlace(p.id)}
                     >
-                      <button 
-                        type="button" 
-                        style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', color: isChecked ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                      <button
+                        type="button"
+                        className="ai-checkbox-icon-btn"
+                        style={{ color: isChecked ? 'var(--accent-primary)' : 'var(--text-muted)' }}
                       >
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
-                      
-                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'none' }}>
+
+                      <div className="ai-list-row-body--no-margin">
+                        <span className="ai-list-item-title">
                           {p.title}
                         </span>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px', textTransform: 'none' }}>
+                        <div className="ai-list-item-meta">
+                          <span className="ai-list-item-label--ellipsis">
                             {p.description || 'No description provided'}
                           </span>
                           {formatFreshness(p)}
@@ -232,7 +227,7 @@ export default function AiGenerateModal({
                 })}
 
                 {places.length === 0 && (
-                  <div style={{ padding: '24px', textTransform: 'none', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                  <div className="ai-modal-empty">
                     No places in this section to select.
                   </div>
                 )}
@@ -242,14 +237,13 @@ export default function AiGenerateModal({
         </div>
 
         {!generating && (
-          <div className="modal-actions" style={{ marginTop: '24px' }}>
+          <div className="modal-actions modal-actions--mt24">
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button 
-              type="button" 
-              className="btn-primary flex-align" 
-              style={{ gap: '6px' }}
+            <button
+              type="button"
+              className="btn-primary flex-align modal-generate-btn"
               onClick={handleGenerate}
               disabled={selectedIds.size === 0 || !hasKeys}
             >

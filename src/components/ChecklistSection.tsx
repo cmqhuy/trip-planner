@@ -131,25 +131,24 @@ function ChecklistSection({
           </div>
           
           {trip.canEdit !== false && (
-            <form 
+            <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleAddManualChecklistItem(manualChecklistInput);
                 setManualChecklistInput('');
               }}
-              style={{ display: 'flex', gap: '6px', marginBottom: '2px' }}
+              className="checklist-add-form"
             >
-              <input 
-                type="text" 
-                placeholder="Add new task..." 
-                value={manualChecklistInput} 
+              <input
+                type="text"
+                placeholder="Add new task..."
+                value={manualChecklistInput}
                 onChange={(e) => setManualChecklistInput(e.target.value)}
-                style={{ flex: 1, padding: '4px 8px', fontSize: '12px', height: '28px' }}
+                className="checklist-text-input"
               />
-              <button 
-                type="submit" 
-                className="btn-primary" 
-                style={{ padding: '4px 10px', fontSize: '11px', height: '28px' }}
+              <button
+                type="submit"
+                className="btn-primary checklist-add-btn"
               >
                 Add
               </button>
@@ -162,7 +161,7 @@ function ChecklistSection({
               const showLineAtBottom = draggedChecklistIndex !== null && draggedChecklistIndex < idx;
               console.log('RENDER checklist item idx:', idx, 'isDragOver:', isDragOver, 'draggedIndex:', draggedChecklistIndex, 'dragOverIndex:', dragOverChecklistIndex);
               return (
-                <div key={item.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <div key={item.id} className="checklist-item-wrapper">
                   {isDragOver && (
                     <div style={{
                       position: 'absolute',
@@ -178,7 +177,7 @@ function ChecklistSection({
                       pointerEvents: 'none'
                     }} />
                   )}
-                  <div 
+                  <div
                     className={`checklist-item-row ${dragOverChecklistIndex === idx ? 'drag-over' : ''}`}
                     draggable={trip.canEdit !== false}
                     onDragStart={(e) => {
@@ -227,46 +226,28 @@ function ChecklistSection({
                       setDraggedChecklistIndex(null);
                       setDragOverChecklistIndex(null);
                     }}
-                    style={{ 
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 10px', 
-                      borderColor: 'rgba(255,255,255,0.04)',
-                      backgroundColor: 'rgba(255,255,255,0.01)',
-                      borderRadius: '8px',
+                    style={{
                       opacity: draggedChecklistIndex === idx ? 0.4 : 1,
                       cursor: trip.canEdit !== false ? 'grab' : 'default',
-                      transition: 'opacity 0.2s ease, background-color 0.2s ease',
-                      width: '100%',
-                      boxSizing: 'border-box'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                    <div className="checklist-item-content">
                       {trip.canEdit !== false && (
-                        <span 
-                          style={{ 
-                            cursor: 'grab', 
-                            color: 'var(--text-muted)', 
-                            display: 'flex', 
-                            alignItems: 'center',
-                            opacity: 0.6,
-                            paddingRight: '2px'
-                          }}
-                        >
+                        <span className="checklist-grip">
                           <GripVertical size={11} />
                         </span>
                       )}
-                      <label className="flex-align" style={{ gap: '8px', cursor: trip.canEdit !== false ? 'pointer' : 'default', textTransform: 'none', flex: 1, minWidth: 0 }}>
-                        <input 
-                          type="checkbox" 
-                          checked={item.completed} 
+                      <label className="flex-align checklist-item-label" style={{ cursor: trip.canEdit !== false ? 'pointer' : 'default' }}>
+                        <input
+                          type="checkbox"
+                          checked={item.completed}
                           disabled={trip.canEdit === false}
                           onChange={() => handleToggleManualChecklistItem(item.id)}
-                          style={{ width: '14px', height: '14px', margin: 0, cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
+                          className="checklist-checkbox"
+                          style={{ cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
                         />
-                        <span style={{ 
-                          fontSize: '12px', 
+                        <span style={{
+                          fontSize: '12px',
                           color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
                           textDecoration: item.completed ? 'line-through' : 'none',
                           textOverflow: 'ellipsis',
@@ -278,34 +259,33 @@ function ChecklistSection({
                       </label>
                     </div>
                     {trip.canEdit !== false && (
-                      <div style={{ display: 'flex', gap: '2px', alignItems: 'center', marginLeft: '6px' }}>
-                        <span className="checklist-move-actions-desktop" style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                          <button 
-                            type="button" 
-                            className="mini-icon-btn" 
+                      <div className="checklist-item-end-actions">
+                        <span className="checklist-move-actions-desktop">
+                          <button
+                            type="button"
+                            className="mini-icon-btn checklist-move-btn"
                             onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
                             disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
-                            style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
+                            style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
                             data-tooltip="Move Up"
                           >
                             <ChevronUp size={12} />
                           </button>
-                          <button 
-                            type="button" 
-                            className="mini-icon-btn" 
+                          <button
+                            type="button"
+                            className="mini-icon-btn checklist-move-btn"
                             onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
                             disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
-                            style={{ padding: '2px', height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
+                            style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
                             data-tooltip="Move Down"
                           >
                             <ChevronDown size={12} />
                           </button>
                         </span>
-                        <button 
-                          type="button" 
-                          className="trip-delete-btn" 
+                        <button
+                          type="button"
+                          className="trip-delete-btn checklist-delete-btn"
                           onClick={() => handleDeleteManualChecklistItem(item.id)}
-                          style={{ padding: '2px', marginLeft: '4px' }}
                         >
                           <Trash2 size={12} />
                         </button>
@@ -332,9 +312,8 @@ function ChecklistSection({
             </h4>
             <div className="subsection-actions">
               {trip.canEdit !== false && (
-                <button 
-                  className="mini-icon-btn flex-align"
-                  style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)' }}
+                <button
+                  className="mini-icon-btn flex-align checklist-ai-btn"
                   onClick={onGenerateTripChecklist}
                   disabled={generatingChecklist}
                 >
@@ -356,14 +335,13 @@ function ChecklistSection({
                 canEdit={trip.canEdit !== false}
               />
             ) : (
-              <div style={{ padding: '16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
-                <span className="subsection-subtitle" style={{ display: 'block', marginBottom: '8px' }}>
+              <div className="checklist-empty-state">
+                <span className="subsection-subtitle checklist-empty-subtitle">
                   No AI checklist generated.
                 </span>
                 {trip.canEdit !== false && (
-                  <button 
-                    className="btn-secondary flex-align"
-                    style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
+                  <button
+                    className="btn-secondary flex-align checklist-generate-btn"
                     onClick={onGenerateTripChecklist}
                   >
                     <Sparkles size={11} /> Generate Checklist
