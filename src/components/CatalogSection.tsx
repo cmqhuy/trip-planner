@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import LocationSelect from './LocationSelect';
 import {
   MapPin, Plus, Edit2, ExternalLink, ChevronUp, ChevronDown,
@@ -62,7 +62,7 @@ interface CatalogSectionProps {
   onAiSuggestPlaces: () => void;
 }
 
-export default function CatalogSection({
+function CatalogSection({
   trip,
   catalogLocation,
   selectedCatalogLocId,
@@ -803,3 +803,5 @@ export default function CatalogSection({
     </div>
   );
 }
+
+export default memo(CatalogSection);

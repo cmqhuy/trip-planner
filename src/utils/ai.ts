@@ -121,6 +121,13 @@ const KEYS_STORAGE_KEY = 'vacation-itineraries-gemini-api-keys';
 const MODEL_STORAGE_KEY = 'vacation-itineraries-gemini-model';
 const SYNC_STORAGE_KEY = 'vacation-itineraries-gemini-sync-drive';
 
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timeoutId));
+}
+
 export class GeminiService {
   /**
    * Gets preference for syncing AI settings to Google Drive.
@@ -187,7 +194,7 @@ export class GeminiService {
   static async testConnection(key: string): Promise<boolean> {
     if (!key || !key.trim()) return false;
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key.trim()}`, {
+      const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key.trim()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -236,23 +243,26 @@ export class GeminiService {
       }
     }
 
-    // Add suggested coordinates list
-    properties['suggestedMarkers'] = {
-      type: 'ARRAY',
-      description: 'Suggested key spots, street segments, or landmarks inside or near this place (especially if it is an area/neighborhood/trail like Shibuya, Hongdae, Myeong-dong, or Bukchon Hanok Village). Return empty array if not applicable.',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          title: { type: 'STRING', description: 'Name of the spot/street (e.g. Hongdae Shopping Street, Hachiko Statue, Ewha Womans University Main Entrance)' },
-          lat: { type: 'NUMBER', description: 'Latitude coordinate of this specific spot' },
-          lng: { type: 'NUMBER', description: 'Longitude coordinate of this specific spot' },
-          description: { type: 'STRING', description: 'Very short explanation of what to do here (e.g. Main street for busking, best station exit to start walking, famous flagship store)' },
-          type: { type: 'STRING', description: 'One of: street, landmark, shop, station, cafe, other' }
-        },
-        required: ['title', 'lat', 'lng', 'description', 'type']
-      }
-    };
-    required.push('suggestedMarkers');
+    // Only include suggestedMarkers when area_guide is active — skipping saves ~150 tokens per call
+    const includeMarkers = !disabledPlaceFields?.includes('area_guide');
+    if (includeMarkers) {
+      properties['suggestedMarkers'] = {
+        type: 'ARRAY',
+        description: 'Suggested key spots, street segments, or landmarks inside or near this place (especially if it is an area/neighborhood/trail like Shibuya, Hongdae, Myeong-dong, or Bukchon Hanok Village). Return empty array if not applicable.',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            title: { type: 'STRING', description: 'Name of the spot/street (e.g. Hongdae Shopping Street, Hachiko Statue, Ewha Womans University Main Entrance)' },
+            lat: { type: 'NUMBER', description: 'Latitude coordinate of this specific spot' },
+            lng: { type: 'NUMBER', description: 'Longitude coordinate of this specific spot' },
+            description: { type: 'STRING', description: 'Very short explanation of what to do here (e.g. Main street for busking, best station exit to start walking, famous flagship store)' },
+            type: { type: 'STRING', description: 'One of: street, landmark, shop, station, cafe, other' }
+          },
+          required: ['title', 'lat', 'lng', 'description', 'type']
+        }
+      };
+      required.push('suggestedMarkers');
+    }
 
     const promptText = `You are a professional local travel planner and guide. Provide concise, high-value insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
 ${places.map(p => `- ID: "${p.id}", Place Title: "${p.title}" (Description: "${p.description || 'N/A'}", Latitude: ${p.lat || 'N/A'}, Longitude: ${p.lng || 'N/A'})`).join('\n')}
@@ -263,17 +273,17 @@ ${fieldsPrompt.join('\n')}
 
 IMPORTANT DIRECTIONS REQUIREMENT:
 If a place is a broad, generic area or neighborhood (such as Shinjuku, Shibuya, Myeongdong, Soho, etc.), the "directions" field MUST specify a concrete arrival point (e.g. which station, exit, or street corner to arrive at) in a single concise sentence.
-
+${includeMarkers ? `
 IMPORTANT AREA MAP MARKERS REQUIREMENT:
 For neighborhoods, trails, or large areas (e.g. Shibuya, Hongdae, Myeong-dong, or Bukchon Hanok Village), you MUST generate a list of 2-5 key spots, street points, or famous landmarks in the "suggestedMarkers" array.
 For example, for "Hongdae": suggest coordinates for the main busking/shopping street, and a famous store or exit.
 For Myeong-dong or Bukchon Hanok Village: suggest coordinates for the main shopping/walking street/path and key landmarks (e.g. Myeongdong Cathedral, Bukchon viewpoints).
 Ensure the coordinates (lat/lng) are highly accurate and geographically near the main place's coordinates (shown above).
 Return an empty array if the place is a small, single-coordinate point of interest where sub-markers are not useful.
-
+` : ''}
 Ensure the returned JSON lists the exact "id" for each place so it can be matched.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -450,7 +460,7 @@ Since the user is traveling with a baby, generate a specific "baby_logistics" te
 
 Ensure the returned JSON lists the exact "dateStr" for each day so it can be matched.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -585,7 +595,7 @@ Please pay attention to essential details to make the trip complete. Keep the re
 
 Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -676,7 +686,7 @@ Fill in:
 
 Use the location context to resolve ambiguous names. Ensure coordinates are accurate.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -775,7 +785,7 @@ Please organize the guide with clean subheadings, keeping each section extremely
 
 Output ONLY raw Markdown. Do not include any greeting or conversational filler.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -836,7 +846,7 @@ For each place provide:
 
 Ensure coordinates are accurate and the places span a variety of types.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

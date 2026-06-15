@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
@@ -120,7 +120,7 @@ interface ItineraryPanelProps {
   setRightCollapsed?: (val: boolean) => void;
 }
 
-export default function ItineraryPanel({
+function ItineraryPanel({
   trip,
   activePlan,
   activePlanId,
@@ -1384,3 +1384,5 @@ export default function ItineraryPanel({
     </div>
   );
 }
+
+export default memo(ItineraryPanel);

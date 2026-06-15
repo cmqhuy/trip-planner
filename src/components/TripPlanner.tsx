@@ -822,11 +822,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setDraggedPlaceId(null);
   }, [draggedPlaceId, catalogLocation, trip, onUpdateTrip]);
 
-  const handleDayPlaceDragStart = (index: number) => {
+  const handleDayPlaceDragStart = useCallback((index: number) => {
     setDraggedDayPlaceIndex(index);
-  };
+  }, []);
 
-  const handleDayPlaceDrop = (targetIndex: number, position: 'top' | 'bottom') => {
+  const handleDayPlaceDrop = useCallback((targetIndex: number, position: 'top' | 'bottom') => {
     if (draggedDayPlaceIndex === null) return;
 
     const updatedPlans = trip.plans.map(p => {
@@ -853,9 +853,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     onUpdateTrip({ ...trip, plans: updatedPlans });
     setDraggedDayPlaceIndex(null);
     setDragOverDayPlaceIndex(null);
-  };
+  }, [draggedDayPlaceIndex, trip, activePlan, activeDayStr, onUpdateTrip]);
 
-  const handleCatalogPlaceDropOnTimeline = (placeId: string, targetIndex: number, position: 'top' | 'bottom') => {
+  const handleCatalogPlaceDropOnTimeline = useCallback((placeId: string, targetIndex: number, position: 'top' | 'bottom') => {
     let destIndex = targetIndex;
     if (position === 'bottom') destIndex = targetIndex + 1;
 
@@ -880,11 +880,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     onUpdateTrip({ ...trip, plans: updatedPlans });
     setDraggedPlaceId(null);
     setDragOverDayPlaceIndex(null);
-  };
+  }, [trip, activePlan, activeDayStr, catalogLocation, onUpdateTrip]);
 
 
 
-  const handleSetDayLocation = (locId: string) => {
+  const handleSetDayLocation = useCallback((locId: string) => {
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
         return {
@@ -905,7 +905,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       ...trip,
       plans: updatedPlans
     });
-  };
+  }, [trip, activePlan, activeDayStr, onUpdateTrip]);
 
   const handleMoveDayContents = (destDateStr: string) => {
     if (!activeDayStr || !destDateStr || activeDayStr === destDateStr) return;
@@ -1042,7 +1042,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setShowNewPlanModal(false);
   };
 
-  const handleRenamePlan = () => {
+  const handleRenamePlan = useCallback(() => {
     if (!editPlanName.trim()) return;
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
@@ -1058,9 +1058,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       plans: updatedPlans
     });
     setIsRenamingPlan(false);
-  };
+  }, [editPlanName, trip, activePlan, onUpdateTrip]);
 
-  const handleDeletePlan = (planId: string) => {
+  const handleDeletePlan = useCallback((planId: string) => {
     if (trip.plans.length <= 1) {
       setConfirmModal({
         title: 'Delete Plan Option',
@@ -1082,12 +1082,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setActivePlanId(remainingPlans[0].id);
       }
     });
-  };
+  }, [trip, onUpdateTrip]);
 
-  const handleMovePlan = (direction: 'up' | 'down') => {
+  const handleMovePlan = useCallback((direction: 'up' | 'down') => {
     const index = trip.plans.findIndex(p => p.id === activePlanId);
     if (index === -1) return;
-    
+
     const newPlans = [...trip.plans];
     if (direction === 'up' && index > 0) {
       const temp = newPlans[index];
@@ -1100,12 +1100,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     } else {
       return;
     }
-    
+
     onUpdateTrip({
       ...trip,
       plans: newPlans
     });
-  };
+  }, [trip, activePlanId, onUpdateTrip]);
 
   // ----------------------------------------------------
   // Place Catalog & Itinerary Operations
@@ -1217,7 +1217,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setActivePlaceId(newPlace.id);
   }, [catalogLocation, trip, onUpdateTrip]);
 
-  const handleAddPlaceFromDayTimeline = (place: Omit<Place, 'placeGroupId'>) => {
+  const handleAddPlaceFromDayTimeline = useCallback((place: Omit<Place, 'placeGroupId'>) => {
     if (!activeDayLocation) return;
 
     // Ensure the catalog location matches the active day location so it is saved in the correct city
@@ -1246,7 +1246,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     // Clear search query and suggestion list
     setPlaceQuery('');
     setPlaceSuggestions([]);
-  };
+  }, [activeDayLocation]);
 
   const handleCreateCustomPlace = (placeData: Omit<Place, 'id'>) => {
     if (!catalogLocation) return;
@@ -1336,7 +1336,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     });
   };
 
-  const handleRemovePlaceFromDay = (scheduleIndex: number) => {
+  const handleRemovePlaceFromDay = useCallback((scheduleIndex: number) => {
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
         const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
@@ -1349,9 +1349,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       return p;
     });
     onUpdateTrip({ ...trip, plans: updatedPlans });
-  };
+  }, [trip, activePlan, activeDayStr, onUpdateTrip]);
 
-  const handleMoveScheduleItem = (index: number, direction: 'up' | 'down') => {
+  const handleMoveScheduleItem = useCallback((index: number, direction: 'up' | 'down') => {
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
         const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
@@ -1366,7 +1366,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       return p;
     });
     onUpdateTrip({ ...trip, plans: updatedPlans });
-  };
+  }, [trip, activePlan, activeDayStr, onUpdateTrip]);
 
   const handleMoveCatalogPlace = useCallback((placeId: string, direction: 'up' | 'down') => {
     if (!catalogLocation) return;
@@ -1664,7 +1664,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setShowTransportModal(false);
   };
 
-  const handleDeleteTransportation = (id: string) => {
+  const handleDeleteTransportation = useCallback((id: string) => {
     setConfirmModal({
       title: 'Delete Transportation',
       message: 'Delete this transport booking?',
@@ -1684,15 +1684,15 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         });
       }
     });
-  };
+  }, [trip, activePlan, onUpdateTrip]);
 
   // Get transport active on a day
-  const getTransportsForDay = (dateStr: string) => {
+  const getTransportsForDay = useCallback((dateStr: string) => {
     return activePlan.transports.filter(t => {
       // Show on day if it departs or arrives on this day
       return t.departureDate === dateStr || t.arrivalDate === dateStr;
     });
-  };
+  }, [activePlan]);
 
   // ----------------------------------------------------
   // Hotel Operations
@@ -1721,7 +1721,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setShowHotelModal(false);
   };
 
-  const handleDeleteHotel = (id: string) => {
+  const handleDeleteHotel = useCallback((id: string) => {
     setConfirmModal({
       title: 'Delete Hotel Reservation',
       message: 'Delete this hotel reservation?',
@@ -1741,10 +1741,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         });
       }
     });
-  };
+  }, [trip, activePlan, onUpdateTrip]);
 
   // Get hotels overlapping with active day
-  const getHotelsForDay = (dateStr: string) => {
+  const getHotelsForDay = useCallback((dateStr: string) => {
     const d = new Date(dateStr);
     return activePlan.hotels.filter(h => {
       const inD = new Date(h.checkInDate);
@@ -1752,7 +1752,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       // Stay overlaps if active day is between checkIn and checkOut (exclusive or inclusive)
       return d >= inD && d <= outD;
     });
-  };
+  }, [activePlan]);
 
   // Save Trip AI Config (baby logistics checkbox & custom AI fields)
   const handleSaveTripAiConfig = (
@@ -2129,7 +2129,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     });
   };
 
-  const handleSaveDayTips = (dateStr: string, newContent: string) => {
+  const handleSaveDayTips = useCallback((dateStr: string, newContent: string) => {
     const day = activePlan.days[dateStr];
     if (!day) return;
     const updatedDays = {
@@ -2147,9 +2147,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       ...trip,
       plans: trip.plans.map(p => p.id === activePlan.id ? { ...p, days: updatedDays } : p)
     });
-  };
+  }, [activePlan, trip, onUpdateTrip]);
 
-  const handleSaveBabyLogistics = (dateStr: string, newContent: string) => {
+  const handleSaveBabyLogistics = useCallback((dateStr: string, newContent: string) => {
     const day = activePlan.days[dateStr];
     if (!day) return;
     const updatedDays = {
@@ -2167,7 +2167,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       ...trip,
       plans: trip.plans.map(p => p.id === activePlan.id ? { ...p, days: updatedDays } : p)
     });
-  };
+  }, [activePlan, trip, onUpdateTrip]);
 
   // ----------------------------------------------------
   // Rendering Helpers
@@ -2235,11 +2235,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     }
   }, [activePlaceId, activeDayStr]);
 
-  const formatDisplayDate = (dateStr: string) => {
+  const formatDisplayDate = useCallback((dateStr: string) => {
     if (!dateStr) return '';
     const cleanDateStr = dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`;
     return new Date(cleanDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  };
+  }, []);
 
   const placeAllocatedDaysMap = useMemo(() => {
     const map = new Map<string, string[]>();

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Place, PlaceGroup } from '../types';
@@ -38,7 +38,7 @@ const serializePlaceGroups = (groups: PlaceGroup[]) => {
   }));
 };
 
-export default function MapComponent({ 
+function MapComponent({ 
   places, 
   activePlaceId, 
   placeGroups, 
@@ -442,3 +442,5 @@ export default function MapComponent({
     />
   );
 }
+
+export default memo(MapComponent);

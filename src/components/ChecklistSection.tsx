@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { 
   ChevronUp, ChevronDown, Trash2, 
   RefreshCw, Sparkles, GripVertical
@@ -16,7 +16,7 @@ interface ChecklistSectionProps {
   onUpdateTrip: (updatedTrip: Trip | ((prevTrip: Trip) => Trip)) => void;
 }
 
-export default function ChecklistSection({
+function ChecklistSection({
   trip,
   activePlan,
   generatingChecklist,
@@ -376,3 +376,5 @@ export default function ChecklistSection({
     </div>
   );
 }
+
+export default memo(ChecklistSection);

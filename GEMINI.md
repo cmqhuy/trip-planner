@@ -69,7 +69,7 @@ trip-planner/
 
 ### State & Entry Points
 
-There is no global state library. All state lives in **`App.tsx`** (~1,175 lines) and flows down as props — no React Context.
+There is no global state library. All state lives in **`App.tsx`** (~1,221 lines) and flows down as props — no React Context.
 
 - **`App.tsx`** — manages trip array, auth tokens, Gemini settings, sync timestamps, modal flags, and localStorage hydration/migration on mount.
 - **`TripPlanner.tsx`** — the main workspace once a trip is selected.
@@ -134,7 +134,10 @@ Key behaviors:
 - **Key rotation**: multiple keys tried in sequence on failure; updated order persisted to localStorage.
 - **Result caching**: stored in `aiDetails: { [fieldKey]: string }` and `aiUpdatedAt` directly on `Trip`, `Location`, `Place`, `Plan`, and `PlanDay` — no separate cache layer.
 - **Custom fields**: `Trip.customAiFields` defines user-added fields. `getOrderedPlaceFields()` in `ai.ts` resolves the active ordered list.
-- **Suggested markers**: large areas generate nested `suggestedMarkers` (lat/lng + type) rendered as child map pins.
+- **Suggested markers**: large areas generate nested `suggestedMarkers` (lat/lng + type) rendered as child map pins. `suggestedMarkers` is **always** included in the `generatePlaceAiDetails` response schema (ai.ts:239–255) unless `area_guide` is in `disabledPlaceFields` — skip both the schema property and the IMPORTANT AREA MAP MARKERS REQUIREMENT paragraph when that field is off.
+- **Timeouts**: all `fetch` calls in `ai.ts` must use `AbortController` with a 30-second timeout. Never leave a bare `fetch` without one.
+- **Regeneration is always allowed** — do not add pre-flight guards that skip the API call when `aiDetails` already has values. Users intentionally regenerate.
+- **`generateDailyTips` sends only scheduled places** (`day.placeIds.map(...)` at TripPlanner.tsx:1792) — do not change this to send all trip places.
 
 The 7 built-in place fields: `what_special`, `best_time`, `reservation`, `directions`, `area_guide`, `pro_tips`, `other_info`.
 
@@ -178,6 +181,38 @@ External APIs (no keys required): OSM Nominatim (geocoding), Photon/Komoot (plac
 
 ---
 
+## Component Sizes & Known Technical Debt
+
+File sizes as of the last audit. Read these before adding features — these are large files and grow easily.
+
+| File | Lines | Notes |
+|------|-------|-------|
+| `src/components/TripPlanner.tsx` | 2,650 | God component — extract a custom hook before adding new feature state |
+| `src/components/ItineraryPanel.tsx` | 1,386 | Receives ~97 props from TripPlanner — don't add more; use TripContext instead |
+| `src/App.tsx` | 1,221 | Auth + sync + CRUD mixed — don't expand further |
+| `src/utils/googleDrive.ts` | 1,177 | No batch/retry — plan around its failure modes |
+| `src/utils/ai.ts` | 964 | Prompt construction scattered — consolidate before adding fields |
+| `src/components/TripAiConfigModal.tsx` | 881 | |
+| `src/components/CatalogSection.tsx` | 805 | |
+| `src/index.css` | 2,776 | 807 inline `style={{}}` occurrences exist across 79% of components — new code must use CSS classes instead |
+
+**State ref duplication in App.tsx**: `tripsRef`, `googleTokenRef`, `googleFolderIdRef`, `activeTripIdRef`, `syncTimestampsRef` mirror their `useState` counterparts. This is intentional — sync callbacks need the latest value without re-registering effects. Don't remove these refs.
+
+---
+
+## Performance Guidelines
+
+**Current state**: 0 `React.memo` usages across 47 components. Every trip mutation re-renders the full App → TripPlanner → ItineraryPanel → CatalogSection → all cards cascade.
+
+Rules going forward:
+- Wrap `React.memo` on any component that receives props from TripPlanner or ItineraryPanel.
+- Wrap handlers passed to children in `useCallback` — without it, `React.memo` on children provides no benefit (new function reference every render).
+- **Write component tests BEFORE adding `React.memo`** — stale closure bugs from shallow prop comparison are hard to detect without tests.
+- Don't add list virtualization until tested with 50+ items under React DevTools Profiler.
+- All inline styles (`style={{...}}`) bypass the CSS variable system; new code should use CSS classes.
+
+---
+
 ## Design System
 
 Glassmorphism dark theme. Key CSS variables from `index.css`:
@@ -208,6 +243,18 @@ Glassmorphism dark theme. Key CSS variables from `index.css`:
 - `.modal-field-title` / `.modal-field-details` — field label and description
 - `.modal-section-divider` — dashed separator between card detail and AI sections
 - `.modal-ai-header` / `.modal-ai-title` — AI trigger layout inside modals
+
+### Z-Index Hierarchy
+
+| Layer | Z-index | Examples |
+|-------|---------|---------|
+| Cards with open dropdowns | 1100 | `.dropdown-active` on `.timeline-card`, `.catalog-place-card` |
+| Modals / overlays | 1000+ | `.modal-overlay` |
+| Tooltips | 1200 | `[data-tooltip]::after` |
+
+### Inline Styles
+
+807 inline `style={{}}` blocks exist across the codebase. **New code must not add more.** Move dynamic values to CSS classes or CSS custom property overrides on the element (`style={{ '--color': hex }}`), then consume with `var(--color)` in CSS.
 
 ### Tooltips
 
