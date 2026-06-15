@@ -124,11 +124,8 @@ export default function ChecklistSection({
 
   return (
     <div className="accordion-content">
-      {/* Checklist Content */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
-        
-        {/* Section A: Manual Checklist */}
-        <div className="left-panel-subsection">
+      {/* Section A: Manual Checklist */}
+      <div className="left-panel-subsection">
           <div className="subsection-header">
             <h4 className="subsection-title">Personal Checklist</h4>
           </div>
@@ -159,7 +156,7 @@ export default function ChecklistSection({
             </form>
           )}
 
-          <div className="subsection-content" style={{ maxHeight: '160px', overflowY: 'auto', paddingRight: '2px' }}>
+          <div className="subsection-content">
             {(activePlan.manualChecklist || []).map((item, idx) => {
               const isDragOver = idx === dragOverChecklistIndex && draggedChecklistIndex !== null && draggedChecklistIndex !== idx;
               const showLineAtBottom = draggedChecklistIndex !== null && draggedChecklistIndex < idx;
@@ -328,7 +325,7 @@ export default function ChecklistSection({
         </div>
 
         {/* Section B: AI Generated Checklist */}
-        <div className="left-panel-subsection" style={{ flex: 1, minHeight: 0 }}>
+        <div className="left-panel-subsection">
           <div className="subsection-header">
             <h4 className="subsection-title">
               AI Preparation Checklist
@@ -348,16 +345,15 @@ export default function ChecklistSection({
             </div>
           </div>
 
-          <div className="subsection-content" style={{ flex: 1, minHeight: 0 }}>
+          <div className="subsection-content">
             {generatingChecklist ? (
               <FunGeneratingLoader message="Analyzing trip logistics & requirements..." />
             ) : activePlan.aiDetails?.checklist ? (
-              <AiMarkdownSection 
-                content={activePlan.aiDetails.checklist} 
-                updatedAt={activePlan.aiUpdatedAt?.checklist} 
+              <AiMarkdownSection
+                content={activePlan.aiDetails.checklist}
+                updatedAt={activePlan.aiUpdatedAt?.checklist}
                 onSave={onSaveAiChecklist}
                 canEdit={trip.canEdit !== false}
-                style={{ maxHeight: 'none', overflowY: 'auto', flex: 1 }}
               />
             ) : (
               <div style={{ padding: '16px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
@@ -377,8 +373,6 @@ export default function ChecklistSection({
             )}
           </div>
         </div>
-
-      </div>
     </div>
   );
 }

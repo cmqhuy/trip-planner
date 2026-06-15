@@ -390,6 +390,14 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const MOBILE_TABS: Array<'catalog' | 'itinerary' | 'map'> = ['catalog', 'itinerary', 'map'];
   const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
   const handleSwipeTouchStart = (e: React.TouchEvent) => {
+    // Don't hijack touches on the map or any horizontally scrollable element
+    let el = e.target as HTMLElement | null;
+    while (el) {
+      if (el.classList?.contains('map-panel') || el.classList?.contains('leaflet-container')) return;
+      const ox = window.getComputedStyle(el).overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) return;
+      el = el.parentElement;
+    }
     const t = e.touches[0];
     swipeTouchStart.current = { x: t.clientX, y: t.clientY };
   };

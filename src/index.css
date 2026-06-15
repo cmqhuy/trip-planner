@@ -1802,12 +1802,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .accordion-content {
-  padding: 12px;
+  padding: 0 12px;
   flex: 1;
   overflow-y: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.accordion-content::before,
+.accordion-content::after {
+  content: '';
+  display: block;
+  height: 12px;
+  flex-shrink: 0;
 }
 
 /* AI Day Assistant & Checklists styling */

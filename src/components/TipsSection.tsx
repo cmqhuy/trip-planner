@@ -24,9 +24,9 @@ export default function TipsSection({
   onSaveLocalEssentials
 }: TipsSectionProps) {
   return (
-    <div className="accordion-content">
-      {/* Location Select (Synced with Catalog, No Add/Edit buttons) */}
-      <div style={{ padding: '0 0 12px 0', marginBottom: '12px' }}>
+    <>
+      {/* Location Select — fixed above the scroll area, does not scroll */}
+      <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
         <LocationSelect
           value={selectedCatalogLocId}
           onChange={setSelectedCatalogLocId}
@@ -34,13 +34,14 @@ export default function TipsSection({
         />
       </div>
 
+      <div className="accordion-content">
       {/* Local Essentials Content */}
-      <div className="left-panel-subsection" style={{ flex: 1, minHeight: 0 }}>
+      <div className="left-panel-subsection">
         <div className="subsection-header">
           <h4 className="subsection-title">Local Essentials</h4>
           <div className="subsection-actions">
             {catalogLocation && trip.canEdit !== false && (
-              <button 
+              <button
                 className="mini-icon-btn flex-align"
                 style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)', flexShrink: 0 }}
                 onClick={onGenerateLocalEssentials}
@@ -52,21 +53,20 @@ export default function TipsSection({
             )}
           </div>
         </div>
-        
+
         <span className="subsection-subtitle" style={{ textTransform: 'none', display: 'block', marginBottom: '4px' }}>
           Quick reference for convenience stores, currencies, local apps, dress codes, etc.
         </span>
 
-        <div className="subsection-content" style={{ flex: 1, minHeight: 0 }}>
+        <div className="subsection-content">
           {generatingLocalEssentials ? (
             <FunGeneratingLoader message="Gathering destination reference guide..." />
           ) : catalogLocation && catalogLocation.aiDetails?.local_essentials ? (
-            <AiMarkdownSection 
-              content={catalogLocation.aiDetails.local_essentials} 
-              updatedAt={catalogLocation.aiUpdatedAt?.local_essentials} 
+            <AiMarkdownSection
+              content={catalogLocation.aiDetails.local_essentials}
+              updatedAt={catalogLocation.aiUpdatedAt?.local_essentials}
               onSave={onSaveLocalEssentials}
               canEdit={trip.canEdit !== false}
-              style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}
             />
           ) : (
             <div style={{ padding: '20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
@@ -74,7 +74,7 @@ export default function TipsSection({
                 No Local Essentials Reference guide generated yet.
               </span>
               {catalogLocation && trip.canEdit !== false && (
-                <button 
+                <button
                   className="btn-secondary flex-align"
                   style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
                   onClick={onGenerateLocalEssentials}
@@ -86,6 +86,7 @@ export default function TipsSection({
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

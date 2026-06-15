@@ -19,7 +19,7 @@ export default function ReservationsSection({
   return (
     <div className="accordion-content">
       {/* Reservations Content */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         
         {/* 1. Transits / Flights */}
         <div className="left-panel-subsection">
