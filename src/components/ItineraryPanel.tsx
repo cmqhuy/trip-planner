@@ -440,7 +440,7 @@ export default function ItineraryPanel({
         <button 
           className="panel-toggle-btn left-toggle" 
           onClick={() => setLeftCollapsed(!leftCollapsed)}
-          data-tooltip={leftCollapsed ? "Expand Catalog Panel" : "Collapse Catalog Panel"}
+          data-tooltip={leftCollapsed ? "Expand Panel" : "Collapse Panel"}
         >
           {leftCollapsed ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
         </button>
@@ -450,7 +450,7 @@ export default function ItineraryPanel({
         <button 
           className="panel-toggle-btn right-toggle" 
           onClick={() => setRightCollapsed(!rightCollapsed)}
-          data-tooltip={rightCollapsed ? "Expand Map Panel" : "Collapse Map Panel"}
+          data-tooltip={rightCollapsed ? "Expand Panel" : "Collapse Panel"}
         >
           {rightCollapsed ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
         </button>

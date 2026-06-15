@@ -984,6 +984,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   flex: 1.2;
   position: relative;
   background: #111;
+  max-width: 2000px;
+  overflow: hidden;
 }
 
 .leaflet-container {
@@ -2630,6 +2632,8 @@ div.google-auth-avatar-desktop {
     max-width: 0 !important;
     overflow: hidden !important;
     border-left: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 }
 

@@ -386,6 +386,25 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   // Mobile UI States
   const [activeMobileTab, setActiveMobileTab] = useState<'catalog' | 'itinerary' | 'map'>('itinerary');
   const [autoScheduleOnActiveDay, setAutoScheduleOnActiveDay] = useState(false);
+
+  const MOBILE_TABS: Array<'catalog' | 'itinerary' | 'map'> = ['catalog', 'itinerary', 'map'];
+  const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
+  const handleSwipeTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    swipeTouchStart.current = { x: t.clientX, y: t.clientY };
+  };
+  const handleSwipeTouchEnd = (e: React.TouchEvent) => {
+    if (!swipeTouchStart.current) return;
+    const dx = e.changedTouches[0].clientX - swipeTouchStart.current.x;
+    const dy = e.changedTouches[0].clientY - swipeTouchStart.current.y;
+    swipeTouchStart.current = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    setActiveMobileTab(prev => {
+      const idx = MOBILE_TABS.indexOf(prev);
+      if (dx < 0) return MOBILE_TABS[Math.min(idx + 1, MOBILE_TABS.length - 1)];
+      return MOBILE_TABS[Math.max(idx - 1, 0)];
+    });
+  };
   const [hideAllocatedPlaces, setHideAllocatedPlaces] = useState(false);
 
   // Accordion state for left panel
@@ -2230,7 +2249,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   }, [activePlan]);
 
   return (
-    <div className={`planner-view${leftCollapsed ? ' left-collapsed' : ''}${rightCollapsed ? ' right-collapsed' : ''}`}>
+    <div
+      className={`planner-view${leftCollapsed ? ' left-collapsed' : ''}${rightCollapsed ? ' right-collapsed' : ''}`}
+      onTouchStart={handleSwipeTouchStart}
+      onTouchEnd={handleSwipeTouchEnd}
+    >
       {/* LEFT PANEL: Accordion (Catalog, Checklist, Reservations, Tips) */}
       <LeftPanelAccordion
         activeMobileTab={activeMobileTab}
