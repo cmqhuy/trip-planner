@@ -53,7 +53,7 @@ export default function AiDetailsView({
     <div className={`ai-details-container ${isGenerating ? 'ai-generating-glow' : ''}`}>
       <div className="ai-details-header">
         <span className="ai-details-freshness">
-          <Sparkles size={12} className={isGenerating ? 'spin' : ''} />
+          <Sparkles size={12} />
           {hasAiDetails ? 'AI Travel Guide' : 'AI Travel Insights'}
         </span>
 
@@ -88,7 +88,7 @@ export default function AiDetailsView({
       )}
 
       {isGenerating ? (
-        <FunGeneratingLoader message="Asking Gemini AI for travel insights..." />
+        <FunGeneratingLoader message={`Asking Gemini to generate insights for ${place.title}...`} />
       ) : hasAiDetails ? (
         <div className={layoutMode === 'adaptive-2-col' ? 'ai-details-grid' : 'ai-details-list'}>
           {orderedFields.map(field => {

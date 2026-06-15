@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import LocationSelect from './LocationSelect';
 import {
   MapPin, Plus, Edit2, ExternalLink, ChevronUp, ChevronDown,
@@ -116,6 +116,16 @@ export default function CatalogSection({
   onAiSuggestPlaces
 }: CatalogSectionProps) {
   const [activePlaceDropdownId, setActivePlaceDropdownId] = useState<string | null>(null);
+  const aiSuggestionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if ((isLoadingAiSuggestions || aiSuggestedPlaces.length > 0) && aiSuggestionsLocId === selectedCatalogLocId) {
+      const timer = setTimeout(() => {
+        aiSuggestionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingAiSuggestions, aiSuggestedPlaces.length, aiSuggestionsLocId, selectedCatalogLocId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -145,13 +155,11 @@ export default function CatalogSection({
               className="mini-icon-btn"
               onClick={onAiSuggestPlaces}
               disabled={isLoadingAiSuggestions}
-              data-tooltip="AI Suggest Places"
+              data-tooltip={`AI Travel Guide for ${catalogLocation.city}`}
               data-tooltip-position="bottom"
               style={{ padding: '6px', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#a78bfa' }}
             >
-              {isLoadingAiSuggestions
-                ? <RefreshCw size={12} style={{ animation: 'spin-cw 1s linear infinite' }} />
-                : <Sparkles size={12} />}
+              {isLoadingAiSuggestions ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
             </button>
           )}
           {catalogLocation && trip.canEdit !== false && (
@@ -696,8 +704,8 @@ export default function CatalogSection({
               {aiSuggestionsError}
             </div>
           )}
-          {aiSuggestedPlaces.length > 0 && aiSuggestionsLocId === selectedCatalogLocId && (
-            <div className="place-group-section" style={{ borderTop: '1px dashed rgba(167,139,250,0.25)', marginTop: '8px', paddingTop: '8px' }}>
+          {(isLoadingAiSuggestions || aiSuggestedPlaces.length > 0) && aiSuggestionsLocId === selectedCatalogLocId && (
+            <div ref={aiSuggestionsRef} className="place-group-section" style={{ borderTop: '1px dashed rgba(167,139,250,0.25)', marginTop: '8px', paddingTop: '8px' }}>
               <div className="place-group-header">
                 <span className="place-group-title">
                   <Sparkles size={12} style={{ color: '#a78bfa', flexShrink: 0 }} />
@@ -708,10 +716,10 @@ export default function CatalogSection({
                     className="mini-icon-btn"
                     onClick={onAiSuggestPlaces}
                     disabled={isLoadingAiSuggestions}
-                    data-tooltip="Refresh suggestions"
+                    data-tooltip="Refresh AI Suggestions"
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0, color: '#a78bfa' }}
                   >
-                    <RefreshCw size={13} style={isLoadingAiSuggestions ? { animation: 'spin-cw 1s linear infinite' } : undefined} />
+                    <RefreshCw size={13} className={isLoadingAiSuggestions ? 'spin' : ''} />
                   </button>
                   <span className="badge" style={{ background: 'rgba(167,139,250,0.12)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
                     {aiSuggestedPlaces.length}
@@ -719,6 +727,12 @@ export default function CatalogSection({
                 </div>
               </div>
 
+              {isLoadingAiSuggestions && aiSuggestedPlaces.length === 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 4px', color: '#a78bfa', fontSize: '12px', textTransform: 'none' }}>
+                  <RefreshCw size={13} className="spin" style={{ flexShrink: 0 }} />
+                  Asking Gemini for place suggestions...
+                </div>
+              )}
               <div className="catalog-places-list">
                 {aiSuggestedPlaces.map(place => (
                   <div key={place.id}>

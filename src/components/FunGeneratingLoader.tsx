@@ -27,7 +27,7 @@ interface FunGeneratingLoaderProps {
 }
 
 export default function FunGeneratingLoader({ title, message, style }: FunGeneratingLoaderProps) {
-  const [clauseIndex, setClauseIndex] = useState(0);
+  const [clauseIndex, setClauseIndex] = useState(() => Math.floor(Math.random() * FUN_CLAUSES.length));
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -44,8 +44,8 @@ export default function FunGeneratingLoader({ title, message, style }: FunGenera
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none', lineHeight: 1.4 }}>
           {message || 'Generating travel intelligence...'}
         </p>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
-          This may take a few seconds...
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textTransform: 'none', transition: 'all 0.3s ease' }}>
+          {FUN_CLAUSES[clauseIndex]}
         </span>
       </div>
     );

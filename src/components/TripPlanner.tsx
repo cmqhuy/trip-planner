@@ -1148,6 +1148,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setIsLoadingAiSuggestions(true);
     setAiSuggestedPlaces([]);
     setAiSuggestionsError(null);
+    setAiSuggestionsLocId(catalogLocation.id);
     try {
       const existingTitles = catalogLocation.places.map(p => p.title);
       const suggestions = await GeminiService.generateSuggestedPlacesWithRotation(
@@ -1168,7 +1169,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         mapsLink: buildMapsLink(s.title, s.lat, s.lng, catalogLocation.city)
       }));
       setAiSuggestedPlaces(places);
-      setAiSuggestionsLocId(catalogLocation.id);
     } catch (err: any) {
       setAiSuggestionsError(err?.message || 'Failed to generate suggestions.');
     } finally {

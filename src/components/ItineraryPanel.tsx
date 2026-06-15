@@ -979,7 +979,7 @@ export default function ItineraryPanel({
                       setAiGenerateCountry(activeDayLocation?.country || '');
                       setShowAiGenerateModal(true);
                     }} 
-                    data-tooltip="AI Insights for Day Itinerary"
+                    data-tooltip="AI Travel Guide for Places"
                     style={{ gap: '4px', color: '#a5b4fc' }}
                     disabled={scheduledPlaces.length === 0}
                   >
@@ -1154,7 +1154,7 @@ export default function ItineraryPanel({
                           {isAiSuggestion ? (
                             <>
                               <button className="mini-icon-btn" onClick={() => handleAddAiSuggestionToCatalog(previewPlace)} data-tooltip="Add to Catalog" style={{ padding: '4px', color: '#a78bfa' }}><BookmarkPlus size={15} /></button>
-                              <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Add to Day Schedule" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
+                              <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
                             </>
                           ) : (
                             <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
