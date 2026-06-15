@@ -415,6 +415,36 @@ export default function TripDashboard({
         </div>
       )}
 
+      {/* Footer */}
+      <footer style={{
+        marginTop: '40px',
+        paddingTop: '16px',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '20px',
+        fontSize: '12px',
+        color: 'rgba(148,163,184,0.5)',
+      }}>
+        <a
+          href="?page=privacy"
+          style={{ color: 'inherit', textDecoration: 'none' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.9)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.5)')}
+        >
+          Privacy Policy
+        </a>
+        <span>·</span>
+        <a
+          href="?page=terms"
+          style={{ color: 'inherit', textDecoration: 'none' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.9)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(148,163,184,0.5)')}
+        >
+          Terms of Service
+        </a>
+      </footer>
+
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>

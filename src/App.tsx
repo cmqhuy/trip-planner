@@ -32,6 +32,8 @@ import SyncConflictModal from './components/SyncConflictModal';
 import { GeminiService } from './utils/ai';
 import AiSettingsModal from './components/AiSettingsModal';
 import { Sparkles, ArrowLeft } from 'lucide-react';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
+import TermsOfServicePage from './components/TermsOfServicePage';
 
 
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
@@ -1100,6 +1102,10 @@ export default function App() {
   };
 
   const activeTrip = trips.find(t => t.id === activeTripId);
+
+  const urlPage = new URLSearchParams(window.location.search).get('page');
+  if (urlPage === 'privacy') return <PrivacyPolicyPage />;
+  if (urlPage === 'terms') return <TermsOfServicePage />;
 
   return (
     <div className="app-container">
