@@ -197,7 +197,6 @@ export default function AiMarkdownSection({
             fontSize: '12px',
             fontFamily: 'monospace',
             lineHeight: 1.4,
-            resize: 'vertical',
             flex: 1
           }}
         />

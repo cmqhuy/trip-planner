@@ -611,7 +611,7 @@ export default function TripAiConfigModal({
                               value={editDesc}
                               onChange={e => setEditDesc(e.target.value)}
                               rows={2}
-                              style={{ padding: '6px 8px', fontSize: '12px', minHeight: '48px', resize: 'vertical' }}
+                              style={{ padding: '6px 8px', fontSize: '12px', minHeight: '48px' }}
                             />
                           </div>
 
@@ -849,7 +849,7 @@ export default function TripAiConfigModal({
                       value={newDesc}
                       onChange={e => setNewDesc(e.target.value)}
                       rows={2}
-                      style={{ padding: '6px 8px', fontSize: '12px', minHeight: '48px', resize: 'vertical' }}
+                      style={{ padding: '6px 8px', fontSize: '12px', minHeight: '48px' }}
                     />
                   </div>
 

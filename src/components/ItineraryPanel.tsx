@@ -329,7 +329,7 @@ export default function ItineraryPanel({
                   style={{
                     width: '100%', padding: '6px 8px', fontSize: '12.5px',
                     background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
-                    borderRadius: '6px', color: 'var(--text-primary)', resize: 'vertical',
+                    borderRadius: '6px', color: 'var(--text-primary)',
                     textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
                   }}
                 />
@@ -1297,7 +1297,7 @@ export default function ItineraryPanel({
                                     <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
                                     {editingPlaceNotesId === place.id ? (
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
-                                        <textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Add notes..." rows={4} style={{ padding: '6px', fontSize: '12.5px', width: '100%', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', borderRadius: '4px', resize: 'vertical', textTransform: 'none' }} />
+                                        <textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Add notes..." rows={4} style={{ padding: '6px', fontSize: '12.5px', width: '100%', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', borderRadius: '4px', textTransform: 'none' }} />
                                         <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
                                           <button className="btn-secondary" onClick={() => setEditingPlaceNotesId(null)} style={{ padding: '2px 6px', fontSize: '10px' }}>Cancel</button>
                                           <button className="btn-primary flex-align" onClick={() => savePlaceNotes(place!.id)} style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}><Check size={10} /> Save</button>

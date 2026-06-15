@@ -614,12 +614,11 @@ export default function CatalogSection({
                                     style={{
                                       padding: '6px',
                                       fontSize: '12.5px',
-                                      width: '100%', 
-                                      background: 'var(--bg-dark)', 
-                                      border: '1px solid var(--border-glass)', 
+                                      width: '100%',
+                                      background: 'var(--bg-dark)',
+                                      border: '1px solid var(--border-glass)',
                                       color: 'var(--text-primary)',
-                                      borderRadius: '4px',
-                                      resize: 'vertical'
+                                      borderRadius: '4px'
                                     }}
                                   />
                                   <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>

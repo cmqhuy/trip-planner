@@ -154,6 +154,7 @@ input, textarea, select {
 
 textarea {
   resize: none;
+  field-sizing: content;
 }
 
 input:focus, textarea:focus, select:focus {
