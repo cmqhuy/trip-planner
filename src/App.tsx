@@ -1108,9 +1108,10 @@ export default function App() {
         <div className="logo-section">
           {activeTrip && (
             <button 
-              className="mini-icon-btn header-back-btn" 
+              className="mini-icon-btn header-back-btn"
               onClick={() => setActiveTripId(null)}
-              title="Back to Dashboard"
+              data-tooltip="Back to Dashboard"
+              data-tooltip-position="bottom"
               style={{ padding: '6px', marginRight: '4px', display: 'flex', alignItems: 'center' }}
             >
               <ArrowLeft size={18} />
@@ -1124,7 +1125,8 @@ export default function App() {
           <button
             className={`ai-status-badge ${hasAiKey ? 'active' : 'nudge'}`}
             onClick={() => setShowAiSettings(true)}
-            title={hasAiKey ? 'AI Settings (Active)' : 'Setup Gemini AI (Keys Missing)'}
+            data-tooltip={hasAiKey ? 'AI Settings (Active)' : 'Setup Gemini AI (Keys Missing)'}
+            data-tooltip-position="bottom"
             style={{ display: 'flex', border: '1px solid var(--border-glass)' }}
           >
             <Sparkles size={14} className={hasAiKey ? '' : 'pulse'} />

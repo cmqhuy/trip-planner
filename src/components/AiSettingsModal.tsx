@@ -156,7 +156,7 @@ export default function AiSettingsModal({
                         e.currentTarget.style.color = 'var(--text-muted)';
                         e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
                       }}
-                      title="Remove Key"
+                      data-tooltip="Remove Key"
                     >
                       <Trash2 size={16} />
                     </button>

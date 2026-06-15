@@ -337,7 +337,7 @@ export default function TripAiConfigModal({
             e.stopPropagation();
             setActiveIconPickerKey(isOpen ? null : fieldKey);
           }}
-          title="Choose Icon"
+          data-tooltip="Choose Icon"
         >
           <IconComponent size={14} style={{ color }} />
         </button>
@@ -715,7 +715,7 @@ export default function TripAiConfigModal({
                                   borderRadius: '4px',
                                   opacity: idx === 0 ? 0.3 : 1
                                 }}
-                                title="Move Up"
+                                data-tooltip="Move Up"
                               >
                                 <ChevronUp size={13} />
                               </button>
@@ -735,7 +735,7 @@ export default function TripAiConfigModal({
                                   borderRadius: '4px',
                                   opacity: idx === allPlaceFields.length - 1 ? 0.3 : 1
                                 }}
-                                title="Move Down"
+                                data-tooltip="Move Down"
                               >
                                 <ChevronDown size={13} />
                               </button>
@@ -749,7 +749,7 @@ export default function TripAiConfigModal({
                                     className="btn-secondary" 
                                     onClick={() => handleStartEdit(field)}
                                     style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}
-                                    title="Edit Field"
+                                    data-tooltip="Edit Field"
                                   >
                                     <Edit2 size={13} />
                                   </button>
@@ -759,7 +759,7 @@ export default function TripAiConfigModal({
                                     className="trip-delete-btn" 
                                     onClick={() => handleRemoveField(field.key)}
                                     style={{ padding: '4px', height: '24px', width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    title="Delete Field"
+                                    data-tooltip="Delete Field"
                                   >
                                     <Trash2 size={13} />
                                   </button>

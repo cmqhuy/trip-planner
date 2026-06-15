@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogIn, LogOut, Cloud, RefreshCw, AlertCircle, Settings } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { LogIn, LogOut, Cloud, RefreshCw, AlertCircle, Settings, CheckCircle, Shield } from 'lucide-react';
 
 export interface GoogleAuthSectionProps {
   user: { name: string; email: string; picture: string } | null;
@@ -19,6 +20,7 @@ export default function GoogleAuthSection({
   onOpenSettings,
 }: GoogleAuthSectionProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showSignInInfo, setShowSignInInfo] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,10 +43,11 @@ export default function GoogleAuthSection({
         );
       case 'pending':
         return (
-          <span 
-            className="badge flex-align" 
+          <span
+            className="badge flex-align"
             style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', gap: '4px' }}
-            title="Changes saved locally. Uploading to Google Drive in 30 seconds..."
+            data-tooltip="Changes saved locally. Uploading to Google Drive in 30 seconds..."
+            data-tooltip-position="bottom"
           >
             <Cloud size={10} style={{ opacity: 0.7 }} /> Changes Pending
           </span>
@@ -73,6 +76,7 @@ export default function GoogleAuthSection({
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   return (
+    <>
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} ref={dropdownRef}>
       {user ? (
         // Signed-in UI
@@ -192,9 +196,9 @@ export default function GoogleAuthSection({
         </div>
       ) : (
         // Signed-out UI
-        <button 
-          className="btn-secondary flex-align" 
-          onClick={onSignIn}
+        <button
+          className="btn-secondary flex-align"
+          onClick={() => setShowSignInInfo(true)}
           style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '99px', gap: '6px' }}
         >
           <LogIn size={14} />
@@ -215,5 +219,107 @@ export default function GoogleAuthSection({
         </button>
       )}
     </div>
+
+    {showSignInInfo && createPortal(
+      <div
+        className="modal-overlay"
+        onClick={() => setShowSignInInfo(false)}
+        style={{ zIndex: 2000 }}
+      >
+        <div
+          className="modal-content glass-panel"
+          onClick={e => e.stopPropagation()}
+          style={{ maxWidth: '420px', padding: '32px' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'rgba(99, 102, 241, 0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1px solid rgba(99, 102, 241, 0.25)'
+            }}>
+              <Cloud size={24} style={{ color: 'var(--accent-primary)' }} />
+            </div>
+          </div>
+
+          <h2 style={{ textAlign: 'center', marginBottom: '10px', fontSize: '18px', fontWeight: 600 }}>
+            Sign In with Google
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginBottom: '22px', lineHeight: '1.6' }}>
+            Your trips will be stored in your personal Google Drive at{' '}
+            <strong style={{ color: 'var(--text-primary)' }}>My Drive / apps / trip_planner</strong>.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+            {[
+              'Access your trips from any device',
+              'Automatic cloud backup — never lose your plans',
+              'Share trips with friends and travel companions',
+            ].map(benefit => (
+              <div key={benefit} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                <CheckCircle size={15} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                <span>{benefit}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '8px',
+            padding: '12px 14px',
+            marginBottom: '22px',
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'flex-start'
+          }}>
+            <Shield size={14} style={{ color: 'var(--text-muted)', marginTop: '1px', flexShrink: 0 }} />
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+              This app does not store your data on any server. Everything stays in your own Google Drive folder.
+            </p>
+          </div>
+
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '22px' }}>
+            Files stored at:{' '}
+            <a
+              href={(() => {
+                const folderId = localStorage.getItem('google-folder-id');
+                return folderId
+                  ? `https://drive.google.com/drive/folders/${folderId}`
+                  : 'https://drive.google.com/drive/my-drive';
+              })()}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--accent-primary)' }}
+            >
+              My Drive / apps / trip_planner
+            </a>
+          </p>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowSignInInfo(false)}
+              style={{ flex: 1 }}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary flex-align"
+              onClick={() => {
+                setShowSignInInfo(false);
+                onSignIn();
+              }}
+              style={{ flex: 2, justifyContent: 'center', gap: '8px' }}
+            >
+              <LogIn size={15} />
+              Sign In with Google
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }

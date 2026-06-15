@@ -99,7 +99,6 @@ export default function PlaceFormFields({
     return (
       <button
         type="button"
-        title="Restore saved value"
         onClick={onRestore}
         data-tooltip="Restore saved value"
         style={{
