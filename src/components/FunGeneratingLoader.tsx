@@ -21,11 +21,12 @@ const FUN_CLAUSES = [
 ];
 
 interface FunGeneratingLoaderProps {
+  title?: string;
   message?: string;
   style?: React.CSSProperties;
 }
 
-export default function FunGeneratingLoader({ message, style }: FunGeneratingLoaderProps) {
+export default function FunGeneratingLoader({ title, message, style }: FunGeneratingLoaderProps) {
   const [clauseIndex, setClauseIndex] = useState(0);
 
   useEffect(() => {
@@ -35,56 +36,71 @@ export default function FunGeneratingLoader({ message, style }: FunGeneratingLoa
     return () => clearInterval(timer);
   }, []);
 
+  if (title) {
+    return (
+      <div className="ai-generate-loading-container" style={style}>
+        <RefreshCw size={36} className="spin" style={{ color: 'var(--accent-primary)' }} />
+        <h4 style={{ textTransform: 'none' }}>{title}</h4>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none', lineHeight: 1.4 }}>
+          {message || 'Generating travel intelligence...'}
+        </p>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
+          This may take a few seconds...
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div 
-      style={{ 
-        padding: '20px 10px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
+    <div
+      style={{
+        padding: '20px 10px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
         justifyContent: 'center',
-        gap: '12px', 
+        gap: '12px',
         textAlign: 'center',
         textTransform: 'none',
-        ...style 
+        ...style
       }}
     >
-      <div 
-        style={{ 
-          position: 'relative', 
-          width: '18px', 
-          height: '18px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center' 
+      <div
+        style={{
+          position: 'relative',
+          width: '18px',
+          height: '18px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
       >
-        <RefreshCw 
-          size={18} 
-          className="spin" 
-          style={{ 
+        <RefreshCw
+          size={18}
+          className="spin"
+          style={{
             color: 'var(--accent-primary)',
             opacity: 0.9
-          }} 
+          }}
         />
       </div>
-      
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <span 
-          style={{ 
-            fontSize: '12.5px', 
-            fontWeight: 600, 
-            color: 'var(--text-primary)' 
+        <span
+          style={{
+            fontSize: '12.5px',
+            fontWeight: 600,
+            color: 'var(--text-primary)'
           }}
         >
           {message || 'Generating travel intelligence...'}
         </span>
-        <span 
-          className="fun-clause-text" 
-          style={{ 
-            fontSize: '11px', 
-            color: 'var(--text-muted)', 
-            fontStyle: 'italic', 
+        <span
+          className="fun-clause-text"
+          style={{
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            fontStyle: 'italic',
             minHeight: '16px',
             transition: 'all 0.3s ease'
           }}

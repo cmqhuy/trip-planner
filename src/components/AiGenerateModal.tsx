@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, RefreshCw, AlertTriangle, CheckSquare, Square } from 'lucide-react';
+import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import type { Place } from '../types';
 import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
+import FunGeneratingLoader from './FunGeneratingLoader';
 
 interface AiGenerateModalProps {
   isOpen: boolean;
@@ -138,7 +139,7 @@ export default function AiGenerateModal({
         <div className="modal-header">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={18} style={{ color: 'var(--accent-primary)' }} />
-            AI Insights Generator
+            AI Place Tips Generator
           </h3>
           {!generating && (
             <button className="modal-close" onClick={onClose}>
@@ -149,16 +150,7 @@ export default function AiGenerateModal({
 
         <div className="modal-scroll-body" style={{ marginTop: '12px' }}>
           {generating ? (
-            <div className="ai-generate-loading-container">
-              <RefreshCw size={36} className="spin" style={{ color: 'var(--accent-primary)' }} />
-              <h4 style={{ textTransform: 'none' }}>Generating Travel Guide</h4>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none', lineHeight: 1.4 }}>
-                {progressMsg}
-              </p>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
-                This may take a few seconds...
-              </span>
-            </div>
+            <FunGeneratingLoader title="Generating Travel Guide" message={progressMsg} />
           ) : (
             <>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>

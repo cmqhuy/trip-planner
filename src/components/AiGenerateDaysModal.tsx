@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, AlertTriangle, CheckSquare, Square, RefreshCw } from 'lucide-react';
+import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
 import { formatFreshness } from './AiMarkdownSection';
+import FunGeneratingLoader from './FunGeneratingLoader';
 
 interface DayOption {
   dateStr: string;
@@ -110,16 +111,10 @@ export default function AiGenerateDaysModal({
 
         <div className="modal-scroll-body" style={{ marginTop: '12px' }}>
           {generating ? (
-            <div className="ai-generate-loading-container">
-              <RefreshCw size={36} className="spin" style={{ color: 'var(--accent-primary)' }} />
-              <h4 style={{ textTransform: 'none' }}>Generating Day Tips</h4>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none', lineHeight: 1.4 }}>
-                Asking Gemini for local routes, transit options, weather reminders, and logistics for {generatingCount} day{generatingCount !== 1 ? 's' : ''}...
-              </p>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'none' }}>
-                This may take a few seconds...
-              </span>
-            </div>
+            <FunGeneratingLoader
+              title="Generating Travel Guide"
+              message={`Asking Gemini for local routes, transit options, weather reminders, and logistics for ${generatingCount} day${generatingCount !== 1 ? 's' : ''}...`}
+            />
           ) : (
             <>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, textTransform: 'none' }}>
