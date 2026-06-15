@@ -303,11 +303,11 @@ export default function PlaceModal({
         {/* Suggestions Search / Auto-Populate */}
         <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
+            <label style={{ color: 'var(--accent-primary)', fontWeight: 600, margin: 0 }}>Auto-Populate Details</label>
             <div
               data-tooltip={!GeminiService.hasApiKey() ? NO_API_KEY_TOOLTIP : (!title.trim() && !searchQuery.trim() ? 'Enter a place name or title first' : 'Fill all basic fields with AI')}
               data-tooltip-position="bottom"
-              style={{ display: 'inline-block' }}
+              style={{ display: 'flex', alignItems: 'center' }}
             >
               <button
                 type="button"

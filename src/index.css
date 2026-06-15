@@ -2289,7 +2289,7 @@ div.google-auth-avatar-desktop {
 
   /* Extra bottom breathing room for the last left-panel section (Tips) above the nav bar */
   .accordion-section:last-child {
-    margin-bottom: 8px !important;
+    margin-bottom: 12px !important;
   }
 
   /* Sticky mobile tab navigation fixed to viewport bottom */
