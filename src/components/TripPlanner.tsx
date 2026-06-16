@@ -367,6 +367,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     });
   };
 
+  const showAlert = (title: string, message: string) => {
+    setConfirmModal({ title, message, confirmText: 'OK', isAlert: true, onConfirm: () => {} });
+  };
+
   // Edit Location Modal state
   const [showEditLocationModal, setShowEditLocationModal] = useState(false);
 
@@ -749,7 +753,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           handleSaveBatchAiDetails({ [placeId]: details });
         }
       },
-      onError: (err) => alert(`Failed to parse AI response: ${err.message}`),
+      onError: (err) => showAlert('AI Error', `Failed to parse AI response: ${err.message}`),
       onLoadingChange: (loading) => setPlaceGeneratingIds(prev => { const next = new Set(prev); loading ? next.add(placeId) : next.delete(placeId); return next; }),
       showManualPrompt: showManualAiPrompt,
     });
@@ -1819,7 +1823,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           }));
         }
       },
-      onError: (err) => alert(`Failed to parse AI response: ${err.message}`),
+      onError: (err) => showAlert('AI Error', `Failed to parse AI response: ${err.message}`),
       onLoadingChange: (loading) => setDaysGeneratingDates(prev => {
         const next = new Set(prev);
         loading ? next.add(dateStr) : next.delete(dateStr);
@@ -1868,7 +1872,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           })
         }));
       },
-      onError: (err) => alert(`Failed to parse AI response: ${err.message}`),
+      onError: (err) => showAlert('AI Error', `Failed to parse AI response: ${err.message}`),
       onLoadingChange: (loading) => setDaysGeneratingDates(prev => {
         const next = new Set(prev);
         selectedDates.forEach(d => loading ? next.add(d) : next.delete(d));
@@ -1917,7 +1921,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           } : p)
         }));
       },
-      onError: (err) => alert(`Failed to generate checklist: ${err.message}`),
+      onError: (err) => showAlert('AI Error', `Failed to generate checklist: ${err.message}`),
       onLoadingChange: setGeneratingChecklist,
       showManualPrompt: showManualAiPrompt,
     });
@@ -1927,7 +1931,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const handleGenerateLocalEssentials = async () => {
     const locId = selectedCatalogLocId || (trip.locations.length > 0 ? trip.locations[0].id : '');
     const loc = trip.locations.find(l => l.id === locId);
-    if (!loc) { alert('Please add at least one location to your trip first.'); return; }
+    if (!loc) { showAlert('No Location', 'Please add at least one location to your trip first.'); return; }
     if (!GeminiService.isAiEnabled()) { showApiKeyMissingModal(); return; }
 
     await runAiCall({
@@ -1946,7 +1950,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           } : l)
         }));
       },
-      onError: (err) => alert(`Failed to generate local essentials: ${err.message}`),
+      onError: (err) => showAlert('AI Error', `Failed to generate local essentials: ${err.message}`),
       onLoadingChange: setGeneratingLocalEssentials,
       showManualPrompt: showManualAiPrompt,
     });

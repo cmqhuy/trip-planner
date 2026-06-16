@@ -256,6 +256,18 @@ Glassmorphism dark theme. Key CSS variables from `index.css`:
 
 807 inline `style={{}}` blocks exist across the codebase. **New code must not add more.** Move dynamic values to CSS classes or CSS custom property overrides on the element (`style={{ '--color': hex }}`), then consume with `var(--color)` in CSS.
 
+### Alert Dialogs
+
+**Never use `window.alert()`.** All alerts must use `ConfirmationModal` with `isAlert={true}`, which renders a styled glassmorphic dialog with a single OK button. In `TripPlanner.tsx`, use the `showAlert(title, message)` helper that drives the shared `confirmModal` state.
+
+```typescript
+// correct
+showAlert('AI Error', `Failed to parse AI response: ${err.message}`);
+
+// wrong — bypasses the design system
+alert(`Failed to parse AI response: ${err.message}`);
+```
+
 ### Tooltips
 
 **All tooltips must use `data-tooltip` (never `title`).** The `[data-tooltip]` CSS in `index.css` renders a styled dark glassmorphic bubble with animation. Using a bare `title` attribute bypasses the system and shows the browser's unstyled default. Use `data-tooltip-position="bottom"` to flip the bubble below the element.
