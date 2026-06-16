@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Trash2, Sparkles, RefreshCw } from 'lucide-react';
+import { X, Search, Trash2, Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
 import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, fetchWikipediaData } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
@@ -319,7 +319,10 @@ export default function PlaceModal({
             </div>
           </div>
           {aiQuickFillError && (
-            <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{aiQuickFillError}</div>
+            <div className="ai-settings-test-panel error ai-error-panel-override">
+              <AlertTriangle size={13} className="flex-shrink-0" />
+              <span className="ai-error-text">{aiQuickFillError}</span>
+            </div>
           )}
           <div style={{ position: 'relative', marginTop: '6px' }}>
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
