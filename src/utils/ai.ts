@@ -264,7 +264,8 @@ export class GeminiService {
       required.push('suggestedMarkers');
     }
 
-    const promptText = `You are a professional local travel planner and guide. Provide concise, high-value insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
+    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a professional local travel planner and guide. Provide concise, high-value insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
 ${places.map(p => `- ID: "${p.id}", Place Title: "${p.title}" (Description: "${p.description || 'N/A'}", Latitude: ${p.lat || 'N/A'}, Longitude: ${p.lng || 'N/A'})`).join('\n')}
 
 For each place, fill in the details below.
@@ -437,7 +438,8 @@ Transports:
 ${transportsList || 'None'}`;
     }).join('\n\n');
 
-    const promptText = `You are a professional local travel planner and guide. Provide daily itinerary summaries and practical daily travel tips for the following days:
+    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a professional local travel planner and guide. Provide daily itinerary summaries and practical daily travel tips for the following days:
 
 ${daysPrompt}
 
@@ -573,7 +575,8 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
     const transportsList = tripInfo.transports.map(t => `- ${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate}`).join('\n');
     const placesList = tripInfo.places.map(p => `- ${p.title} (Reservation info: ${p.reservationDetails || 'None'})`).join('\n');
 
-    const promptText = `You are a professional travel checklist planner. Generate a concise, high-priority preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
+    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a professional travel checklist planner. Generate a concise, high-priority preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
 
 Locations to visit:
 ${locationsList || 'None'}
@@ -599,7 +602,8 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }]
+        contents: [{ parts: [{ text: promptText }] }],
+        tools: [{ google_search: {} }]
       })
     });
 
@@ -671,7 +675,8 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
     photoUrl: string;
   }> {
     const locationContext = [city, country].filter(Boolean).join(', ') || 'unknown location';
-    const promptText = `You are a knowledgeable travel information assistant. For the following place in ${locationContext}, provide accurate basic information.
+    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a knowledgeable travel information assistant. For the following place in ${locationContext}, provide accurate basic information.
 
 Place name: "${query}"
 
@@ -773,7 +778,8 @@ Use the location context to resolve ambiguous names. Ensure coordinates are accu
     apiKey: string,
     model = 'gemini-2.5-flash'
   ): Promise<string> {
-    const promptText = `You are a local travel guide expert. Provide a very concise Local Essentials Reference (in Markdown format) for ${location.city}, ${location.country}.
+    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a local travel guide expert. Provide a very concise Local Essentials Reference (in Markdown format) for ${location.city}, ${location.country}.
 
 Please organize the guide with clean subheadings, keeping each section extremely brief (max 2-3 concise bullet points or 1-2 short sentences per section, avoiding any wordiness):
 1. **Convenience Stores & Essentials**: Best popular chains (e.g. 7-Eleven, Lawson, etc.), what you can find there, and payment options.
@@ -789,7 +795,8 @@ Output ONLY raw Markdown. Do not include any greeting or conversational filler.`
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }]
+        contents: [{ parts: [{ text: promptText }] }],
+        tools: [{ google_search: {} }]
       })
     });
 
@@ -830,7 +837,8 @@ Output ONLY raw Markdown. Do not include any greeting or conversational filler.`
     const excludeList = existingPlaceTitles.length > 0
       ? `\nExclude these places (already in the user's list): ${existingPlaceTitles.join(', ')}.`
       : '';
-    const promptText = `You are a travel expert. Suggest 10 diverse, must-visit places in ${locationContext} for tourists.${excludeList}
+    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a travel expert. Suggest 10 diverse, must-visit places in ${locationContext} for tourists.${excludeList}
 
 Include a mix of categories: iconic attractions, hidden gems, popular restaurants/food spots, shopping areas, and unique local experiences.
 
