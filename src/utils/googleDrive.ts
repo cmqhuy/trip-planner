@@ -1027,7 +1027,7 @@ export async function importSharedTripFile(
 export async function fetchAiSettingsFromDrive(
   accessToken: string,
   folderId: string
-): Promise<{ keys: string[]; model: string } | null> {
+): Promise<{ keys: string[]; model: string; maxConcurrentRequests?: number; aiMode?: string } | null> {
   if (!folderId) return null;
   try {
     const query = `name = 'ai-settings.json' and '${folderId}' in parents and trashed = false`;
@@ -1068,7 +1068,7 @@ export async function fetchAiSettingsFromDrive(
 export async function saveAiSettingsToDrive(
   accessToken: string,
   folderId: string,
-  aiSettings: { keys: string[]; model: string }
+  aiSettings: { keys: string[]; model: string; maxConcurrentRequests?: number; aiMode?: string }
 ): Promise<string> {
   if (!folderId) {
     throw new Error('Security Guardrail: Target folderId is required.');

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import type { Place } from '../types';
-import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
+import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
+import { aiRequestQueue } from '../utils/aiRequestQueue';
 import FunGeneratingLoader from './FunGeneratingLoader';
+import ManualAiPromptModal from './ManualAiPromptModal';
 
 interface AiGenerateModalProps {
   isOpen: boolean;
@@ -31,8 +33,9 @@ export default function AiGenerateModal({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState('');
+  const [pendingPrompt, setPendingPrompt] = useState<{ promptText: string; onResponse: (t: string) => void; onCancel: () => void } | null>(null);
 
-  const hasKeys = GeminiService.hasApiKey();
+  const isAiEnabled = GeminiService.isAiEnabled();
 
   useEffect(() => {
     if (isOpen) {
@@ -77,45 +80,52 @@ export default function AiGenerateModal({
   const handleGenerate = async () => {
     if (selectedIds.size === 0) return;
 
-    setError(null);
-    setGenerating(true);
-    setProgressMsg(`Asking Gemini to generate insights for ${selectedIds.size} place(s) in ${city}...`);
+    const placesToGen = places.filter(p => selectedIds.has(p.id)).map(p => ({
+      id: p.id, title: p.title, description: p.description, lat: p.lat, lng: p.lng
+    }));
 
-    try {
-      const placesToGen = places
-        .filter(p => selectedIds.has(p.id))
-        .map(p => ({
-          id: p.id,
-          title: p.title,
-          description: p.description
-        }));
-
-      // Direct service call with key rotation
-      const results = await GeminiService.generatePlaceAiDetailsWithRotation(
-        placesToGen,
-        city,
-        country,
-        customAiFields,
-        undefined, // model
-        disabledPlaceFields,
-        placeFieldsOrder
-      );
-
-      // Map back to update object
+    const applyResults = (results: { id: string; suggestedMarkers?: any[]; [key: string]: any }[]) => {
       const updatesMap: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } } = {};
-      results.forEach(res => {
-        const { id, ...details } = res;
-        updatesMap[id] = details;
-      });
-
+      results.forEach(res => { const { id, ...details } = res; updatesMap[id] = details; });
       onSave(updatesMap);
       onClose();
-    } catch (err: any) {
-      console.error('AI generation failed:', err);
-      setError(err?.message || 'An error occurred during AI generation. Please check your API key(s) or model configuration.');
-    } finally {
-      setGenerating(false);
+    };
+
+    if (GeminiService.isManualMode()) {
+      const prompt = GeminiService.buildPlaceAiDetailsPrompt(placesToGen, city, country, customAiFields, disabledPlaceFields, placeFieldsOrder);
+      const responseText = await new Promise<string | null>(resolve => {
+        setPendingPrompt({
+          promptText: prompt,
+          onResponse: t => { setPendingPrompt(null); resolve(t); },
+          onCancel: () => { setPendingPrompt(null); resolve(null); }
+        });
+      });
+      if (!responseText) return;
+      try {
+        applyResults(GeminiService.parsePlaceAiDetailsResponse(responseText));
+      } catch (err: any) {
+        setError(`Failed to parse AI response: ${err?.message || 'Invalid format'}`);
+      }
+      return;
     }
+
+    setError(null);
+    setGenerating(true);
+    setProgressMsg(`Queuing AI generation for ${selectedIds.size} place(s) in ${city}...`);
+
+    aiRequestQueue.enqueue(`AI details: ${selectedIds.size} place(s) in ${city}`, async () => {
+      try {
+        setProgressMsg(`Generating AI insights for ${selectedIds.size} place(s) in ${city}...`);
+        const results = await GeminiService.generatePlaceAiDetailsWithRotation(
+          placesToGen, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder
+        );
+        applyResults(results);
+      } catch (err: any) {
+        console.error('AI generation failed:', err);
+        setError(err?.message || 'An error occurred during AI generation. Please check your API key(s) or model configuration.');
+        setGenerating(false);
+      }
+    });
   };
 
   const formatFreshness = (p: Place) => {
@@ -130,6 +140,7 @@ export default function AiGenerateModal({
   };
 
   return (
+    <>
     <div className="modal-overlay" onClick={generating ? undefined : onClose}>
       <div
         className="modal-content glass-panel modal-content--lg"
@@ -156,14 +167,12 @@ export default function AiGenerateModal({
                 Select the places in <strong>{city}, {country}</strong> to populate with AI-generated details.
               </p>
 
-              {!hasKeys && (
+              {!isAiEnabled && (
                 <div className="ai-settings-test-panel error ai-warning-panel">
                   <AlertTriangle size={16} className="ai-warning-icon" />
                   <div className="ai-warning-body">
-                    <strong className="ai-warning-title">API Keys Missing</strong>
-                    <span className="ai-warning-text">
-                      {NO_API_KEY_TOOLTIP}
-                    </span>
+                    <strong className="ai-warning-title">{AI_NOT_CONFIGURED_TITLE}</strong>
+                    <span className="ai-warning-text">{AI_NOT_CONFIGURED_MESSAGE}</span>
                   </div>
                 </div>
               )}
@@ -245,7 +254,7 @@ export default function AiGenerateModal({
               type="button"
               className="btn-primary flex-align modal-generate-btn"
               onClick={handleGenerate}
-              disabled={selectedIds.size === 0 || !hasKeys}
+              disabled={selectedIds.size === 0 || !isAiEnabled}
             >
               <Sparkles size={14} />
               Generate ({selectedIds.size})
@@ -254,5 +263,17 @@ export default function AiGenerateModal({
         )}
       </div>
     </div>
+
+    {pendingPrompt && (
+      <ManualAiPromptModal
+        isOpen={true}
+        title={`AI Place Tips: ${city}, ${country}`}
+        promptText={pendingPrompt.promptText}
+        responseFormat="json"
+        onResponse={pendingPrompt.onResponse}
+        onCancel={pendingPrompt.onCancel}
+      />
+    )}
+  </>
   );
 }

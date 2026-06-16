@@ -880,7 +880,7 @@ function ItineraryPanel({
                 const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
 
                 return daysGeneratingDates.has(activeDayStr) ? (
-                  <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
+                  <FunGeneratingLoader message="Asking Gemini to design daily tips & route logistics..." />
                 ) : (isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips) || (isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics) ? (
                   <div className="day-ai-content-col">
                     

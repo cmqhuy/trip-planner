@@ -4,14 +4,14 @@ import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { DEFAULT_PLACE_GROUPS } from './utils/api';
 import { generateDatesRange } from './utils/dateUtils';
-import { 
-  loadGsiScript, 
-  initTokenClient, 
-  requestAccessToken, 
-  fetchGoogleUserInfo, 
-  getOrCreateTripPlannerFolder, 
-  fetchTripsFromDrive, 
-  saveTripsToDrive, 
+import {
+  loadGsiScript,
+  initTokenClient,
+  requestAccessToken,
+  fetchGoogleUserInfo,
+  getOrCreateTripPlannerFolder,
+  fetchTripsFromDrive,
+  saveTripsToDrive,
   leaveSharedTripFile,
   deleteFileFromDrive,
   importSharedTripFile,
@@ -30,8 +30,11 @@ import ShareTripModal from './components/ShareTripModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import SyncConflictModal from './components/SyncConflictModal';
 import { GeminiService } from './utils/ai';
+import { aiRequestQueue } from './utils/aiRequestQueue';
+import type { AiRequestQueueItem } from './utils/aiRequestQueue';
 import AiSettingsModal from './components/AiSettingsModal';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import AiRequestQueuePanel from './components/AiRequestQueuePanel';
+import { Sparkles, ArrowLeft, Bot, BotOff } from 'lucide-react';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import TermsOfServicePage from './components/TermsOfServicePage';
 
@@ -90,8 +93,14 @@ export default function App() {
   const [shareModalTrip, setShareModalTrip] = useState<Trip | null>(null);
 
   // AI Settings states
-  const [hasAiKey, setHasAiKey] = useState(() => GeminiService.hasApiKey());
+  const [aiMode, setAiMode] = useState(() => GeminiService.getAiMode());
   const [showAiSettings, setShowAiSettings] = useState(false);
+  const [aiQueueItems, setAiQueueItems] = useState<AiRequestQueueItem[]>([]);
+  const [showAiQueuePanel, setShowAiQueuePanel] = useState(false);
+
+  useEffect(() => {
+    return aiRequestQueue.subscribe(setAiQueueItems);
+  }, []);
 
   // Conflict resolution states
   const [pendingConflicts, setPendingConflicts] = useState<{
@@ -254,7 +263,7 @@ export default function App() {
           try {
             const parsed = migrateTrips(JSON.parse(e.newValue));
             setTrips(parsed);
-            
+
             // If the currently active trip was deleted in another tab, reset activeTripId
             if (activeTripId && !parsed.some((t: Trip) => t.id === activeTripId)) {
               setActiveTripId(null);
@@ -605,15 +614,17 @@ export default function App() {
         if (remoteSettings) {
           GeminiService.saveApiKeys(remoteSettings.keys);
           GeminiService.saveSelectedModel(remoteSettings.model);
+          if (remoteSettings.maxConcurrentRequests != null) GeminiService.saveMaxConcurrentRequests(remoteSettings.maxConcurrentRequests);
+          if (remoteSettings.aiMode != null) GeminiService.saveAiMode(remoteSettings.aiMode as import('./utils/ai').AiMode);
           GeminiService.setSyncToDrive(true);
-          setHasAiKey(GeminiService.hasApiKey());
+          setAiMode(GeminiService.getAiMode());
           console.log('Successfully loaded AI Settings from Google Drive on startup.');
         } else if (GeminiService.getSyncToDrive()) {
           // Sync is enabled locally but no file on drive, upload local settings
           const keys = GeminiService.getApiKeys();
           const model = GeminiService.getSelectedModel();
           if (keys.length > 0) {
-            await saveAiSettingsToDrive(googleToken, googleFolderId, { keys, model });
+            await saveAiSettingsToDrive(googleToken, googleFolderId, { keys, model, maxConcurrentRequests: GeminiService.getMaxConcurrentRequests(), aiMode: GeminiService.getAiMode() });
             console.log('Successfully uploaded local AI Settings to Google Drive on startup.');
           }
         }
@@ -629,7 +640,7 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const currentTripParam = params.get('trip');
-    
+
     if (activeTripId) {
       if (currentTripParam !== activeTripId) {
         params.set('trip', activeTripId);
@@ -749,9 +760,9 @@ export default function App() {
     } else {
       // Overwrite cloud version: Keep local, but update timestamp to make it newer
       const newTimestamp = Date.now();
-      updatedTrips = updatedTrips.map(t => 
-        t.id === activeConflict.tripId 
-          ? { ...t, updatedAt: newTimestamp } 
+      updatedTrips = updatedTrips.map(t =>
+        t.id === activeConflict.tripId
+          ? { ...t, updatedAt: newTimestamp }
           : t
       );
       syncTimestampsRef.current[activeConflict.tripId] = newTimestamp;
@@ -768,7 +779,7 @@ export default function App() {
       setSyncStatus('syncing');
       try {
         const cloudTrips = fetchedCloudTripsRef.current || [];
-        
+
         const finalTripsMap = new Map<string, Trip>();
         updatedTrips.forEach(t => finalTripsMap.set(t.id, t));
         cloudTrips.forEach(ct => {
@@ -799,7 +810,7 @@ export default function App() {
           setTrips(mappedTrips);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mappedTrips));
         }
-        
+
         // Mark all final trips as synced
         const latestLocal = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
         latestLocal.forEach((trip: Trip) => {
@@ -829,7 +840,7 @@ export default function App() {
   const handleCreateTrip = (newTripData: Omit<Trip, 'id' | 'locations' | 'plans' | 'placeGroups'>) => {
     const tripId = `trip-${Date.now()}`;
     const dates = generateDatesRange(newTripData.startDate, newTripData.endDate);
-    
+
     const defaultDays: { [dateStr: string]: PlanDay } = {};
     dates.forEach(date => {
       defaultDays[date] = {
@@ -892,7 +903,7 @@ export default function App() {
   const handleUpdateTrip = (updater: Trip | ((prev: Trip) => Trip)) => {
     const targetTripId = typeof updater === 'function' ? activeTripId : updater.id;
     const targetTrip = trips.find(t => t.id === targetTripId);
-    
+
     if (targetTrip && (targetTrip.driveFileId || targetTrip.shadowFileId)) {
       const expiresAtStr = localStorage.getItem('google-token-expires-at');
       const isExpired = !expiresAtStr || Number(expiresAtStr) <= Date.now();
@@ -954,7 +965,7 @@ export default function App() {
 
   const handleLeaveTrip = async (trip: Trip) => {
     if (!googleToken || !trip.driveFileId || !googleUser) return;
-    
+
     setSyncStatus('syncing');
     try {
       await leaveSharedTripFile(googleToken, trip.driveFileId, googleUser.email);
@@ -965,12 +976,12 @@ export default function App() {
           console.error('Failed to delete shadow file while leaving trip:', e);
         });
       }
-      
+
       // Clean up local storage and state for this trip
       const updated = trips.filter(t => t.id !== trip.id);
       setTrips(updated);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-      
+
       // Remove sync timestamp
       if (syncTimestampsRef.current[trip.id] !== undefined) {
         delete syncTimestampsRef.current[trip.id];
@@ -980,10 +991,10 @@ export default function App() {
       if (activeTripId === trip.id) {
         setActiveTripId(null);
       }
-      
-      setAppNotification({ 
-        title: 'Left Shared Trip', 
-        message: `You successfully left the shared trip: "${trip.name}".` 
+
+      setAppNotification({
+        title: 'Left Shared Trip',
+        message: `You successfully left the shared trip: "${trip.name}".`
       });
       setSyncStatus('synced');
     } catch (err: any) {
@@ -1076,7 +1087,8 @@ export default function App() {
   };
 
   const handleAiSettingsSaved = async () => {
-    setHasAiKey(GeminiService.hasApiKey());
+    setAiMode(GeminiService.getAiMode());
+    aiRequestQueue.setMaxConcurrent(GeminiService.getMaxConcurrentRequests());
 
     // Sync / delete from GDrive if signed in
     if (googleToken && googleFolderId) {
@@ -1085,7 +1097,7 @@ export default function App() {
         const keys = GeminiService.getApiKeys();
         const model = GeminiService.getSelectedModel();
         try {
-          await saveAiSettingsToDrive(googleToken, googleFolderId, { keys, model });
+          await saveAiSettingsToDrive(googleToken, googleFolderId, { keys, model, maxConcurrentRequests: GeminiService.getMaxConcurrentRequests(), aiMode: GeminiService.getAiMode() });
           console.log('AI settings successfully synced to Google Drive.');
         } catch (err) {
           console.error('Failed to sync AI settings to Drive:', err);
@@ -1113,7 +1125,7 @@ export default function App() {
       <header className="app-header glass-panel" style={{ borderRadius: '0', borderWidth: '0 0 1px 0' }}>
         <div className="logo-section">
           {activeTrip && (
-            <button 
+            <button
               className="mini-icon-btn header-back-btn"
               onClick={() => setActiveTripId(null)}
               data-tooltip="Back to Dashboard"
@@ -1126,18 +1138,51 @@ export default function App() {
           <img src="logo.png" alt="Logo" className="header-logo-img" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           <h1>Trip Planner</h1>
         </div>
-        
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            className={`ai-status-badge ${hasAiKey ? 'active' : 'nudge'}`}
-            onClick={() => setShowAiSettings(true)}
-            data-tooltip={hasAiKey ? 'AI Settings (Active)' : 'Setup Gemini AI (Keys Missing)'}
-            data-tooltip-position="bottom"
-            style={{ display: 'flex', border: '1px solid var(--border-glass)' }}
-          >
-            <Sparkles size={14} className={hasAiKey ? '' : 'pulse'} />
-            <span>{hasAiKey ? 'AI Active' : 'Setup AI'}</span>
-          </button>
+          {(() => {
+            const aiActiveCount = aiQueueItems.filter(i => i.status === 'pending' || i.status === 'running').length;
+            return (
+              <div className={`ai-header-group${aiActiveCount > 0 ? ' ai-header-group--active' : ''}`}>
+                <button
+                  className={`ai-status-badge ai-status-badge--${aiMode}`}
+                  onClick={() => setShowAiSettings(true)}
+                  data-tooltip={
+                    aiMode === 'live' ? 'AI Active — Gemini API Connected' :
+                      aiMode === 'manual' ? 'AI Manual Mode — Copy Prompts to any Chatbot' :
+                        'No AI — Click to Configure'
+                  }
+                  data-tooltip-position="bottom"
+                >
+                  {aiMode === 'live' && <Sparkles size={14} />}
+                  {aiMode === 'manual' && <Bot size={14} />}
+                  {aiMode === 'none' && <BotOff size={14} />}
+                  <span>
+                    {aiMode === 'live' ? 'AI Active' : aiMode === 'manual' ? 'Manual AI' : 'No AI'}
+                  </span>
+                </button>
+                {aiActiveCount > 0 && (
+                  <button
+                    className="ai-queue-count-pill"
+                    onClick={() => setShowAiQueuePanel(v => !v)}
+                    data-tooltip="View AI request queue"
+                    data-tooltip-position="bottom"
+                  >
+                    {aiActiveCount}
+                  </button>
+                )}
+                {showAiQueuePanel && (
+                  <div className="ai-queue-header-dropdown">
+                    <AiRequestQueuePanel
+                      items={aiQueueItems}
+                      onClearCompleted={() => aiRequestQueue.clearCompleted()}
+                      onClose={() => setShowAiQueuePanel(false)}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <GoogleAuthSection
             user={googleUser}
@@ -1153,13 +1198,13 @@ export default function App() {
       {/* Main Content Area */}
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {activeTrip ? (
-          <TripPlanner 
+          <TripPlanner
             trip={activeTrip}
             onUpdateTrip={handleUpdateTrip}
             onShareTrip={setShareModalTrip}
           />
         ) : (
-          <TripDashboard 
+          <TripDashboard
             trips={trips}
             onCreateTrip={handleCreateTrip}
             onDeleteTrip={handleDeleteTrip}

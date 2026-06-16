@@ -115,11 +115,19 @@ export function getOrderedPlaceFields(
   return allFields;
 }
 
-export const NO_API_KEY_TOOLTIP = 'You need a Gemini API key to run AI calls. Please open AI Settings in the top-right header to configure your keys.';
+export type AiMode = 'none' | 'manual' | 'live';
+
+export const AI_NOT_CONFIGURED_TITLE = 'No AI Integration';
+export const AI_NOT_CONFIGURED_MESSAGE = 'AI is not configured. Open AI Settings (top-right header) to set up AI.';
+// Alias kept for existing tooltip usages
+export const NO_API_KEY_TOOLTIP = AI_NOT_CONFIGURED_MESSAGE;
 
 const KEYS_STORAGE_KEY = 'vacation-itineraries-gemini-api-keys';
 const MODEL_STORAGE_KEY = 'vacation-itineraries-gemini-model';
 const SYNC_STORAGE_KEY = 'vacation-itineraries-gemini-sync-drive';
+const CONCURRENT_REQUEST_STORAGE_KEY = 'vacation-itineraries-gemini-concurrent';
+const MANUAL_MODE_STORAGE_KEY = 'vacation-itineraries-gemini-manual-mode';
+const AI_MODE_STORAGE_KEY = 'vacation-itineraries-gemini-ai-mode';
 
 function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
   const controller = new AbortController();
@@ -188,6 +196,34 @@ export class GeminiService {
     return this.getApiKeys().length > 0;
   }
 
+  static getMaxConcurrentRequests(): number {
+    return parseInt(localStorage.getItem(CONCURRENT_REQUEST_STORAGE_KEY) || '1', 10) || 1;
+  }
+
+  static saveMaxConcurrentRequests(n: number): void {
+    localStorage.setItem(CONCURRENT_REQUEST_STORAGE_KEY, String(Math.max(1, Math.min(10, n))));
+  }
+
+  static getAiMode(): AiMode {
+    const stored = localStorage.getItem(AI_MODE_STORAGE_KEY);
+    if (stored === 'none' || stored === 'manual' || stored === 'live') return stored;
+    // Backward compat: migrate from old separate manualMode boolean
+    if (localStorage.getItem(MANUAL_MODE_STORAGE_KEY) === 'true') return 'manual';
+    return this.hasApiKey() ? 'live' : 'none';
+  }
+
+  static saveAiMode(mode: AiMode): void {
+    localStorage.setItem(AI_MODE_STORAGE_KEY, mode);
+  }
+
+  static isManualMode(): boolean {
+    return this.getAiMode() === 'manual';
+  }
+
+  static isAiEnabled(): boolean {
+    return this.getAiMode() !== 'none';
+  }
+
   /**
    * Verifies if an API key is valid using a minor query.
    */
@@ -209,6 +245,68 @@ export class GeminiService {
       console.error('Gemini connection test failed:', e);
       return false;
     }
+  }
+
+  static buildPlaceAiDetailsPrompt(
+    places: { id: string; title: string; description?: string; lat?: number; lng?: number }[],
+    city: string,
+    country: string,
+    customAiFields?: { title: string; key: string; description: string; disabled?: boolean }[],
+    disabledPlaceFields?: string[],
+    placeFieldsOrder?: string[]
+  ): string {
+    const orderedFields = getOrderedPlaceFields(customAiFields, disabledPlaceFields, placeFieldsOrder);
+    const fieldsPrompt: string[] = [];
+    const enabledFieldKeys: string[] = [];
+
+    for (const field of orderedFields) {
+      if (field.disabled) continue;
+      enabledFieldKeys.push(field.key);
+      if (field.isDefault) {
+        fieldsPrompt.push(`- "${field.key}": ${field.description}`);
+      } else {
+        fieldsPrompt.push(`- "${field.key}": (${field.title}) ${field.description}`);
+      }
+    }
+
+    const includeMarkers = !disabledPlaceFields?.includes('area_guide');
+    const schemaExample = `{
+  "places": [
+    {
+      "id": "<place id from the list above>",
+      ${enabledFieldKeys.map(k => `"${k}": "<text>"`).join(',\n      ')}${includeMarkers ? ',\n      "suggestedMarkers": [{"title":"...","lat":0.0,"lng":0.0,"description":"...","type":"landmark"}]' : ''}
+    }
+  ]
+}`;
+
+    return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a professional local travel planner and guide. Provide concise, high-value insights for the following places in ${city || 'unknown city'}, ${country || 'unknown country'}:
+${places.map(p => `- ID: "${p.id}", Place Title: "${p.title}" (Description: "${p.description || 'N/A'}", Latitude: ${p.lat || 'N/A'}, Longitude: ${p.lng || 'N/A'})`).join('\n')}
+
+For each place, fill in the details below.
+IMPORTANT: Keep each field's description brief and highly readable (2 to 3 concise sentences or a short bulleted list of 2-3 items. Do NOT write long paragraphs or verbose essays):
+${fieldsPrompt.join('\n')}
+
+IMPORTANT DIRECTIONS REQUIREMENT:
+If a place is a broad, generic area or neighborhood (such as Shinjuku, Shibuya, Myeongdong, Soho, etc.), the "directions" field MUST specify a concrete arrival point (e.g. which station, exit, or street corner to arrive at) in a single concise sentence.
+${includeMarkers ? `
+IMPORTANT AREA MAP MARKERS REQUIREMENT:
+For neighborhoods, trails, or large areas (e.g. Shibuya, Hongdae, Myeong-dong, or Bukchon Hanok Village), you MUST generate a list of 2-5 key spots, street points, or famous landmarks in the "suggestedMarkers" array.
+Ensure the coordinates (lat/lng) are highly accurate and geographically near the main place's coordinates (shown above).
+Return an empty array if the place is a small, single-coordinate point of interest where sub-markers are not useful.
+` : ''}
+Ensure the returned JSON lists the exact "id" for each place so it can be matched.
+
+Please respond with JSON in this exact format:
+${schemaExample}`;
+  }
+
+  static parsePlaceAiDetailsResponse(text: string): { id: string; suggestedMarkers?: any[]; [key: string]: any }[] {
+    const parsed = JSON.parse(text);
+    if (!parsed.places || !Array.isArray(parsed.places)) {
+      throw new Error('Invalid response structure: expected { "places": [...] }');
+    }
+    return parsed.places;
   }
 
   /**
@@ -342,7 +440,7 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
   ): Promise<{ id: string; suggestedMarkers?: any[]; [key: string]: any }[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
-      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+      throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     }
 
     const selectedModel = model || this.getSelectedModel();
@@ -359,12 +457,87 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     throw lastError || new Error('All configured API keys failed to execute.');
   }
 
+  static buildDailyTipsPrompt(
+    days: {
+      dateStr: string;
+      dayNumber: number;
+      locationCity: string;
+      locationCountry: string;
+      places: { title: string; description?: string; openingHours?: string; lat?: number; lng?: number; notes?: string }[];
+      hotels: string[];
+      transports: string[];
+    }[],
+    enableBabyLogistics = false,
+    disabledDayFields?: string[]
+  ): string {
+    const tipsDisabled = disabledDayFields?.includes('daily_tips');
+    const daysPrompt = days.map(d => {
+      const placesList = d.places.map(p => {
+        const details: string[] = [];
+        if (p.description) details.push(`description: ${p.description}`);
+        if (p.openingHours) details.push(`opening hours: ${p.openingHours}`);
+        if (p.notes) details.push(`notes: ${p.notes}`);
+        if (p.lat !== undefined && p.lng !== undefined) details.push(`coordinates: ${p.lat}, ${p.lng}`);
+        return `- ${p.title}${details.length > 0 ? ` (${details.join('; ')})` : ''}`;
+      }).join('\n');
+      const hotelsList = d.hotels.map(h => `- Hotel: ${h}`).join('\n');
+      const transportsList = d.transports.map(t => `- Transit: ${t}`).join('\n');
+      return `Day ${d.dayNumber} (${d.dateStr}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
+Scheduled Places (in planned sequence order):
+${placesList || 'None'}
+Hotels:
+${hotelsList || 'None'}
+Transports:
+${transportsList || 'None'}`;
+    }).join('\n\n');
+
+    const schemaFields = [];
+    if (!tipsDisabled) schemaFields.push('"daily_tips": "<markdown tips>"');
+    if (enableBabyLogistics) schemaFields.push('"baby_logistics": "<markdown baby tips>"');
+
+    return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a professional local travel planner and guide. Provide daily itinerary summaries and practical daily travel tips for the following days:
+
+${daysPrompt}
+
+For each day, write daily tips (in Markdown format). Keep the response structured, clear, and relatively brief (under 8-10 sentences total or a clean, bulleted checklist/list of tips, avoiding long essays).
+Specifically, cover the following in the daily_tips field under the aiDetails object:
+
+1. **Daily Route Sequence & Summary**: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates.
+2. **Timing & Optimization Suggestions**: Give suggestions if any place takes a long time, sequence/route suggestions based on opening hours, and warn if a place is likely closed on this specific day.
+3. **Logistics & Alerts**: Recommended departure time, transit lines to use, weather check reminders, essential safety warnings.
+
+${enableBabyLogistics ? `IMPORTANT BABY LOGISTICS REQUIREMENT:
+Since the user is traveling with a baby, generate a specific "baby_logistics" text (in Markdown format) under the "baby_logistics" key of the aiDetails object for each day. Keep it brief, 2-3 sentences or bullet points.` : ''}
+
+Ensure the returned JSON lists the exact "dateStr" for each day so it can be matched.
+
+Please respond with JSON in this exact format:
+{
+  "days": [
+    {
+      "dateStr": "<YYYY-MM-DD>",
+      "aiDetails": { ${schemaFields.join(', ')} }
+    }
+  ]
+}`;
+  }
+
+  static parseDailyTipsResponse(text: string): { dateStr: string; aiDetails?: { [key: string]: string } }[] {
+    const parsed = JSON.parse(text);
+    if (!parsed.days || !Array.isArray(parsed.days)) {
+      throw new Error('Invalid response structure: expected { "days": [...] }');
+    }
+    return parsed.days;
+  }
+
   /**
    * Generates Daily Tips for plan days.
    */
   static async generateDailyTips(
     days: {
       dateStr: string;
+      dayNumber: number;
       locationCity: string;
       locationCountry: string;
       places: {
@@ -418,7 +591,7 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
       required.push('aiDetails');
     }
 
-    const daysPrompt = days.map((d, i) => {
+    const daysPrompt = days.map(d => {
       const placesList = d.places.map(p => {
         const details = [];
         if (p.description) details.push(`description: ${p.description}`);
@@ -429,7 +602,7 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
       }).join('\n');
       const hotelsList = d.hotels.map(h => `- Hotel: ${h}`).join('\n');
       const transportsList = d.transports.map(t => `- Transit: ${t}`).join('\n');
-      return `Day ${i + 1} (${d.dateStr}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
+      return `Day ${d.dayNumber} (${d.dateStr}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
 Scheduled Places (in planned sequence order):
 ${placesList || 'None'}
 Hotels:
@@ -512,6 +685,7 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
   static async generateDailyTipsWithRotation(
     days: {
       dateStr: string;
+      dayNumber: number;
       locationCity: string;
       locationCountry: string;
       places: {
@@ -536,7 +710,7 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
   }[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
-      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+      throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     }
 
     const selectedModel = model || this.getSelectedModel();
@@ -551,6 +725,47 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
       }
     }
     throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  static buildTripChecklistPrompt(
+    tripInfo: {
+      name: string;
+      startDate: string;
+      endDate: string;
+      locations: { city: string; country: string }[];
+      hotels: { name: string; checkInDate: string; checkOutDate: string }[];
+      transports: { type: string; departureLocationName: string; arrivalLocationName: string; departureDate: string }[];
+      places: { title: string; reservationDetails?: string }[];
+    },
+    enableBabyLogistics = false
+  ): string {
+    const locationsList = tripInfo.locations.map(l => `- ${l.city}, ${l.country}`).join('\n');
+    const hotelsList = tripInfo.hotels.map(h => `- ${h.name} (${h.checkInDate} to ${h.checkOutDate})`).join('\n');
+    const transportsList = tripInfo.transports.map(t => `- ${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate}`).join('\n');
+    const placesList = tripInfo.places.map(p => `- ${p.title} (Reservation info: ${p.reservationDetails || 'None'})`).join('\n');
+
+    return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a professional travel checklist planner. Generate a concise, high-priority preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
+
+Locations to visit:
+${locationsList || 'None'}
+
+Accommodations booked:
+${hotelsList || 'None'}
+
+Transportation scheduled:
+${transportsList || 'None'}
+
+Scheduled places of interest:
+${placesList || 'None'}
+
+Please pay attention to essential details to make the trip complete. Keep the response concise, punchy, and avoid long-winded paragraphs. Limit the output to maximum 3-4 core categories:
+1. Booking Gaps & Ticketing: Identify missing accommodations, missing transit, or places requiring early reservations/tickets.
+2. Entry & Visa Requirements: Note if visa/immigration documents are needed.
+3. Essential Prep & Gear: 3-5 high-priority packing or preparation tasks specific to these destinations.
+${enableBabyLogistics ? '4. Baby Logistics: 4-6 essential baby travel prep/packing items (stroller check-in, baby documents, food, etc.).' : ''}
+
+Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
   }
 
   /**
@@ -639,7 +854,7 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
   ): Promise<string> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
-      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+      throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     }
 
     const selectedModel = model || this.getSelectedModel();
@@ -753,7 +968,7 @@ Use the location context to resolve ambiguous names. Ensure coordinates are accu
   }> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
-      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+      throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     }
 
     const selectedModel = model || this.getSelectedModel();
@@ -768,6 +983,21 @@ Use the location context to resolve ambiguous names. Ensure coordinates are accu
       }
     }
     throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  static buildLocalEssentialsPrompt(location: { city: string; country: string }): string {
+    return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a local travel guide expert. Provide a very concise Local Essentials Reference (in Markdown format) for ${location.city}, ${location.country}.
+
+Please organize the guide with clean subheadings, keeping each section extremely brief (max 2-3 concise bullet points or 1-2 short sentences per section, avoiding any wordiness):
+1. **Convenience Stores & Essentials**: Best popular chains, what you can find there, and payment options.
+2. **Currency & Payments**: Local currency, acceptance of credit cards vs cash, and tipping culture.
+3. **Transportation & Cards**: Primary means of transportation, what transit card/payment to use, and how to pay.
+4. **Local Apps**: Must-have transit/mapping, ride-sharing, and translation apps.
+5. **Dress Code & Etiquette**: Cultural norms and seasonal packing/clothing tips.
+6. **Other Utilities**: Power plugs & voltage, tap water safety, and emergency phone numbers.
+
+Output ONLY raw Markdown. Do not include any greeting or conversational filler.`;
   }
 
   /**
@@ -812,6 +1042,48 @@ Output ONLY raw Markdown. Do not include any greeting or conversational filler.`
     }
 
     return resultText;
+  }
+
+  static buildSuggestedPlacesPrompt(city: string, country: string, existingPlaceTitles: string[]): string {
+    const locationContext = [city, country].filter(Boolean).join(', ') || 'unknown location';
+    const excludeList = existingPlaceTitles.length > 0
+      ? `\nExclude these places (already in the user's list): ${existingPlaceTitles.join(', ')}.`
+      : '';
+    return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a travel expert. Suggest 10 diverse, must-visit places in ${locationContext} for tourists.${excludeList}
+
+Include a mix of categories: iconic attractions, hidden gems, popular restaurants/food spots, shopping areas, and unique local experiences.
+
+For each place provide:
+- title: Official or most commonly used name
+- description: 2-sentence factual description of what it is and why it is notable
+- openingHours: Typical hours (e.g. "09:00-18:00", "24/7"). Use empty string if unknown.
+- notes: The single most useful tip for a first-time visitor (1-2 sentences)
+- lat: Precise decimal latitude coordinate
+- lng: Precise decimal longitude coordinate
+- photoUrl: Use empty string (you cannot provide reliable URLs in a manual context)
+- category: Exactly one of "attractions", "restaurants", "shopping", "other"
+
+Please respond with JSON in this exact format:
+{
+  "places": [
+    {
+      "title": "...", "description": "...", "openingHours": "...", "notes": "...",
+      "lat": 0.0, "lng": 0.0, "photoUrl": "", "category": "attractions"
+    }
+  ]
+}`;
+  }
+
+  static parseSuggestedPlacesResponse(text: string): Array<{
+    title: string; description: string; openingHours: string; notes: string;
+    lat: number; lng: number; photoUrl: string; category: string;
+  }> {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed.places)) {
+      throw new Error('Invalid response structure: expected { "places": [...] }');
+    }
+    return parsed.places;
   }
 
   /**
@@ -936,7 +1208,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   }>> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
-      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+      throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     }
 
     const selectedModel = model || this.getSelectedModel();
@@ -962,7 +1234,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   ): Promise<string> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
-      throw new Error('No Gemini API keys configured. Please add one in AI Settings.');
+      throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     }
 
     const selectedModel = model || this.getSelectedModel();

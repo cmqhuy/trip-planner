@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
-import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
+import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { formatFreshness } from './AiMarkdownSection';
 import FunGeneratingLoader from './FunGeneratingLoader';
 
@@ -29,7 +29,7 @@ export default function AiGenerateDaysModal({
   const [generatingCount, setGeneratingCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const hasKeys = GeminiService.hasApiKey();
+  const isAiEnabled = GeminiService.isAiEnabled();
 
   // Reset transient UI state only when the modal opens/closes
   useEffect(() => {
@@ -120,14 +120,12 @@ export default function AiGenerateDaysModal({
                 Select the days of your plan to generate or update AI daily tips, transit logistics, and weather reminders.
               </p>
 
-              {!hasKeys && (
+              {!isAiEnabled && (
                 <div className="ai-settings-test-panel error ai-warning-panel">
                   <AlertTriangle size={16} className="ai-warning-icon" />
                   <div className="ai-warning-body">
-                    <strong className="ai-warning-title">API Keys Missing</strong>
-                    <span className="ai-warning-text">
-                      {NO_API_KEY_TOOLTIP}
-                    </span>
+                    <strong className="ai-warning-title">{AI_NOT_CONFIGURED_TITLE}</strong>
+                    <span className="ai-warning-text">{AI_NOT_CONFIGURED_MESSAGE}</span>
                   </div>
                 </div>
               )}
@@ -217,7 +215,7 @@ export default function AiGenerateDaysModal({
               type="button"
               className="btn-primary flex-align modal-generate-btn"
               onClick={handleGenerate}
-              disabled={selectedDates.size === 0 || !hasKeys}
+              disabled={selectedDates.size === 0 || !isAiEnabled}
             >
               <Sparkles size={14} />
               Generate ({selectedDates.size})
