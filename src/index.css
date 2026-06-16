@@ -2238,7 +2238,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 /* CatalogSection classes */
 .panel-header--catalog { border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; padding: 12px 12px 10px !important; }
-.catalog-content--no-padding { padding: 0; }
+.catalog-content--no-padding { padding: 0; display: flex; flex-direction: column; }
+.catalog-content--no-padding::before,
+.catalog-content--no-padding::after { content: ''; display: block; height: 12px; flex-shrink: 0; }
+.accordion-content--catalog::before,
+.accordion-content--catalog::after { height: 0; }
 .catalog-header-row { display: flex; gap: 6px; align-items: center; }
 .catalog-ai-suggest-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #a78bfa; }
 .catalog-header-icon-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }

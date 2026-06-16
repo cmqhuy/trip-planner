@@ -185,7 +185,7 @@ function CatalogSection({
       </div>
 
       {/* Scrollable catalog content */}
-      <div className="accordion-content">
+      <div className="accordion-content accordion-content--catalog">
       {catalogLocation ? (
         <div className="catalog-content catalog-content--no-padding">
           {/* Catalog Group Management */}
