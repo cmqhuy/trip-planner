@@ -2237,7 +2237,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   right: 0;
 }
 /* CatalogSection classes */
-.panel-header--catalog { border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; padding: 12px 12px 10px !important; }
+.panel-header--catalog { border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; padding: 12px 12px 12px !important; }
 .catalog-content--no-padding { padding: 0; display: flex; flex-direction: column; }
 .catalog-content--no-padding::before,
 .catalog-content--no-padding::after { content: ''; display: block; height: 12px; flex-shrink: 0; }

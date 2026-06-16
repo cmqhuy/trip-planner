@@ -26,7 +26,7 @@ export default function TipsSection({
   return (
     <>
       {/* Location Select — fixed above the scroll area, does not scroll */}
-      <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
+      <div style={{ padding: '12px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
         <LocationSelect
           value={selectedCatalogLocId}
           onChange={setSelectedCatalogLocId}
