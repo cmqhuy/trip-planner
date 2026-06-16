@@ -1636,6 +1636,19 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .ai-config-empty { padding: 16px; text-transform: none; text-align: center; color: var(--text-muted); font-size: 12px; font-style: italic; }
 .ai-config-add-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 8px; }
 .ai-config-add-btn { font-size: 11px; padding: 6px 12px; gap: 4px; margin-top: 10px; width: 100%; justify-content: center; }
+.ai-config-day-section { margin-bottom: 24px; }
+.ai-config-place-section { margin-bottom: 16px; }
+.ai-config-day-field-card .ai-config-field-desc { margin-top: 2px; }
+.ai-config-field-row .ai-config-field-desc { margin-top: 4px; }
+.ai-config-place-field-card { padding: 10px 12px; display: flex; flex-direction: column; border-color: rgba(255,255,255,0.05); background-color: rgba(255,255,255,0.01); gap: 8px; position: relative; transition: opacity 0.2s ease; }
+.ai-config-edit-form label { font-size: 11px; margin-bottom: 2px; }
+.ai-config-add-panel label { font-size: 11px; }
+.ai-config-form-input { padding: 5px 8px; font-size: 12px; height: 30px; }
+.ai-config-form-textarea { padding: 6px 8px; font-size: 12px; min-height: 48px; }
+.ai-settings-test-panel.ai-config-edit-error { padding: 4px 8px; margin: 0; gap: 4px; }
+.ai-config-inline-error { font-size: 11px; text-transform: none; }
+.ai-config-add-panel { margin-top: 12px; padding: 12px; border-style: dashed; border-color: rgba(255,255,255,0.12); background-color: rgba(255,255,255,0.01); position: relative; }
+.ai-settings-test-panel.ai-config-add-error { padding: 8px 10px; margin-bottom: 10px; gap: 6px; }
 
 .modal-header-title { display: flex; align-items: center; gap: 8px; }
 .modal-body-intro { font-size: 13px; color: var(--text-secondary); line-height: 1.4; text-transform: none; }

@@ -412,7 +412,7 @@ export default function TripAiConfigModal({
             </p>
 
             {/* GROUP 1: Day-Level Fields */}
-            <div style={{ marginBottom: '24px' }}>
+            <div className="ai-config-day-section">
               <span className="ai-config-section-heading">
                 Day-Level Fields
               </span>
@@ -446,7 +446,7 @@ export default function TripAiConfigModal({
                         <span className="ai-config-field-name">
                           {field.label}
                         </span>
-                        <span className="ai-config-field-desc" style={{ marginTop: '2px' }}>
+                        <span className="ai-config-field-desc">
                           {field.description}
                         </span>
                       </div>
@@ -457,7 +457,7 @@ export default function TripAiConfigModal({
             </div>
 
             {/* GROUP 2: Place-Level Fields */}
-            <div style={{ marginBottom: '16px' }}>
+            <div className="ai-config-place-section">
               <span className="ai-config-section-heading">
                 Place-Level Fields
               </span>
@@ -471,7 +471,7 @@ export default function TripAiConfigModal({
                   return (
                     <div
                       key={field.key}
-                      className="glass-panel"
+                      className="glass-panel ai-config-place-field-card"
                       draggable={trip.canEdit !== false && !isEditing}
                       onDragStart={(e) => {
                         setDraggedFieldIndex(idx);
@@ -503,16 +503,8 @@ export default function TripAiConfigModal({
                         setDragOverFieldIndex(null);
                       }}
                       style={{
-                        padding: '10px 12px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderColor: 'rgba(255,255,255,0.05)',
-                        backgroundColor: 'rgba(255,255,255,0.01)',
-                        gap: '8px',
-                        position: 'relative',
                         opacity: draggedFieldIndex === idx ? 0.4 : 1,
                         cursor: trip.canEdit !== false && !isEditing ? 'grab' : 'default',
-                        transition: 'opacity 0.2s ease',
                         zIndex: (activeIconPickerKey === field.key || (editingKey === field.key && activeIconPickerKey === 'edit-field')) ? 100 : (draggedFieldIndex === idx ? 0.4 : 1)
                       }}
                     >
@@ -545,16 +537,16 @@ export default function TripAiConfigModal({
 
                           <div className="form-row form-row--compact">
                             <div className="form-group form-group--no-margin flex-1">
-                              <label style={{ fontSize: '11px', marginBottom: '2px' }}>Field Title</label>
+                              <label>Field Title</label>
                               <input
                                 type="text"
                                 value={editTitle}
                                 onChange={e => setEditTitle(e.target.value)}
-                                style={{ padding: '5px 8px', fontSize: '12px', height: '30px' }}
+                                className="ai-config-form-input"
                               />
                             </div>
                             <div className="form-group form-group--no-margin flex-shrink-0">
-                              <label style={{ fontSize: '11px', marginBottom: '2px' }}>Icon</label>
+                              <label>Icon</label>
                               <div>
                                 {renderIconPicker('edit-field', editIcon)}
                               </div>
@@ -562,19 +554,19 @@ export default function TripAiConfigModal({
                           </div>
 
                           <div className="form-group form-group--no-margin">
-                            <label style={{ fontSize: '11px', marginBottom: '2px' }}>Instructions for Gemini</label>
+                            <label>Instructions for Gemini</label>
                             <textarea
                               value={editDesc}
                               onChange={e => setEditDesc(e.target.value)}
                               rows={2}
-                              style={{ padding: '6px 8px', fontSize: '12px', minHeight: '48px' }}
+                              className="ai-config-form-textarea"
                             />
                           </div>
 
                           {editError && (
-                            <div className="ai-settings-test-panel error" style={{ padding: '4px 8px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div className="ai-settings-test-panel error ai-config-edit-error">
                               <AlertCircle size={12} className="flex-shrink-0" />
-                              <span style={{ fontSize: '11px', textTransform: 'none' }}>{editError}</span>
+                              <span className="ai-config-inline-error">{editError}</span>
                             </div>
                           )}
 
@@ -636,7 +628,7 @@ export default function TripAiConfigModal({
                                 </code>
                               )}
                             </div>
-                            <span className="ai-config-field-desc" style={{ marginTop: '4px' }}>
+                            <span className="ai-config-field-desc">
                               {field.description}
                             </span>
                           </div>
@@ -707,24 +699,13 @@ export default function TripAiConfigModal({
               {/* Add Custom Field Form */}
               {trip.canEdit !== false && (
                 <div
-                  className="glass-panel"
-                  style={{
-                    marginTop: '12px',
-                    padding: '12px',
-                    borderStyle: 'dashed',
-                    borderColor: 'rgba(255,255,255,0.12)',
-                    backgroundColor: 'rgba(255,255,255,0.01)',
-                    position: 'relative',
-                    zIndex: activeIconPickerKey === 'new-field' ? 100 : 1
-                  }}
+                  className="glass-panel ai-config-add-panel"
+                  style={{ zIndex: activeIconPickerKey === 'new-field' ? 100 : 1 }}
                 >
                   <span className="ai-config-add-label">Add Custom Field</span>
 
                   {error && (
-                    <div
-                      className="ai-settings-test-panel error"
-                      style={{ padding: '8px 10px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    >
+                    <div className="ai-settings-test-panel error ai-config-add-error">
                       <AlertCircle size={14} className="flex-shrink-0" />
                       <span className="ai-error-text">{error}</span>
                     </div>
@@ -732,7 +713,7 @@ export default function TripAiConfigModal({
 
                   <div className="form-row form-row--compact">
                     <div className="form-group form-group--no-margin flex-1">
-                      <label htmlFor="new-field-title" style={{ fontSize: '11px' }}>Field Title</label>
+                      <label htmlFor="new-field-title">Field Title</label>
                       <input
                         type="text"
                         id="new-field-title"
@@ -743,22 +724,22 @@ export default function TripAiConfigModal({
                           const rawKey = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
                           setNewKey(rawKey);
                         }}
-                        style={{ padding: '5px 8px', fontSize: '12px', height: '30px' }}
+                        className="ai-config-form-input"
                       />
                     </div>
                     <div className="form-group form-group--no-margin flex-1">
-                      <label htmlFor="new-field-key" style={{ fontSize: '11px' }}>System Key (alphanumeric)</label>
+                      <label htmlFor="new-field-key">System Key (alphanumeric)</label>
                       <input
                         type="text"
                         id="new-field-key"
                         placeholder="e.g. photo_spots"
                         value={newKey}
                         onChange={e => setNewKey(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                        style={{ padding: '5px 8px', fontSize: '12px', height: '30px' }}
+                        className="ai-config-form-input"
                       />
                     </div>
                     <div className="form-group form-group--no-margin flex-shrink-0">
-                      <label style={{ fontSize: '11px', marginBottom: '2px' }}>Icon</label>
+                      <label style={{ marginBottom: '2px' }}>Icon</label>
                       <div>
                         {renderIconPicker('new-field', newIcon)}
                       </div>
@@ -766,14 +747,14 @@ export default function TripAiConfigModal({
                   </div>
 
                   <div className="form-group form-group--spaced">
-                    <label htmlFor="new-field-desc" style={{ fontSize: '11px' }}>Instructions for Gemini</label>
+                    <label htmlFor="new-field-desc">Instructions for Gemini</label>
                     <textarea
                       id="new-field-desc"
                       placeholder="e.g. Provide 2-3 bullet points on the best spots, angles, or timings to take pictures."
                       value={newDesc}
                       onChange={e => setNewDesc(e.target.value)}
                       rows={2}
-                      style={{ padding: '6px 8px', fontSize: '12px', minHeight: '48px' }}
+                      className="ai-config-form-textarea"
                     />
                   </div>
 
