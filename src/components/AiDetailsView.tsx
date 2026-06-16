@@ -59,16 +59,7 @@ export default function AiDetailsView({
 
         {canEdit && onGenerate && (
           <button
-            className="mini-icon-btn flex-align"
-            style={{ 
-              fontSize: '10px', 
-              gap: '4px', 
-              padding: '2px 6px', 
-              borderRadius: '4px',
-              background: 'rgba(99, 102, 241, 0.15)',
-              borderColor: 'rgba(99, 102, 241, 0.3)',
-              color: '#a5b4fc'
-            }}
+            className="mini-icon-btn flex-align ai-detail-regen-btn"
             onClick={(e) => {
               e.stopPropagation();
               onGenerate();
@@ -82,7 +73,7 @@ export default function AiDetailsView({
       </div>
 
       {hasAiDetails && place.aiUpdatedAt && !isGenerating && (
-        <div className="ai-freshness-timestamp">
+        <div className="text-muted-xs">
           Updated: {formatFreshness(place.aiUpdatedAt)}
         </div>
       )}

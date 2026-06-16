@@ -255,7 +255,7 @@ function ItineraryPanel({
           onClick={e => { e.stopPropagation(); setActiveAddDropdownIndex(activeAddDropdownIndex === insertAtIndex ? null : insertAtIndex); }}
           data-tooltip="Add Item"
         >
-          <Plus size={11} /><span style={{ fontSize: '11px', fontWeight: 500 }}>Add Item</span>
+          <Plus size={11} /><span className="add-item-label">Add Item</span>
         </button>
         {activeAddDropdownIndex === insertAtIndex && (
           <div className="schedule-add-dropdown dropdown-menu">
@@ -285,7 +285,6 @@ function ItineraryPanel({
     return (
       <div
         className={`timeline-card glass-panel schedule-note-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
-        style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0, borderColor: 'var(--border-glass)', cursor: 'default' }}
         onClick={e => e.stopPropagation()}
         draggable={canEdit}
         onDragStart={() => handleDayPlaceDragStart(idx)}
@@ -312,10 +311,10 @@ function ItineraryPanel({
           <FileText size={12} style={{ color: '#fff' }} />
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
+        <div className="card-header-row">
           <div
             className="timeline-card-content"
-            style={{ flex: 1, minWidth: 0, paddingTop: '3px', cursor: canEdit && !isEditingThis ? 'pointer' : 'default' }}
+            style={{ paddingTop: '3px', cursor: canEdit && !isEditingThis ? 'pointer' : 'default' }}
             onClick={canEdit && !isEditingThis ? () => { setEditingNoteItemIndex(idx); setEditingNoteText(note.text); } : undefined}
           >
             {isEditingThis ? (
@@ -326,22 +325,17 @@ function ItineraryPanel({
                   onChange={e => setEditingNoteText(e.target.value)}
                   placeholder="Add a note here..."
                   rows={4}
-                  style={{
-                    width: '100%', padding: '6px 8px', fontSize: '12.5px',
-                    background: 'var(--bg-dark)', border: '1px solid var(--accent-primary)',
-                    borderRadius: '6px', color: 'var(--text-primary)',
-                    textTransform: 'none', lineHeight: 1.5, boxSizing: 'border-box'
-                  }}
+                  className="note-edit-textarea"
                 />
-                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                  <button className="btn-secondary" onClick={() => { if (!note.text) handleDeleteScheduleNote(idx); setEditingNoteItemIndex(null); }} style={{ padding: '2px 8px', fontSize: '10px' }}>Cancel</button>
+                <div className="note-edit-actions">
+                  <button className="btn-secondary note-edit-btn" onClick={() => { if (!note.text) handleDeleteScheduleNote(idx); setEditingNoteItemIndex(null); }}>Cancel</button>
                   <button
-                    className="btn-primary flex-align"
+                    className="btn-primary flex-align note-edit-btn"
                     onClick={() => {
                       if (editingNoteText.trim()) handleUpdateScheduleNote(idx, editingNoteText);
                       setEditingNoteItemIndex(null);
                     }}
-                    style={{ padding: '2px 8px', fontSize: '10px', gap: '4px' }}
+                    style={{ gap: '4px' }}
                   >
                     <Check size={10} /> Save
                   </button>
@@ -355,26 +349,24 @@ function ItineraryPanel({
           </div>
 
           {canEdit && !isEditingThis && (
-            <div className="day-place-actions-desktop" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+            <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
               <button
                 className="mini-icon-btn place-note-edit-btn"
                 onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setEditingNoteText(note.text); }}
                 data-tooltip="Edit Note"
-                style={{ padding: '4px' }}
               >
                 <Edit2 size={12} />
               </button>
-              <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>
+              <div className="timeline-place-dropdown-container">
                 <button
                   className="mini-icon-btn"
                   onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }}
                   data-tooltip="Note Options"
-                  style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <MoreVertical size={14} />
                 </button>
                 {activeTimelinePlaceDropdownKey === dropdownKey && (
-                  <div className="dropdown-menu" style={{ right: 0, bottom: '100%', top: 'auto', marginBottom: '4px' }}>
+                  <div className="dropdown-menu dropdown-menu-above">
                     <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
                     <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
                     <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleDeleteScheduleNote(idx); setActiveTimelinePlaceDropdownKey(null); }}>
@@ -390,19 +382,17 @@ function ItineraryPanel({
         {canEdit && (
           <div
             className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
-            style={{ position: 'absolute', top: '0', right: '0' }}
             onClick={e => e.stopPropagation()}
           >
             <button
               className="mini-icon-btn"
               onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }}
               data-tooltip="Note Options"
-              style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <MoreVertical size={14} />
             </button>
             {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
-              <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
+              <div className="dropdown-menu">
                 <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}>
                   <ChevronUp size={12} /> Move Up
                 </button>
@@ -435,7 +425,7 @@ function ItineraryPanel({
   };
 
   return (
-    <div className={`itinerary-panel ${activeMobileTab === 'itinerary' ? 'mobile-active' : ''}`} style={{ position: 'relative' }}>
+    <div className={`itinerary-panel ${activeMobileTab === 'itinerary' ? 'mobile-active' : ''}`}>
       {setLeftCollapsed && (
         <button 
           className="panel-toggle-btn left-toggle" 
@@ -459,59 +449,48 @@ function ItineraryPanel({
       <div className="itinerary-header">
         <div className="trip-meta-info-container">
           <div className="trip-title-row">
-            <h2 className="trip-title-text" style={{ fontSize: '24px', margin: 0 }}>{trip.name}</h2>
-            <div className="trip-action-buttons" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <h2 className="trip-title-text">{trip.name}</h2>
+            <div className="trip-action-buttons">
               {trip.isOwner !== false && (
-                <button 
-                  className="mini-icon-btn" 
+                <button
+                  className="mini-icon-btn"
                   onClick={() => setShowEditTripModal(true)}
                   data-tooltip="Edit Trip Details"
-                  style={{ padding: '4px', opacity: 0.6 }}
+                  style={{ opacity: 0.6 }}
                 >
                   <Edit2 size={14} />
                 </button>
               )}
               {trip.isOwner !== false && (
-                <button 
-                  className="mini-icon-btn" 
+                <button
+                  className="mini-icon-btn"
                   onClick={() => setShowTripAiConfigModal(true)}
                   data-tooltip="Trip AI Config Settings"
-                  style={{ padding: '4px', opacity: 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ opacity: 0.6 }}
                 >
-                  <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
+                  <Sparkles size={14} className="text-accent" />
                 </button>
               )}
               {isGoogleSignedIn && trip.isOwner !== false && trip.driveFileId && (
-                <button 
-                  className="mini-icon-btn" 
+                <button
+                  className="mini-icon-btn text-accent"
                   onClick={() => onShareTrip && onShareTrip(trip)}
                   data-tooltip="Share Itinerary"
-                  style={{ padding: '4px', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Share2 size={14} />
                 </button>
               )}
               {trip.isOwner === false && (
-                <span 
-                  style={{ 
-                    fontSize: '10px', 
-                    padding: '2px 8px', 
-                    borderRadius: '99px', 
-                    background: 'rgba(96, 165, 250, 0.15)', 
-                    color: '#60a5fa', 
-                    fontWeight: 600,
-                    textTransform: 'none'
-                  }}
-                >
+                <span className="trip-mode-badge">
                   {trip.canEdit === false ? 'Viewer Mode' : 'Editor Mode'}
                 </span>
               )}
             </div>
           </div>
           
-          <div className="trip-duration-text" style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', gap: '8px' }}>
+          <div className="trip-duration-text">
             <span className="flex-align" style={{ gap: '6px' }}>
-              <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+              <Calendar size={13} className="text-muted" />
               {formatDisplayDate(trip.startDate)} - {formatDisplayDate(trip.endDate)}
             </span>
           </div>
@@ -519,27 +498,27 @@ function ItineraryPanel({
           <div className="trip-plan-picker-column">
             {isRenamingPlan ? (
               <div className="flex-align" style={{ gap: '4px' }}>
-                <input 
-                  type="text" 
-                  value={editPlanName} 
+                <input
+                  type="text"
+                  value={editPlanName}
                   onChange={e => setEditPlanName(e.target.value)}
-                  style={{ padding: '4px 8px', fontSize: '13px', width: '140px', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', borderRadius: '4px' }}
+                  className="plan-rename-input"
                   autoFocus
                   onKeyDown={e => {
                     if (e.key === 'Enter') handleRenamePlan();
                     if (e.key === 'Escape') setIsRenamingPlan(false);
                   }}
                 />
-                <button className="mini-icon-btn" onClick={handleRenamePlan} data-tooltip="Save Name" style={{ color: 'var(--color-success)', padding: '4px' }}>
+                <button className="mini-icon-btn plan-rename-save" onClick={handleRenamePlan} data-tooltip="Save Name">
                   <Check size={14} />
                 </button>
-                <button className="mini-icon-btn" onClick={() => setIsRenamingPlan(false)} data-tooltip="Cancel" style={{ color: 'var(--text-muted)', padding: '4px' }}>
+                <button className="mini-icon-btn plan-rename-cancel" onClick={() => setIsRenamingPlan(false)} data-tooltip="Cancel">
                   <X size={14} />
                 </button>
               </div>
             ) : (
               <div className="plan-picker-wrapper">
-                <Layers size={16} style={{ color: 'var(--text-muted)' }} />
+                <Layers size={16} className="text-muted" />
                 <select 
                   className="plan-picker" 
                   value={activePlanId} 
@@ -565,12 +544,11 @@ function ItineraryPanel({
                   ))}
                 </select>
                 {trip.canEdit !== false && (
-                  <div className="plan-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
-                    <button 
+                  <div className="plan-dropdown-container">
+                    <button
                       className="mini-icon-btn"
                       onClick={() => setShowPlanMenu(!showPlanMenu)}
                       data-tooltip="Plan Options"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                       <MoreVertical size={16} />
                     </button>
@@ -698,16 +676,16 @@ function ItineraryPanel({
                 : `linear-gradient(135deg, rgba(30,41,59,0.4), ${hexToRgba(activeDayLocation?.color || '#6366f1', 0.15)})` 
             }}
           >
-            <div className="day-location-info" style={{ minWidth: 0, flex: 1 }}>
+            <div className="day-location-info">
               {activeDayLocation ? (
-                <span style={{ fontSize: '24px', marginRight: '8px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                <span className="day-location-emoji">
                   {getLocIcon(activeDayLocation)}
                 </span>
               ) : (
-                <MapPin size={24} style={{ color: 'var(--color-danger)', flexShrink: 0 }} />
+                <MapPin size={24} className="no-location-icon" />
               )}
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <h3 className="day-location-name-text" style={{ fontSize: '18px', color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div className="location-name-wrapper">
+                <h3 className="day-location-name-text">
                   {activeDayLocation ? getFormattedLocationName(activeDayLocation, trip.locations) : 'Not Selected'}
                 </h3>
               </div>
@@ -742,24 +720,24 @@ function ItineraryPanel({
               </div>
               <div className="timeline-section-actions">
                 {trip.canEdit !== false && (
-                  <button className="mini-icon-btn flex-align" onClick={() => setShowHotelModal(true)} style={{ gap: '4px', color: 'var(--color-success)' }}>
+                  <button className="mini-icon-btn flex-align timeline-add-btn--success" onClick={() => setShowHotelModal(true)}>
                     <Plus size={14} /> Add Hotel
                   </button>
                 )}
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="section-item-list">
               {getHotelsForDay(activeDayStr).map(h => (
                 <div key={h.id} className="hotel-card">
-                  <div className="flex-align" style={{ flex: 1 }}>
+                  <div className="flex-align flex-1">
                     <div className="hotel-icon-wrapper">
                       <Building size={16} />
                     </div>
-                    <div style={{ marginLeft: '10px' }}>
-                      <h4 style={{ fontSize: '13px', fontWeight: 600 }}>{h.name}</h4>
-                      {h.address && <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📍 {h.address}</p>}
-                      <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <div className="hotel-text-col">
+                      <h4 className="hotel-name-text">{h.name}</h4>
+                      {h.address && <p className="hotel-address-text">📍 {h.address}</p>}
+                      <p className="hotel-dates-text">
                         Check-in: {formatDisplayDate(h.checkInDate)} | Check-out: {formatDisplayDate(h.checkOutDate)}
                       </p>
                     </div>
@@ -773,7 +751,7 @@ function ItineraryPanel({
               ))}
 
               {getHotelsForDay(activeDayStr).length === 0 && (
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No hotels booked for this day.</p>
+                <p className="no-transport-text">No hotels booked for this day.</p>
               )}
             </div>
           </div>
@@ -786,21 +764,21 @@ function ItineraryPanel({
               </div>
               <div className="timeline-section-actions">
                 {trip.canEdit !== false && (
-                  <button className="mini-icon-btn flex-align" onClick={() => setShowTransportModal(true)} style={{ gap: '4px', color: 'var(--color-warning)' }}>
+                  <button className="mini-icon-btn flex-align timeline-add-btn--warning" onClick={() => setShowTransportModal(true)}>
                     <Plus size={14} /> Add Transit
                   </button>
                 )}
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="section-item-list">
               {getTransportsForDay(activeDayStr).map(t => {
                 const isDeparture = t.departureDate === activeDayStr;
                 const isArrival = t.arrivalDate === activeDayStr;
                 
                 return (
                   <div key={t.id} className="transport-card">
-                    <div className="flex-align" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="flex-align flex-1 min-w-0">
                       <div className="transport-icon-wrapper">
                         {t.type === 'flight' && <Plane size={16} />}
                         {t.type === 'train' && <Train size={16} />}
@@ -814,7 +792,7 @@ function ItineraryPanel({
                         <div className="transport-flow" style={{ opacity: isDeparture ? 1 : 0.5 }}>
                           <span className="transport-flow-sub">Departure {isDeparture && '🚩'}</span>
                           <span className="transport-flow-main">{t.departureLocationName}</span>
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          <span className="transport-time-detail">
                             {t.departureTime} ({t.departureTimezone}) - {formatDisplayDate(t.departureDate)}
                           </span>
                         </div>
@@ -822,7 +800,7 @@ function ItineraryPanel({
                         <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
                           <span className="transport-flow-sub">Arrival {isArrival && '🏁'}</span>
                           <span className="transport-flow-main">{t.arrivalLocationName}</span>
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          <span className="transport-time-detail">
                             {t.arrivalTime} ({t.arrivalTimezone}) - {formatDisplayDate(t.arrivalDate)}
                           </span>
                         </div>
@@ -838,7 +816,7 @@ function ItineraryPanel({
               })}
 
               {getTransportsForDay(activeDayStr).length === 0 && (
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No transit events scheduled.</p>
+                <p className="no-transport-text">No transit events scheduled.</p>
               )}
             </div>
           </div>
@@ -848,7 +826,7 @@ function ItineraryPanel({
             <div className="timeline-section-header ai-day-assistant-header">
               <div className="timeline-section-title-row">
                 <h4 className="timeline-section-title">
-                  <Sparkles size={16} style={{ color: 'var(--accent-primary)' }} />
+                  <Sparkles size={16} className="text-accent" />
                   AI Day Assistant
                 </h4>
               </div>
@@ -861,9 +839,8 @@ function ItineraryPanel({
                   return (
                     <>
                       {trip.canEdit !== false && (
-                        <button 
-                          className="mini-icon-btn flex-align"
-                          style={{ gap: '4px', color: '#a5b4fc' }}
+                        <button
+                          className="mini-icon-btn flex-align ai-insights-btn"
                           onClick={() => {
                             if (isAnyDayFieldEnabled) {
                               handleGenerateSingleDayTips(activeDayStr);
@@ -877,9 +854,8 @@ function ItineraryPanel({
                         </button>
                       )}
                       {trip.canEdit !== false && (
-                        <button 
-                          className="mini-icon-btn flex-align"
-                          style={{ gap: '4px' }}
+                        <button
+                          className="mini-icon-btn flex-align ai-generate-btn"
                           onClick={() => {
                             if (isAnyDayFieldEnabled) {
                               setShowAiGenerateDaysModal(true);
@@ -897,7 +873,7 @@ function ItineraryPanel({
               </div>
             </div>
 
-            <div className="glass-panel ai-day-assistant-card" style={{ padding: '12px 14px', margin: '0', borderColor: 'rgba(99, 102, 241, 0.15)', background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.45) 0%, rgba(99, 102, 241, 0.03) 100%)' }}>
+            <div className="glass-panel ai-day-assistant-card">
               {(() => {
                 const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
                 const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
@@ -906,7 +882,7 @@ function ItineraryPanel({
                 return daysGeneratingDates.has(activeDayStr) ? (
                   <FunGeneratingLoader message="Gemini is designing daily tips & route logistics..." />
                 ) : (isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips) || (isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics) ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div className="day-ai-content-col">
                     
                     {/* Daily Tips */}
                     {isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips && (
@@ -932,7 +908,7 @@ function ItineraryPanel({
                           onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
                           canEdit={trip.canEdit !== false}
                           title={
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbcfe8' }}>
+                            <span className="baby-logistics-title">
                               👶 Baby Logistics
                             </span>
                           }
@@ -942,16 +918,15 @@ function ItineraryPanel({
 
                   </div>
                 ) : (
-                  <div style={{ padding: '8px 0', textAlign: 'center' }}>
-                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', marginBottom: '6px' }}>
-                      {!isAnyDayFieldEnabled 
-                        ? 'All day-level AI fields are disabled in Settings.' 
+                  <div className="day-no-tips">
+                    <span className="day-no-tips-text">
+                      {!isAnyDayFieldEnabled
+                        ? 'All day-level AI fields are disabled in Settings.'
                         : 'No daily tips generated for this day yet.'}
                     </span>
                     {trip.canEdit !== false && isAnyDayFieldEnabled && (
-                      <button 
-                        className="btn-secondary flex-align"
-                        style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px', borderColor: 'rgba(99, 102, 241, 0.15)' }}
+                      <button
+                        className="btn-secondary flex-align day-generate-btn"
                         onClick={() => handleGenerateSingleDayTips(activeDayStr)}
                       >
                         <Sparkles size={11} /> Generate Day Tips
@@ -971,23 +946,22 @@ function ItineraryPanel({
               </div>
               {trip.canEdit !== false && (
                 <div className="timeline-section-actions">
-                  <button 
-                    className="mini-icon-btn flex-align" 
+                  <button
+                    className="mini-icon-btn flex-align ai-insights-btn"
                     onClick={() => {
                       setAiGeneratePlaces(scheduledPlaces);
                       setAiGenerateCity(activeDayLocation?.city || '');
                       setAiGenerateCountry(activeDayLocation?.country || '');
                       setShowAiGenerateModal(true);
-                    }} 
+                    }}
                     data-tooltip="AI Travel Guide for Places"
-                    style={{ gap: '4px', color: '#a5b4fc' }}
                     disabled={scheduledPlaces.length === 0}
                   >
                     <Sparkles size={14} /> AI Insights
                   </button>
 
-                  <button 
-                    className="mini-icon-btn flex-align" 
+                  <button
+                    className="mini-icon-btn flex-align ai-generate-btn"
                     onClick={() => {
                       setEditingPlace({
                         id: `new-temp-${Date.now()}`,
@@ -1003,19 +977,17 @@ function ItineraryPanel({
                       });
                       setAutoScheduleOnActiveDay(true);
                       setShowCustomPlaceModal(true);
-                    }} 
+                    }}
                     data-tooltip="Add New Place"
-                    style={{ gap: '4px' }}
                   >
                     <Plus size={14} /> Add Place
                   </button>
 
-                  <div className="day-options-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
-                    <button 
+                  <div className="day-options-dropdown-container">
+                    <button
                       className="mini-icon-btn"
                       onClick={() => setShowDayOptionsMenu(!showDayOptionsMenu)}
                       data-tooltip="Day Options"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                       <MoreVertical size={14} />
                     </button>
@@ -1048,18 +1020,18 @@ function ItineraryPanel({
 
             {/* Smart Place search suggestions input */}
             {activeDayLocation && trip.canEdit !== false ? (
-              <div ref={searchDropdownRef} style={{ position: 'relative', marginBottom: '16px' }}>
-                <div style={{ position: 'relative' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    placeholder="Type to search, or paste a Google Maps link..." 
+              <div ref={searchDropdownRef} className="place-search-wrapper">
+                <div className="place-search-inner">
+                  <Search size={14} className="place-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Type to search, or paste a Google Maps link..."
                     value={placeQuery}
                     onChange={(e) => setPlaceQuery(e.target.value)}
-                    style={{ paddingLeft: '32px' }}
+                    className="place-search-input-padded"
                   />
                   {isSearchingPlace && (
-                    <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Loading...</div>
+                    <div className="place-search-loading">Loading...</div>
                   )}
                 </div>
 
@@ -1090,14 +1062,13 @@ function ItineraryPanel({
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '16px' }}>
+              <div className="no-location-text">
                 Please select a Location above to enable place searching.
               </div>
             )}
 
             <div
-              className="day-timeline"
-              style={{ minHeight: '60px' }}
+              className="day-timeline day-timeline-wrap"
               onDragOver={(e) => {
                 if (draggedPlaceId || draggedDayPlaceIndex !== null) {
                   e.preventDefault();
@@ -1119,58 +1090,58 @@ function ItineraryPanel({
                 const isAiSuggestion = !!(previewPlace as any).isAiSuggestion;
                 const dotColor = isAiSuggestion ? '#a78bfa' : ((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.color || '#6b7280');
                 return (
-                  <div className="timeline-card glass-panel timeline-card-preview" data-place-id={previewPlace.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0, cursor: 'default', marginBottom: '4px' }}>
+                  <div className="timeline-card glass-panel timeline-card-preview" data-place-id={previewPlace.id}>
                     <div className="timeline-dot" style={{ backgroundColor: dotColor }}>
                       {isAiSuggestion ? <Sparkles size={12} style={{ color: '#ffffff' }} /> : getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
                     </div>
                     {/* Header row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
-                      <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: 'default' }}>
+                    <div className="card-header-row">
+                      <div className="timeline-card-content" style={{ cursor: 'default' }}>
                         <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: isAiSuggestion ? 'rgba(167, 139, 250, 0.2)' : 'rgba(99, 102, 241, 0.2)', color: isAiSuggestion ? '#c4b5fd' : '#a5b4fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
                           {isAiSuggestion ? <Sparkles size={12} /> : 'P'}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                        <div className="schedule-thumb-col">
                           {previewPlace.photoUrl ? (
                             <div className="place-card-thumb-container"><img src={getOptimizedImageUrl(previewPlace.photoUrl, 80)} alt="" loading="lazy" decoding="async" /></div>
                           ) : (
-                            <div className="place-card-thumb-container"><MapPin size={16} style={{ color: 'var(--text-muted)' }} /></div>
+                            <div className="place-card-thumb-container"><MapPin size={16} className="text-muted" /></div>
                           )}
-                          <a href={previewPlace.mapsLink || buildMapsLink(previewPlace.title, previewPlace.lat, previewPlace.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary" onClick={(e) => e.stopPropagation()} style={{ padding: '2px 4px', fontSize: '9px', textDecoration: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', boxSizing: 'border-box', textAlign: 'center', height: '18px' }}>Map</a>
+                          <a href={previewPlace.mapsLink || buildMapsLink(previewPlace.title, previewPlace.lat, previewPlace.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link" onClick={(e) => e.stopPropagation()}>Map</a>
                         </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{previewPlace.title}</h4>
+                        <div className="flex-1 min-w-0">
+                          <div className="preview-place-title-row">
+                            <h4 className="timeline-place-title">{previewPlace.title}</h4>
                             <span className="preview-badge" style={isAiSuggestion ? { background: 'rgba(167,139,250,0.15)', color: '#c4b5fd', borderColor: 'rgba(167,139,250,0.3)' } : undefined}>
                               {isAiSuggestion ? 'AI Suggestion' : 'Preview'}
                             </span>
                           </div>
                           {previewPlace.openingHours && (
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>{previewPlace.openingHours}</p>
+                            <p className="preview-hours-text">{previewPlace.openingHours}</p>
                           )}
                         </div>
                       </div>
                       {trip.canEdit !== false && (
-                        <div className="day-place-actions-temporary" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <div className="day-place-actions-temporary" onClick={e => e.stopPropagation()}>
                           {isAiSuggestion ? (
                             <>
-                              <button className="mini-icon-btn" onClick={() => handleAddAiSuggestionToCatalog(previewPlace)} data-tooltip="Add to Catalog" style={{ padding: '4px', color: '#a78bfa' }}><BookmarkPlus size={15} /></button>
-                              <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
+                              <button className="mini-icon-btn preview-add-to-catalog" onClick={() => handleAddAiSuggestionToCatalog(previewPlace)} data-tooltip="Add to Catalog"><BookmarkPlus size={15} /></button>
+                              <button className="mini-icon-btn preview-add-to-day" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day"><Plus size={16} /></button>
                             </>
                           ) : (
-                            <button className="mini-icon-btn" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day" style={{ padding: '4px', color: 'var(--color-success)' }}><Plus size={16} /></button>
+                            <button className="mini-icon-btn preview-add-to-day" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day"><Plus size={16} /></button>
                           )}
-                          <button className="mini-icon-btn" onClick={() => setActivePlaceId(undefined)} data-tooltip="Remove Preview" style={{ padding: '4px', color: 'var(--color-danger)' }}><X size={14} /></button>
+                          <button className="mini-icon-btn preview-remove" onClick={() => setActivePlaceId(undefined)} data-tooltip="Remove Preview"><X size={14} /></button>
                         </div>
                       )}
                     </div>
                     {/* Always-expanded details */}
-                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', cursor: 'default', width: '100%' }} onClick={e => e.stopPropagation()}>
+                    <div className="card-expanded-section" onClick={e => e.stopPropagation()}>
                       {previewPlace.description && (
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.4, textTransform: 'none' }}>{previewPlace.description}</p>
+                        <p className="preview-desc-text">{previewPlace.description}</p>
                       )}
                       {isAiSuggestion ? (
                         previewPlace.notes && (
-                          <div style={{ padding: '6px 10px', background: 'rgba(167,139,250,0.06)', borderLeft: '2px solid #a78bfa', borderRadius: '0 4px 4px 0', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.4, fontStyle: 'italic', textTransform: 'none' }}>
+                          <div className="preview-ai-notes">
                             {previewPlace.notes}
                           </div>
                         )
@@ -1246,7 +1217,7 @@ function ItineraryPanel({
                               <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
                             )}
                             <div
-                              className={`timeline-card glass-panel ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+                              className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
                               data-place-id={place.id}
                               draggable={canEdit}
                               onDragStart={() => handleDayPlaceDragStart(idx)}
@@ -1269,38 +1240,38 @@ function ItineraryPanel({
                                 setDragOverDayPlaceIndex(null);
                               }}
                               onClick={() => setActivePlaceId(activePlaceId === place!.id ? undefined : place!.id)}
-                              style={{ flexDirection: 'column', alignItems: 'stretch', borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)', cursor: 'pointer', gap: '0' }}
+                              style={{ borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)' }}
                             >
                               <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.color || '#6b7280' }}>
                                 {getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
                               </div>
 
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '16px' }}>
-                                <div className="timeline-card-content" style={{ display: 'flex', gap: '12px', flex: 1, minWidth: 0, cursor: 'grab' }}>
-                                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
+                              <div className="card-header-row">
+                                <div className="timeline-card-content" style={{ cursor: 'grab' }}>
+                                  <div className="timeline-place-number">
                                     {placeNumber}
                                   </div>
 
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                                  <div className="schedule-thumb-col">
                                     {place.photoUrl ? (
                                       <div className="place-card-thumb-container"><img src={getOptimizedImageUrl(place.photoUrl, 80)} alt="" loading="lazy" decoding="async" /></div>
                                     ) : (
-                                      <div className="place-card-thumb-container"><MapPin size={16} style={{ color: 'var(--text-muted)' }} /></div>
+                                      <div className="place-card-thumb-container"><MapPin size={16} className="text-muted" /></div>
                                     )}
-                                    <a href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary" onClick={(e) => e.stopPropagation()} style={{ padding: '2px 4px', fontSize: '9px', textDecoration: 'none', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', boxSizing: 'border-box', textAlign: 'center', height: '18px' }}>Map</a>
+                                    <a href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link" onClick={(e) => e.stopPropagation()}>Map</a>
                                   </div>
 
-                                  <div style={{ minWidth: 0, flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{place.title}</h4>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="place-title-row">
+                                      <h4 className="timeline-place-title">{place.title}</h4>
                                     </div>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
+                                    <p className="place-excerpt-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
                                     {editingPlaceNotesId === place.id ? (
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
-                                        <textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Add notes..." rows={4} style={{ padding: '6px', fontSize: '12.5px', width: '100%', background: 'var(--bg-dark)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', borderRadius: '4px', textTransform: 'none' }} />
-                                        <div style={{ display: 'flex', gap: '6px', alignSelf: 'flex-end' }}>
-                                          <button className="btn-secondary" onClick={() => setEditingPlaceNotesId(null)} style={{ padding: '2px 6px', fontSize: '10px' }}>Cancel</button>
-                                          <button className="btn-primary flex-align" onClick={() => savePlaceNotes(place!.id)} style={{ padding: '2px 6px', fontSize: '10px', gap: '4px' }}><Check size={10} /> Save</button>
+                                      <div className="place-notes-col" onClick={e => e.stopPropagation()}>
+                                        <textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Add notes..." rows={4} className="place-notes-textarea" />
+                                        <div className="place-notes-actions">
+                                          <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
+                                          <button className="btn-primary flex-align place-notes-btn" onClick={() => savePlaceNotes(place!.id)} style={{ gap: '4px' }}><Check size={10} /> Save</button>
                                         </div>
                                       </div>
                                     ) : (
@@ -1310,7 +1281,7 @@ function ItineraryPanel({
                                           <span>{place.notes || 'Add notes...'}</span>
                                         </div>
                                         {canEdit && (
-                                          <button className="mini-icon-btn place-note-edit-btn" onClick={(e) => { e.stopPropagation(); startEditingNotes(place!); }} style={{ position: 'absolute', top: 0, right: 0, padding: '4px' }} data-tooltip="Edit Note"><Edit2 size={12} /></button>
+                                          <button className="mini-icon-btn place-note-edit-btn place-note-edit-abs" onClick={(e) => { e.stopPropagation(); startEditingNotes(place!); }} data-tooltip="Edit Note"><Edit2 size={12} /></button>
                                         )}
                                       </div>
                                     )}
@@ -1318,15 +1289,15 @@ function ItineraryPanel({
                                 </div>
 
                                 {canEdit && (
-                                  <div className="day-place-actions-desktop" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                  <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
                                     <div className="place-card-move-buttons">
                                       <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
                                       <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
                                     </div>
-                                    <div className="timeline-place-dropdown-container" style={{ position: 'relative' }}>
-                                      <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip="Place Options" style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MoreVertical size={14} /></button>
+                                    <div className="timeline-place-dropdown-container">
+                                      <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
                                       {activeTimelinePlaceDropdownKey === dropdownKey && (
-                                        <div className="dropdown-menu" style={{ right: 0, bottom: '100%', top: 'auto', marginBottom: '4px' }}>
+                                        <div className="dropdown-menu dropdown-menu-above">
                                           <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
                                           <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
                                         </div>
@@ -1338,10 +1309,10 @@ function ItineraryPanel({
 
                               {/* Mobile dropdown */}
                               {canEdit && (
-                                <div className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`} style={{ position: 'absolute', top: '0', right: '0' }} onClick={e => e.stopPropagation()}>
-                                  <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Place Options" style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MoreVertical size={14} /></button>
+                                <div className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`} onClick={e => e.stopPropagation()}>
+                                  <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
                                   {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
-                                    <div className="dropdown-menu" style={{ right: 0, top: '100%', marginTop: '4px' }}>
+                                    <div className="dropdown-menu">
                                       <button className="dropdown-item" disabled={isFirst} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
                                       <button className="dropdown-item" disabled={isLast} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
                                       <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
@@ -1353,7 +1324,7 @@ function ItineraryPanel({
 
                               {/* Expand Details if selected */}
                               {activePlaceId === place.id && (
-                                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', cursor: 'default', width: '100%' }} onClick={e => e.stopPropagation()}>
+                                <div className="card-expanded-section" onClick={e => e.stopPropagation()}>
                                   {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
                                   <AiDetailsView place={place} onGenerate={() => handleGenerateSinglePlaceAiDetails(place!.id)} canEdit={canEdit} isGenerating={placeGeneratingIds.has(place.id)} layoutMode="adaptive-2-col" customAiFields={trip.customAiFields} disabledPlaceFields={trip.disabledPlaceFields} fieldIcons={trip.fieldIcons} placeFieldsOrder={trip.placeFieldsOrder} />
                                 </div>
@@ -1369,7 +1340,7 @@ function ItineraryPanel({
               })()}
 
               {scheduleItems.length === 0 && !(displayScheduledPlaces[0] as any)?.isTemporary && (
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '6px' }}>
+                <p className="empty-timeline-text">
                   Itinerary is empty. Search above or click catalog places to schedule.
                 </p>
               )}
@@ -1377,7 +1348,7 @@ function ItineraryPanel({
           </div>
         </div>
       ) : (
-        <div style={{ padding: '40px', textTransform: 'none', color: 'var(--text-muted)', textAlign: 'center' }}>
+        <div className="no-active-day">
           No day plan created yet.
         </div>
       )}

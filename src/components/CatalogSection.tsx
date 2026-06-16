@@ -139,8 +139,8 @@ function CatalogSection({
   }, []);
 
   return (
-    <div className="accordion-content">
-      {/* Back to dashboard and select location inside catalog */}
+    <>
+      {/* Location picker — fixed above the scroll area, does not scroll */}
       <div className="panel-header panel-header--catalog">
         <div className="catalog-header-row">
           <LocationSelect
@@ -184,6 +184,8 @@ function CatalogSection({
         </div>
       </div>
 
+      {/* Scrollable catalog content */}
+      <div className="accordion-content">
       {catalogLocation ? (
         <div className="catalog-content catalog-content--no-padding">
           {/* Catalog Group Management */}
@@ -764,7 +766,8 @@ function CatalogSection({
           Add locations above to start building your Catalog.
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

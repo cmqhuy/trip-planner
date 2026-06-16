@@ -221,12 +221,12 @@ export default function TripDashboard({
                     <span className="trip-card-name-text">{trip.name}</span>
                     {isGoogleSignedIn && trip.driveFileId && (
                       <span data-tooltip="Synced to Google Drive" className="trip-card-icon-badge">
-                        <Cloud size={14} style={{ color: '#34d399' }} />
+                        <Cloud size={14} className="text-synced" />
                       </span>
                     )}
                     {trip.shared && (
                       <span data-tooltip="Shared Trip" className="trip-card-icon-badge">
-                        <Users size={14} style={{ color: '#60a5fa' }} />
+                        <Users size={14} className="text-shared-trip" />
                       </span>
                     )}
                   </h3>
@@ -416,7 +416,7 @@ export default function TripDashboard({
         <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
           <div className="modal-content glass-panel modal-content--import" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header modal-header--mb16">
-              <h3 style={{ fontSize: '18px', fontWeight: 600 }}>
+              <h3 className="import-modal-title">
                 <span className="desktop-only">Import Shared Trip</span>
                 <span className="mobile-only">Import Trip</span>
               </h3>
@@ -433,7 +433,7 @@ export default function TripDashboard({
               </p>
 
               <div className="form-group">
-                <label htmlFor="import-filename" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Shared File Name</label>
+                <label htmlFor="import-filename" className="import-label">Shared File Name</label>
                 <input
                   type="text"
                   id="import-filename"

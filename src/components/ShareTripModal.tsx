@@ -126,7 +126,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
 
         {/* Header */}
         <div className="modal-header modal-header--mb16">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px', fontWeight: 600 }}>
+          <h3 className="modal-header-title share-modal-title">
             <Share2 size={20} className="text-accent" />
             Share Itinerary
           </h3>
@@ -292,16 +292,13 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
                   className="glass-panel share-collab-card"
                 >
                   <div className="share-collab-info">
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '50%',
-                      background: isOwner ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.05)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: isOwner ? 'var(--accent-primary)' : 'var(--text-secondary)'
-                    }}>
+                    <div
+                      className="share-collab-avatar"
+                      style={{
+                        background: isOwner ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.05)',
+                        color: isOwner ? 'var(--accent-primary)' : 'var(--text-secondary)'
+                      }}
+                    >
                       {isOwner ? <Shield size={14} /> : <User size={14} />}
                     </div>
                     <div className="min-w-0">
@@ -332,8 +329,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
                         </select>
 
                         <button
-                          className="mini-icon-btn"
-                          style={{ color: '#f87171', padding: '4px' }}
+                          className="mini-icon-btn share-remove-btn"
                           disabled={isLoading}
                           onClick={() => handleRemovePermission(perm.id)}
                           data-tooltip="Remove Access"

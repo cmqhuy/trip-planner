@@ -415,6 +415,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .trip-card-actions-bar { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
 .dashboard-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: center; gap: 20px; font-size: 12px; color: rgba(148,163,184,0.5); }
 .dashboard-footer-link { color: inherit; text-decoration: none; }
+.text-synced { color: #34d399; }
+.text-shared-trip { color: #60a5fa; }
+.modal-header .import-modal-title { font-size: 18px; font-weight: 600; }
+.form-group .import-label { font-size: 12px; font-weight: 600; }
 
 /* Modals */
 .modal-overlay {
@@ -818,6 +822,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .mini-icon-btn.ai-md-save-btn { font-size: 10px; padding: 2px 8px; background: rgba(16,185,129,0.15); color: #10b981; height: 20px; }
 .mini-icon-btn.ai-md-cancel-btn { font-size: 10px; padding: 2px 8px; background: rgba(239,68,68,0.15); color: #ef4444; height: 20px; }
 .mini-icon-btn.ai-markdown-edit-btn { font-size: 10px; padding: 2px 6px; gap: 4px; background: rgba(255,255,255,0.05); height: 20px; }
+.mini-icon-btn.share-remove-btn { color: #f87171; }
 
 /* Center Panel: Day-to-day Schedule & Details */
 .itinerary-panel {
@@ -826,6 +831,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   flex-direction: column;
   border-right: 1px solid var(--border-glass);
   overflow: hidden;
+  position: relative;
 }
 
 .itinerary-header {
@@ -855,6 +861,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .trip-duration-text {
   grid-column: 1;
   grid-row: 2;
+  color: var(--text-muted);
+  font-size: 12px;
+  display: flex;
+  gap: 8px;
 }
 
 .trip-plan-picker-column {
@@ -946,6 +956,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
 .day-location-input-group {
@@ -1718,6 +1730,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: #a5b4fc;
 }
 
+.ai-detail-regen-btn {
+  font-size: 10px;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+}
+
 .ai-details-list {
   display: flex;
   flex-direction: column;
@@ -1770,13 +1792,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: pre-wrap;
 }
 
-.ai-freshness-timestamp {
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-top: 2px;
-  margin-bottom: 8px;
-  text-transform: none;
-}
 
 .ai-empty-state {
   padding: 12px 6px;
@@ -1829,6 +1844,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     gap: 16px;
   }
 }
+
 /* Cards lift above siblings (schedule-add-slot z-index:2, backdrop-filter stacking contexts) when dropdown is open */
 .catalog-place-card.dropdown-active,
 .timeline-card.dropdown-active {
@@ -1893,6 +1909,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .schedule-note-card {
   padding-top: 10px;
   padding-bottom: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border-color: var(--border-glass);
+  cursor: default;
+  width: 100%;
+}
+
+/* Note cards don't use the [number][thumb][info] column layout — reset to block so content fills width */
+.schedule-note-card .timeline-card-content {
+  display: block;
 }
 
 /* Schedule item note text */
@@ -1964,6 +1991,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.04) 100%) !important;
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.2) !important;
   position: relative;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  cursor: default;
+  margin-bottom: 4px;
 }
 
 .preview-badge {
@@ -2055,6 +2087,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-radius: 12px;
   transition: var(--transition-smooth);
+  padding: 12px 14px;
+  margin: 0;
+  border-color: rgba(99, 102, 241, 0.15);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(139, 92, 246, 0.02) 100%);
 }
 
 .ai-day-assistant-card:hover {
@@ -2196,9 +2232,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-place-dropdown-container-mobile,
 .day-place-dropdown-container-mobile {
   display: none !important;
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 /* CatalogSection classes */
-.panel-header--catalog { border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; }
+.panel-header--catalog { border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; padding: 12px 12px 10px !important; }
 .catalog-content--no-padding { padding: 0; }
 .catalog-header-row { display: flex; gap: 6px; align-items: center; }
 .catalog-ai-suggest-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #a78bfa; }
@@ -2249,7 +2288,81 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .day-place-actions-desktop {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
+
+/* ItineraryPanel inline style extractions */
+.trip-title-text { font-size: 24px; margin: 0; }
+.trip-action-buttons { display: flex; align-items: center; gap: 6px; }
+.trip-mode-badge { font-size: 10px; padding: 2px 8px; border-radius: 99px; background: rgba(96,165,250,0.15); color: #60a5fa; font-weight: 600; text-transform: none; }
+.plan-rename-input { padding: 4px 8px; font-size: 13px; width: 140px; background: var(--bg-dark); border: 1px solid var(--border-glass); border-radius: 4px; }
+.mini-icon-btn.plan-rename-save { color: var(--color-success); }
+.mini-icon-btn.plan-rename-cancel { color: var(--text-muted); }
+.plan-dropdown-container { position: relative; display: inline-block; }
+.day-options-dropdown-container { position: relative; display: inline-block; }
+.timeline-place-dropdown-container { position: relative; }
+.dropdown-menu-above { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 4px; }
+.card-header-row { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 16px; }
+.timeline-card-content { display: flex; gap: 12px; flex: 1; min-width: 0; }
+.timeline-place-card { flex-direction: column; align-items: stretch; gap: 0; cursor: pointer; }
+.schedule-thumb-col { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; align-items: center; }
+.timeline-place-map-link { padding: 2px 4px; font-size: 9px; text-decoration: none; border-radius: 4px; display: flex; align-items: center; justify-content: center; width: 36px; box-sizing: border-box; text-align: center; height: 18px; }
+.timeline-place-number { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.08); color: var(--text-primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.timeline-place-number--ai { background: rgba(167,139,250,0.2); color: #c4b5fd; }
+.timeline-place-title { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.place-excerpt-text { font-size: 13px; color: var(--text-muted); }
+.place-notes-col { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.place-notes-textarea { padding: 6px; font-size: 12.5px; width: 100%; background: var(--bg-dark); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; text-transform: none; }
+.place-notes-actions { display: flex; gap: 6px; align-self: flex-end; }
+.place-notes-btn { padding: 2px 6px; font-size: 10px; }
+.place-note-edit-abs { position: absolute; top: 0; right: 0; }
+.place-expanded-desc { color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; text-transform: none; }
+.card-expanded-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: default; width: 100%; }
+.note-edit-textarea { width: 100%; padding: 6px 8px; font-size: 12.5px; background: var(--bg-dark); border: 1px solid var(--accent-primary); border-radius: 6px; color: var(--text-primary); text-transform: none; line-height: 1.5; box-sizing: border-box; }
+.note-edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
+.note-edit-btn { padding: 2px 8px; font-size: 10px; }
+.section-item-list { display: flex; flex-direction: column; gap: 8px; }
+.hotel-text-col { margin-left: 10px; }
+.hotel-name-text { font-size: 13px; font-weight: 600; }
+.hotel-address-text { font-size: 11px; color: var(--text-secondary); }
+.hotel-dates-text { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.transport-time-detail { font-size: 10px; color: var(--text-muted); }
+.no-transport-text { font-size: 12px; color: var(--text-muted); font-style: italic; }
+.mini-icon-btn.timeline-add-btn--success { gap: 4px; color: var(--color-success); }
+.mini-icon-btn.timeline-add-btn--warning { gap: 4px; color: var(--color-warning); }
+.mini-icon-btn.ai-insights-btn { gap: 4px; color: #a5b4fc; }
+.mini-icon-btn.ai-generate-btn { gap: 4px; }
+.baby-logistics-title { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #fbcfe8; }
+.day-no-tips { padding: 8px 0; text-align: center; }
+.day-no-tips-text { font-size: 11.5px; color: var(--text-muted); font-style: italic; display: block; margin-bottom: 6px; }
+.day-generate-btn { font-size: 11px; padding: 4px 10px; gap: 4px; border-color: rgba(99,102,241,0.15); display: flex; margin: 0 auto; }
+.day-ai-content-col { display: flex; flex-direction: column; gap: 10px; }
+.place-search-wrapper { position: relative; margin-bottom: 16px; }
+.place-search-inner { position: relative; }
+.place-search-icon { position: absolute; left: 10px; top: 12px; color: var(--text-muted); }
+.place-search-input-padded { padding-left: 32px; }
+.place-search-loading { position: absolute; right: 10px; top: 12px; font-size: 10px; color: var(--text-muted); }
+.no-location-text { font-size: 12px; color: var(--text-muted); font-style: italic; margin-bottom: 16px; }
+.day-timeline-wrap { min-height: 60px; }
+.empty-timeline-text { font-size: 12px; color: var(--text-muted); font-style: italic; padding-left: 6px; }
+.no-active-day { padding: 40px; text-transform: none; color: var(--text-muted); text-align: center; }
+.add-item-label { font-size: 11px; font-weight: 500; }
+.preview-place-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.preview-hours-text { font-size: 12px; color: var(--text-muted); margin: 2px 0 0; }
+.preview-desc-text { color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; text-transform: none; }
+.preview-ai-notes { padding: 6px 10px; background: rgba(167,139,250,0.06); border-left: 2px solid #a78bfa; border-radius: 0 4px 4px 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.4; font-style: italic; text-transform: none; }
+.day-place-actions-temporary { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+.mini-icon-btn.preview-add-to-catalog { color: #a78bfa; }
+.mini-icon-btn.preview-add-to-day { color: var(--color-success); }
+.mini-icon-btn.preview-remove { color: var(--color-danger); }
+.place-title-row { display: flex; align-items: center; gap: 8px; }
+.location-name-wrapper { min-width: 0; flex: 1; }
+.day-location-emoji { font-size: 24px; margin-right: 8px; display: flex; align-items: center; flex-shrink: 0; }
+.no-location-icon { color: var(--color-danger); flex-shrink: 0; }
+.day-location-name-text { font-size: 18px; color: var(--text-primary); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Google auth dropdown styling */
 .google-auth-container {
@@ -2364,6 +2477,8 @@ div.google-auth-avatar-desktop {
 .share-collab-actions { display: flex; align-items: center; gap: 8px; }
 .share-owner-label { font-size: 11.5px; color: var(--text-muted); padding: 4px 8px; font-style: italic; }
 .share-role-change-select { padding: 4px 18px 4px 6px; font-size: 11.5px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; }
+.share-collab-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.modal-header .share-modal-title { font-size: 18px; font-weight: 600; }
 
 .day-location-select-wrapper {
   position: relative;

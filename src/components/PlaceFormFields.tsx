@@ -249,7 +249,7 @@ export default function PlaceFormFields({
             </h4>
 
             <div
-              data-tooltip={!hasKeys ? NO_API_KEY_TOOLTIP : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Auto-populate these fields with AI')}
+              data-tooltip={!hasKeys ? NO_API_KEY_TOOLTIP : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Fill all travel insights with AI')}
               data-tooltip-position="bottom"
               className="ai-fill-btn-wrapper"
             >
