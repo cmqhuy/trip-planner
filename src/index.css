@@ -1844,13 +1844,42 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   width: 100%;
 }
 .ai-mode-radio {
-  flex-shrink: 0;
-  margin-top: 3px;
-  accent-color: var(--accent-primary);
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
   pointer-events: none;
+}
+.ai-mode-radio-indicator {
+  display: block;
+  flex-shrink: 0;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.25);
+  background: transparent;
+  position: relative;
+  pointer-events: none;
+  transition: border-color 0.15s;
+}
+.ai-mode-radio:checked + .ai-mode-radio-indicator {
+  border-color: var(--accent-primary);
+}
+.ai-mode-radio:checked + .ai-mode-radio-indicator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-primary);
 }
 .ai-mode-section-icon {
   flex-shrink: 0;

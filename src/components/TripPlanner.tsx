@@ -741,7 +741,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         [{ id: placeId, title: targetPlace.title, description: targetPlace.description, lat: targetPlace.lat, lng: targetPlace.lng }],
         targetLoc.city, targetLoc.country, trip.customAiFields, trip.disabledPlaceFields, trip.placeFieldsOrder
       );
-      const responseText = await showManualAiPrompt(`AI details: ${targetPlace.title}`, prompt, 'json');
+      const responseText = await showManualAiPrompt(`AI Details: ${targetPlace.title}`, prompt, 'json');
       if (!responseText) return;
       try {
         const results = GeminiService.parsePlaceAiDetailsResponse(responseText);
@@ -756,7 +756,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     }
 
     setPlaceGeneratingIds(prev => { const next = new Set(prev); next.add(placeId); return next; });
-    aiRequestQueue.enqueue(`AI details: ${targetPlace.title}`, async () => {
+    aiRequestQueue.enqueue(`AI Details: ${targetPlace.title}`, async () => {
       try {
         const results = await GeminiService.generatePlaceAiDetailsWithRotation(
           [{ id: placeId, title: targetPlace.title, description: targetPlace.description, lat: targetPlace.lat, lng: targetPlace.lng }],
@@ -1213,7 +1213,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     if (GeminiService.isManualMode()) {
       const prompt = GeminiService.buildSuggestedPlacesPrompt(catalogLocation.city, catalogLocation.country, existingTitles);
       setIsLoadingAiSuggestions(false);
-      const responseText = await showManualAiPrompt(`Suggest places: ${catalogLocation.city}`, prompt, 'json');
+      const responseText = await showManualAiPrompt(`Suggest Places: ${catalogLocation.city}`, prompt, 'json');
       if (!responseText) return;
       try {
         const suggestions = GeminiService.parseSuggestedPlacesResponse(responseText);
@@ -1236,7 +1236,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       return;
     }
 
-    aiRequestQueue.enqueue(`Suggest places: ${catalogLocation.city}`, async () => {
+    aiRequestQueue.enqueue(`Suggest Places: ${catalogLocation.city}`, async () => {
       try {
         const suggestions = await GeminiService.generateSuggestedPlacesWithRotation(
           catalogLocation.city, catalogLocation.country, existingTitles
@@ -1863,7 +1863,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
     if (GeminiService.isManualMode()) {
       const prompt = GeminiService.buildDailyTipsPrompt(dayPayload, !trip.disabledDayFields?.includes('baby_logistics'), trip.disabledDayFields);
-      const responseText = await showManualAiPrompt(`Daily tips: ${dateStr}`, prompt, 'json');
+      const responseText = await showManualAiPrompt(`Daily Tips: ${dateStr}`, prompt, 'json');
       if (!responseText) return;
       try {
         applyResults(GeminiService.parseDailyTipsResponse(responseText));
@@ -1874,7 +1874,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     }
 
     setDaysGeneratingDates(prev => { const next = new Set(prev); next.add(dateStr); return next; });
-    aiRequestQueue.enqueue(`Daily tips: ${dateStr}`, async () => {
+    aiRequestQueue.enqueue(`Daily Tips: ${dateStr}`, async () => {
       try {
         const results = await GeminiService.generateDailyTipsWithRotation(
           dayPayload, !trip.disabledDayFields?.includes('baby_logistics'), undefined, trip.disabledDayFields
@@ -1924,14 +1924,14 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
     if (GeminiService.isManualMode()) {
       const prompt = GeminiService.buildDailyTipsPrompt(daysPayload, !trip.disabledDayFields?.includes('baby_logistics'), trip.disabledDayFields);
-      const responseText = await showManualAiPrompt(`Daily tips: ${selectedDates.length} day(s)`, prompt, 'json');
+      const responseText = await showManualAiPrompt(`Daily Tips: ${selectedDates.length} Day(s)`, prompt, 'json');
       if (!responseText) return;
       applyResults(GeminiService.parseDailyTipsResponse(responseText));
       return;
     }
 
     setDaysGeneratingDates(prev => { const next = new Set(prev); selectedDates.forEach(d => next.add(d)); return next; });
-    aiRequestQueue.enqueue(`Daily tips: ${selectedDates.length} day(s)`, async () => {
+    aiRequestQueue.enqueue(`Daily Tips: ${selectedDates.length} Day(s)`, async () => {
       try {
         const results = await GeminiService.generateDailyTipsWithRotation(
           daysPayload, !trip.disabledDayFields?.includes('baby_logistics'), undefined, trip.disabledDayFields
@@ -1982,13 +1982,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
     if (GeminiService.isManualMode()) {
       const prompt = GeminiService.buildTripChecklistPrompt(tripInfo, enableBabyLogistics);
-      const responseText = await showManualAiPrompt('Trip checklist', prompt, 'markdown');
+      const responseText = await showManualAiPrompt('Trip Checklist', prompt, 'markdown');
       if (responseText) applyResult(responseText);
       return;
     }
 
     setGeneratingChecklist(true);
-    aiRequestQueue.enqueue('Trip checklist', async () => {
+    aiRequestQueue.enqueue('Trip Checklist', async () => {
       try {
         const result = await GeminiService.generateTripChecklistWithRotation(tripInfo, enableBabyLogistics);
         applyResult(result);
@@ -2024,13 +2024,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
     if (GeminiService.isManualMode()) {
       const prompt = GeminiService.buildLocalEssentialsPrompt({ city: loc.city, country: loc.country });
-      const responseText = await showManualAiPrompt(`Local essentials: ${loc.city}`, prompt, 'markdown');
+      const responseText = await showManualAiPrompt(`Local Essentials: ${loc.city}`, prompt, 'markdown');
       if (responseText) applyResult(responseText);
       return;
     }
 
     setGeneratingLocalEssentials(true);
-    aiRequestQueue.enqueue(`Local essentials: ${loc.city}`, async () => {
+    aiRequestQueue.enqueue(`Local Essentials: ${loc.city}`, async () => {
       try {
         const result = await GeminiService.generateLocalEssentialsWithRotation({ city: loc.city, country: loc.country });
         applyResult(result);

@@ -3,7 +3,7 @@ import ImagePreview from './ImagePreview';
 import CategoryGroupSelect from './CategoryGroupSelect';
 import MapPicker from './MapPicker';
 import type { PlaceGroup } from '../types';
-import { GeminiService, getOrderedPlaceFields, NO_API_KEY_TOOLTIP } from '../utils/ai';
+import { GeminiService, getOrderedPlaceFields, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { FIELD_ICONS_MAP, getIconColor } from './TripAiConfigModal';
 
 interface PlaceFormFieldsProps {
@@ -80,7 +80,7 @@ export default function PlaceFormFields({
   placeFieldsOrder = [],
   savedValues
 }: PlaceFormFieldsProps) {
-  const hasKeys = GeminiService.hasApiKey();
+  const isAiEnabled = GeminiService.isAiEnabled();
 
   const getFieldIcon = (fieldKey: string, defaultIconName: string) => {
     const iconName = fieldIcons?.[fieldKey] || defaultIconName;
@@ -249,16 +249,16 @@ export default function PlaceFormFields({
             </h4>
 
             <div
-              data-tooltip={!hasKeys ? NO_API_KEY_TOOLTIP : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Fill all travel insights with AI')}
+              data-tooltip={!isAiEnabled ? AI_NOT_CONFIGURED_MESSAGE : (!title.trim() ? 'Enter a place title to enable AI insights' : 'Fill all travel insights with AI')}
               data-tooltip-position="bottom"
               className="ai-fill-btn-wrapper"
             >
               <button
                 type="button"
                 className="btn-secondary flex-align ai-fill-btn"
-                style={{ cursor: (isAiGenerating || !title.trim() || !hasKeys) ? 'not-allowed' : 'pointer' }}
+                style={{ cursor: (isAiGenerating || !title.trim() || !isAiEnabled) ? 'not-allowed' : 'pointer' }}
                 onClick={onAutoFill}
-                disabled={isAiGenerating || !title.trim() || !hasKeys}
+                disabled={isAiGenerating || !title.trim() || !isAiEnabled}
               >
                 {isAiGenerating ? (
                   <RefreshCw size={11} className="spin" />

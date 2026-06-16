@@ -113,7 +113,7 @@ export default function AiGenerateModal({
     setGenerating(true);
     setProgressMsg(`Queuing AI generation for ${selectedIds.size} place(s) in ${city}...`);
 
-    aiRequestQueue.enqueue(`AI details: ${selectedIds.size} place(s) in ${city}`, async () => {
+    aiRequestQueue.enqueue(`AI Details: ${selectedIds.size} Place(s) in ${city}`, async () => {
       try {
         setProgressMsg(`Generating AI insights for ${selectedIds.size} place(s) in ${city}...`);
         const results = await GeminiService.generatePlaceAiDetailsWithRotation(

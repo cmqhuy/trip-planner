@@ -3,7 +3,9 @@ import { X, Search, Trash2, Sparkles, RefreshCw } from 'lucide-react';
 import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
 import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, fetchWikipediaData } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
-import { GeminiService, NO_API_KEY_TOOLTIP } from '../utils/ai';
+import ManualAiPromptModal from './ManualAiPromptModal';
+import { GeminiService, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
+import { aiRequestQueue } from '../utils/aiRequestQueue';
 
 interface PlaceModalProps {
   isOpen: boolean;
@@ -59,6 +61,12 @@ export default function PlaceModal({
   // AI quick-fill states
   const [isAiQuickFilling, setIsAiQuickFilling] = useState(false);
   const [aiQuickFillError, setAiQuickFillError] = useState<string | null>(null);
+
+  // Manual AI prompt state
+  const [pendingManualPrompt, setPendingManualPrompt] = useState<{
+    title: string; promptText: string; responseFormat: 'json' | 'markdown';
+    onResponse: (text: string) => void; onCancel: () => void;
+  } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -170,51 +178,68 @@ export default function PlaceModal({
       return;
     }
 
-    if (!GeminiService.hasApiKey()) {
-      setAiQuickFillError(NO_API_KEY_TOOLTIP);
+    if (!GeminiService.isAiEnabled()) {
+      setAiQuickFillError(AI_NOT_CONFIGURED_MESSAGE);
       return;
     }
-
-    setIsAiQuickFilling(true);
-    setAiQuickFillError(null);
 
     const city = catalogLocation?.city || '';
     const country = catalogLocation?.country || '';
 
-    try {
-      const [aiResult, wikiResult] = await Promise.all([
-        GeminiService.generatePlaceBasicInfoWithRotation(inputQuery, city, country),
-        fetchWikipediaData(inputQuery)
-      ]);
-
+    const applyResult = (aiResult: { title: string; description: string; openingHours: string; notes: string; lat: number; lng: number; photoUrl: string }, wikiPhotoUrl?: string) => {
       setTitle(aiResult.title);
       setDescription(aiResult.description);
       setOpeningHours(aiResult.openingHours);
       setNotes(aiResult.notes);
       setLat(aiResult.lat.toFixed(6));
       setLng(aiResult.lng.toFixed(6));
-
-      // Prefer wikiResult.photoUrl (real Wikipedia API URL); AI-generated URLs are often hallucinated
-      if (wikiResult.photoUrl) {
-        setPhotoUrl(wikiResult.photoUrl);
+      if (wikiPhotoUrl) {
+        setPhotoUrl(wikiPhotoUrl);
       } else if (aiResult.photoUrl) {
-        // Validate the AI URL before using it — probe the image to confirm it loads
         const probe = new Image();
         probe.onload = () => setPhotoUrl(aiResult.photoUrl);
         probe.src = aiResult.photoUrl;
       }
-
-      const generatedMapsLink = buildMapsLink(aiResult.title, aiResult.lat, aiResult.lng, city);
-      setMapsLink(generatedMapsLink);
-
+      setMapsLink(buildMapsLink(aiResult.title, aiResult.lat, aiResult.lng, city));
       setSearchQuery('');
       setSuggestions([]);
-    } catch (err: any) {
-      console.error('AI quick-fill error:', err);
-      setAiQuickFillError(err?.message || 'Failed to generate place info with AI.');
-    } finally {
-      setIsAiQuickFilling(false);
+    };
+
+    if (GeminiService.isManualMode()) {
+      const prompt = GeminiService.buildPlaceBasicInfoPrompt(inputQuery, city, country);
+      setPendingManualPrompt({
+        title: `Quick Fill: ${inputQuery}`,
+        promptText: prompt,
+        responseFormat: 'json',
+        onResponse: (text) => {
+          try {
+            applyResult(GeminiService.parsePlaceBasicInfoResponse(text));
+            setAiQuickFillError(null);
+          } catch (err: any) {
+            setAiQuickFillError(err?.message || 'Failed to parse AI response.');
+          }
+          setPendingManualPrompt(null);
+        },
+        onCancel: () => setPendingManualPrompt(null),
+      });
+      return;
     }
+
+    setIsAiQuickFilling(true);
+    setAiQuickFillError(null);
+    aiRequestQueue.enqueue(`Quick Fill: ${inputQuery}`, async () => {
+      try {
+        const [aiResult, wikiResult] = await Promise.all([
+          GeminiService.generatePlaceBasicInfoWithRotation(inputQuery, city, country),
+          fetchWikipediaData(inputQuery)
+        ]);
+        applyResult(aiResult, wikiResult.photoUrl);
+      } catch (err: any) {
+        setAiQuickFillError(err?.message || 'Failed to generate place info with AI.');
+      } finally {
+        setIsAiQuickFilling(false);
+      }
+    });
   };
 
   const handleAutoFillWithAi = async () => {
@@ -223,48 +248,60 @@ export default function PlaceModal({
       return;
     }
 
-    if (!GeminiService.hasApiKey()) {
-      setAiError(NO_API_KEY_TOOLTIP);
+    if (!GeminiService.isAiEnabled()) {
+      setAiError(AI_NOT_CONFIGURED_MESSAGE);
       return;
     }
 
-    setIsAiGenerating(true);
-    setAiError(null);
+    const city = catalogLocation?.city || '';
+    const country = catalogLocation?.country || '';
+    const placePayload = [{ id: 'temp-form-id', title: title.trim(), description: description.trim(), lat: parseFloat(lat) || undefined, lng: parseFloat(lng) || undefined }];
 
-    try {
-      const city = catalogLocation?.city || '';
-      const country = catalogLocation?.country || '';
-      
-      const results = await GeminiService.generatePlaceAiDetailsWithRotation(
-        [{ 
-          id: 'temp-form-id', 
-          title: title.trim(), 
-          description: description.trim(), 
-          lat: parseFloat(lat) || undefined, 
-          lng: parseFloat(lng) || undefined 
-        }],
-        city,
-        country,
-        customAiFields,
-        undefined, // model
-        disabledPlaceFields,
-        placeFieldsOrder
-      );
-
+    const applyResults = (results: { id?: string; suggestedMarkers?: SuggestedMarker[]; [key: string]: any }[]) => {
       if (results && results.length > 0) {
-        const { id, suggestedMarkers: aiMarkers, ...details } = results[0];
+        const { id: _id, suggestedMarkers: aiMarkers, ...details } = results[0];
         setAiDetails(details);
         setSuggestedMarkers(aiMarkers || []);
         setAiUpdatedAt(Date.now());
       } else {
         setAiError('No details were returned by the AI.');
       }
-    } catch (err: any) {
-      console.error('AI generation error:', err);
-      setAiError(err?.message || 'Failed to generate AI insights.');
-    } finally {
-      setIsAiGenerating(false);
+    };
+
+    if (GeminiService.isManualMode()) {
+      const prompt = GeminiService.buildPlaceAiDetailsPrompt(placePayload, city, country, customAiFields, disabledPlaceFields, placeFieldsOrder);
+      setPendingManualPrompt({
+        title: `AI Insights: ${title.trim()}`,
+        promptText: prompt,
+        responseFormat: 'json',
+        onResponse: (text) => {
+          try {
+            applyResults(GeminiService.parsePlaceAiDetailsResponse(text));
+            setAiError(null);
+          } catch (err: any) {
+            setAiError(err?.message || 'Failed to parse AI response.');
+          }
+          setPendingManualPrompt(null);
+        },
+        onCancel: () => setPendingManualPrompt(null),
+      });
+      return;
     }
+
+    setIsAiGenerating(true);
+    setAiError(null);
+    aiRequestQueue.enqueue(`AI Insights: ${title.trim()}`, async () => {
+      try {
+        const results = await GeminiService.generatePlaceAiDetailsWithRotation(
+          placePayload, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder
+        );
+        applyResults(results);
+      } catch (err: any) {
+        setAiError(err?.message || 'Failed to generate AI insights.');
+      } finally {
+        setIsAiGenerating(false);
+      }
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -291,6 +328,7 @@ export default function PlaceModal({
   const isEdit = !!(place && !place.id.startsWith('new-temp-'));
 
   return (
+    <>
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content glass-panel scrollable place-modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
@@ -305,7 +343,7 @@ export default function PlaceModal({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label style={{ color: 'var(--accent-primary)', fontWeight: 600, margin: 0 }}>Auto-Populate Details</label>
             <div
-              data-tooltip={!GeminiService.hasApiKey() ? NO_API_KEY_TOOLTIP : (!title.trim() && !searchQuery.trim() ? 'Enter a place name or title first' : 'Fill all basic fields with AI')}
+              data-tooltip={!GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE : (!title.trim() && !searchQuery.trim() ? 'Enter a place name or title first' : 'Fill all basic fields with AI')}
               data-tooltip-position="bottom"
               style={{ display: 'flex', alignItems: 'center' }}
             >
@@ -319,10 +357,10 @@ export default function PlaceModal({
                   gap: '5px',
                   borderColor: 'rgba(139, 92, 246, 0.25)',
                   background: 'rgba(139, 92, 246, 0.06)',
-                  cursor: (isAiQuickFilling || (!title.trim() && !searchQuery.trim()) || !GeminiService.hasApiKey()) ? 'not-allowed' : 'pointer'
+                  cursor: (isAiQuickFilling || (!title.trim() && !searchQuery.trim()) || !GeminiService.isAiEnabled()) ? 'not-allowed' : 'pointer'
                 }}
                 onClick={handleAiQuickFill}
-                disabled={isAiQuickFilling || (!title.trim() && !searchQuery.trim()) || !GeminiService.hasApiKey()}
+                disabled={isAiQuickFilling || (!title.trim() && !searchQuery.trim()) || !GeminiService.isAiEnabled()}
               >
                 {isAiQuickFilling ? <RefreshCw size={11} className="spin" /> : <Sparkles size={11} />}
                 {isAiQuickFilling ? 'Generating...' : 'Fill with AI'}
@@ -467,5 +505,16 @@ export default function PlaceModal({
         </form>
       </div>
     </div>
+    {pendingManualPrompt && (
+      <ManualAiPromptModal
+        isOpen
+        title={pendingManualPrompt.title}
+        promptText={pendingManualPrompt.promptText}
+        responseFormat={pendingManualPrompt.responseFormat}
+        onResponse={pendingManualPrompt.onResponse}
+        onCancel={pendingManualPrompt.onCancel}
+      />
+    )}
+    </>
   );
 }

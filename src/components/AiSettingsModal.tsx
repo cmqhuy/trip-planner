@@ -103,6 +103,7 @@ export default function AiSettingsModal({
                 checked={aiMode === 'none'}
                 onChange={() => setAiMode('none')}
               />
+              <span className="ai-mode-radio-indicator" />
               <BotOff size={18} className="ai-mode-section-icon ai-mode-section-icon--none" />
               <div className="ai-mode-section-info">
                 <strong className="ai-mode-section-title">No AI Integration</strong>
@@ -119,6 +120,7 @@ export default function AiSettingsModal({
                 checked={aiMode === 'manual'}
                 onChange={() => setAiMode('manual')}
               />
+              <span className="ai-mode-radio-indicator" />
               <Bot size={18} className="ai-mode-section-icon ai-mode-section-icon--manual" />
               <div className="ai-mode-section-info">
                 <strong className="ai-mode-section-title">Manual Mode (No API Key Needed)</strong>
@@ -136,6 +138,7 @@ export default function AiSettingsModal({
                   checked={aiMode === 'live'}
                   onChange={() => setAiMode('live')}
                 />
+                <span className="ai-mode-radio-indicator" />
                 <Sparkles size={18} className="ai-mode-section-icon ai-mode-section-icon--live" />
                 <div className="ai-mode-section-info">
                   <strong className="ai-mode-section-title">Live Gemini Mode (API Key Required)</strong>

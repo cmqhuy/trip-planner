@@ -56,7 +56,7 @@ export default function ManualAiPromptModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay modal-overlay--above" onClick={onCancel}>
       <div
         className="modal-content glass-panel manual-ai-prompt-modal scrollable"
         onClick={e => e.stopPropagation()}

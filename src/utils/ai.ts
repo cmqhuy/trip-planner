@@ -874,6 +874,36 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
   /**
    * Generates basic place info (title, description, hours, notes, coordinates) from a name query.
    */
+  static buildPlaceBasicInfoPrompt(query: string, city: string, country: string): string {
+    const locationContext = [city, country].filter(Boolean).join(', ') || 'unknown location';
+    return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a knowledgeable travel information assistant. For the following place in ${locationContext}, provide accurate basic information.
+
+Place name: "${query}"
+
+Fill in:
+- title: The official or most commonly used name of this specific place
+- description: A factual 2-sentence description of what this place is and why it is notable
+- openingHours: Typical visiting/opening hours (e.g. "09:00 - 18:00", "24/7", "Mon-Sat 10:00-20:00"). Use empty string if truly unknown.
+- notes: The single most useful practical tip for a first-time visitor (1-2 sentences)
+- lat: Precise decimal latitude coordinate
+- lng: Precise decimal longitude coordinate
+- photoUrl: A real, publicly accessible image URL from Wikimedia Commons (e.g. https://upload.wikimedia.org/wikipedia/commons/...) for this place. Use empty string if you are not certain the URL exists.
+
+Use the location context to resolve ambiguous names. Ensure coordinates are accurate.
+
+Please respond with JSON in this exact format:
+{ "title": "...", "description": "...", "openingHours": "...", "notes": "...", "lat": 0.0, "lng": 0.0, "photoUrl": "..." }`;
+  }
+
+  static parsePlaceBasicInfoResponse(text: string): { title: string; description: string; openingHours: string; notes: string; lat: number; lng: number; photoUrl: string } {
+    const parsed = JSON.parse(text);
+    if (!parsed.title || typeof parsed.lat !== 'number' || typeof parsed.lng !== 'number') {
+      throw new Error('Invalid response structure: expected title, lat, lng fields.');
+    }
+    return parsed;
+  }
+
   static async generatePlaceBasicInfo(
     query: string,
     city: string,
@@ -889,22 +919,7 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
     lng: number;
     photoUrl: string;
   }> {
-    const locationContext = [city, country].filter(Boolean).join(', ') || 'unknown location';
-    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
-You are a knowledgeable travel information assistant. For the following place in ${locationContext}, provide accurate basic information.
-
-Place name: "${query}"
-
-Fill in:
-- title: The official or most commonly used name of this specific place
-- description: A factual 2-sentence description of what this place is and why it is notable
-- openingHours: Typical visiting/opening hours (e.g. "09:00 - 18:00", "24/7", "Mon-Sat 10:00-20:00"). Use empty string if truly unknown.
-- notes: The single most useful practical tip for a first-time visitor (1-2 sentences)
-- lat: Precise decimal latitude coordinate
-- lng: Precise decimal longitude coordinate
-- photoUrl: A real, publicly accessible image URL from Wikimedia Commons (e.g. https://upload.wikimedia.org/wikipedia/commons/...) for this place. Use empty string if you are not certain the URL exists.
-
-Use the location context to resolve ambiguous names. Ensure coordinates are accurate.`;
+    const promptText = GeminiService.buildPlaceBasicInfoPrompt(query, city, country);
 
     const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
