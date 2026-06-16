@@ -5,7 +5,7 @@ import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlace
 import PlaceFormFields from './PlaceFormFields';
 import ManualAiPromptModal from './ManualAiPromptModal';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
-import { aiRequestQueue } from '../utils/aiRequestQueue';
+import { runAiCall } from '../utils/runAiCall';
 
 interface PlaceModalProps {
   isOpen: boolean;
@@ -171,136 +171,87 @@ export default function PlaceModal({
 
   if (!isOpen) return null;
 
+  const showManualPrompt = (promptTitle: string, prompt: string, format: 'json' | 'markdown'): Promise<string | null> =>
+    new Promise(resolve => {
+      setPendingManualPrompt({
+        title: promptTitle, promptText: prompt, responseFormat: format,
+        onResponse: t => { setPendingManualPrompt(null); resolve(t); },
+        onCancel: () => { setPendingManualPrompt(null); resolve(null); }
+      });
+    });
+
   const handleAiQuickFill = async () => {
     const inputQuery = title.trim() || searchQuery.trim();
-    if (!inputQuery) {
-      setAiQuickFillError('Enter a place name in the title or search box first.');
-      return;
-    }
-
-    if (!GeminiService.isAiEnabled()) {
-      setAiQuickFillError(AI_NOT_CONFIGURED_MESSAGE);
-      return;
-    }
+    if (!inputQuery) { setAiQuickFillError('Enter a place name in the title or search box first.'); return; }
+    if (!GeminiService.isAiEnabled()) { setAiQuickFillError(AI_NOT_CONFIGURED_MESSAGE); return; }
 
     const city = catalogLocation?.city || '';
     const country = catalogLocation?.country || '';
 
-    const applyResult = (aiResult: { title: string; description: string; openingHours: string; notes: string; lat: number; lng: number; photoUrl: string }, wikiPhotoUrl?: string) => {
-      setTitle(aiResult.title);
-      setDescription(aiResult.description);
-      setOpeningHours(aiResult.openingHours);
-      setNotes(aiResult.notes);
-      setLat(aiResult.lat.toFixed(6));
-      setLng(aiResult.lng.toFixed(6));
-      if (wikiPhotoUrl) {
-        setPhotoUrl(wikiPhotoUrl);
-      } else if (aiResult.photoUrl) {
-        const probe = new Image();
-        probe.onload = () => setPhotoUrl(aiResult.photoUrl);
-        probe.src = aiResult.photoUrl;
-      }
-      setMapsLink(buildMapsLink(aiResult.title, aiResult.lat, aiResult.lng, city));
-      setSearchQuery('');
-      setSuggestions([]);
-    };
+    type QuickFillResult = { aiResult: { title: string; description: string; openingHours: string; notes: string; lat: number; lng: number; photoUrl: string }; wikiPhotoUrl?: string };
 
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildPlaceBasicInfoPrompt(inputQuery, city, country);
-      setPendingManualPrompt({
-        title: `Quick Fill: ${inputQuery}`,
-        promptText: prompt,
-        responseFormat: 'json',
-        onResponse: (text) => {
-          try {
-            applyResult(GeminiService.parsePlaceBasicInfoResponse(text));
-            setAiQuickFillError(null);
-          } catch (err: any) {
-            setAiQuickFillError(err?.message || 'Failed to parse AI response.');
-          }
-          setPendingManualPrompt(null);
-        },
-        onCancel: () => setPendingManualPrompt(null),
-      });
-      return;
-    }
-
-    setIsAiQuickFilling(true);
     setAiQuickFillError(null);
-    aiRequestQueue.enqueue(`Quick Fill: ${inputQuery}`, async () => {
-      try {
+    await runAiCall<QuickFillResult>({
+      label: `Quick Fill: ${inputQuery}`,
+      buildPrompt: () => GeminiService.buildPlaceBasicInfoPrompt(inputQuery, city, country),
+      parse: (text) => ({ aiResult: GeminiService.parsePlaceBasicInfoResponse(text) }),
+      liveCall: async () => {
         const [aiResult, wikiResult] = await Promise.all([
           GeminiService.generatePlaceBasicInfoWithRotation(inputQuery, city, country),
           fetchWikipediaData(inputQuery)
         ]);
-        applyResult(aiResult, wikiResult.photoUrl);
-      } catch (err: any) {
-        setAiQuickFillError(err?.message || 'Failed to generate place info with AI.');
-      } finally {
-        setIsAiQuickFilling(false);
-      }
+        return { aiResult, wikiPhotoUrl: wikiResult.photoUrl };
+      },
+      onSuccess: ({ aiResult, wikiPhotoUrl }) => {
+        setTitle(aiResult.title);
+        setDescription(aiResult.description);
+        setOpeningHours(aiResult.openingHours);
+        setNotes(aiResult.notes);
+        setLat(aiResult.lat.toFixed(6));
+        setLng(aiResult.lng.toFixed(6));
+        if (wikiPhotoUrl) {
+          setPhotoUrl(wikiPhotoUrl);
+        } else if (aiResult.photoUrl) {
+          const probe = new Image();
+          probe.onload = () => setPhotoUrl(aiResult.photoUrl);
+          probe.src = aiResult.photoUrl;
+        }
+        setMapsLink(buildMapsLink(aiResult.title, aiResult.lat, aiResult.lng, city));
+        setSearchQuery('');
+        setSuggestions([]);
+      },
+      onError: (err) => setAiQuickFillError(err.message || 'Failed to generate place info with AI.'),
+      onLoadingChange: setIsAiQuickFilling,
+      showManualPrompt,
     });
   };
 
   const handleAutoFillWithAi = async () => {
-    if (!title.trim()) {
-      setAiError('Please enter a place title first to generate insights.');
-      return;
-    }
-
-    if (!GeminiService.isAiEnabled()) {
-      setAiError(AI_NOT_CONFIGURED_MESSAGE);
-      return;
-    }
+    if (!title.trim()) { setAiError('Please enter a place title first to generate insights.'); return; }
+    if (!GeminiService.isAiEnabled()) { setAiError(AI_NOT_CONFIGURED_MESSAGE); return; }
 
     const city = catalogLocation?.city || '';
     const country = catalogLocation?.country || '';
     const placePayload = [{ id: 'temp-form-id', title: title.trim(), description: description.trim(), lat: parseFloat(lat) || undefined, lng: parseFloat(lng) || undefined }];
 
-    const applyResults = (results: { id?: string; suggestedMarkers?: SuggestedMarker[]; [key: string]: any }[]) => {
-      if (results && results.length > 0) {
-        const { id: _id, suggestedMarkers: aiMarkers, ...details } = results[0];
-        setAiDetails(details);
-        setSuggestedMarkers(aiMarkers || []);
-        setAiUpdatedAt(Date.now());
-      } else {
-        setAiError('No details were returned by the AI.');
-      }
-    };
-
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildPlaceAiDetailsPrompt(placePayload, city, country, customAiFields, disabledPlaceFields, placeFieldsOrder);
-      setPendingManualPrompt({
-        title: `AI Insights: ${title.trim()}`,
-        promptText: prompt,
-        responseFormat: 'json',
-        onResponse: (text) => {
-          try {
-            applyResults(GeminiService.parsePlaceAiDetailsResponse(text));
-            setAiError(null);
-          } catch (err: any) {
-            setAiError(err?.message || 'Failed to parse AI response.');
-          }
-          setPendingManualPrompt(null);
-        },
-        onCancel: () => setPendingManualPrompt(null),
-      });
-      return;
-    }
-
-    setIsAiGenerating(true);
-    setAiError(null);
-    aiRequestQueue.enqueue(`AI Insights: ${title.trim()}`, async () => {
-      try {
-        const results = await GeminiService.generatePlaceAiDetailsWithRotation(
-          placePayload, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder
-        );
-        applyResults(results);
-      } catch (err: any) {
-        setAiError(err?.message || 'Failed to generate AI insights.');
-      } finally {
-        setIsAiGenerating(false);
-      }
+    await runAiCall({
+      label: `AI Insights: ${title.trim()}`,
+      buildPrompt: () => GeminiService.buildPlaceAiDetailsPrompt(placePayload, city, country, customAiFields, disabledPlaceFields, placeFieldsOrder),
+      parse: GeminiService.parsePlaceAiDetailsResponse,
+      liveCall: () => GeminiService.generatePlaceAiDetailsWithRotation(placePayload, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder),
+      onSuccess: (results) => {
+        if (results && results.length > 0) {
+          const { id: _id, suggestedMarkers: aiMarkers, ...details } = results[0] as { id?: string; suggestedMarkers?: SuggestedMarker[]; [key: string]: any };
+          setAiDetails(details);
+          setSuggestedMarkers(aiMarkers || []);
+          setAiUpdatedAt(Date.now());
+        } else {
+          setAiError('No details were returned by the AI.');
+        }
+      },
+      onError: (err) => setAiError(err.message || 'Failed to generate AI insights.'),
+      onLoadingChange: (loading) => { setIsAiGenerating(loading); if (loading) setAiError(null); },
+      showManualPrompt,
     });
   };
 

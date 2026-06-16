@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import type { Place } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
-import { aiRequestQueue } from '../utils/aiRequestQueue';
+import { runAiCall } from '../utils/runAiCall';
 import FunGeneratingLoader from './FunGeneratingLoader';
 import ManualAiPromptModal from './ManualAiPromptModal';
 
@@ -33,7 +33,7 @@ export default function AiGenerateModal({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState('');
-  const [pendingPrompt, setPendingPrompt] = useState<{ promptText: string; onResponse: (t: string) => void; onCancel: () => void } | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState<{ title: string; promptText: string; responseFormat: 'json' | 'markdown'; onResponse: (t: string) => void; onCancel: () => void } | null>(null);
 
   const isAiEnabled = GeminiService.isAiEnabled();
 
@@ -77,54 +77,49 @@ export default function AiGenerateModal({
     setSelectedIds(next);
   };
 
+  const showManualPrompt = (title: string, prompt: string, format: 'json' | 'markdown'): Promise<string | null> =>
+    new Promise(resolve => {
+      setPendingPrompt({
+        title, promptText: prompt, responseFormat: format,
+        onResponse: t => { setPendingPrompt(null); resolve(t); },
+        onCancel: () => { setPendingPrompt(null); resolve(null); }
+      });
+    });
+
   const handleGenerate = async () => {
     if (selectedIds.size === 0) return;
 
     const placesToGen = places.filter(p => selectedIds.has(p.id)).map(p => ({
       id: p.id, title: p.title, description: p.description, lat: p.lat, lng: p.lng
     }));
-
-    const applyResults = (results: { id: string; suggestedMarkers?: any[]; [key: string]: any }[]) => {
-      const updatesMap: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } } = {};
-      results.forEach(res => { const { id, ...details } = res; updatesMap[id] = details; });
-      onSave(updatesMap);
-      onClose();
-    };
-
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildPlaceAiDetailsPrompt(placesToGen, city, country, customAiFields, disabledPlaceFields, placeFieldsOrder);
-      const responseText = await new Promise<string | null>(resolve => {
-        setPendingPrompt({
-          promptText: prompt,
-          onResponse: t => { setPendingPrompt(null); resolve(t); },
-          onCancel: () => { setPendingPrompt(null); resolve(null); }
-        });
-      });
-      if (!responseText) return;
-      try {
-        applyResults(GeminiService.parsePlaceAiDetailsResponse(responseText));
-      } catch (err: any) {
-        setError(`Failed to parse AI response: ${err?.message || 'Invalid format'}`);
-      }
-      return;
-    }
+    const label = `AI Details: ${selectedIds.size} Place(s) in ${city}`;
 
     setError(null);
-    setGenerating(true);
-    setProgressMsg(`Queuing AI generation for ${selectedIds.size} place(s) in ${city}...`);
 
-    aiRequestQueue.enqueue(`AI Details: ${selectedIds.size} Place(s) in ${city}`, async () => {
-      try {
+    await runAiCall({
+      label,
+      buildPrompt: () => GeminiService.buildPlaceAiDetailsPrompt(placesToGen, city, country, customAiFields, disabledPlaceFields, placeFieldsOrder),
+      parse: GeminiService.parsePlaceAiDetailsResponse,
+      liveCall: async () => {
         setProgressMsg(`Generating AI insights for ${selectedIds.size} place(s) in ${city}...`);
-        const results = await GeminiService.generatePlaceAiDetailsWithRotation(
-          placesToGen, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder
-        );
-        applyResults(results);
-      } catch (err: any) {
+        return GeminiService.generatePlaceAiDetailsWithRotation(placesToGen, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder);
+      },
+      onSuccess: (results) => {
+        const updatesMap: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } } = {};
+        results.forEach(res => { const { id, ...details } = res; updatesMap[id] = details; });
+        onSave(updatesMap);
+        onClose();
+      },
+      onError: (err) => {
         console.error('AI generation failed:', err);
-        setError(err?.message || 'An error occurred during AI generation. Please check your API key(s) or model configuration.');
+        setError(err.message || 'An error occurred during AI generation. Please check your API key(s) or model configuration.');
         setGenerating(false);
-      }
+      },
+      onLoadingChange: (loading) => {
+        setGenerating(loading);
+        if (loading) setProgressMsg(`Queuing AI generation for ${selectedIds.size} place(s) in ${city}...`);
+      },
+      showManualPrompt,
     });
   };
 
@@ -267,9 +262,9 @@ export default function AiGenerateModal({
     {pendingPrompt && (
       <ManualAiPromptModal
         isOpen={true}
-        title={`AI Place Tips: ${city}, ${country}`}
+        title={pendingPrompt.title}
         promptText={pendingPrompt.promptText}
-        responseFormat="json"
+        responseFormat={pendingPrompt.responseFormat}
         onResponse={pendingPrompt.onResponse}
         onCancel={pendingPrompt.onCancel}
       />

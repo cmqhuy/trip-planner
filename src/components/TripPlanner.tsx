@@ -12,6 +12,7 @@ import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { aiRequestQueue } from '../utils/aiRequestQueue';
+import { runAiCall } from '../utils/runAiCall';
 import AiGenerateModal from './AiGenerateModal';
 import ManualAiPromptModal from './ManualAiPromptModal';
 
@@ -736,39 +737,21 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       return;
     }
 
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildPlaceAiDetailsPrompt(
-        [{ id: placeId, title: targetPlace.title, description: targetPlace.description, lat: targetPlace.lat, lng: targetPlace.lng }],
-        targetLoc.city, targetLoc.country, trip.customAiFields, trip.disabledPlaceFields, trip.placeFieldsOrder
-      );
-      const responseText = await showManualAiPrompt(`AI Details: ${targetPlace.title}`, prompt, 'json');
-      if (!responseText) return;
-      try {
-        const results = GeminiService.parsePlaceAiDetailsResponse(responseText);
+    const placePayload = [{ id: placeId, title: targetPlace.title, description: targetPlace.description, lat: targetPlace.lat, lng: targetPlace.lng }];
+    await runAiCall({
+      label: `AI Details: ${targetPlace.title}`,
+      buildPrompt: () => GeminiService.buildPlaceAiDetailsPrompt(placePayload, targetLoc.city, targetLoc.country, trip.customAiFields, trip.disabledPlaceFields, trip.placeFieldsOrder),
+      parse: GeminiService.parsePlaceAiDetailsResponse,
+      liveCall: () => GeminiService.generatePlaceAiDetailsWithRotation(placePayload, targetLoc.city, targetLoc.country, trip.customAiFields, undefined, trip.disabledPlaceFields),
+      onSuccess: (results) => {
         if (results && results.length > 0) {
           const { id: _id, ...details } = results[0];
           handleSaveBatchAiDetails({ [placeId]: details });
         }
-      } catch (err: any) {
-        alert(`Failed to parse AI response: ${err?.message || 'Invalid format'}`);
-      }
-      return;
-    }
-
-    setPlaceGeneratingIds(prev => { const next = new Set(prev); next.add(placeId); return next; });
-    aiRequestQueue.enqueue(`AI Details: ${targetPlace.title}`, async () => {
-      try {
-        const results = await GeminiService.generatePlaceAiDetailsWithRotation(
-          [{ id: placeId, title: targetPlace.title, description: targetPlace.description, lat: targetPlace.lat, lng: targetPlace.lng }],
-          targetLoc.city, targetLoc.country, trip.customAiFields, undefined, trip.disabledPlaceFields
-        );
-        if (results && results.length > 0) {
-          const { id: _id, ...details } = results[0];
-          handleSaveBatchAiDetails({ [placeId]: details });
-        }
-      } finally {
-        setPlaceGeneratingIds(prev => { const next = new Set(prev); next.delete(placeId); return next; });
-      }
+      },
+      onError: (err) => alert(`Failed to parse AI response: ${err.message}`),
+      onLoadingChange: (loading) => setPlaceGeneratingIds(prev => { const next = new Set(prev); loading ? next.add(placeId) : next.delete(placeId); return next; }),
+      showManualPrompt: showManualAiPrompt,
     });
   }, [trip.locations, trip.customAiFields, trip.disabledPlaceFields, trip.placeFieldsOrder, handleSaveBatchAiDetails]);
 
@@ -1209,56 +1192,29 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setAiSuggestionsLocId(catalogLocation.id);
 
     const existingTitles = catalogLocation.places.map(p => p.title);
+    const toPlaces = (suggestions: { title: string; description?: string; openingHours?: string; notes?: string; lat: number; lng: number; photoUrl?: string; category?: string }[]): Place[] =>
+      suggestions.map((s, i) => ({
+        id: `ai-suggest-${Date.now()}-${i}`,
+        title: s.title, description: s.description || '', openingHours: s.openingHours, notes: s.notes,
+        lat: s.lat, lng: s.lng, photoUrl: s.photoUrl, placeGroupId: s.category,
+        mapsLink: buildMapsLink(s.title, s.lat, s.lng, catalogLocation.city)
+      }));
 
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildSuggestedPlacesPrompt(catalogLocation.city, catalogLocation.country, existingTitles);
-      setIsLoadingAiSuggestions(false);
-      const responseText = await showManualAiPrompt(`Suggest Places: ${catalogLocation.city}`, prompt, 'json');
-      if (!responseText) return;
-      try {
-        const suggestions = GeminiService.parseSuggestedPlacesResponse(responseText);
-        const places: Place[] = suggestions.map((s, i) => ({
-          id: `ai-suggest-${Date.now()}-${i}`,
-          title: s.title,
-          description: s.description,
-          openingHours: s.openingHours,
-          notes: s.notes,
-          lat: s.lat,
-          lng: s.lng,
-          photoUrl: s.photoUrl,
-          placeGroupId: s.category,
-          mapsLink: buildMapsLink(s.title, s.lat, s.lng, catalogLocation.city)
-        }));
-        setAiSuggestedPlaces(places);
-      } catch (err: any) {
-        setAiSuggestionsError(`Failed to parse AI response: ${err?.message || 'Invalid format'}`);
-      }
-      return;
-    }
+    // Loading spinner = "preparing prompt"; turn off before modal opens in manual mode.
+    setIsLoadingAiSuggestions(false);
 
-    aiRequestQueue.enqueue(`Suggest Places: ${catalogLocation.city}`, async () => {
-      try {
-        const suggestions = await GeminiService.generateSuggestedPlacesWithRotation(
-          catalogLocation.city, catalogLocation.country, existingTitles
-        );
-        const places: Place[] = suggestions.map((s, i) => ({
-          id: `ai-suggest-${Date.now()}-${i}`,
-          title: s.title,
-          description: s.description,
-          openingHours: s.openingHours,
-          notes: s.notes,
-          lat: s.lat,
-          lng: s.lng,
-          photoUrl: s.photoUrl,
-          placeGroupId: s.category,
-          mapsLink: buildMapsLink(s.title, s.lat, s.lng, catalogLocation.city)
-        }));
-        setAiSuggestedPlaces(places);
-      } catch (err: any) {
-        setAiSuggestionsError(err?.message || 'Failed to generate suggestions.');
-      } finally {
-        setIsLoadingAiSuggestions(false);
-      }
+    await runAiCall({
+      label: `Suggest Places: ${catalogLocation.city}`,
+      buildPrompt: () => GeminiService.buildSuggestedPlacesPrompt(catalogLocation.city, catalogLocation.country, existingTitles),
+      parse: (text) => toPlaces(GeminiService.parseSuggestedPlacesResponse(text)),
+      liveCall: async () => {
+        setIsLoadingAiSuggestions(true);
+        return toPlaces(await GeminiService.generateSuggestedPlacesWithRotation(catalogLocation.city, catalogLocation.country, existingTitles));
+      },
+      onSuccess: setAiSuggestedPlaces,
+      onError: (err) => setAiSuggestionsError(err.message),
+      onLoadingChange: (loading) => { if (!loading) setIsLoadingAiSuggestions(false); },
+      showManualPrompt: showManualAiPrompt,
     });
   }, [catalogLocation]);
 
@@ -1831,10 +1787,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
   // Generate tips for a single day
   const handleGenerateSingleDayTips = async (dateStr: string) => {
-    if (!GeminiService.isAiEnabled()) {
-      showApiKeyMissingModal();
-      return;
-    }
+    if (!GeminiService.isAiEnabled()) { showApiKeyMissingModal(); return; }
 
     const day = activePlan.days[dateStr];
     if (!day) return;
@@ -1847,51 +1800,39 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const dayHotels = getHotelsForDay(dateStr).map(h => h.name);
     const dayTransports = getTransportsForDay(dateStr).map(t => `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName}`);
     const dayPayload = [{ dateStr, dayNumber: daysList.indexOf(dateStr) + 1, locationCity: location?.city || '', locationCountry: location?.country || '', places: dayPlaces, hotels: dayHotels, transports: dayTransports }];
+    const enableBaby = !trip.disabledDayFields?.includes('baby_logistics');
 
-    const applyResults = (results: { dateStr: string; aiDetails?: { [key: string]: string } }[]) => {
-      if (results && results.length > 0) {
-        const res = results[0];
-        onUpdateTrip(prevTrip => ({
-          ...prevTrip,
-          plans: prevTrip.plans.map(p => p.id === activePlan.id ? {
-            ...p,
-            days: { ...p.days, [dateStr]: { ...p.days[dateStr], aiDetails: res.aiDetails, aiUpdatedAt: Date.now() } }
-          } : p)
-        }));
-      }
-    };
-
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildDailyTipsPrompt(dayPayload, !trip.disabledDayFields?.includes('baby_logistics'), trip.disabledDayFields);
-      const responseText = await showManualAiPrompt(`Daily Tips: ${dateStr}`, prompt, 'json');
-      if (!responseText) return;
-      try {
-        applyResults(GeminiService.parseDailyTipsResponse(responseText));
-      } catch (err: any) {
-        alert(`Failed to parse AI response: ${err?.message || 'Invalid format'}`);
-      }
-      return;
-    }
-
-    setDaysGeneratingDates(prev => { const next = new Set(prev); next.add(dateStr); return next; });
-    aiRequestQueue.enqueue(`Daily Tips: ${dateStr}`, async () => {
-      try {
-        const results = await GeminiService.generateDailyTipsWithRotation(
-          dayPayload, !trip.disabledDayFields?.includes('baby_logistics'), undefined, trip.disabledDayFields
-        );
-        applyResults(results);
-      } finally {
-        setDaysGeneratingDates(prev => { const next = new Set(prev); next.delete(dateStr); return next; });
-      }
+    await runAiCall({
+      label: `Daily Tips: ${dateStr}`,
+      buildPrompt: () => GeminiService.buildDailyTipsPrompt(dayPayload, enableBaby, trip.disabledDayFields),
+      parse: GeminiService.parseDailyTipsResponse,
+      liveCall: () => GeminiService.generateDailyTipsWithRotation(dayPayload, enableBaby, undefined, trip.disabledDayFields),
+      onSuccess: (results) => {
+        if (results && results.length > 0) {
+          const res = results[0];
+          onUpdateTrip(prevTrip => ({
+            ...prevTrip,
+            plans: prevTrip.plans.map(p => p.id === activePlan.id ? {
+              ...p,
+              days: { ...p.days, [dateStr]: { ...p.days[dateStr], aiDetails: res.aiDetails, aiUpdatedAt: Date.now() } }
+            } : p)
+          }));
+        }
+      },
+      onError: (err) => alert(`Failed to parse AI response: ${err.message}`),
+      onLoadingChange: (loading) => setDaysGeneratingDates(prev => {
+        const next = new Set(prev);
+        loading ? next.add(dateStr) : next.delete(dateStr);
+        return next;
+      }),
+      showManualPrompt: showManualAiPrompt,
     });
   };
 
   // Batch generate daily tips
   const handleGenerateDaysTips = async (selectedDates: string[]) => {
     if (selectedDates.length === 0) return;
-    if (!GeminiService.isAiEnabled()) {
-      throw new Error(AI_NOT_CONFIGURED_MESSAGE);
-    }
+    if (!GeminiService.isAiEnabled()) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
 
     const daysPayload = selectedDates.map(dateStr => {
       const day = activePlan.days[dateStr];
@@ -1904,51 +1845,42 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       const dayTransports = getTransportsForDay(dateStr).map(t => `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName}`);
       return { dateStr, dayNumber: daysList.indexOf(dateStr) + 1, locationCity: location?.city || '', locationCountry: location?.country || '', places: dayPlaces, hotels: dayHotels, transports: dayTransports };
     });
+    const enableBaby = !trip.disabledDayFields?.includes('baby_logistics');
 
-    const applyResults = (results: { dateStr: string; aiDetails?: { [key: string]: string } }[]) => {
-      onUpdateTrip(prevTrip => ({
-        ...prevTrip,
-        plans: prevTrip.plans.map(p => {
-          if (p.id === activePlan.id) {
-            const updatedDays = { ...p.days };
-            results.forEach(res => {
-              const day = updatedDays[res.dateStr];
-              if (day) updatedDays[res.dateStr] = { ...day, aiDetails: res.aiDetails, aiUpdatedAt: Date.now() };
-            });
-            return { ...p, days: updatedDays };
-          }
-          return p;
-        })
-      }));
-    };
-
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildDailyTipsPrompt(daysPayload, !trip.disabledDayFields?.includes('baby_logistics'), trip.disabledDayFields);
-      const responseText = await showManualAiPrompt(`Daily Tips: ${selectedDates.length} Day(s)`, prompt, 'json');
-      if (!responseText) return;
-      applyResults(GeminiService.parseDailyTipsResponse(responseText));
-      return;
-    }
-
-    setDaysGeneratingDates(prev => { const next = new Set(prev); selectedDates.forEach(d => next.add(d)); return next; });
-    aiRequestQueue.enqueue(`Daily Tips: ${selectedDates.length} Day(s)`, async () => {
-      try {
-        const results = await GeminiService.generateDailyTipsWithRotation(
-          daysPayload, !trip.disabledDayFields?.includes('baby_logistics'), undefined, trip.disabledDayFields
-        );
-        applyResults(results);
-      } finally {
-        setDaysGeneratingDates(prev => { const next = new Set(prev); selectedDates.forEach(d => next.delete(d)); return next; });
-      }
+    await runAiCall({
+      label: `Daily Tips: ${selectedDates.length} Day(s)`,
+      buildPrompt: () => GeminiService.buildDailyTipsPrompt(daysPayload, enableBaby, trip.disabledDayFields),
+      parse: GeminiService.parseDailyTipsResponse,
+      liveCall: () => GeminiService.generateDailyTipsWithRotation(daysPayload, enableBaby, undefined, trip.disabledDayFields),
+      onSuccess: (results) => {
+        onUpdateTrip(prevTrip => ({
+          ...prevTrip,
+          plans: prevTrip.plans.map(p => {
+            if (p.id === activePlan.id) {
+              const updatedDays = { ...p.days };
+              results.forEach(res => {
+                const day = updatedDays[res.dateStr];
+                if (day) updatedDays[res.dateStr] = { ...day, aiDetails: res.aiDetails, aiUpdatedAt: Date.now() };
+              });
+              return { ...p, days: updatedDays };
+            }
+            return p;
+          })
+        }));
+      },
+      onError: (err) => alert(`Failed to parse AI response: ${err.message}`),
+      onLoadingChange: (loading) => setDaysGeneratingDates(prev => {
+        const next = new Set(prev);
+        selectedDates.forEach(d => loading ? next.add(d) : next.delete(d));
+        return next;
+      }),
+      showManualPrompt: showManualAiPrompt,
     });
   };
 
   // Generate trip checklist
   const handleGenerateTripChecklist = async () => {
-    if (!GeminiService.isAiEnabled()) {
-      showApiKeyMissingModal();
-      return;
-    }
+    if (!GeminiService.isAiEnabled()) { showApiKeyMissingModal(); return; }
 
     const allScheduledPlaceIds = new Set<string>();
     Object.values(activePlan.days).forEach(day => { day.placeIds.forEach(pid => allScheduledPlaceIds.add(pid)); });
@@ -1969,32 +1901,25 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     };
     const enableBabyLogistics = !trip.disabledDayFields?.includes('baby_logistics');
 
-    const applyResult = (result: string) => {
-      onUpdateTrip(prevTrip => ({
-        ...prevTrip,
-        plans: prevTrip.plans.map(p => p.id === activePlan.id ? {
-          ...p,
-          aiDetails: { ...(p.aiDetails || {}), checklist: result },
-          aiUpdatedAt: { ...(p.aiUpdatedAt || {}), checklist: Date.now() }
-        } : p)
-      }));
-    };
-
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildTripChecklistPrompt(tripInfo, enableBabyLogistics);
-      const responseText = await showManualAiPrompt('Trip Checklist', prompt, 'markdown');
-      if (responseText) applyResult(responseText);
-      return;
-    }
-
-    setGeneratingChecklist(true);
-    aiRequestQueue.enqueue('Trip Checklist', async () => {
-      try {
-        const result = await GeminiService.generateTripChecklistWithRotation(tripInfo, enableBabyLogistics);
-        applyResult(result);
-      } finally {
-        setGeneratingChecklist(false);
-      }
+    await runAiCall({
+      label: 'Trip Checklist',
+      buildPrompt: () => GeminiService.buildTripChecklistPrompt(tripInfo, enableBabyLogistics),
+      responseFormat: 'markdown',
+      parse: (text) => text,
+      liveCall: () => GeminiService.generateTripChecklistWithRotation(tripInfo, enableBabyLogistics),
+      onSuccess: (result) => {
+        onUpdateTrip(prevTrip => ({
+          ...prevTrip,
+          plans: prevTrip.plans.map(p => p.id === activePlan.id ? {
+            ...p,
+            aiDetails: { ...(p.aiDetails || {}), checklist: result },
+            aiUpdatedAt: { ...(p.aiUpdatedAt || {}), checklist: Date.now() }
+          } : p)
+        }));
+      },
+      onError: (err) => alert(`Failed to generate checklist: ${err.message}`),
+      onLoadingChange: setGeneratingChecklist,
+      showManualPrompt: showManualAiPrompt,
     });
   };
 
@@ -2002,41 +1927,28 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const handleGenerateLocalEssentials = async () => {
     const locId = selectedCatalogLocId || (trip.locations.length > 0 ? trip.locations[0].id : '');
     const loc = trip.locations.find(l => l.id === locId);
-    if (!loc) {
-      alert('Please add at least one location to your trip first.');
-      return;
-    }
-    if (!GeminiService.isAiEnabled()) {
-      showApiKeyMissingModal();
-      return;
-    }
+    if (!loc) { alert('Please add at least one location to your trip first.'); return; }
+    if (!GeminiService.isAiEnabled()) { showApiKeyMissingModal(); return; }
 
-    const applyResult = (result: string) => {
-      onUpdateTrip(prevTrip => ({
-        ...prevTrip,
-        locations: prevTrip.locations.map(l => l.id === locId ? {
-          ...l,
-          aiDetails: { ...(l.aiDetails || {}), local_essentials: result },
-          aiUpdatedAt: { ...(l.aiUpdatedAt || {}), local_essentials: Date.now() }
-        } : l)
-      }));
-    };
-
-    if (GeminiService.isManualMode()) {
-      const prompt = GeminiService.buildLocalEssentialsPrompt({ city: loc.city, country: loc.country });
-      const responseText = await showManualAiPrompt(`Local Essentials: ${loc.city}`, prompt, 'markdown');
-      if (responseText) applyResult(responseText);
-      return;
-    }
-
-    setGeneratingLocalEssentials(true);
-    aiRequestQueue.enqueue(`Local Essentials: ${loc.city}`, async () => {
-      try {
-        const result = await GeminiService.generateLocalEssentialsWithRotation({ city: loc.city, country: loc.country });
-        applyResult(result);
-      } finally {
-        setGeneratingLocalEssentials(false);
-      }
+    await runAiCall({
+      label: `Local Essentials: ${loc.city}`,
+      buildPrompt: () => GeminiService.buildLocalEssentialsPrompt({ city: loc.city, country: loc.country }),
+      responseFormat: 'markdown',
+      parse: (text) => text,
+      liveCall: () => GeminiService.generateLocalEssentialsWithRotation({ city: loc.city, country: loc.country }),
+      onSuccess: (result) => {
+        onUpdateTrip(prevTrip => ({
+          ...prevTrip,
+          locations: prevTrip.locations.map(l => l.id === locId ? {
+            ...l,
+            aiDetails: { ...(l.aiDetails || {}), local_essentials: result },
+            aiUpdatedAt: { ...(l.aiUpdatedAt || {}), local_essentials: Date.now() }
+          } : l)
+        }));
+      },
+      onError: (err) => alert(`Failed to generate local essentials: ${err.message}`),
+      onLoadingChange: setGeneratingLocalEssentials,
+      showManualPrompt: showManualAiPrompt,
     });
   };
 

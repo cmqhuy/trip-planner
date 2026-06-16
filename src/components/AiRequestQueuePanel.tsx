@@ -53,7 +53,7 @@ export default function AiRequestQueuePanel({ items, onClearCompleted, onClose }
           <p className="ai-queue-empty">No queued requests</p>
         ) : (
           <ul className="ai-queue-list">
-            {items.map(item => (
+            {[...items].reverse().map(item => (
               <li key={item.id} className={`ai-queue-item ai-queue-item--${item.status}`}>
                 <span className="ai-queue-item-icon">
                   {item.status === 'pending' && <Clock size={13} />}
