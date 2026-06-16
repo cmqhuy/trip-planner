@@ -129,7 +129,7 @@ const CONCURRENT_REQUEST_STORAGE_KEY = 'vacation-itineraries-gemini-concurrent';
 const MANUAL_MODE_STORAGE_KEY = 'vacation-itineraries-gemini-manual-mode';
 const AI_MODE_STORAGE_KEY = 'vacation-itineraries-gemini-ai-mode';
 
-function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 30000): Promise<Response> {
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 60000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   return fetch(url, { ...options, signal: controller.signal })

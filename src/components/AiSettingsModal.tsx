@@ -124,7 +124,7 @@ export default function AiSettingsModal({
               <Bot size={18} className="ai-mode-section-icon ai-mode-section-icon--manual" />
               <div className="ai-mode-section-info">
                 <strong className="ai-mode-section-title">Manual Mode (No API Key Needed)</strong>
-                <span className="ai-mode-section-desc">Shows the AI prompt so you can paste it into ChatGPT, Claude, Gemini web, or any chatbot. Paste the response back to apply it.</span>
+                <span className="ai-mode-section-desc">Shows the AI prompt so you can paste it into ChatGPT, Claude, Gemini, or any chatbot. Paste the response back to apply it.</span>
               </div>
             </label>
 
