@@ -223,6 +223,8 @@ function ItineraryPanel({
   const [editingNoteItemIndex, setEditingNoteItemIndex] = useState<number | null>(null);
   const [editingNoteText, setEditingNoteText] = useState('');
   const [activeAddDropdownIndex, setActiveAddDropdownIndex] = useState<number | null>(null);
+  const [isPlanPickerOpen, setIsPlanPickerOpen] = useState(false);
+  const planPickerRef = useRef<HTMLDivElement>(null);
   const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleHideItem = () => {
@@ -239,6 +241,18 @@ function ItineraryPanel({
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [activeAddDropdownIndex]);
+
+  // Close plan picker dropdown when clicking outside
+  useEffect(() => {
+    if (!isPlanPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (planPickerRef.current && !planPickerRef.current.contains(e.target as Node)) {
+        setIsPlanPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isPlanPickerOpen]);
 
   const renderAddSlot = (insertAtIndex: number, canEdit: boolean) => {
     if (!canEdit) return null;
@@ -519,30 +533,39 @@ function ItineraryPanel({
             ) : (
               <div className="plan-picker-wrapper">
                 <Layers size={16} className="text-muted" />
-                <select 
-                  className="plan-picker" 
-                  value={activePlanId} 
-                  onChange={(e) => {
-                    const nextPlanId = e.target.value;
-                    if (daysTabsNavRef.current) {
-                      lastScrollLeft.current = daysTabsNavRef.current.scrollLeft;
-                    }
-                    setActivePlanId(nextPlanId);
-                    // Reset day string to first day of new plan if bounds differ
-                    const newPlanDays = Object.keys(trip.plans.find(p => p.id === nextPlanId)?.days || {}).sort();
-                    if (newPlanDays.length > 0) {
-                      if (newPlanDays.includes(activeDayStr)) {
-                        // Keep current activeDayStr
-                      } else {
-                        setActiveDayStr(newPlanDays[0]);
-                      }
-                    }
-                  }}
-                >
-                  {trip.plans.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                <div ref={planPickerRef} className={`plan-picker-select-wrapper${isPlanPickerOpen ? ' plan-picker-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="loc-select-trigger plan-picker"
+                    onClick={() => setIsPlanPickerOpen(!isPlanPickerOpen)}
+                  >
+                    <span className="plan-picker-label">{activePlan?.name}</span>
+                    <ChevronDown size={14} className="plan-picker-chevron" />
+                  </button>
+                  {isPlanPickerOpen && (
+                    <div className="loc-select-dropdown plan-picker-dropdown">
+                      {trip.plans.map(p => (
+                        <div
+                          key={p.id}
+                          className={`plan-picker-option${p.id === activePlanId ? ' selected' : ''}`}
+                          onClick={() => {
+                            if (daysTabsNavRef.current) {
+                              lastScrollLeft.current = daysTabsNavRef.current.scrollLeft;
+                            }
+                            setActivePlanId(p.id);
+                            const newPlanDays = Object.keys(trip.plans.find(pl => pl.id === p.id)?.days || {}).sort();
+                            if (newPlanDays.length > 0 && !newPlanDays.includes(activeDayStr)) {
+                              setActiveDayStr(newPlanDays[0]);
+                            }
+                            setIsPlanPickerOpen(false);
+                          }}
+                        >
+                          {p.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {trip.canEdit !== false && (
                   <div className="plan-dropdown-container">
                     <button

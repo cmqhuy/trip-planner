@@ -46,6 +46,7 @@ export default function LocationSelect({
       {roundTrigger ? (
         <button
           type="button"
+          className="loc-select-trigger-round"
           onClick={() => (locations.length > 0 || showAddNew) && setIsOpen(!isOpen)}
           disabled={locations.length === 0 && !showAddNew}
           style={{
@@ -58,7 +59,6 @@ export default function LocationSelect({
             borderRadius: '50%',
             boxSizing: 'border-box',
             flexShrink: 0,
-            background: 'rgba(15, 23, 42, 0.8)',
             border: '1px solid var(--border-glass)',
             color: 'var(--text-primary)',
             cursor: (locations.length > 0 || showAddNew) ? 'pointer' : 'not-allowed',
@@ -67,14 +67,13 @@ export default function LocationSelect({
             padding: 0,
             ...buttonStyle
           }}
-          onMouseEnter={e => (locations.length > 0 || showAddNew) && (e.currentTarget.style.background = (buttonStyle?.background as string) || 'rgba(15, 23, 42, 0.95)')}
-          onMouseLeave={e => !isOpen && (e.currentTarget.style.background = (buttonStyle?.background as string) || 'rgba(15, 23, 42, 0.8)')}
         >
           <ChevronDown size={16} style={{ opacity: 0.8, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
         </button>
       ) : (
         <button
           type="button"
+          className="loc-select-trigger"
           onClick={() => (locations.length > 0 || showAddNew) && setIsOpen(!isOpen)}
           disabled={locations.length === 0 && !showAddNew}
           style={{
@@ -83,7 +82,6 @@ export default function LocationSelect({
             justifyContent: 'space-between',
             width: '100%',
             padding: '6px 10px',
-            background: 'rgba(255, 255, 255, 0.03)',
             border: '1px solid var(--border-glass)',
             borderRadius: '6px',
             color: 'var(--text-primary)',
@@ -95,8 +93,6 @@ export default function LocationSelect({
             textAlign: 'left',
             ...buttonStyle
           }}
-          onMouseEnter={e => (locations.length > 0 || showAddNew) && (e.currentTarget.style.background = (buttonStyle?.background as string) || 'rgba(255, 255, 255, 0.05)')}
-          onMouseLeave={e => !isOpen && (e.currentTarget.style.background = (buttonStyle?.background as string) || 'rgba(255, 255, 255, 0.03)')}
         >
           <div className="loc-select-trigger-inner">
             {selectedLoc ? (

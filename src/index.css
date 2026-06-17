@@ -884,11 +884,55 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 12px;
 }
 
-.plan-picker {
-  padding: 6px 12px;
-  font-size: 14px;
-  background: var(--bg-dark);
+.plan-picker-select-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
 }
+.plan-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 6px;
+  min-height: 28px;
+  text-align: left;
+}
+.plan-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-picker-chevron {
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.plan-picker-open .plan-picker-chevron {
+  transform: rotate(180deg);
+}
+.plan-picker-dropdown {
+  left: 0;
+  right: auto;
+  width: max-content;
+  min-width: 100%;
+}
+.plan-picker-option {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.plan-picker-option:hover { background: rgba(255, 255, 255, 0.04); color: var(--text-primary); }
+.plan-picker-option.selected { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); font-weight: 600; }
 
 /* Day selector tabs */
 .days-tabs-nav {
@@ -3834,7 +3878,11 @@ div.google-auth-avatar-desktop {
 .loc-select-divider { height: 1px; background: var(--border-glass); margin: 4px 0; }
 .loc-select-add-new { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--accent-primary); background: transparent; transition: all 0.15s ease; border-top: 1px solid var(--border-glass); margin-top: 4px; }
 .loc-select-add-new-label { font-weight: 600; }
-.loc-select-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; background: var(--bg-panel); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg); }
+.loc-select-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5); }
+.loc-select-trigger { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.loc-select-trigger:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
+.loc-select-trigger-round { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.loc-select-trigger-round:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
 
 /* ReservationsSection */
 .reservations-inner { display: flex; flex-direction: column; }
