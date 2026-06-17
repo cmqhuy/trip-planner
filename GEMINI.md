@@ -274,6 +274,33 @@ alert(`Failed to parse AI response: ${err.message}`);
 
 ### Dropdowns
 
+**Never use a native `<select>` or unstyled combo box.** All new dropdowns and combo boxes must match the app's glassmorphism theme. There are two established patterns — pick the one that fits:
+
+**1. Options menu** (contextual actions triggered by a `MoreVertical` / icon button — e.g. Day Options, Place Options): use `.dropdown-menu` + `.dropdown-item`.
+```css
+/* .dropdown-menu */
+background: rgba(15, 23, 42, 0.95);
+backdrop-filter: blur(16px);
+border: 1px solid var(--border-glass);
+border-radius: 8px;
+box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5);
+```
+
+**2. Selection combo box** (picking a value from a list — e.g. Plan picker, Location picker): a `button.loc-select-trigger` as the trigger and a `div.loc-select-dropdown` as the panel.
+```css
+/* .loc-select-trigger (button) */
+background: rgba(15, 23, 42, 0.6);
+backdrop-filter: blur(12px);
+
+/* .loc-select-dropdown (panel) */
+background: rgba(15, 23, 42, 0.95);
+backdrop-filter: blur(16px);
+border: 1px solid var(--border-glass);
+border-radius: 6px;
+box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5);
+```
+The trigger chevron must be a Lucide `ChevronDown`, rotated 180° via a CSS class toggle when open — never a static `background-image` arrow. Native `<select>` elements are not permitted for combo boxes.
+
 **All dropdowns must close when the user clicks outside.** Use a `useEffect` that adds a `document` click listener whenever the dropdown is open and removes it on cleanup:
 ```typescript
 useEffect(() => {
