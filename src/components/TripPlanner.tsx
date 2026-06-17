@@ -51,9 +51,11 @@ interface TripPlannerProps {
   onUpdateTrip: (updatedTrip: Trip | ((prevTrip: Trip) => Trip)) => void;
   onShareTrip?: (trip: Trip) => void;
   isGoogleSignedIn?: boolean;
+  googleToken?: string;
+  googleFolderId?: string;
 }
 
-export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleSignedIn }: TripPlannerProps) {
+export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleSignedIn, googleToken, googleFolderId }: TripPlannerProps) {
   // Plan State
   const [activePlanId, setActivePlanId] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -327,9 +329,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
   // Transportation Modal
   const [showTransportModal, setShowTransportModal] = useState(false);
+  const [editingTransport, setEditingTransport] = useState<Transportation | null>(null);
 
   // Hotel Modal
   const [showHotelModal, setShowHotelModal] = useState(false);
+  const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
 
   // Day timeline search state
   const [placeQuery, setPlaceQuery] = useState('');
@@ -1683,6 +1687,22 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setShowTransportModal(false);
   };
 
+  const handleEditTransportation = useCallback((updatedTransport: Transportation) => {
+    const updatedPlans = trip.plans.map(p =>
+      p.id === activePlan.id
+        ? { ...p, transports: p.transports.map(t => t.id === updatedTransport.id ? updatedTransport : t) }
+        : p
+    );
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+    setShowTransportModal(false);
+    setEditingTransport(null);
+  }, [trip, activePlan, onUpdateTrip]);
+
+  const handleOpenEditTransport = useCallback((transport: Transportation) => {
+    setEditingTransport(transport);
+    setShowTransportModal(true);
+  }, []);
+
   const handleDeleteTransportation = useCallback((id: string) => {
     setConfirmModal({
       title: 'Delete Transportation',
@@ -1739,6 +1759,22 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
     setShowHotelModal(false);
   };
+
+  const handleEditHotel = useCallback((updatedHotel: Hotel) => {
+    const updatedPlans = trip.plans.map(p =>
+      p.id === activePlan.id
+        ? { ...p, hotels: p.hotels.map(h => h.id === updatedHotel.id ? updatedHotel : h) }
+        : p
+    );
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+    setShowHotelModal(false);
+    setEditingHotel(null);
+  }, [trip, activePlan, onUpdateTrip]);
+
+  const handleOpenEditHotel = useCallback((hotel: Hotel) => {
+    setEditingHotel(hotel);
+    setShowHotelModal(true);
+  }, []);
 
   const handleDeleteHotel = useCallback((id: string) => {
     setConfirmModal({
@@ -1801,8 +1837,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       const p = location?.places.find(pl => pl.id === pid);
       return p ? { title: p.title, description: p.description, openingHours: p.openingHours, lat: p.lat, lng: p.lng, notes: p.notes } : null;
     }).filter(Boolean) as { title: string; description?: string; openingHours?: string; lat?: number; lng?: number; notes?: string }[];
-    const dayHotels = getHotelsForDay(dateStr).map(h => h.name);
-    const dayTransports = getTransportsForDay(dateStr).map(t => `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName}`);
+    const dayHotels = getHotelsForDay(dateStr).map(h =>
+      `${h.name}${h.address ? ` at ${h.address}` : ''}, check-in: ${h.checkInDate}${h.checkInTime ? ` ${h.checkInTime}` : ''}, check-out: ${h.checkOutDate}${h.checkOutTime ? ` ${h.checkOutTime}` : ''}${h.confirmationNo ? `, conf#: ${h.confirmationNo}` : ''}`
+    );
+    const dayTransports = getTransportsForDay(dateStr).map(t =>
+      `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate} ${t.departureTime} (${t.departureTimezone})${t.carrier ? `, carrier: ${t.carrier}` : ''}${t.transitCode ? ` ${t.transitCode}` : ''}${t.confirmationNo ? `, conf#: ${t.confirmationNo}` : ''}`
+    );
     const dayPayload = [{ dateStr, dayNumber: daysList.indexOf(dateStr) + 1, locationCity: location?.city || '', locationCountry: location?.country || '', places: dayPlaces, hotels: dayHotels, transports: dayTransports }];
     const enableBaby = !trip.disabledDayFields?.includes('baby_logistics');
 
@@ -1845,8 +1885,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         const p = location?.places.find(pl => pl.id === pid);
         return p ? { title: p.title, description: p.description, openingHours: p.openingHours, lat: p.lat, lng: p.lng, notes: p.notes } : null;
       }).filter(Boolean) as { title: string; description?: string; openingHours?: string; lat?: number; lng?: number; notes?: string }[] : [];
-      const dayHotels = getHotelsForDay(dateStr).map(h => h.name);
-      const dayTransports = getTransportsForDay(dateStr).map(t => `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName}`);
+      const dayHotels = getHotelsForDay(dateStr).map(h =>
+        `${h.name}${h.address ? ` at ${h.address}` : ''}, check-in: ${h.checkInDate}${h.checkInTime ? ` ${h.checkInTime}` : ''}, check-out: ${h.checkOutDate}${h.checkOutTime ? ` ${h.checkOutTime}` : ''}${h.confirmationNo ? `, conf#: ${h.confirmationNo}` : ''}`
+      );
+      const dayTransports = getTransportsForDay(dateStr).map(t =>
+        `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate} ${t.departureTime} (${t.departureTimezone})${t.carrier ? `, carrier: ${t.carrier}` : ''}${t.transitCode ? ` ${t.transitCode}` : ''}${t.confirmationNo ? `, conf#: ${t.confirmationNo}` : ''}`
+      );
       return { dateStr, dayNumber: daysList.indexOf(dateStr) + 1, locationCity: location?.city || '', locationCountry: location?.country || '', places: dayPlaces, hotels: dayHotels, transports: dayTransports };
     });
     const enableBaby = !trip.disabledDayFields?.includes('baby_logistics');
@@ -2208,6 +2252,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onGenerateLocalEssentials={handleGenerateLocalEssentials}
         onSaveLocalEssentials={handleSaveAiLocalEssentials}
         formatDisplayDate={formatDisplayDate}
+        onEditHotel={handleOpenEditHotel}
+        onDeleteHotel={handleDeleteHotel}
+        onEditTransport={handleOpenEditTransport}
+        onDeleteTransport={handleDeleteTransportation}
       />
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}
@@ -2278,6 +2326,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleSetDayLocation={handleSetDayLocation}
         handleDeleteHotel={handleDeleteHotel}
         handleDeleteTransportation={handleDeleteTransportation}
+        handleOpenEditHotel={handleOpenEditHotel}
+        handleOpenEditTransport={handleOpenEditTransport}
         handleGenerateSingleDayTips={handleGenerateSingleDayTips}
         handleSaveDayTips={handleSaveDayTips}
         handleSaveBabyLogistics={handleSaveBabyLogistics}
@@ -2467,19 +2517,37 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       {/* 8. Transport Modal */}
       <TransportModal
         isOpen={showTransportModal}
-        onClose={() => setShowTransportModal(false)}
+        onClose={() => { setShowTransportModal(false); setEditingTransport(null); }}
         tripStartDate={trip.startDate}
         tripEndDate={trip.endDate}
-        onSave={handleAddTransportation}
+        onSave={(data) => editingTransport
+          ? handleEditTransportation({ ...data, id: editingTransport.id })
+          : handleAddTransportation(data)
+        }
+        editingTransport={editingTransport}
+        googleToken={googleToken}
+        tripPlannerFolderId={googleFolderId}
+        tripName={`trip-${trip.id}`}
+        tripFilesFolderId={trip.filesFolderId}
+        onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
       />
 
       {/* 9. Hotel Modal */}
       <HotelModal
         isOpen={showHotelModal}
-        onClose={() => setShowHotelModal(false)}
+        onClose={() => { setShowHotelModal(false); setEditingHotel(null); }}
         tripStartDate={trip.startDate}
         tripEndDate={trip.endDate}
-        onSave={handleAddHotel}
+        onSave={(data) => editingHotel
+          ? handleEditHotel({ ...data, id: editingHotel.id })
+          : handleAddHotel(data)
+        }
+        editingHotel={editingHotel}
+        googleToken={googleToken}
+        tripPlannerFolderId={googleFolderId}
+        tripName={`trip-${trip.id}`}
+        tripFilesFolderId={trip.filesFolderId}
+        onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
       />
 
       {/* 10. Confirmation Modal */}

@@ -84,23 +84,24 @@ describe('ReservationsSection Component', () => {
         daysList={daysList}
         onPlaceClick={handlePlaceClick}
         formatDisplayDate={(_d) => `Wed, Jul 1`}
+        onEditHotel={vi.fn()}
+        onDeleteHotel={vi.fn()}
+        onEditTransport={vi.fn()}
+        onDeleteTransport={vi.fn()}
       />
     );
 
-    // 1. Transit info assertion
-    expect(screen.getByText('FLIGHT: SFO → HND')).toBeInTheDocument();
-    expect(screen.getByText('Departs: 2026-07-01 at 11:00 AM (PST)')).toBeInTheDocument();
-    expect(screen.getByText('Carrier: ANA | Code: NH7')).toBeInTheDocument();
+    // 1. Transit info assertion — new card shows "departure → arrival" heading
+    expect(screen.getByText('SFO → HND')).toBeInTheDocument();
+    expect(screen.getByText('ANA · NH7')).toBeInTheDocument();
 
     // 2. Hotel accommodation assertion
     expect(screen.getByText('Grand Hyatt')).toBeInTheDocument();
-    expect(screen.getByText('📍 Roppongi Hills')).toBeInTheDocument();
-    expect(screen.getByText('Stay: 2026-07-01 to 2026-07-03')).toBeInTheDocument();
 
     // 3. Reservation required assertion
     const placeCard = screen.getByText('Senso-ji Temple');
     expect(placeCard).toBeInTheDocument();
-    
+
     // Test interactive callback
     fireEvent.click(placeCard);
     expect(handlePlaceClick).toHaveBeenCalledWith('place-sensoji');

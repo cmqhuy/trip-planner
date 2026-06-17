@@ -1265,5 +1265,176 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     }
     throw lastError || new Error('All configured API keys failed to execute.');
   }
+
+  // ── File-based reservation auto-fill ─────────────────────────────────────
+
+  static buildHotelDetailsFromFilesPrompt(): string {
+    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a hotel reservation or booking confirmation. Extract the hotel details from these files and return them as JSON. Return only the fields you can confidently identify — leave any uncertain fields as empty strings. Do not guess or invent information that is not clearly visible in the provided files.`;
+  }
+
+  static buildTransitDetailsFromFilesPrompt(): string {
+    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a flight ticket, train booking, or other transit reservation. Extract the transit details from these files and return them as JSON. Return only the fields you can confidently identify — leave any uncertain fields as empty strings. Do not guess or invent information that is not clearly visible in the provided files. For departure and arrival times, use HH:MM (24-hour) format. For dates, use YYYY-MM-DD format. For timezone, use IANA timezone names (e.g. America/New_York) or offset strings (e.g. UTC+9).`;
+  }
+
+  static async generateHotelDetailsFromFiles(
+    fileContents: { base64: string; mimeType: string }[],
+    apiKey: string,
+    model = 'gemini-2.5-flash'
+  ): Promise<{
+    name?: string; address?: string; checkInDate?: string; checkInTime?: string;
+    checkOutDate?: string; checkOutTime?: string; confirmationNo?: string; notes?: string;
+  }> {
+    const totalBase64Size = fileContents.reduce((sum, f) => sum + f.base64.length, 0);
+    if (totalBase64Size > 10 * 1024 * 1024) {
+      throw new Error('Total file size exceeds 10MB. Please reduce file size before using AI fill.');
+    }
+
+    const parts: any[] = [{ text: GeminiService.buildHotelDetailsFromFilesPrompt() }];
+    for (const f of fileContents) {
+      parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+    }
+
+    const response = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                name: { type: 'STRING' },
+                address: { type: 'STRING' },
+                checkInDate: { type: 'STRING' },
+                checkInTime: { type: 'STRING' },
+                checkOutDate: { type: 'STRING' },
+                checkOutTime: { type: 'STRING' },
+                confirmationNo: { type: 'STRING' },
+                notes: { type: 'STRING' },
+              },
+            }
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) throw new Error('Gemini API returned an empty response.');
+    return JSON.parse(resultText);
+  }
+
+  static async generateHotelDetailsFromFilesWithRotation(
+    fileContents: { base64: string; mimeType: string }[],
+    model?: string
+  ): Promise<{
+    name?: string; address?: string; checkInDate?: string; checkInTime?: string;
+    checkOutDate?: string; checkOutTime?: string; confirmationNo?: string; notes?: string;
+  }> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+    for (const key of keys) {
+      try {
+        return await this.generateHotelDetailsFromFiles(fileContents, key, selectedModel);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  static async generateTransitDetailsFromFiles(
+    fileContents: { base64: string; mimeType: string }[],
+    apiKey: string,
+    model = 'gemini-2.5-flash'
+  ): Promise<{
+    type?: string; departureLocationName?: string; arrivalLocationName?: string;
+    departureDate?: string; departureTime?: string; departureTimezone?: string;
+    arrivalDate?: string; arrivalTime?: string; arrivalTimezone?: string;
+    carrier?: string; transitCode?: string; confirmationNo?: string; notes?: string;
+  }> {
+    const totalBase64Size = fileContents.reduce((sum, f) => sum + f.base64.length, 0);
+    if (totalBase64Size > 10 * 1024 * 1024) {
+      throw new Error('Total file size exceeds 10MB. Please reduce file size before using AI fill.');
+    }
+
+    const parts: any[] = [{ text: GeminiService.buildTransitDetailsFromFilesPrompt() }];
+    for (const f of fileContents) {
+      parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+    }
+
+    const response = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                type: { type: 'STRING' },
+                departureLocationName: { type: 'STRING' },
+                arrivalLocationName: { type: 'STRING' },
+                departureDate: { type: 'STRING' },
+                departureTime: { type: 'STRING' },
+                departureTimezone: { type: 'STRING' },
+                arrivalDate: { type: 'STRING' },
+                arrivalTime: { type: 'STRING' },
+                arrivalTimezone: { type: 'STRING' },
+                carrier: { type: 'STRING' },
+                transitCode: { type: 'STRING' },
+                confirmationNo: { type: 'STRING' },
+                notes: { type: 'STRING' },
+              },
+            }
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) throw new Error('Gemini API returned an empty response.');
+    return JSON.parse(resultText);
+  }
+
+  static async generateTransitDetailsFromFilesWithRotation(
+    fileContents: { base64: string; mimeType: string }[],
+    model?: string
+  ): Promise<{
+    type?: string; departureLocationName?: string; arrivalLocationName?: string;
+    departureDate?: string; departureTime?: string; departureTimezone?: string;
+    arrivalDate?: string; arrivalTime?: string; arrivalTimezone?: string;
+    carrier?: string; transitCode?: string; confirmationNo?: string; notes?: string;
+  }> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+    for (const key of keys) {
+      try {
+        return await this.generateTransitDetailsFromFiles(fileContents, key, selectedModel);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
 }
 

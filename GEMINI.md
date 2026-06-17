@@ -316,3 +316,13 @@ The dropdown's own click handlers call `e.stopPropagation()` so they don't trigg
 ```tsx
 className={`timeline-card glass-panel ${isDropdownOpen ? 'dropdown-active' : ''}`}
 ```
+
+### Icons
+
+**Always use Lucide React icons — never emoji.** All UI elements (cards, labels, empty states, option lists, badges) must use icons from `lucide-react`. Emoji characters are not permitted in JSX renders under any circumstances.
+
+**Icon consistency rule**: Icons used in type-selector combo boxes must match the icon used in the corresponding card display badge. For example, `Plane` in the TransportModal type selector must match the `Plane` in the transport card's icon wrapper. Pick the icon once and use it everywhere for the same concept.
+
+### Schema Versioning
+
+**Only bump `CURRENT_SCHEMA_VERSION` when a migration transform is needed.** Adding optional (`?`) fields to TypeScript interfaces does NOT require a version bump — new optional fields are backward-compatible by definition and need no migration. Only increment the version (and add a migration block in `migrateTrips()`) when existing data must be transformed, renamed, or removed.

@@ -104,6 +104,10 @@ describe('LeftPanelAccordion Component', () => {
         onGenerateLocalEssentials={vi.fn()}
         onSaveLocalEssentials={vi.fn()}
         formatDisplayDate={(d) => d}
+        onEditHotel={vi.fn()}
+        onDeleteHotel={vi.fn()}
+        onEditTransport={vi.fn()}
+        onDeleteTransport={vi.fn()}
       />
     );
 

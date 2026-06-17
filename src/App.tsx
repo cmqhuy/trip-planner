@@ -1201,6 +1201,8 @@ export default function App() {
             trip={activeTrip}
             onUpdateTrip={handleUpdateTrip}
             onShareTrip={setShareModalTrip}
+            googleToken={googleToken ?? undefined}
+            googleFolderId={googleFolderId ?? undefined}
           />
         ) : (
           <TripDashboard

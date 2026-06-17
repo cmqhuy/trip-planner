@@ -2313,7 +2313,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 /* Cards lift above siblings (schedule-add-slot z-index:2, backdrop-filter stacking contexts) when dropdown is open */
 .catalog-place-card.dropdown-active,
-.timeline-card.dropdown-active {
+.timeline-card.dropdown-active,
+.hotel-card.dropdown-active,
+.transport-card.dropdown-active {
   position: relative;
   z-index: 1100;
 }
@@ -3919,3 +3921,76 @@ div.google-auth-avatar-desktop {
 .tos-section-title { font-size: 16px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .tos-section-body { font-size: 14px; line-height: 1.7; color: rgba(226,232,240,0.85); display: flex; flex-direction: column; gap: 10px; }
 .tos-email-link { color: #818cf8; }
+
+/* ===== Reservations — new expandable cards & warnings ===== */
+
+/* ItineraryPanel hotel/transit icon helpers */
+.transport-flow-icon { display: inline-flex; align-items: center; vertical-align: middle; flex-shrink: 0; }
+.transport-flag-icon { display: inline-flex; align-items: center; vertical-align: middle; flex-shrink: 0; margin-left: 2px; }
+
+/* Warning empty state */
+.no-transport-text--warning { color: #f59e0b; display: flex; align-items: center; gap: 5px; }
+
+/* Card-level ... menu wrapper (positions the dropdown relative to the trigger button) */
+.card-options-menu { position: relative; flex-shrink: 0; }
+
+/* ReservationsSection warnings */
+.reservation-warning { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; font-size: 11px; color: #f59e0b; margin-bottom: 6px; line-height: 1.4; }
+
+/* Expandable reservation card */
+.reservation-card--expandable { padding: 0; overflow: hidden; }
+.reservation-card-expand { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 8px 10px; cursor: pointer; }
+.reservation-card-expand:hover { background: rgba(255,255,255,0.03); }
+.reservation-card-expand-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.reservation-card-icon-row { display: flex; align-items: center; gap: 5px; }
+.reservation-card-location { font-size: 10px; color: var(--text-muted); font-style: italic; }
+.reservation-card-type-icon { color: var(--text-muted); flex-shrink: 0; }
+.reservation-card-chevron { color: var(--text-muted); flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; }
+.reservation-card-field-row { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-secondary); }
+.reservation-card-field-row svg { color: var(--text-muted); flex-shrink: 0; }
+.reservation-card-expanded-content { border-top: 1px solid var(--border-glass); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.reservation-card-notes { font-size: 11px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.reservation-card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* mini-icon-btn danger variant */
+.mini-icon-btn--danger { color: var(--color-danger); }
+.mini-icon-btn--danger:hover { background: rgba(239, 68, 68, 0.12); }
+
+/* ===== HotelModal / TransportModal attachment & AI fill ===== */
+
+/* Visually hidden (accessible file input) */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* Attachment section */
+.attachment-section { border-top: 1px solid var(--border-glass); margin-top: 8px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.attachment-header-row { display: flex; align-items: center; justify-content: space-between; }
+.attachment-section-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.attachment-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); border-radius: 4px; font-size: 11px; color: var(--text-secondary); max-width: 200px; }
+.attachment-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-chip-remove { display: flex; align-items: center; background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0; flex-shrink: 0; }
+.attachment-chip-remove:hover { color: var(--color-danger); }
+
+/* AI Fill button */
+.modal-ai-fill-btn { display: flex; align-items: center; gap: 6px; padding: 5px 12px; font-size: 11px; font-weight: 500; background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); border-radius: 6px; cursor: pointer; transition: var(--transition-fast); width: fit-content; }
+.modal-ai-fill-btn:hover:not(:disabled) { background: rgba(99,102,241,0.2); }
+.modal-ai-fill-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Undo button hover accent */
+.undo-btn:hover { color: var(--accent-primary); }
+
+/* Modal body text */
+.modal-body-text { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.5; }
+
+/* Column-stacked modal actions */
+.modal-actions--column { flex-direction: column; align-items: stretch; gap: 8px; }
+
+/* Form error text */
+.form-error-text { font-size: 11px; color: var(--color-danger); margin: 4px 0 0; }
+
+/* ===== TransportModal timezone combo box ===== */
+.loc-select-dropdown--tz { min-width: 220px; max-height: 260px; overflow: hidden; display: flex; flex-direction: column; }
+.tz-search-wrapper { padding: 4px; border-bottom: 1px solid var(--border-glass); flex-shrink: 0; }
+.tz-search-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-radius: 4px; padding: 4px 8px; font-size: 12px; color: var(--text-primary); outline: none; }
+.tz-search-input::placeholder { color: var(--text-muted); }
+.tz-option-list { overflow-y: auto; flex: 1; }

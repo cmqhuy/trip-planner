@@ -1,5 +1,5 @@
 import { BookOpen, CheckSquare, Building, Sparkles } from 'lucide-react';
-import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
+import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, Transportation } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
 import ReservationsSection from './ReservationsSection';
@@ -69,6 +69,10 @@ interface LeftPanelAccordionProps {
   onGenerateLocalEssentials: () => void;
   onSaveLocalEssentials: (content: string) => void;
   formatDisplayDate: (dateStr: string) => string;
+  onEditHotel: (hotel: Hotel) => void;
+  onDeleteHotel: (id: string) => void;
+  onEditTransport: (transport: Transportation) => void;
+  onDeleteTransport: (id: string) => void;
 }
 
 export default function LeftPanelAccordion({
@@ -134,7 +138,11 @@ export default function LeftPanelAccordion({
   generatingLocalEssentials,
   onGenerateLocalEssentials,
   onSaveLocalEssentials,
-  formatDisplayDate
+  formatDisplayDate,
+  onEditHotel,
+  onDeleteHotel,
+  onEditTransport,
+  onDeleteTransport,
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
@@ -271,6 +279,10 @@ export default function LeftPanelAccordion({
               setActivePlaceId(id);
             }}
             formatDisplayDate={formatDisplayDate}
+            onEditHotel={onEditHotel}
+            onDeleteHotel={onDeleteHotel}
+            onEditTransport={onEditTransport}
+            onDeleteTransport={onDeleteTransport}
           />
         )}
       </div>

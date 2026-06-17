@@ -3,7 +3,8 @@ import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building,
-  Search, FileText, RefreshCw, ArrowRight, BookmarkPlus
+  Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
+  ArrowUpRight, ArrowDownLeft, AlertTriangle
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
@@ -88,6 +89,8 @@ interface ItineraryPanelProps {
   handleSetDayLocation: (locId: string) => void;
   handleDeleteHotel: (hotelId: string) => void;
   handleDeleteTransportation: (transportId: string) => void;
+  handleOpenEditHotel: (hotel: Hotel) => void;
+  handleOpenEditTransport: (transport: Transportation) => void;
   handleGenerateSingleDayTips: (dateStr: string) => void;
   handleSaveDayTips: (dateStr: string, content: string) => void;
   handleSaveBabyLogistics: (dateStr: string, content: string) => void;
@@ -187,6 +190,8 @@ function ItineraryPanel({
   handleSetDayLocation,
   handleDeleteHotel,
   handleDeleteTransportation,
+  handleOpenEditHotel,
+  handleOpenEditTransport,
   handleGenerateSingleDayTips,
   handleSaveDayTips,
   handleSaveBabyLogistics,
@@ -224,6 +229,8 @@ function ItineraryPanel({
   const [editingNoteText, setEditingNoteText] = useState('');
   const [activeAddDropdownIndex, setActiveAddDropdownIndex] = useState<number | null>(null);
   const [isPlanPickerOpen, setIsPlanPickerOpen] = useState(false);
+  const [openHotelMenuId, setOpenHotelMenuId] = useState<string | null>(null);
+  const [openTransportMenuId, setOpenTransportMenuId] = useState<string | null>(null);
   const planPickerRef = useRef<HTMLDivElement>(null);
   const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -241,6 +248,20 @@ function ItineraryPanel({
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [activeAddDropdownIndex]);
+
+  useEffect(() => {
+    if (!openHotelMenuId) return;
+    const handler = () => setOpenHotelMenuId(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openHotelMenuId]);
+
+  useEffect(() => {
+    if (!openTransportMenuId) return;
+    const handler = () => setOpenTransportMenuId(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openTransportMenuId]);
 
   // Close plan picker dropdown when clicking outside
   useEffect(() => {
@@ -739,7 +760,7 @@ function ItineraryPanel({
           <div className="timeline-section">
             <div className="timeline-section-header">
               <div className="timeline-section-title-row">
-                <h4 className="timeline-section-title"><Building size={16} /> Hotel Stays</h4>
+                <h4 className="timeline-section-title"><Building size={16} /> Hotels</h4>
               </div>
               <div className="timeline-section-actions">
                 {trip.canEdit !== false && (
@@ -752,29 +773,51 @@ function ItineraryPanel({
 
             <div className="section-item-list">
               {getHotelsForDay(activeDayStr).map(h => (
-                <div key={h.id} className="hotel-card">
+                <div key={h.id} className={`hotel-card${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
                   <div className="flex-align flex-1">
                     <div className="hotel-icon-wrapper">
                       <Building size={16} />
                     </div>
                     <div className="hotel-text-col">
                       <h4 className="hotel-name-text">{h.name}</h4>
-                      {h.address && <p className="hotel-address-text">📍 {h.address}</p>}
+                      {h.address && (
+                        <p className="hotel-address-text">
+                          <MapPin size={12} className="transport-flow-icon" /> {h.address}
+                        </p>
+                      )}
                       <p className="hotel-dates-text">
-                        Check-in: {formatDisplayDate(h.checkInDate)} | Check-out: {formatDisplayDate(h.checkOutDate)}
+                        Check-in: {formatDisplayDate(h.checkInDate)}{h.checkInTime ? ` ${h.checkInTime}` : ''} | Check-out: {formatDisplayDate(h.checkOutDate)}{h.checkOutTime ? ` ${h.checkOutTime}` : ''}
                       </p>
                     </div>
                   </div>
                   {trip.canEdit !== false && (
-                    <button className="trip-delete-btn" onClick={() => handleDeleteHotel(h.id)}>
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="card-options-menu" onClick={e => e.stopPropagation()}>
+                      <button
+                        className="trip-delete-btn"
+                        onClick={() => setOpenHotelMenuId(prev => prev === h.id ? null : h.id)}
+                        data-tooltip="Options"
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+                      {openHotelMenuId === h.id && (
+                        <div className="dropdown-menu dropdown-menu--right">
+                          <button className="dropdown-item" onClick={() => { handleOpenEditHotel(h); setOpenHotelMenuId(null); }}>
+                            <Edit2 size={13} /> Edit
+                          </button>
+                          <button className="dropdown-item danger" onClick={() => { handleDeleteHotel(h.id); setOpenHotelMenuId(null); }}>
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
 
               {getHotelsForDay(activeDayStr).length === 0 && (
-                <p className="no-transport-text">No hotels booked for this day.</p>
+                <p className="no-transport-text no-transport-text--warning">
+                  <AlertTriangle size={12} /> No hotels booked for this day.
+                </p>
               )}
             </div>
           </div>
@@ -783,7 +826,7 @@ function ItineraryPanel({
           <div className="timeline-section">
             <div className="timeline-section-header">
               <div className="timeline-section-title-row">
-                <h4 className="timeline-section-title"><Plane size={16} /> Transit Schedule</h4>
+                <h4 className="timeline-section-title"><Plane size={16} /> Transits & Flights</h4>
               </div>
               <div className="timeline-section-actions">
                 {trip.canEdit !== false && (
@@ -800,7 +843,7 @@ function ItineraryPanel({
                 const isArrival = t.arrivalDate === activeDayStr;
                 
                 return (
-                  <div key={t.id} className="transport-card">
+                  <div key={t.id} className={`transport-card${openTransportMenuId === t.id ? ' dropdown-active' : ''}`}>
                     <div className="flex-align flex-1 min-w-0">
                       <div className="transport-icon-wrapper">
                         {t.type === 'flight' && <Plane size={16} />}
@@ -813,7 +856,9 @@ function ItineraryPanel({
 
                       <div className="transport-details-grid">
                         <div className="transport-flow" style={{ opacity: isDeparture ? 1 : 0.5 }}>
-                          <span className="transport-flow-sub">Departure {isDeparture && '🚩'}</span>
+                          <span className="transport-flow-sub">
+                            Departure {isDeparture && <ArrowUpRight size={11} className="transport-flag-icon" />}
+                          </span>
                           <span className="transport-flow-main">{t.departureLocationName}</span>
                           <span className="transport-time-detail">
                             {t.departureTime} ({t.departureTimezone}) - {formatDisplayDate(t.departureDate)}
@@ -821,7 +866,9 @@ function ItineraryPanel({
                         </div>
 
                         <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
-                          <span className="transport-flow-sub">Arrival {isArrival && '🏁'}</span>
+                          <span className="transport-flow-sub">
+                            Arrival {isArrival && <ArrowDownLeft size={11} className="transport-flag-icon" />}
+                          </span>
                           <span className="transport-flow-main">{t.arrivalLocationName}</span>
                           <span className="transport-time-detail">
                             {t.arrivalTime} ({t.arrivalTimezone}) - {formatDisplayDate(t.arrivalDate)}
@@ -830,17 +877,45 @@ function ItineraryPanel({
                       </div>
                     </div>
                     {trip.canEdit !== false && (
-                      <button className="trip-delete-btn" onClick={() => handleDeleteTransportation(t.id)}>
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="card-options-menu" onClick={e => e.stopPropagation()}>
+                        <button
+                          className="trip-delete-btn"
+                          onClick={() => setOpenTransportMenuId(prev => prev === t.id ? null : t.id)}
+                          data-tooltip="Options"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                        {openTransportMenuId === t.id && (
+                          <div className="dropdown-menu dropdown-menu--right">
+                            <button className="dropdown-item" onClick={() => { handleOpenEditTransport(t); setOpenTransportMenuId(null); }}>
+                              <Edit2 size={13} /> Edit
+                            </button>
+                            <button className="dropdown-item danger" onClick={() => { handleDeleteTransportation(t.id); setOpenTransportMenuId(null); }}>
+                              <Trash2 size={13} /> Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 );
               })}
 
-              {getTransportsForDay(activeDayStr).length === 0 && (
-                <p className="no-transport-text">No transit events scheduled.</p>
-              )}
+              {getTransportsForDay(activeDayStr).length === 0 && (() => {
+                const prevDayStr = daysList[daysList.indexOf(activeDayStr) - 1] ?? null;
+                const prevLocId = prevDayStr ? activePlan.days[prevDayStr]?.locationId : null;
+                const currLocId = activePlan.days[activeDayStr]?.locationId;
+                const prevLoc = prevLocId ? trip.locations.find(l => l.id === prevLocId) : null;
+                const currLoc = currLocId ? trip.locations.find(l => l.id === currLocId) : null;
+                if (prevLocId && currLocId && prevLocId !== currLocId) {
+                  return (
+                    <p className="no-transport-text no-transport-text--warning">
+                      <AlertTriangle size={12} /> No transit booked from {prevLoc?.city ?? 'previous location'} to {currLoc?.city ?? 'this location'}.
+                    </p>
+                  );
+                }
+                return <p className="no-transport-text">No transit booked.</p>;
+              })()}
             </div>
           </div>
 

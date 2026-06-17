@@ -199,10 +199,12 @@ async function findFolder(accessToken: string, name: string, parentId?: string):
 
 /**
  * Helper to create a folder.
+ * isTripPlannerSubfolder=true bypasses the root-level name guard for trip-specific subfolders inside trip_planner/.
  */
-async function createFolder(accessToken: string, name: string, parentId?: string): Promise<string> {
-  // Security Guardrail: Only allow creating 'apps' or 'trip_planner' folders
-  if (name !== 'apps' && name !== 'trip_planner') {
+async function createFolder(accessToken: string, name: string, parentId?: string, isTripPlannerSubfolder = false): Promise<string> {
+  // Security Guardrail: Only allow 'apps' or 'trip_planner' at root level.
+  // Arbitrary subfolder names are permitted only within the trip_planner folder.
+  if (!isTripPlannerSubfolder && name !== 'apps' && name !== 'trip_planner') {
     throw new Error(`Security Guardrail: Attempted to create folder '${name}' outside of allowed application folders.`);
   }
 
@@ -239,13 +241,118 @@ export async function getOrCreateTripPlannerFolder(accessToken: string): Promise
   if (!appsId) {
     appsId = await createFolder(accessToken, 'apps');
   }
-  
+
   let tripPlannerId = await findFolder(accessToken, 'trip_planner', appsId);
   if (!tripPlannerId) {
     tripPlannerId = await createFolder(accessToken, 'trip_planner', appsId);
   }
-  
+
   return tripPlannerId;
+}
+
+/**
+ * Ensures that a per-trip files folder exists inside trip_planner/ and returns its ID.
+ * Folder name: `${tripName}_files` (e.g. trip-abc123_files).
+ */
+export async function getOrCreateTripFileFolder(
+  accessToken: string,
+  tripPlannerFolderId: string,
+  tripName: string
+): Promise<string> {
+  const folderName = `${tripName}_files`;
+  let folderId = await findFolder(accessToken, folderName, tripPlannerFolderId);
+  if (!folderId) {
+    folderId = await createFolder(accessToken, folderName, tripPlannerFolderId, true);
+  }
+  return folderId;
+}
+
+/**
+ * Uploads a file to a Drive folder using multipart upload.
+ * Returns the new Drive file ID.
+ */
+export async function uploadFile(accessToken: string, folderId: string, file: File): Promise<string> {
+  const boundary = '-------314159265358979323846';
+  const metadata = JSON.stringify({ name: file.name, parents: [folderId] });
+  const fileContent = await file.arrayBuffer();
+
+  const body = [
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+    `--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`,
+  ];
+  const encoder = new TextEncoder();
+  const part1 = encoder.encode(body[0]);
+  const part2 = encoder.encode(body[1]);
+  const closing = encoder.encode(`\r\n--${boundary}--`);
+  const combined = new Uint8Array(part1.length + part2.length + fileContent.byteLength + closing.length);
+  combined.set(part1, 0);
+  combined.set(part2, part1.length);
+  combined.set(new Uint8Array(fileContent), part1.length + part2.length);
+  combined.set(closing, part1.length + part2.length + fileContent.byteLength);
+
+  const response = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body: combined,
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to upload file '${file.name}' to Google Drive`);
+  }
+  const data = await response.json();
+  return data.id;
+}
+
+/**
+ * Renames a Drive folder (or file) by ID.
+ */
+export async function renameFolderInDrive(accessToken: string, folderId: string, newName: string): Promise<void> {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${folderId}?supportsAllDrives=true`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: newName }),
+    }
+  );
+  if (!response.ok) {
+    console.error(`Failed to rename Drive item ${folderId} to '${newName}'`);
+  }
+}
+
+/**
+ * Fetches file content from Drive as base64, returning base64 string and mimeType.
+ */
+export async function fetchFileContentFromDrive(
+  accessToken: string,
+  fileId: string
+): Promise<{ base64: string; mimeType: string }> {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to fetch file content for ${fileId} from Drive`);
+  }
+  const mimeType = response.headers.get('content-type') || 'application/octet-stream';
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+  return { base64, mimeType };
 }
 
 /**
@@ -570,6 +677,14 @@ export async function saveTripsToDrive(
     }
   });
 
+  // Build a map from filename → filesFolderId for trips being saved (used for folder rename on deletion)
+  const filesFolderMap = new Map<string, string | undefined>(
+    activeTripsToSave.map(t => {
+      const filename = t.id.startsWith('trip-') ? `${t.id}.json` : `trip-${t.id}.json`;
+      return [filename, t.filesFolderId];
+    })
+  );
+
   // 3. Find files to delete (those in existingTripFilesMap but not in activeFilenames)
   const deletePromises: Promise<void>[] = [];
   existingTripFilesMap.forEach((fileId, filename) => {
@@ -591,6 +706,15 @@ export async function saveTripsToDrive(
           }
         })
       );
+
+      // Also rename the trip's _files folder if it exists
+      const tripFilesFolderId = filesFolderMap.get(filename);
+      if (tripFilesFolderId) {
+        const tripName = filename.replace('.json', '');
+        deletePromises.push(
+          renameFolderInDrive(accessToken, tripFilesFolderId, `[Deleted] ${tripName}_files`)
+        );
+      }
     }
   });
 

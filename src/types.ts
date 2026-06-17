@@ -64,6 +64,8 @@ export interface Transportation {
   carrier?: string;
   transitCode?: string;
   notes?: string;
+  confirmationNo?: string;
+  attachmentFileIds?: string[];
 }
 
 export interface Hotel {
@@ -71,8 +73,12 @@ export interface Hotel {
   name: string;
   address?: string;
   checkInDate: string;  // YYYY-MM-DD
+  checkInTime?: string; // HH:MM
   checkOutDate: string; // YYYY-MM-DD
+  checkOutTime?: string; // HH:MM
   notes?: string;
+  confirmationNo?: string;
+  attachmentFileIds?: string[];
 }
 
 export interface SchedulePlaceItem {
@@ -128,6 +134,7 @@ export interface Trip {
   updatedAt?: number;        // Timestamp of last modification
   driveFileId?: string;      // Google Drive file ID
   shadowFileId?: string;     // Google Drive file ID of the shadow file (for shared users)
+  filesFolderId?: string;    // Google Drive folder ID for this trip's uploaded attachment files
   isShadow?: boolean;        // True if this is a shadow file pointing to another user's shared file
   ownerEmail?: string;       // Email of the owner
   isOwner?: boolean;         // True if the current user is the owner
