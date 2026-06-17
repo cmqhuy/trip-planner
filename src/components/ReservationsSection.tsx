@@ -19,8 +19,8 @@ export default function ReservationsSection({
   return (
     <div className="accordion-content">
       {/* Reservations Content */}
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        
+      <div className="reservations-inner">
+
         {/* 1. Transits / Flights */}
         <div className="left-panel-subsection">
           <div className="subsection-header">
@@ -30,17 +30,17 @@ export default function ReservationsSection({
           </div>
           <div className="subsection-content">
             {activePlan.transports.map(t => (
-              <div key={t.id} className="glass-panel" style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px' }}>
+              <div key={t.id} className="glass-panel reservation-card">
                 <div className="flex-between">
-                  <strong style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
+                  <strong className="reservation-card-title">
                     {t.type.toUpperCase()}: {t.departureLocationName} → {t.arrivalLocationName}
                   </strong>
                 </div>
-                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                <span className="reservation-card-meta">
                   Departs: {t.departureDate} at {t.departureTime} ({t.departureTimezone})
                 </span>
                 {t.carrier && (
-                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '1px' }}>
+                  <span className="reservation-card-sub">
                     Carrier: {t.carrier} {t.transitCode && `| Code: ${t.transitCode}`}
                   </span>
                 )}
@@ -61,10 +61,10 @@ export default function ReservationsSection({
           </div>
           <div className="subsection-content">
             {activePlan.hotels.map(h => (
-              <div key={h.id} className="glass-panel" style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px' }}>
-                <strong style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{h.name}</strong>
-                {h.address && <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>📍 {h.address}</span>}
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '1px' }}>
+              <div key={h.id} className="glass-panel reservation-card">
+                <strong className="reservation-card-title">{h.name}</strong>
+                {h.address && <span className="reservation-card-meta">📍 {h.address}</span>}
+                <span className="reservation-card-sub">
                   Stay: {h.checkInDate} to {h.checkOutDate}
                 </span>
               </div>
@@ -120,26 +120,25 @@ export default function ReservationsSection({
 
               return placesNeedBooking.map(p => {
                 const dayIndex = p.earliestDate ? daysList.indexOf(p.earliestDate) + 1 : -1;
-                const dayLabel = dayIndex > 0 
+                const dayLabel = dayIndex > 0
                   ? `Day ${dayIndex} (${formatDisplayDate(p.earliestDate).split(',')[1]?.trim() || p.earliestDate})`
                   : '';
 
                 return (
-                  <div 
-                    key={p.id} 
-                    className="glass-panel" 
-                    style={{ padding: '8px 10px', borderColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px', cursor: 'pointer' }}
+                  <div
+                    key={p.id}
+                    className="glass-panel reservation-card reservation-card--clickable"
                     onClick={() => onPlaceClick(p.id)}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <strong style={{ fontSize: '12px', color: 'var(--text-primary)', flex: 1 }}>{p.title}</strong>
+                    <div className="reservation-card-header">
+                      <strong className="reservation-card-name">{p.title}</strong>
                       {dayLabel && (
-                        <span style={{ fontSize: '9px', color: 'var(--accent-primary)', fontWeight: 600, flexShrink: 0 }}>
+                        <span className="reservation-day-badge">
                           {dayLabel}
                         </span>
                       )}
                     </div>
-                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', marginTop: '4px', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="reservation-card-note">
                       {p.reservation}
                     </span>
                   </div>

@@ -126,7 +126,7 @@ export default function LocationModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel scrollable" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content modal-content--md glass-panel scrollable" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Edit Location</h3>
           <button className="modal-close" onClick={onClose}>
@@ -135,37 +135,28 @@ export default function LocationModal({
         </div>
 
         {/* Auto-Populate suggestions search */}
-        <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-          <label style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Auto-Populate Details</label>
-          <div style={{ position: 'relative', marginTop: '6px' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-            <input 
-              type="text" 
-              placeholder="Search city to auto-fill fields..." 
+        <div className="modal-autofill-panel">
+          <label>Auto-Populate Details</label>
+          <div className="modal-search-container">
+            <Search size={14} className="modal-search-icon" />
+            <input
+              type="text"
+              placeholder="Search city to auto-fill fields..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '32px' }}
+              className="modal-search-input"
             />
             {isSearching && (
-              <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
+              <div className="modal-search-loader">Searching...</div>
             )}
           </div>
-          
+
           {suggestions.length > 0 && (
-            <div style={{ 
-              background: 'var(--bg-panel)', 
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid var(--border-glass)', 
-              borderRadius: '6px', 
-              marginTop: '6px', 
-              maxHeight: '150px', 
-              overflowY: 'auto',
-              zIndex: 100
-            }}>
+            <div className="modal-suggestions-panel">
               {suggestions.map((sug) => (
-                <div 
-                  key={sug.id} 
+                <div
+                  key={sug.id}
+                  className="modal-suggestion-item"
                   onClick={() => {
                     setCity(sug.city);
                     setStateVal(sug.state || '');
@@ -177,17 +168,10 @@ export default function LocationModal({
                     setSearchQuery('');
                     setSuggestions([]);
                   }}
-                  style={{ 
-                    padding: '8px 12px', 
-                    cursor: 'pointer', 
-                    borderBottom: '1px solid rgba(255,255,255,0.03)', 
-                    fontSize: '12px',
-                    textTransform: 'none'
-                  }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div className="modal-suggestion-name">
                     {getLocIcon(sug as Location)} {sug.city}, {sug.country}
                   </div>
                 </div>
@@ -228,11 +212,10 @@ export default function LocationModal({
             />
           </div>
 
-          <div className="modal-actions sticky" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button 
-              type="button" 
-              className="btn-secondary flex-align"
-              style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.04)', gap: '4px' }}
+          <div className="modal-actions sticky modal-actions--between">
+            <button
+              type="button"
+              className="btn-secondary flex-align btn-danger-secondary"
               onClick={() => {
                 onDelete();
                 onClose();
@@ -240,8 +223,8 @@ export default function LocationModal({
             >
               <Trash2 size={14} /> Delete
             </button>
-            
-            <div style={{ display: 'flex', gap: '8px' }}>
+
+            <div className="modal-actions-right">
               <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn-primary">Save</button>
             </div>

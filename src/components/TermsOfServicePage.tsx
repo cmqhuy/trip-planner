@@ -2,52 +2,27 @@ const BASE = import.meta.env.BASE_URL;
 
 export default function TermsOfServicePage() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0b0f19',
-      color: '#e2e8f0',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-    }}>
+    <div className="tos-page">
       {/* Header */}
-      <header style={{
-        background: 'rgba(17, 24, 39, 0.6)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        padding: '12px 24px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-      }}>
+      <header className="tos-header">
         <a
           href={BASE}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#e2e8f0',
-            textDecoration: 'none',
-            fontSize: '13px',
-            opacity: 0.7,
-            transition: 'opacity 0.15s',
-          }}
+          className="tos-back-link"
           onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
           onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
         >
           ← Back to App
         </a>
-        <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
-        <span style={{ fontSize: '15px', fontWeight: 600 }}>Trip Planner</span>
+        <span className="tos-divider">|</span>
+        <span className="tos-brand">Trip Planner</span>
       </header>
 
       {/* Content */}
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px 80px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '8px', color: '#f1f5f9' }}>
+      <div className="tos-content">
+        <h1 className="tos-title">
           Terms of Service
         </h1>
-        <p style={{ color: 'rgba(148,163,184,0.8)', fontSize: '13px', marginBottom: '40px' }}>
+        <p className="tos-date">
           Effective date: June 14, 2026
         </p>
 
@@ -162,7 +137,7 @@ export default function TermsOfServicePage() {
         <Section title="Contact">
           <p>
             For any questions about these Terms of Service, please contact:&nbsp;
-            <a href="mailto:cmqhuy@gmail.com" style={{ color: '#818cf8' }}>cmqhuy@gmail.com</a>
+            <a href="mailto:cmqhuy@gmail.com" className="tos-email-link">cmqhuy@gmail.com</a>
           </p>
         </Section>
       </div>
@@ -172,27 +147,11 @@ export default function TermsOfServicePage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: '36px' }}>
-      <h2 style={{
-        fontSize: '16px',
-        fontWeight: 700,
-        color: '#818cf8',
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        marginBottom: '14px',
-        paddingBottom: '8px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-      }}>
+    <section className="tos-section">
+      <h2 className="tos-section-title">
         {title}
       </h2>
-      <div style={{
-        fontSize: '14px',
-        lineHeight: 1.7,
-        color: 'rgba(226,232,240,0.85)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-      }}>
+      <div className="tos-section-body">
         {children}
       </div>
     </section>

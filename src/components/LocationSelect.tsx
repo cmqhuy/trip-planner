@@ -15,11 +15,11 @@ interface LocationSelectProps {
   showClearOption?: boolean;
 }
 
-export default function LocationSelect({ 
-  value, 
-  onChange, 
-  locations, 
-  placeholder = "No Locations Added", 
+export default function LocationSelect({
+  value,
+  onChange,
+  locations,
+  placeholder = "No Locations Added",
   style,
   showAddNew = false,
   buttonStyle,
@@ -98,16 +98,16 @@ export default function LocationSelect({
           onMouseEnter={e => (locations.length > 0 || showAddNew) && (e.currentTarget.style.background = (buttonStyle?.background as string) || 'rgba(255, 255, 255, 0.05)')}
           onMouseLeave={e => !isOpen && (e.currentTarget.style.background = (buttonStyle?.background as string) || 'rgba(255, 255, 255, 0.03)')}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="loc-select-trigger-inner">
             {selectedLoc ? (
               <>
-                <span style={{ fontSize: '14px', flexShrink: 0 }}>{getLocIcon(selectedLoc)}</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span className="loc-select-emoji">{getLocIcon(selectedLoc)}</span>
+                <span className="loc-select-name">
                   {getFormattedLocationName(selectedLoc, locations)}
                 </span>
               </>
             ) : (
-              <span style={{ color: 'var(--text-muted)' }}>{placeholder}</span>
+              <span className="text-muted">{placeholder}</span>
             )}
           </div>
           {(locations.length > 0 || showAddNew) && (
@@ -118,23 +118,8 @@ export default function LocationSelect({
 
       {isOpen && (
         <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: roundTrigger ? 'auto' : 0,
-            right: 0,
-            width: roundTrigger ? '240px' : 'auto',
-            zIndex: 999,
-            background: 'var(--bg-panel)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid var(--border-glass)',
-            borderRadius: '6px',
-            maxHeight: '200px',
-            overflowY: 'auto',
-            padding: '4px',
-            boxShadow: 'var(--shadow-lg)'
-          }}
+          className="loc-select-dropdown"
+          style={{ left: roundTrigger ? 'auto' : 0, width: roundTrigger ? '240px' : 'auto' }}
         >
           {showClearOption && locations.length > 0 && (
             <>
@@ -172,12 +157,12 @@ export default function LocationSelect({
                   }
                 }}
               >
-                <MapPin size={14} style={{ flexShrink: 0 }} />
+                <MapPin size={14} className="flex-shrink-0" />
                 <span style={{ fontWeight: !value ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {placeholder && placeholder !== "No Locations Added" ? placeholder : "Select Location..."}
                 </span>
               </div>
-              <div style={{ height: '1px', background: 'var(--border-glass)', margin: '4px 0' }} />
+              <div className="loc-select-divider" />
             </>
           )}
           {locations.map(loc => {
@@ -218,7 +203,7 @@ export default function LocationSelect({
                   }
                 }}
               >
-                <span style={{ fontSize: '14px', flexShrink: 0 }}>{getLocIcon(loc)}</span>
+                <span className="loc-select-emoji">{getLocIcon(loc)}</span>
                 <span style={{ fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {getFormattedLocationName(loc, locations)}
                 </span>
@@ -227,23 +212,10 @@ export default function LocationSelect({
           })}
           {showAddNew && (
             <div
+              className="loc-select-add-new"
               onClick={() => {
                 onChange('ADD_NEW_LOCATION');
                 setIsOpen(false);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 8px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                color: 'var(--accent-primary)',
-                background: 'transparent',
-                transition: 'all 0.15s ease',
-                borderTop: '1px solid var(--border-glass)',
-                marginTop: '4px'
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)';
@@ -252,7 +224,7 @@ export default function LocationSelect({
                 e.currentTarget.style.background = 'transparent';
               }}
             >
-              <span style={{ fontWeight: 600 }}>+ Add New Location</span>
+              <span className="loc-select-add-new-label">+ Add New Location</span>
             </div>
           )}
         </div>

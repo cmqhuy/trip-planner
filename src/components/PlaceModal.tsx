@@ -290,13 +290,13 @@ export default function PlaceModal({
         </div>
 
         {/* Suggestions Search / Auto-Populate */}
-        <div className="form-group" style={{ padding: '0 12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label style={{ color: 'var(--accent-primary)', fontWeight: 600, margin: 0 }}>Auto-Populate Details</label>
+        <div className="modal-autofill-panel">
+          <div className="flex-between">
+            <label>Auto-Populate Details</label>
             <div
               data-tooltip={!GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE : (!title.trim() && !searchQuery.trim() ? 'Enter a place name or title first' : 'Fill all basic fields with AI')}
               data-tooltip-position="bottom"
-              style={{ display: 'flex', alignItems: 'center' }}
+              className="flex-align"
             >
               <button
                 type="button"
@@ -324,17 +324,17 @@ export default function PlaceModal({
               <span className="ai-error-text">{aiQuickFillError}</span>
             </div>
           )}
-          <div style={{ position: 'relative', marginTop: '6px' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
+          <div className="modal-search-container">
+            <Search size={14} className="modal-search-icon" />
             <input
               type="text"
               placeholder="Type to search, or paste a Google Maps link..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '32px' }}
+              className="modal-search-input"
             />
             {isSearching && (
-              <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Searching...</div>
+              <div className="modal-search-loader">Searching...</div>
             )}
           </div>
           {searchError && (
@@ -342,20 +342,11 @@ export default function PlaceModal({
           )}
 
           {suggestions.length > 0 && (
-            <div style={{ 
-              background: 'var(--bg-panel)', 
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid var(--border-glass)', 
-              borderRadius: '6px', 
-              marginTop: '6px', 
-              maxHeight: '150px', 
-              overflowY: 'auto',
-              zIndex: 100
-            }}>
+            <div className="modal-suggestions-panel">
               {suggestions.map((sug) => (
-                <div 
-                  key={sug.id} 
+                <div
+                  key={sug.id}
+                  className="modal-suggestion-item"
                   onClick={() => {
                     setTitle(sug.title);
                     setDescription(sug.description || '');
@@ -368,18 +359,11 @@ export default function PlaceModal({
                     setSearchQuery('');
                     setSuggestions([]);
                   }}
-                  style={{ 
-                    padding: '8px 12px', 
-                    cursor: 'pointer', 
-                    borderBottom: '1px solid rgba(255,255,255,0.03)', 
-                    fontSize: '12px',
-                    textTransform: 'none'
-                  }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{sug.title}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  <div className="modal-suggestion-name">{sug.title}</div>
+                  <div className="modal-suggestion-desc">
                     {sug.description}
                   </div>
                 </div>
@@ -432,12 +416,11 @@ export default function PlaceModal({
             />
           </div>
 
-          <div className="modal-actions sticky" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="modal-actions sticky modal-actions--between">
             {isEdit && onDelete ? (
-              <button 
-                type="button" 
-                className="btn-secondary flex-align"
-                style={{ color: 'var(--color-danger)', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.04)', gap: '4px' }}
+              <button
+                type="button"
+                className="btn-secondary flex-align btn-danger-secondary"
                 onClick={() => {
                   place && onDelete(place.id);
                   onClose();
@@ -446,10 +429,10 @@ export default function PlaceModal({
                 <Trash2 size={14} /> Delete
               </button>
             ) : (
-              <div /> // Spacer
+              <div />
             )}
-            
-            <div style={{ display: 'flex', gap: '8px' }}>
+
+            <div className="modal-actions-right">
               <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn-primary">
                 {isEdit ? 'Save' : 'Add Place'}

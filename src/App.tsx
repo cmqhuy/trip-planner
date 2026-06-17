@@ -1122,7 +1122,7 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Premium Header */}
-      <header className="app-header glass-panel" style={{ borderRadius: '0', borderWidth: '0 0 1px 0' }}>
+      <header className="app-header glass-panel">
         <div className="logo-section">
           {activeTrip && (
             <button
@@ -1130,16 +1130,15 @@ export default function App() {
               onClick={() => setActiveTripId(null)}
               data-tooltip="Back to Dashboard"
               data-tooltip-position="bottom"
-              style={{ padding: '6px', marginRight: '4px', display: 'flex', alignItems: 'center' }}
             >
               <ArrowLeft size={18} />
             </button>
           )}
-          <img src="logo.png" alt="Logo" className="header-logo-img" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+          <img src="logo.png" alt="Logo" className="header-logo-img" />
           <h1>Trip Planner</h1>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="app-header-nav">
           {(() => {
             const aiActiveCount = aiQueueItems.filter(i => i.status === 'pending' || i.status === 'running').length;
             return (
@@ -1196,7 +1195,7 @@ export default function App() {
       </header>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <main className="app-main">
         {activeTrip ? (
           <TripPlanner
             trip={activeTrip}

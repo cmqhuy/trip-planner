@@ -197,7 +197,7 @@ function CatalogSection({
                   type="checkbox"
                   checked={hideAllocatedPlaces}
                   onChange={(e) => setHideAllocatedPlaces(e.target.checked)}
-                  style={{ margin: 0, width: '13px', height: '13px', accentColor: 'var(--accent-primary)', minHeight: 'auto', cursor: 'pointer' }}
+                  className="catalog-checkbox"
                 />
                 Hide Allocated
               </label>
@@ -266,7 +266,7 @@ function CatalogSection({
                       {group.name}
                     </span>
                   </span>
-                  <div className="flex-align" style={{ gap: '4px' }}>
+                  <div className="flex-align flex-align--gap4">
                     {trip.canEdit !== false && (
                       <>
                         <button
@@ -677,10 +677,10 @@ function CatalogSection({
             <div ref={aiSuggestionsRef} className="place-group-section catalog-ai-suggestions-group">
               <div className="place-group-header">
                 <span className="place-group-title">
-                  <Sparkles size={12} style={{ color: '#a78bfa', flexShrink: 0 }} />
+                  <Sparkles size={12} className="text-ai-purple flex-shrink-0" />
                   <span className="catalog-ai-suggestions-label">AI Suggestions</span>
                 </span>
-                <div className="flex-align" style={{ gap: '4px' }}>
+                <div className="flex-align flex-align--gap4">
                   <button
                     className="mini-icon-btn catalog-ai-refresh-btn"
                     onClick={onAiSuggestPlaces}
@@ -718,7 +718,7 @@ function CatalogSection({
                           </div>
                         ) : (
                           <div className="place-card-thumb-container">
-                            <Sparkles size={14} style={{ color: '#a78bfa' }} />
+                            <Sparkles size={14} className="text-ai-purple" />
                           </div>
                         )}
                         <div className="place-card-info">

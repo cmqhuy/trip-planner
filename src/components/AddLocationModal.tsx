@@ -61,29 +61,29 @@ export default function AddLocationModal({ isOpen, onClose, onSelect, title }: A
             <X size={20} />
           </button>
         </div>
-        <div className="form-group" style={{ position: 'relative' }}>
+        <div className="form-group form-group--relative">
           <label htmlFor="search-city-location">Search City / Location</label>
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-            <input 
-              type="text" 
+          <div className="modal-search-container">
+            <Search size={14} className="modal-search-icon" />
+            <input
+              type="text"
               id="search-city-location"
-              placeholder="e.g. Rome, Tokyo, New York..." 
+              placeholder="e.g. Rome, Tokyo, New York..."
               value={query}
               onChange={e => setQuery(e.target.value)}
-              style={{ paddingLeft: '32px' }}
+              className="modal-search-input"
               autoFocus
             />
             {isSearching && (
-              <div style={{ position: 'absolute', right: '10px', top: '12px', fontSize: '10px', color: 'var(--text-muted)' }}>Loading...</div>
+              <div className="modal-search-loader">Loading...</div>
             )}
           </div>
-          
+
           {suggestions.length > 0 && (
-            <div className="autocomplete-dropdown" style={{ position: 'absolute', width: '100%', top: '100%' }}>
+            <div className="autocomplete-dropdown">
               {suggestions.map(loc => (
-                <div 
-                  key={loc.id} 
+                <div
+                  key={loc.id}
                   className="autocomplete-item"
                   onClick={() => {
                     onSelect(loc);
@@ -96,7 +96,7 @@ export default function AddLocationModal({ isOpen, onClose, onSelect, title }: A
             </div>
           )}
         </div>
-        <div className="modal-actions" style={{ marginTop: '40px' }}>
+        <div className="modal-actions modal-actions--mt40">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
         </div>
       </div>

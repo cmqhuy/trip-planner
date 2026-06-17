@@ -116,7 +116,7 @@ export default function PlaceFormFields({
     <div className="place-form-grid">
       <div className="place-form-left-col">
         <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <label className="place-form-label">
             Place Title
             {undoBtn(title, savedValues?.title, () => setTitle(savedValues!.title!))}
           </label>
@@ -130,7 +130,7 @@ export default function PlaceFormFields({
         </div>
 
         <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <label className="place-form-label">
             Description
             {undoBtn(description, savedValues?.description, () => setDescription(savedValues!.description!))}
           </label>
@@ -144,7 +144,7 @@ export default function PlaceFormFields({
 
         <div className="form-row form-row--top">
           <div className="form-group flex-1">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <label className="place-form-label">
               Opening Hours
               {undoBtn(openingHours, savedValues?.openingHours, () => setOpeningHours(savedValues!.openingHours!))}
             </label>
@@ -156,7 +156,7 @@ export default function PlaceFormFields({
             />
           </div>
           <div className="form-group flex-1">
-            <label style={{ marginBottom: '6px', display: 'block' }}>Category Group</label>
+            <label className="category-select-label">Category Group</label>
             <CategoryGroupSelect 
               value={groupId} 
               onChange={setGroupId} 
@@ -166,7 +166,7 @@ export default function PlaceFormFields({
         </div>
 
         <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <label className="place-form-label">
             Google Maps Link (Optional)
             {undoBtn(mapsLink, savedValues?.mapsLink, () => setMapsLink(savedValues!.mapsLink!))}
           </label>
@@ -179,7 +179,7 @@ export default function PlaceFormFields({
         </div>
 
         <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <label className="place-form-label">
             Hero Image Photo URL (Optional)
             {undoBtn(photoUrl, savedValues?.photoUrl, () => setPhotoUrl(savedValues!.photoUrl!))}
           </label>
@@ -193,7 +193,7 @@ export default function PlaceFormFields({
         </div>
 
         <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <label className="place-form-label">
             Notes
             {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes!))}
           </label>

@@ -42,9 +42,9 @@ export default function GoogleSettingsModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content glass-panel modal-content--md" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 className="flex-align" style={{ gap: '8px' }}>
+          <h3 className="modal-header-title">
             <Key size={18} className="text-accent" />
             Google Integration Settings
           </h3>
@@ -53,35 +53,34 @@ export default function GoogleSettingsModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: '16px' }}>
+        <form onSubmit={handleSubmit} className="google-settings-form">
           <div className="form-group">
             <label htmlFor="google-client-id-input">OAuth Client ID</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="google-settings-input-row">
               <input
                 type="text"
                 id="google-client-id-input"
                 value={inputClientId}
                 onChange={e => setInputClientId(e.target.value)}
                 placeholder={DEFAULT_CLIENT_ID}
-                style={{ flex: 1, fontSize: '13px' }}
+                className="google-settings-input"
               />
               {inputClientId && (
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn-secondary google-settings-use-default-btn"
                   onClick={handleResetClientId}
-                  style={{ padding: '0 12px', fontSize: '11px', whiteSpace: 'nowrap' }}
                 >
                   Use Default
                 </button>
               )}
             </div>
-            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <p className="google-settings-hint">
               Leave blank to use the app's default Client ID (configured for localhost development).
             </p>
           </div>
 
-          <div className="form-group" style={{ marginTop: '16px' }}>
+          <div className="form-group form-group--mt16">
             <label htmlFor="google-api-key-input">Developer API Key</label>
             <input
               type="password"
@@ -89,33 +88,22 @@ export default function GoogleSettingsModal({
               value={inputApiKey}
               onChange={e => setInputApiKey(e.target.value)}
               placeholder="AIzaSy..."
-              style={{ width: '100%', fontSize: '13px' }}
+              className="google-settings-api-input"
               required
             />
-            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <p className="google-settings-hint">
               Required for the Google Drive File Picker (to choose/open shared files securely).
             </p>
           </div>
 
-          <div
-            className="flex-align"
-            style={{
-              marginTop: '16px',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              background: 'rgba(99, 102, 241, 0.05)',
-              border: '1px solid rgba(99, 102, 241, 0.15)',
-              gap: '10px',
-              alignItems: 'flex-start',
-            }}
-          >
-            <ShieldAlert size={16} className="text-accent" style={{ marginTop: '2px', flexShrink: 0 }} />
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+          <div className="flex-align google-settings-security-note">
+            <ShieldAlert size={16} className="text-accent google-settings-shield" />
+            <div className="google-settings-security-text">
               <strong>Security & Restriction Tip:</strong> We recommend restricting your API key in the Google Cloud Console to only allow the <em>Google Picker API</em>, and adding HTTP referrer restrictions for <em>http://localhost:5173/*</em>.
             </div>
           </div>
 
-          <div className="modal-actions" style={{ marginTop: '24px' }}>
+          <div className="modal-actions modal-actions--mt24">
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>

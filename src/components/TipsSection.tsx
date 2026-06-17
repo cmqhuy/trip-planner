@@ -26,7 +26,7 @@ export default function TipsSection({
   return (
     <>
       {/* Location Select — fixed above the scroll area, does not scroll */}
-      <div style={{ padding: '12px 12px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
+      <div className="tips-location-header">
         <LocationSelect
           value={selectedCatalogLocId}
           onChange={setSelectedCatalogLocId}
@@ -42,8 +42,7 @@ export default function TipsSection({
           <div className="subsection-actions">
             {catalogLocation && trip.canEdit !== false && (
               <button
-                className="mini-icon-btn flex-align"
-                style={{ fontSize: '10px', padding: '2px 8px', gap: '4px', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)', flexShrink: 0 }}
+                className="mini-icon-btn flex-align tips-regen-btn"
                 onClick={onGenerateLocalEssentials}
                 disabled={generatingLocalEssentials}
               >
@@ -54,7 +53,7 @@ export default function TipsSection({
           </div>
         </div>
 
-        <span className="subsection-subtitle" style={{ textTransform: 'none', display: 'block', marginBottom: '4px' }}>
+        <span className="subsection-subtitle subsection-subtitle--block">
           Quick reference for convenience stores, currencies, local apps, dress codes, etc.
         </span>
 
@@ -69,14 +68,13 @@ export default function TipsSection({
               canEdit={trip.canEdit !== false}
             />
           ) : (
-            <div style={{ padding: '20px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
-              <span className="subsection-subtitle" style={{ display: 'block', marginBottom: '8px' }}>
+            <div className="tips-empty-state">
+              <span className="subsection-subtitle tips-empty-subtitle">
                 No Local Essentials Reference guide generated yet.
               </span>
               {catalogLocation && trip.canEdit !== false && (
                 <button
-                  className="btn-secondary flex-align"
-                  style={{ margin: '0 auto', fontSize: '11px', padding: '4px 10px', gap: '4px' }}
+                  className="btn-secondary flex-align tips-generate-btn"
                   onClick={onGenerateLocalEssentials}
                 >
                   <Sparkles size={11} /> Generate Tips

@@ -150,7 +150,7 @@ export default function AiSettingsModal({
                 <div className="ai-mode-section-content">
 
                   <div className="form-group form-group--mt16">
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label className="ai-keys-label">
                       <Key size={14} /> Gemini API Keys
                     </label>
                     <div className="api-key-info-box">

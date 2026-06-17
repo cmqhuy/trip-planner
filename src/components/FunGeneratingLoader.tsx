@@ -39,12 +39,12 @@ export default function FunGeneratingLoader({ title, message, style }: FunGenera
   if (title) {
     return (
       <div className="ai-generate-loading-container" style={style}>
-        <RefreshCw size={36} className="spin" style={{ color: 'var(--accent-primary)' }} />
-        <h4 style={{ textTransform: 'none' }}>{title}</h4>
-        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none', lineHeight: 1.4 }}>
+        <RefreshCw size={36} className="spin text-accent" />
+        <h4 className="fun-loader-h4">{title}</h4>
+        <p className="fun-loader-p">
           {message || 'Generating travel intelligence...'}
         </p>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textTransform: 'none', transition: 'all 0.3s ease' }}>
+        <span className="fun-loader-clause">
           {FUN_CLAUSES[clauseIndex]}
         </span>
       </div>
@@ -65,46 +65,18 @@ export default function FunGeneratingLoader({ title, message, style }: FunGenera
         ...style
       }}
     >
-      <div
-        style={{
-          position: 'relative',
-          width: '18px',
-          height: '18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
+      <div className="fun-loader-spinner">
         <RefreshCw
           size={18}
-          className="spin"
-          style={{
-            color: 'var(--accent-primary)',
-            opacity: 0.9
-          }}
+          className="spin fun-loader-spin-icon"
         />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <span
-          style={{
-            fontSize: '12.5px',
-            fontWeight: 600,
-            color: 'var(--text-primary)'
-          }}
-        >
+      <div className="fun-loader-text-group">
+        <span className="fun-loader-message">
           {message || 'Generating travel intelligence...'}
         </span>
-        <span
-          className="fun-clause-text"
-          style={{
-            fontSize: '11px',
-            color: 'var(--text-muted)',
-            fontStyle: 'italic',
-            minHeight: '16px',
-            transition: 'all 0.3s ease'
-          }}
-        >
+        <span className="fun-clause-text">
           {FUN_CLAUSES[clauseIndex]}
         </span>
       </div>

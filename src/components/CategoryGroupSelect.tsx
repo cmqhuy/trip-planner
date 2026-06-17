@@ -31,64 +31,29 @@ export default function CategoryGroupSelect({ value, onChange, placeGroups }: Ca
   }, []);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} className="category-group-select">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          padding: '8px 12px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid var(--border-glass)',
-          borderRadius: '6px',
-          color: 'var(--text-primary)',
-          cursor: 'pointer',
-          fontSize: '13px',
-          outline: 'none',
-          transition: 'all 0.15s ease',
-        }}
+        className="category-group-btn"
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
         onMouseLeave={e => !isOpen && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)')}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+        <div className="category-group-trigger-inner">
           <span
+            className="category-group-color-dot"
             style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
               backgroundColor: selectedGroup.color,
-              display: 'inline-block',
               boxShadow: `0 0 8px ${selectedGroup.color}80`,
-              flexShrink: 0,
             }}
           />
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedGroup.name}</span>
+          <span className="category-group-name">{selectedGroup.name}</span>
         </div>
         <ChevronDown size={14} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
 
       {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: 0,
-            right: 0,
-            zIndex: 999,
-            background: 'var(--bg-panel)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid var(--border-glass)',
-            borderRadius: '8px',
-            maxHeight: '200px',
-            overflowY: 'auto',
-            padding: '4px',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-          }}
-        >
+        <div className="category-group-dropdown">
           {groups.map(group => {
             const isSelected = group.id === value;
             return (
@@ -124,12 +89,9 @@ export default function CategoryGroupSelect({ value, onChange, placeGroups }: Ca
                 }}
               >
                 <span
+                  className="category-dropdown-color-dot"
                   style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
                     backgroundColor: group.color,
-                    display: 'inline-block',
                     boxShadow: `0 0 6px ${group.color}60`,
                   }}
                 />

@@ -66,80 +66,80 @@ export default function LocationFormFields({
     <>
       <div className="form-group">
         <label>City Name</label>
-        <input 
-          type="text" 
-          value={city} 
-          onChange={e => setCity(e.target.value)} 
-          required 
+        <input
+          type="text"
+          value={city}
+          onChange={e => setCity(e.target.value)}
+          required
         />
       </div>
 
       <div className="form-row">
         <div className="form-group">
           <label>State/Region (Optional)</label>
-          <input 
-            type="text" 
-            value={stateVal} 
-            onChange={e => setStateVal(e.target.value)} 
+          <input
+            type="text"
+            value={stateVal}
+            onChange={e => setStateVal(e.target.value)}
           />
         </div>
         <div className="form-group">
           <label>Country</label>
-          <input 
-            type="text" 
-            value={country} 
-            onChange={e => setCountry(e.target.value)} 
-            required 
+          <input
+            type="text"
+            value={country}
+            onChange={e => setCountry(e.target.value)}
+            required
           />
         </div>
       </div>
 
       <div className="form-group">
         <label>Country Code (Optional)</label>
-        <input 
-          type="text" 
-          value={countryCode} 
-          onChange={e => setCountryCode(e.target.value)} 
-          placeholder="e.g. US" 
-          style={{ maxWidth: '120px' }} 
+        <input
+          type="text"
+          value={countryCode}
+          onChange={e => setCountryCode(e.target.value)}
+          placeholder="e.g. US"
+          className="input--max-120"
         />
       </div>
 
       <div className="form-group">
         <label>Theme Color</label>
-        <ColorPalette 
-          value={color} 
-          onChange={setColor} 
+        <ColorPalette
+          value={color}
+          onChange={setColor}
         />
       </div>
 
       <div className="form-row">
         <div className="form-group">
           <label>Latitude</label>
-          <input 
-            type="text" 
-            value={lat} 
-            onChange={e => setLat(e.target.value)} 
-            required 
+          <input
+            type="text"
+            value={lat}
+            onChange={e => setLat(e.target.value)}
+            required
           />
         </div>
         <div className="form-group">
           <label>Longitude</label>
-          <input 
-            type="text" 
-            value={lng} 
-            onChange={e => setLng(e.target.value)} 
-            required 
+          <input
+            type="text"
+            value={lng}
+            onChange={e => setLng(e.target.value)}
+            required
           />
         </div>
       </div>
 
       <div className="form-group">
         <label>Hero Image Photo URL</label>
-        <input 
-          type="text" 
-          value={heroPhoto} 
-          onChange={e => setHeroPhoto(e.target.value)} 
+        <input
+          type="text"
+          value={heroPhoto}
+          onChange={e => setHeroPhoto(e.target.value)}
           placeholder="Photo URL..."
         />
         <ImagePreview url={heroPhoto} alt="Hero image preview" />
@@ -158,20 +158,12 @@ export default function LocationFormFields({
       </div>
 
       <div className="form-group">
-        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+        <label className="loc-reorder-label">
           Drag & Drop to Reorder Locations
         </label>
-        <div 
+        <div
           onDragLeave={() => setDragOverLocationIndex(null)}
-          style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '6px', 
-            background: 'var(--bg-dark)', 
-            padding: '8px', 
-            borderRadius: '8px', 
-            border: '1px solid var(--border-glass)' 
-          }}
+          className="loc-reorder-container"
         >
           {locations.map((loc, idx) => {
             const isCurrent = loc.id === currentLocationId;
@@ -179,7 +171,7 @@ export default function LocationFormFields({
             const isDragOver = idx === dragOverLocationIndex && draggedLocationIndex !== idx;
             const showLineAtBottom = draggedLocationIndex !== null && draggedLocationIndex < idx;
             return (
-              <div key={loc.id} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+              <div key={loc.id} className="loc-reorder-item-wrapper">
                 {isDragOver && (
                   <div style={{
                     position: 'absolute',
@@ -228,31 +220,23 @@ export default function LocationFormFields({
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = isCurrent ? 'var(--accent-primary)' : 'var(--border-glass)'}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                    <span style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center' }}>
+                  <div className="loc-reorder-row">
+                    <span className="loc-reorder-grip">
                       ☰
                     </span>
-                    <span style={{ fontSize: '16px' }}>{getLocIcon(loc)}</span>
-                    <span style={{ 
-                      fontSize: '13px', 
-                      fontWeight: isCurrent ? 600 : 400, 
-                      color: 'var(--text-primary)', 
-                      textOverflow: 'ellipsis', 
-                      overflow: 'hidden', 
-                      whiteSpace: 'nowrap' 
+                    <span className="loc-reorder-emoji">{getLocIcon(loc)}</span>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: isCurrent ? 600 : 400,
+                      color: 'var(--text-primary)',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap'
                     }}>
                       {getFormattedLocationName(loc)}
                     </span>
                     {isCurrent && (
-                      <span style={{ 
-                        fontSize: '10px', 
-                        background: 'var(--accent-primary)', 
-                        color: '#fff', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px', 
-                        marginLeft: 'auto', 
-                        fontWeight: 600 
-                      }}>
+                      <span className="loc-active-badge">
                         Active
                       </span>
                     )}

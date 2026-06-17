@@ -61,79 +61,46 @@ export default function GroupFormFields({
     <>
       <div className="form-group">
         <label>Group Name</label>
-        <input 
-          type="text" 
-          value={name} 
-          onChange={e => setName(e.target.value)} 
-          placeholder={placeholder} 
-          required 
-          autoFocus 
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder={placeholder}
+          required
+          autoFocus
         />
       </div>
-      
-      <div className="form-row" style={{ alignItems: 'flex-start' }}>
-        <div className="form-group" style={{ flex: 1 }}>
-          <label style={{ marginBottom: '8px', display: 'block' }}>Color</label>
+
+      <div className="form-row form-row--top">
+        <div className="form-group flex-1">
+          <label>Color</label>
           <ColorPalette value={color} onChange={setColor} />
         </div>
 
-        <div className="form-group" style={{ flex: 1, position: 'relative' }} ref={containerRef}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="form-group group-form-icon-select" ref={containerRef}>
+          <label>
             Icon Style
-            <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}>
+            <span className="group-icon-preview">
               {getIconComponent(icon)}
             </span>
           </label>
-          
+
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              padding: '8px 12px',
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--border-glass)',
-              borderRadius: '6px',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              fontSize: '13px',
-              outline: 'none',
-              transition: 'all 0.15s ease',
-              textAlign: 'left',
-              boxSizing: 'border-box'
-            }}
+            className="group-icon-btn"
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
             onMouseLeave={e => !isOpen && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)')}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
-              <span style={{ flexShrink: 0 }}>{selectedOption.emoji}</span>
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedOption.label}</span>
+            <div className="group-icon-trigger-inner">
+              <span className="flex-shrink-0">{selectedOption.emoji}</span>
+              <span className="group-icon-label">{selectedOption.label}</span>
             </div>
             <ChevronDown size={14} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
           </button>
 
           {isOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 4px)',
-                left: 0,
-                right: 0,
-                zIndex: 999,
-                background: 'var(--bg-panel)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                border: '1px solid var(--border-glass)',
-                borderRadius: '8px',
-                maxHeight: '200px',
-                overflowY: 'auto',
-                padding: '4px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-              }}
-            >
+            <div className="group-icon-dropdown">
               {options.map(option => {
                 const isSelected = option.value === icon;
                 return (
@@ -168,7 +135,7 @@ export default function GroupFormFields({
                       }
                     }}
                   >
-                    <span style={{ flexShrink: 0 }}>{option.emoji}</span>
+                    <span className="flex-shrink-0">{option.emoji}</span>
                     <span style={{ fontWeight: isSelected ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{option.label}</span>
                   </div>
                 );
