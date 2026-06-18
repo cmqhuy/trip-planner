@@ -198,6 +198,21 @@ File sizes as of the last audit. Read these before adding features — these are
 
 **State ref duplication in App.tsx**: `tripsRef`, `googleTokenRef`, `googleFolderIdRef`, `activeTripIdRef`, `syncTimestampsRef` mirror their `useState` counterparts. This is intentional — sync callbacks need the latest value without re-registering effects. Don't remove these refs.
 
+**Style reuse**: When a new component resembles an existing one, identify the exact CSS classes and copy them verbatim — do not create new rules for an identical visual pattern.
+
+| Purpose | Context | CSS classes |
+|---------|---------|-------------|
+| Card title | Catalog | `.catalog-place-title` |
+| Card title | Day view | `.place-title-text` |
+| Secondary text | Catalog | `.catalog-place-desc` |
+| Secondary text | Day view | `.place-desc-text` |
+| Date tags | Catalog / Reservations | `.catalog-allocated-days` / `.catalog-day-tag` / `.catalog-day-tag--active` |
+| Notes (view+edit) | Catalog | `.catalog-notes-box`, `.catalog-notes-label`, `.catalog-notes-textarea`, `.catalog-notes-actions` |
+| Notes (view) | Day view | `.place-note-wrapper` |
+| Notes (edit) | Day view | `.place-notes-btn-wrapper`, `.place-notes-textarea`, `.place-notes-actions` |
+| Expand/collapse wrapper | All cards | `.card-expandable-wrapper` + `.is-expanded` on the wrapper |
+| Expand/collapse chevron | All cards | `<ChevronDown className={`expand-chevron${open ? ' is-open' : ''}`} />` |
+
 ---
 
 ## Performance Guidelines

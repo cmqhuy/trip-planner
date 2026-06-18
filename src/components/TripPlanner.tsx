@@ -1706,6 +1706,15 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setShowTransportModal(true);
   }, []);
 
+  const handleSaveTransportNotes = useCallback((transportId: string, notes: string) => {
+    const updatedPlans = trip.plans.map(p =>
+      p.id === activePlan.id
+        ? { ...p, transports: p.transports.map(t => t.id === transportId ? { ...t, notes } : t) }
+        : p
+    );
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+  }, [trip, activePlan, onUpdateTrip]);
+
   const handleDeleteTransportation = useCallback((id: string) => {
     const transport = activePlan.transports.find(t => t.id === id);
     if (transport) setDeleteTransportData(transport);
@@ -1771,6 +1780,15 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setEditingHotel(hotel);
     setShowHotelModal(true);
   }, []);
+
+  const handleSaveHotelNotes = useCallback((hotelId: string, notes: string) => {
+    const updatedPlans = trip.plans.map(p =>
+      p.id === activePlan.id
+        ? { ...p, hotels: p.hotels.map(h => h.id === hotelId ? { ...h, notes } : h) }
+        : p
+    );
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+  }, [trip, activePlan, onUpdateTrip]);
 
   const handleDeleteHotel = useCallback((id: string) => {
     const hotel = activePlan.hotels.find(h => h.id === id);
@@ -2317,6 +2335,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleDeleteTransportation={handleDeleteTransportation}
         handleOpenEditHotel={handleOpenEditHotel}
         handleOpenEditTransport={handleOpenEditTransport}
+        handleSaveHotelNotes={handleSaveHotelNotes}
+        handleSaveTransportNotes={handleSaveTransportNotes}
         handleGenerateSingleDayTips={handleGenerateSingleDayTips}
         handleSaveDayTips={handleSaveDayTips}
         handleSaveBabyLogistics={handleSaveBabyLogistics}

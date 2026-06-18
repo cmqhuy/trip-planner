@@ -1283,6 +1283,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   ): Promise<{
     name?: string; address?: string; checkInDate?: string; checkInTime?: string;
     checkOutDate?: string; checkOutTime?: string; confirmationNo?: string; notes?: string;
+    bookedThrough?: string; price?: number; currency?: string; lat?: number; lng?: number;
   }> {
     const totalBase64Size = fileContents.reduce((sum, f) => sum + f.base64.length, 0);
     if (totalBase64Size > 10 * 1024 * 1024) {
@@ -1314,6 +1315,11 @@ Ensure coordinates are accurate and the places span a variety of types.`;
                 checkOutTime: { type: 'STRING' },
                 confirmationNo: { type: 'STRING' },
                 notes: { type: 'STRING' },
+                bookedThrough: { type: 'STRING' },
+                price: { type: 'NUMBER' },
+                currency: { type: 'STRING' },
+                lat: { type: 'NUMBER' },
+                lng: { type: 'NUMBER' },
               },
             }
           }
@@ -1337,6 +1343,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   ): Promise<{
     name?: string; address?: string; checkInDate?: string; checkInTime?: string;
     checkOutDate?: string; checkOutTime?: string; confirmationNo?: string; notes?: string;
+    bookedThrough?: string; price?: number; currency?: string; lat?: number; lng?: number;
   }> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
@@ -1361,6 +1368,9 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     departureDate?: string; departureTime?: string; departureTimezone?: string;
     arrivalDate?: string; arrivalTime?: string; arrivalTimezone?: string;
     carrier?: string; transitCode?: string; confirmationNo?: string; notes?: string;
+    name?: string; bookedThrough?: string; price?: number; currency?: string;
+    departureAddress?: string; departureLat?: number; departureLng?: number;
+    arrivalAddress?: string; arrivalLat?: number; arrivalLng?: number;
   }> {
     const totalBase64Size = fileContents.reduce((sum, f) => sum + f.base64.length, 0);
     if (totalBase64Size > 10 * 1024 * 1024) {
@@ -1397,6 +1407,16 @@ Ensure coordinates are accurate and the places span a variety of types.`;
                 transitCode: { type: 'STRING' },
                 confirmationNo: { type: 'STRING' },
                 notes: { type: 'STRING' },
+                name: { type: 'STRING' },
+                bookedThrough: { type: 'STRING' },
+                price: { type: 'NUMBER' },
+                currency: { type: 'STRING' },
+                departureAddress: { type: 'STRING' },
+                departureLat: { type: 'NUMBER' },
+                departureLng: { type: 'NUMBER' },
+                arrivalAddress: { type: 'STRING' },
+                arrivalLat: { type: 'NUMBER' },
+                arrivalLng: { type: 'NUMBER' },
               },
             }
           }
@@ -1422,6 +1442,9 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     departureDate?: string; departureTime?: string; departureTimezone?: string;
     arrivalDate?: string; arrivalTime?: string; arrivalTimezone?: string;
     carrier?: string; transitCode?: string; confirmationNo?: string; notes?: string;
+    name?: string; bookedThrough?: string; price?: number; currency?: string;
+    departureAddress?: string; departureLat?: number; departureLng?: number;
+    arrivalAddress?: string; arrivalLat?: number; arrivalLng?: number;
   }> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);

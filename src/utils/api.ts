@@ -509,3 +509,17 @@ export const getFormattedLocationName = (loc: Location, allLocations: Location[]
 
   return loc.city;
 };
+
+export async function lookupTimezone(lat: number, lng: number): Promise<string | null> {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&timezone=auto&forecast_days=0`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return typeof data.timezone === 'string' ? data.timezone : null;
+  } catch {
+    return null;
+  }
+}

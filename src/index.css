@@ -748,13 +748,37 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-radius: 8px;
   background: rgba(30, 41, 59, 0.2);
   border: 1px solid var(--border-glass);
-  transition: var(--transition-smooth);
+  transition: border-color 0.25s ease, background-color 0.25s ease;
   cursor: grab;
 }
 
 .catalog-place-card:hover {
   border-color: rgba(255, 255, 255, 0.15);
   background: rgba(30, 41, 59, 0.35);
+}
+
+/* Expand/collapse animation wrapper — use grid-template-rows trick to avoid max-height bounce */
+.card-expandable-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.card-expandable-wrapper.is-expanded {
+  grid-template-rows: 1fr;
+}
+.card-expandable-wrapper > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Chevron used in expandable cards — rotate on open */
+.expand-chevron {
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.expand-chevron.is-open {
+  transform: rotate(180deg);
 }
 
 .place-card-header {
@@ -776,7 +800,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   min-width: 0;
 }
 
-.place-card-title {
+.catalog-place-title {
   font-size: 14.5px;
   font-weight: 600;
   color: var(--text-primary);
@@ -1084,8 +1108,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: rgba(245, 158, 11, 0.05);
   border: 1px solid rgba(245, 158, 11, 0.15);
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transport-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.transport-card-actions {
+  display: flex;
   align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 
 .transport-icon-wrapper {
@@ -1098,6 +1137,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .transport-details-grid {
@@ -1130,8 +1170,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: rgba(16, 185, 129, 0.05);
   border: 1px solid rgba(16, 185, 129, 0.15);
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hotel-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.hotel-card-actions {
+  display: flex;
   align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 
 .hotel-icon-wrapper {
@@ -1144,6 +1199,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 
 /* Right Panel: Map Container */
@@ -2730,7 +2786,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-places-list--mh { min-height: 30px; }
 .catalog-place-wrapper { display: flex; flex-direction: column; position: relative; }
 .catalog-place-info-header { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 6px; }
-.place-card-title--no-margin { margin: 0; }
+.catalog-place-title--no-margin { margin: 0; }
 .catalog-allocated-days { display: flex; gap: 3px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; max-width: 120px; }
 .catalog-group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .catalog-place-actions-desktop--gap { gap: 4px; }
@@ -2788,9 +2844,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .timeline-place-map-link { padding: 2px 4px; font-size: 9px; text-decoration: none; border-radius: 4px; display: flex; align-items: center; justify-content: center; width: 36px; box-sizing: border-box; text-align: center; height: 18px; }
 .timeline-place-number { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.08); color: var(--text-primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 .timeline-place-number--ai { background: rgba(167,139,250,0.2); color: #c4b5fd; }
-.timeline-place-title { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
-.place-excerpt-text { font-size: 13px; color: var(--text-muted); }
-.place-notes-col { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.place-title-text { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.place-desc-text { font-size: 13px; color: var(--text-muted); }
+.place-notes-btn-wrapper { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .place-notes-textarea { padding: 6px; font-size: 12.5px; width: 100%; background: var(--bg-dark); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; text-transform: none; }
 .place-notes-actions { display: flex; gap: 6px; align-self: flex-end; }
 .place-notes-btn { padding: 2px 6px; font-size: 10px; }
@@ -3158,6 +3214,10 @@ div.google-auth-avatar-desktop {
   .catalog-place-actions-desktop {
     display: none !important;
   }
+
+  /* Reservation card mobile/desktop action visibility */
+  .reservation-card-actions-desktop { display: none !important; }
+  .reservation-card-mobile-menu { display: flex !important; }
   .catalog-place-actions-mobile {
     display: flex !important;
     flex-direction: row !important;
@@ -3955,6 +4015,17 @@ div.google-auth-avatar-desktop {
 .reservation-card-expanded-content { border-top: 1px solid var(--border-glass); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 .reservation-card-notes { font-size: 11px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
 .reservation-card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Date tags for reservation cards */
+.catalog-day-tag { font-size: 9px; font-weight: 600; padding: 2px 5px; border-radius: 4px; background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.05); white-space: nowrap; }
+.catalog-day-tag--active { background: rgba(99,102,241,0.35); color: #ffffff; border-color: var(--accent-primary); }
+
+/* Reservation card right column (date tags + chevron) */
+.reservation-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* Desktop/mobile visibility for reservation card actions */
+.reservation-card-actions-desktop { display: flex; gap: 6px; }
+.reservation-card-mobile-menu { display: none; position: relative; }
 
 /* mini-icon-btn danger variant */
 .mini-icon-btn--danger { color: var(--color-danger); }

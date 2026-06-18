@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import type { Transportation } from '../types';
 import { GeminiService } from '../utils/ai';
+import { CURRENCY_LIST } from '../utils/currencies';
+import { lookupTimezone } from '../utils/api';
+import MapPicker from './MapPicker';
 import {
   getOrCreateTripFileFolder,
   uploadFile,
@@ -44,11 +47,7 @@ const TRANSPORT_TYPES: { value: Transportation['type']; label: string; Icon: Rea
 ];
 
 function getBrowserTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return 'UTC';
-  }
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return 'UTC'; }
 }
 
 function getUtcOffsetMinutes(tz: string): number {
@@ -58,9 +57,16 @@ function getUtcOffsetMinutes(tz: string): number {
     const m = offsetStr.match(/GMT([+-])(\d+)(?::(\d+))?/);
     if (!m) return 0;
     return (m[1] === '+' ? 1 : -1) * (parseInt(m[2]) * 60 + parseInt(m[3] ?? '0'));
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
+}
+
+function formatTimezoneLabel(tz: string): string {
+  const mins = getUtcOffsetMinutes(tz);
+  const sign = mins >= 0 ? '+' : '-';
+  const absMins = Math.abs(mins);
+  const h = String(Math.floor(absMins / 60)).padStart(2, '0');
+  const m = String(absMins % 60).padStart(2, '0');
+  return `(GMT${sign}${h}:${m}) ${tz}`;
 }
 
 const ALL_TIMEZONES: string[] = (() => {
@@ -76,11 +82,27 @@ const ALL_TIMEZONES: string[] = (() => {
   }
 })();
 
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+    clearTimeout(timeout);
+    const data = await res.json();
+    if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    return null;
+  } catch { return null; }
+}
+
 type SavedValues = {
-  type: Transportation['type']; depLoc: string; arrLoc: string;
+  transitName: string; type: Transportation['type']; depLoc: string; arrLoc: string;
   depDate: string; arrDate: string; depTime: string; arrTime: string;
   depTz: string; arrTz: string; carrier: string; transitCode: string;
-  confirmationNo: string; notes: string;
+  confirmationNo: string; bookedThrough: string; price: string; currency: string;
+  depAddress: string; depLat: string; depLng: string;
+  arrAddress: string; arrLat: string; arrLng: string;
+  notes: string;
 };
 
 export default function TransportModal({
@@ -99,6 +121,7 @@ export default function TransportModal({
 }: TransportModalProps) {
   const browserTz = getBrowserTimezone();
 
+  const [transitName, setTransitName] = useState('');
   const [type, setType] = useState<Transportation['type']>('flight');
   const [depLoc, setDepLoc] = useState('');
   const [arrLoc, setArrLoc] = useState('');
@@ -111,6 +134,15 @@ export default function TransportModal({
   const [carrier, setCarrier] = useState('');
   const [transitCode, setTransitCode] = useState('');
   const [confirmationNo, setConfirmationNo] = useState('');
+  const [bookedThrough, setBookedThrough] = useState('');
+  const [price, setPrice] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [depAddress, setDepAddress] = useState('');
+  const [depLat, setDepLat] = useState('');
+  const [depLng, setDepLng] = useState('');
+  const [arrAddress, setArrAddress] = useState('');
+  const [arrLat, setArrLat] = useState('');
+  const [arrLng, setArrLng] = useState('');
   const [notes, setNotes] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -119,16 +151,17 @@ export default function TransportModal({
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
   const [removePrompt, setRemovePrompt] = useState<AttachedFile | null>(null);
 
-  // Combo box open states
   const [typeOpen, setTypeOpen] = useState(false);
   const [depTzOpen, setDepTzOpen] = useState(false);
   const [depTzSearch, setDepTzSearch] = useState('');
   const [arrTzOpen, setArrTzOpen] = useState(false);
   const [arrTzSearch, setArrTzSearch] = useState('');
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const depTzTriggerRef = useRef<HTMLButtonElement>(null);
   const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
+  const currencyRef = useRef<HTMLDivElement>(null);
   const [depTzPos, setDepTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [arrTzPos, setArrTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
@@ -136,6 +169,7 @@ export default function TransportModal({
     if (isOpen) {
       const t = editingTransport;
       const initial: SavedValues = {
+        transitName: t?.name ?? '',
         type: t?.type ?? 'flight',
         depLoc: t?.departureLocationName ?? '',
         arrLoc: t?.arrivalLocationName ?? '',
@@ -148,8 +182,18 @@ export default function TransportModal({
         carrier: t?.carrier ?? '',
         transitCode: t?.transitCode ?? '',
         confirmationNo: t?.confirmationNo ?? '',
+        bookedThrough: t?.bookedThrough ?? '',
+        price: t?.price != null ? String(t.price) : '',
+        currency: t?.currency ?? 'USD',
+        depAddress: t?.departureAddress ?? '',
+        depLat: t?.departureLat != null ? String(t.departureLat) : '',
+        depLng: t?.departureLng != null ? String(t.departureLng) : '',
+        arrAddress: t?.arrivalAddress ?? '',
+        arrLat: t?.arrivalLat != null ? String(t.arrivalLat) : '',
+        arrLng: t?.arrivalLng != null ? String(t.arrivalLng) : '',
         notes: t?.notes ?? '',
       };
+      setTransitName(initial.transitName);
       setType(initial.type);
       setDepLoc(initial.depLoc);
       setArrLoc(initial.arrLoc);
@@ -162,6 +206,15 @@ export default function TransportModal({
       setCarrier(initial.carrier);
       setTransitCode(initial.transitCode);
       setConfirmationNo(initial.confirmationNo);
+      setBookedThrough(initial.bookedThrough);
+      setPrice(initial.price);
+      setCurrency(initial.currency);
+      setDepAddress(initial.depAddress);
+      setDepLat(initial.depLat);
+      setDepLng(initial.depLng);
+      setArrAddress(initial.arrAddress);
+      setArrLat(initial.arrLat);
+      setArrLng(initial.arrLng);
       setNotes(initial.notes);
       setAttachedFiles(
         (t?.attachmentFileIds ?? []).map((id, i) => ({ name: `File ${i + 1}`, fileId: id }))
@@ -172,11 +225,11 @@ export default function TransportModal({
       setTypeOpen(false);
       setDepTzOpen(false);
       setArrTzOpen(false);
+      setCurrencyOpen(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Outside-click handlers for dropdowns
   useEffect(() => {
     if (!typeOpen) return;
     const handler = () => setTypeOpen(false);
@@ -198,6 +251,17 @@ export default function TransportModal({
     return () => document.removeEventListener('click', handler);
   }, [arrTzOpen]);
 
+  useEffect(() => {
+    if (!currencyOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (currencyRef.current && !currencyRef.current.contains(e.target as Node)) {
+        setCurrencyOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [currencyOpen]);
+
   const handleDepDateChange = (val: string) => {
     setDepDate(val);
     if (arrDate < val) setArrDate(val);
@@ -206,7 +270,9 @@ export default function TransportModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!depLoc.trim() || !arrLoc.trim() || !depDate || !arrDate || !depTime || !arrTime || !depTz || !arrTz) return;
+    const parsedPrice = price.trim() ? parseFloat(price) : undefined;
     onSave({
+      name: transitName.trim() || undefined,
       type,
       departureLocationName: depLoc.trim(),
       arrivalLocationName: arrLoc.trim(),
@@ -219,6 +285,15 @@ export default function TransportModal({
       carrier: carrier.trim() || undefined,
       transitCode: transitCode.trim() || undefined,
       confirmationNo: confirmationNo.trim() || undefined,
+      bookedThrough: bookedThrough.trim() || undefined,
+      price: parsedPrice,
+      currency: parsedPrice != null ? currency : undefined,
+      departureAddress: depAddress.trim() || undefined,
+      departureLat: depLat.trim() ? parseFloat(depLat) : undefined,
+      departureLng: depLng.trim() ? parseFloat(depLng) : undefined,
+      arrivalAddress: arrAddress.trim() || undefined,
+      arrivalLat: arrLat.trim() ? parseFloat(arrLat) : undefined,
+      arrivalLng: arrLng.trim() ? parseFloat(arrLng) : undefined,
       notes: notes.trim() || undefined,
       attachmentFileIds: attachedFiles.map(f => f.fileId),
     });
@@ -232,9 +307,7 @@ export default function TransportModal({
       const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
       onFileFolderCreated?.(folderId);
       return folderId;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,6 +356,7 @@ export default function TransportModal({
         attachedFiles.map(f => fetchFileContentFromDrive(googleToken!, f.fileId))
       );
       const result = await GeminiService.generateTransitDetailsFromFilesWithRotation(fileContents);
+      if (result.name) setTransitName(result.name);
       if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) {
         setType(result.type as Transportation['type']);
       }
@@ -290,14 +364,51 @@ export default function TransportModal({
       if (result.arrivalLocationName) setArrLoc(result.arrivalLocationName);
       if (result.departureDate) setDepDate(result.departureDate);
       if (result.departureTime) setDepTime(result.departureTime);
-      if (result.departureTimezone) setDepTz(result.departureTimezone);
       if (result.arrivalDate) setArrDate(result.arrivalDate);
       if (result.arrivalTime) setArrTime(result.arrivalTime);
-      if (result.arrivalTimezone) setArrTz(result.arrivalTimezone);
       if (result.carrier) setCarrier(result.carrier);
       if (result.transitCode) setTransitCode(result.transitCode);
       if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
+      if (result.bookedThrough) setBookedThrough(result.bookedThrough);
+      if (result.price != null) setPrice(String(result.price));
+      if (result.currency) setCurrency(result.currency);
       if (result.notes) setNotes(result.notes);
+
+      // Handle departure address + coords + timezone
+      let dLat = result.departureLat;
+      let dLng = result.departureLng;
+      if (result.departureAddress) { setDepAddress(result.departureAddress); }
+      if (dLat != null && dLng != null) {
+        setDepLat(String(dLat));
+        setDepLng(String(dLng));
+      } else if (result.departureAddress && !depLat && !depLng) {
+        const coords = await geocodeAddress(result.departureAddress);
+        if (coords) { dLat = coords.lat; dLng = coords.lng; setDepLat(coords.lat.toFixed(6)); setDepLng(coords.lng.toFixed(6)); }
+      }
+      if (result.departureTimezone) {
+        setDepTz(result.departureTimezone);
+      } else if (dLat != null && dLng != null) {
+        const tz = await lookupTimezone(dLat, dLng);
+        if (tz) setDepTz(tz);
+      }
+
+      // Handle arrival address + coords + timezone
+      let aLat = result.arrivalLat;
+      let aLng = result.arrivalLng;
+      if (result.arrivalAddress) { setArrAddress(result.arrivalAddress); }
+      if (aLat != null && aLng != null) {
+        setArrLat(String(aLat));
+        setArrLng(String(aLng));
+      } else if (result.arrivalAddress && !arrLat && !arrLng) {
+        const coords = await geocodeAddress(result.arrivalAddress);
+        if (coords) { aLat = coords.lat; aLng = coords.lng; setArrLat(coords.lat.toFixed(6)); setArrLng(coords.lng.toFixed(6)); }
+      }
+      if (result.arrivalTimezone) {
+        setArrTz(result.arrivalTimezone);
+      } else if (aLat != null && aLng != null) {
+        const tz = await lookupTimezone(aLat, aLng);
+        if (tz) setArrTz(tz);
+      }
     } catch (err: any) {
       setAiError(err.message || 'AI fill failed.');
     } finally {
@@ -314,15 +425,11 @@ export default function TransportModal({
     );
   };
 
-  const filteredDepTz = ALL_TIMEZONES.filter(tz =>
-    tz.toLowerCase().includes(depTzSearch.toLowerCase())
-  ).slice(0, 50);
-
-  const filteredArrTz = ALL_TIMEZONES.filter(tz =>
-    tz.toLowerCase().includes(arrTzSearch.toLowerCase())
-  ).slice(0, 50);
+  const filteredDepTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(depTzSearch.toLowerCase()));
+  const filteredArrTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(arrTzSearch.toLowerCase()));
 
   const selectedTypeObj = TRANSPORT_TYPES.find(t => t.value === type) ?? TRANSPORT_TYPES[0];
+  const selectedCurrency = CURRENCY_LIST.find(c => c.code === currency) ?? { code: currency, name: currency };
 
   if (!isOpen) return null;
 
@@ -335,12 +442,27 @@ export default function TransportModal({
           onClick={e => e.stopPropagation()}
         >
           <div className="modal-header">
-            <h3>Transit Details</h3>
+            <h3>{editingTransport ? 'Edit Transit Details' : 'Add Transit Details'}</h3>
             <button className="modal-close" onClick={onClose}><X size={20} /></button>
           </div>
 
           <form onSubmit={handleSubmit}>
             <div className="modal-scroll-body">
+
+              {/* Transit Name */}
+              <div className="form-group">
+                <label htmlFor="transit-name">
+                  Transit Name (Optional)
+                  {undoBtn(transitName, savedValues?.transitName, () => setTransitName(savedValues!.transitName))}
+                </label>
+                <input
+                  type="text"
+                  id="transit-name"
+                  value={transitName}
+                  onChange={e => setTransitName(e.target.value)}
+                  placeholder="Flight to Seattle"
+                />
+              </div>
 
               {/* Type combo box */}
               <div className="form-group">
@@ -358,7 +480,7 @@ export default function TransportModal({
                       <selectedTypeObj.Icon size={14} />
                       {selectedTypeObj.label}
                     </span>
-                    <ChevronDown size={14} className={typeOpen ? 'chevron-open' : ''} />
+                    <ChevronDown size={14} className={`expand-chevron${typeOpen ? ' is-open' : ''}`} />
                   </button>
                   {typeOpen && (
                     <div className="combo-dropdown">
@@ -378,63 +500,109 @@ export default function TransportModal({
                 </div>
               </div>
 
-              {/* Departure / Arrival locations */}
+              {/* Departure location + address + coords */}
+              <div className="form-group">
+                <label htmlFor="dep-loc">
+                  Departure Location
+                  {undoBtn(depLoc, savedValues?.depLoc, () => setDepLoc(savedValues!.depLoc))}
+                </label>
+                <input
+                  type="text"
+                  id="dep-loc"
+                  value={depLoc}
+                  onChange={e => setDepLoc(e.target.value)}
+                  placeholder="e.g. Seattle SEA Airport"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="dep-address">
+                  Departure Address (Optional)
+                  {undoBtn(depAddress, savedValues?.depAddress, () => setDepAddress(savedValues!.depAddress))}
+                </label>
+                <input
+                  type="text"
+                  id="dep-address"
+                  value={depAddress}
+                  onChange={e => setDepAddress(e.target.value)}
+                  placeholder="e.g. 17801 International Blvd, SeaTac, WA"
+                />
+              </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="dep-loc">
-                    Departure Location
-                    {undoBtn(depLoc, savedValues?.depLoc, () => setDepLoc(savedValues!.depLoc))}
-                  </label>
-                  <input
-                    type="text"
-                    id="dep-loc"
-                    value={depLoc}
-                    onChange={e => setDepLoc(e.target.value)}
-                    placeholder="e.g. Seattle SEA Airport"
-                    required
-                  />
+                  <label htmlFor="dep-lat">Dep. Latitude (Optional)</label>
+                  <input type="text" id="dep-lat" value={depLat} onChange={e => setDepLat(e.target.value)} placeholder="e.g. 47.4502" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="arr-loc">
-                    Arrival Location
-                    {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
-                  </label>
-                  <input
-                    type="text"
-                    id="arr-loc"
-                    value={arrLoc}
-                    onChange={e => setArrLoc(e.target.value)}
-                    placeholder="e.g. Seattle SEA Airport"
-                    required
-                  />
+                  <label htmlFor="dep-lng">Dep. Longitude (Optional)</label>
+                  <input type="text" id="dep-lng" value={depLng} onChange={e => setDepLng(e.target.value)} placeholder="e.g. -122.3088" />
                 </div>
+              </div>
+              <div className="form-group form-group--mb16">
+                <label>Click on the map to set departure coordinates</label>
+                <MapPicker
+                  lat={parseFloat(depLat)}
+                  lng={parseFloat(depLng)}
+                  onPick={(pickedLat, pickedLng) => { setDepLat(pickedLat.toFixed(6)); setDepLng(pickedLng.toFixed(6)); }}
+                />
+              </div>
+
+              {/* Arrival location + address + coords */}
+              <div className="form-group">
+                <label htmlFor="arr-loc">
+                  Arrival Location
+                  {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
+                </label>
+                <input
+                  type="text"
+                  id="arr-loc"
+                  value={arrLoc}
+                  onChange={e => setArrLoc(e.target.value)}
+                  placeholder="e.g. Tokyo Narita Airport"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="arr-address">
+                  Arrival Address (Optional)
+                  {undoBtn(arrAddress, savedValues?.arrAddress, () => setArrAddress(savedValues!.arrAddress))}
+                </label>
+                <input
+                  type="text"
+                  id="arr-address"
+                  value={arrAddress}
+                  onChange={e => setArrAddress(e.target.value)}
+                  placeholder="e.g. 1-1 Furugome, Narita, Chiba"
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="arr-lat">Arr. Latitude (Optional)</label>
+                  <input type="text" id="arr-lat" value={arrLat} onChange={e => setArrLat(e.target.value)} placeholder="e.g. 35.7720" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="arr-lng">Arr. Longitude (Optional)</label>
+                  <input type="text" id="arr-lng" value={arrLng} onChange={e => setArrLng(e.target.value)} placeholder="e.g. 140.3929" />
+                </div>
+              </div>
+              <div className="form-group form-group--mb16">
+                <label>Click on the map to set arrival coordinates</label>
+                <MapPicker
+                  lat={parseFloat(arrLat)}
+                  lng={parseFloat(arrLng)}
+                  onPick={(pickedLat, pickedLng) => { setArrLat(pickedLat.toFixed(6)); setArrLng(pickedLng.toFixed(6)); }}
+                />
               </div>
 
               {/* Departure / Arrival dates */}
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="dep-date">Departure Date</label>
-                  <input
-                    type="date"
-                    id="dep-date"
-                    value={depDate}
-                    onChange={e => handleDepDateChange(e.target.value)}
-                    min={tripStartDate}
-                    max={tripEndDate}
-                    required
-                  />
+                  <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} min={tripStartDate} max={tripEndDate} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="arr-date">Arrival Date</label>
-                  <input
-                    type="date"
-                    id="arr-date"
-                    value={arrDate}
-                    onChange={e => setArrDate(e.target.value)}
-                    min={depDate || tripStartDate}
-                    max={tripEndDate}
-                    required
-                  />
+                  <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} min={depDate || tripStartDate} max={tripEndDate} required />
                 </div>
               </div>
 
@@ -442,29 +610,16 @@ export default function TransportModal({
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="dep-time">Departure Time</label>
-                  <input
-                    type="time"
-                    id="dep-time"
-                    value={depTime}
-                    onChange={e => setDepTime(e.target.value)}
-                    required
-                  />
+                  <input type="time" id="dep-time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="arr-time">Arrival Time</label>
-                  <input
-                    type="time"
-                    id="arr-time"
-                    value={arrTime}
-                    onChange={e => setArrTime(e.target.value)}
-                    required
-                  />
+                  <input type="time" id="arr-time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
                 </div>
               </div>
 
               {/* Departure / Arrival timezones */}
               <div className="form-row">
-                {/* Departure timezone */}
                 <div className="form-group">
                   <label>Departure Timezone</label>
                   <div
@@ -484,14 +639,14 @@ export default function TransportModal({
                         setDepTzSearch('');
                       }}
                     >
-                      <span className="combo-trigger-content">{depTz}</span>
-                      <ChevronDown size={14} className={depTzOpen ? 'chevron-open' : ''} />
+                      <span className="combo-trigger-content">{formatTimezoneLabel(depTz)}</span>
+                      <ChevronDown size={14} className={`expand-chevron${depTzOpen ? ' is-open' : ''}`} />
                     </button>
                   </div>
                   {depTzOpen && depTzPos && createPortal(
                     <div
                       className="combo-dropdown--tz-portal"
-                      style={{ top: depTzPos.top, left: depTzPos.left, width: Math.max(depTzPos.width, 220) }}
+                      style={{ top: depTzPos.top, left: depTzPos.left, width: Math.max(depTzPos.width, 260) }}
                       onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
                     >
                       <div className="tz-search-wrapper">
@@ -512,7 +667,7 @@ export default function TransportModal({
                             className={`combo-option${depTz === tz ? ' selected' : ''}`}
                             onClick={() => { setDepTz(tz); setDepTzOpen(false); }}
                           >
-                            {tz}
+                            {formatTimezoneLabel(tz)}
                           </button>
                         ))}
                       </div>
@@ -521,7 +676,6 @@ export default function TransportModal({
                   )}
                 </div>
 
-                {/* Arrival timezone */}
                 <div className="form-group">
                   <label>Arrival Timezone</label>
                   <div
@@ -541,14 +695,14 @@ export default function TransportModal({
                         setArrTzSearch('');
                       }}
                     >
-                      <span className="combo-trigger-content">{arrTz}</span>
-                      <ChevronDown size={14} className={arrTzOpen ? 'chevron-open' : ''} />
+                      <span className="combo-trigger-content">{formatTimezoneLabel(arrTz)}</span>
+                      <ChevronDown size={14} className={`expand-chevron${arrTzOpen ? ' is-open' : ''}`} />
                     </button>
                   </div>
                   {arrTzOpen && arrTzPos && createPortal(
                     <div
                       className="combo-dropdown--tz-portal"
-                      style={{ top: arrTzPos.top, left: arrTzPos.left, width: Math.max(arrTzPos.width, 220) }}
+                      style={{ top: arrTzPos.top, left: arrTzPos.left, width: Math.max(arrTzPos.width, 260) }}
                       onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
                     >
                       <div className="tz-search-wrapper">
@@ -569,7 +723,7 @@ export default function TransportModal({
                             className={`combo-option${arrTz === tz ? ' selected' : ''}`}
                             onClick={() => { setArrTz(tz); setArrTzOpen(false); }}
                           >
-                            {tz}
+                            {formatTimezoneLabel(tz)}
                           </button>
                         ))}
                       </div>
@@ -586,39 +740,74 @@ export default function TransportModal({
                     Carrier / Operator (Optional)
                     {undoBtn(carrier, savedValues?.carrier, () => setCarrier(savedValues!.carrier))}
                   </label>
-                  <input
-                    type="text"
-                    id="transit-carrier"
-                    value={carrier}
-                    onChange={e => setCarrier(e.target.value)}
-                  />
+                  <input type="text" id="transit-carrier" value={carrier} onChange={e => setCarrier(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label htmlFor="transit-code">
                     Transit Code / Flight No (Optional)
                     {undoBtn(transitCode, savedValues?.transitCode, () => setTransitCode(savedValues!.transitCode))}
                   </label>
-                  <input
-                    type="text"
-                    id="transit-code"
-                    value={transitCode}
-                    onChange={e => setTransitCode(e.target.value)}
-                  />
+                  <input type="text" id="transit-code" value={transitCode} onChange={e => setTransitCode(e.target.value)} />
                 </div>
               </div>
 
-              {/* Confirmation No */}
-              <div className="form-group">
-                <label htmlFor="transit-conf">
-                  Confirmation No (Optional)
-                  {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
-                </label>
-                <input
-                  type="text"
-                  id="transit-conf"
-                  value={confirmationNo}
-                  onChange={e => setConfirmationNo(e.target.value)}
-                />
+              {/* Confirmation No + Booked via */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="transit-conf">
+                    Confirmation No (Optional)
+                    {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
+                  </label>
+                  <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="transit-booked">
+                    Booked via (Optional)
+                    {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
+                  </label>
+                  <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
+                </div>
+              </div>
+
+              {/* Price + Currency */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="transit-price">
+                    Price (Optional)
+                    {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
+                  </label>
+                  <input type="number" id="transit-price" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Currency
+                    {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
+                  </label>
+                  <div className="loc-select-wrapper" ref={currencyRef} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      className="loc-select-trigger combo-trigger"
+                      onClick={() => setCurrencyOpen(o => !o)}
+                    >
+                      <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
+                      <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
+                    </button>
+                    {currencyOpen && (
+                      <div className="loc-select-dropdown combo-dropdown" style={{ maxHeight: '200px', overflowY: 'auto', zIndex: 10 }}>
+                        {CURRENCY_LIST.map(c => (
+                          <button
+                            key={c.code}
+                            type="button"
+                            className={`loc-select-option${c.code === currency ? ' selected' : ''}`}
+                            onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
+                          >
+                            {c.code} — {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Notes */}
@@ -627,13 +816,7 @@ export default function TransportModal({
                   Notes (Optional)
                   {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
                 </label>
-                <textarea
-                  id="transit-notes"
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Booking reference, details, ..."
-                  rows={2}
-                />
+                <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
               </div>
 
               {/* File Attachments */}
@@ -641,35 +824,18 @@ export default function TransportModal({
                 <div className="attachment-section">
                   <div className="attachment-header-row">
                     <span className="attachment-section-label">Attachments</span>
-                    <button
-                      type="button"
-                      className="mini-icon-btn flex-align"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingCount > 0}
-                    >
+                    <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
                       <Paperclip size={13} />
                       {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
                     </button>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,application/pdf,.eml,.txt"
-                    className="visually-hidden"
-                    onChange={handleFileSelect}
-                  />
+                  <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
                   {attachedFiles.length > 0 && (
                     <div className="attachment-chip-list">
                       {attachedFiles.map(f => (
                         <span key={f.fileId} className="attachment-chip">
                           <span className="attachment-chip-name">{f.name}</span>
-                          <button
-                            type="button"
-                            className="attachment-chip-remove"
-                            onClick={() => handleRemoveChip(f)}
-                            data-tooltip="Remove file"
-                          >
+                          <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
                             <X size={10} />
                           </button>
                         </span>
@@ -677,12 +843,7 @@ export default function TransportModal({
                     </div>
                   )}
                   {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
-                    <button
-                      type="button"
-                      className="modal-ai-fill-btn"
-                      onClick={handleAiFill}
-                      disabled={isAiFilling}
-                    >
+                    <button type="button" className="modal-ai-fill-btn" onClick={handleAiFill} disabled={isAiFilling}>
                       <Sparkles size={13} />
                       {isAiFilling ? 'Filling…' : 'Fill with AI'}
                     </button>
@@ -703,7 +864,6 @@ export default function TransportModal({
         </div>
       </div>
 
-      {/* Remove file prompt */}
       {removePrompt && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setRemovePrompt(null)}>
           <div className="modal-content glass-panel" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
@@ -713,15 +873,9 @@ export default function TransportModal({
             </div>
             <p className="modal-body-text">What should happen to <strong>{removePrompt.name}</strong> on Google Drive?</p>
             <div className="modal-actions modal-actions--column">
-              <button className="btn-danger" onClick={() => confirmRemoveChip('delete')}>
-                <Trash2 size={14} /> Delete from Drive
-              </button>
-              <button className="btn-secondary" onClick={() => confirmRemoveChip('archive')}>
-                Archive on Drive (rename with [Archived])
-              </button>
-              <button className="btn-secondary" onClick={() => confirmRemoveChip('keep')}>
-                Keep on Drive, remove link only
-              </button>
+              <button className="btn-danger" onClick={() => confirmRemoveChip('delete')}><Trash2 size={14} /> Delete from Drive</button>
+              <button className="btn-secondary" onClick={() => confirmRemoveChip('archive')}>Archive on Drive (rename with [Archived])</button>
+              <button className="btn-secondary" onClick={() => confirmRemoveChip('keep')}>Keep on Drive, remove link only</button>
             </div>
           </div>
         </div>

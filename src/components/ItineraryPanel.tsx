@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect, memo } from 'react';
 import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Plane, Train, Bus, Car, Anchor, Navigation, Building,
+  Plane, Train, Bus, Car, Anchor, Navigation, Building, Map, Hash,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
-  ArrowUpRight, ArrowDownLeft, AlertTriangle, ExternalLink
+  ArrowUpRight, ArrowDownLeft, AlertTriangle
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
@@ -91,6 +91,8 @@ interface ItineraryPanelProps {
   handleDeleteTransportation: (transportId: string) => void;
   handleOpenEditHotel: (hotel: Hotel) => void;
   handleOpenEditTransport: (transport: Transportation) => void;
+  handleSaveHotelNotes: (hotelId: string, notes: string) => void;
+  handleSaveTransportNotes: (transportId: string, notes: string) => void;
   handleGenerateSingleDayTips: (dateStr: string) => void;
   handleSaveDayTips: (dateStr: string, content: string) => void;
   handleSaveBabyLogistics: (dateStr: string, content: string) => void;
@@ -192,6 +194,8 @@ function ItineraryPanel({
   handleDeleteTransportation,
   handleOpenEditHotel,
   handleOpenEditTransport,
+  handleSaveHotelNotes,
+  handleSaveTransportNotes,
   handleGenerateSingleDayTips,
   handleSaveDayTips,
   handleSaveBabyLogistics,
@@ -232,6 +236,12 @@ function ItineraryPanel({
   const [openHotelMenuId, setOpenHotelMenuId] = useState<string | null>(null);
   const [openTransportMenuId, setOpenTransportMenuId] = useState<string | null>(null);
   const [openMapMenuId, setOpenMapMenuId] = useState<string | null>(null);
+  const [expandedHotelId, setExpandedHotelId] = useState<string | null>(null);
+  const [expandedTransitId, setExpandedTransitId] = useState<string | null>(null);
+  const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
+  const [editingHotelNoteText, setEditingHotelNoteText] = useState('');
+  const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
+  const [editingTransitNoteText, setEditingTransitNoteText] = useState('');
   const planPickerRef = useRef<HTMLDivElement>(null);
   const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -240,6 +250,33 @@ function ItineraryPanel({
   };
   const cancelHideItem = () => {
     if (hideItemTimer.current) { clearTimeout(hideItemTimer.current); hideItemTimer.current = null; }
+  };
+
+  const formatCardDate = (dateStr: string, timeStr?: string): string => {
+    try {
+      const [, mo, d] = dateStr.split('-').map(Number);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const base = `${months[mo - 1]} ${d}`;
+      return timeStr ? `${base} ${timeStr}` : base;
+    } catch { return dateStr; }
+  };
+
+  const getUtcOffsetMinutes = (tz: string): number => {
+    try {
+      const now = new Date();
+      const utcStr = now.toLocaleString('en-US', { timeZone: 'UTC' });
+      const tzStr = now.toLocaleString('en-US', { timeZone: tz });
+      return (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000;
+    } catch { return 0; }
+  };
+
+  const formatTzOffset = (tz: string): string => {
+    const mins = getUtcOffsetMinutes(tz);
+    const sign = mins >= 0 ? '+' : '-';
+    const absMins = Math.abs(mins);
+    const h = String(Math.floor(absMins / 60)).padStart(2, '0');
+    const m = String(absMins % 60).padStart(2, '0');
+    return `GMT${sign}${h}:${m}`;
   };
 
   // Close Add Item dropdown when clicking outside
@@ -780,60 +817,110 @@ function ItineraryPanel({
             </div>
 
             <div className="section-item-list">
-              {getHotelsForDay(activeDayStr).map(h => (
-                <div key={h.id} className={`hotel-card${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
-                  <div className="flex-align flex-1">
-                    <div className="hotel-icon-wrapper">
-                      <Building size={16} />
-                    </div>
-                    <div className="hotel-text-col">
-                      <h4 className="hotel-name-text">{h.name}</h4>
-                      {h.address && (
-                        <p className="hotel-address-text">
-                          <MapPin size={12} className="transport-flow-icon" /> {h.address}
+              {getHotelsForDay(activeDayStr).map(h => {
+                const isExpanded = expandedHotelId === h.id;
+                const isEditingNote = editingHotelNoteId === h.id;
+                return (
+                  <div key={h.id} className={`hotel-card${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
+                    {/* Clickable header row */}
+                    <div className="hotel-card-body" onClick={() => setExpandedHotelId(isExpanded ? null : h.id)}>
+                      <div className="hotel-icon-wrapper">
+                        <Building size={16} />
+                      </div>
+                      <div className="hotel-text-col" style={{ flex: 1, minWidth: 0 }}>
+                        <h4 className="place-title-text">{h.name}</h4>
+                        <p className="place-desc-text">
+                          Check-in: {formatCardDate(h.checkInDate, h.checkInTime)} · Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}
                         </p>
-                      )}
-                      <p className="hotel-dates-text">
-                        Check-in: {formatDisplayDate(h.checkInDate)}{h.checkInTime ? ` ${h.checkInTime}` : ''} | Check-out: {formatDisplayDate(h.checkOutDate)}{h.checkOutTime ? ` ${h.checkOutTime}` : ''}
-                      </p>
-                      {h.notes && <p className="timeline-card-notes">{h.notes}</p>}
+                      </div>
+                      <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} />
                     </div>
-                  </div>
-                  <div className="card-col-actions">
-                    {h.address && (
-                      <button
-                        className="mini-icon-btn"
-                        data-tooltip="Open in Maps"
-                        data-tooltip-position="bottom"
-                        onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address!)}`, '_blank')}
+
+                    {/* Notes — always visible */}
+                    {isEditingNote ? (
+                      <div className="place-notes-btn-wrapper" onClick={e => e.stopPropagation()}>
+                        <textarea
+                          value={editingHotelNoteText}
+                          onChange={e => setEditingHotelNoteText(e.target.value)}
+                          placeholder="Add notes..."
+                          rows={4}
+                          className="place-notes-textarea"
+                        />
+                        <div className="place-notes-actions">
+                          <button className="btn-secondary place-notes-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
+                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveHotelNotes(h.id, editingHotelNoteText); setEditingHotelNoteId(null); }}>
+                            <Check size={10} /> Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="place-note-wrapper"
+                        style={{ marginTop: '2px', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
+                        onClick={trip.canEdit !== false ? (e) => { e.stopPropagation(); setEditingHotelNoteId(h.id); setEditingHotelNoteText(h.notes || ''); } : undefined}
                       >
-                        <ExternalLink size={14} />
-                      </button>
-                    )}
-                    {trip.canEdit !== false && (
-                      <div className="card-options-menu" onClick={e => e.stopPropagation()}>
-                        <button
-                          className="mini-icon-btn"
-                          onClick={() => setOpenHotelMenuId(prev => prev === h.id ? null : h.id)}
-                          data-tooltip="Options"
-                        >
-                          <MoreVertical size={14} />
-                        </button>
-                        {openHotelMenuId === h.id && (
-                          <div className="dropdown-menu dropdown-menu--right">
-                            <button className="dropdown-item" onClick={() => { handleOpenEditHotel(h); setOpenHotelMenuId(null); }}>
-                              <Edit2 size={13} /> Edit
-                            </button>
-                            <button className="dropdown-item danger" onClick={() => { handleDeleteHotel(h.id); setOpenHotelMenuId(null); }}>
-                              <Trash2 size={13} /> Delete
-                            </button>
-                          </div>
-                        )}
+                        <div style={{ fontSize: '12.5px', color: h.notes ? 'var(--accent-primary)' : 'var(--text-muted)', fontStyle: 'italic', whiteSpace: 'pre-wrap', lineHeight: 1.4, margin: 0, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                          <FileText size={13} style={{ marginTop: '2px', color: h.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                          <span>{h.notes || 'Add notes...'}</span>
+                        </div>
                       </div>
                     )}
+
+                    {/* Expandable details */}
+                    <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
+                      <div>
+                        <div style={{ paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {h.address && (
+                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                              <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.address}
+                            </p>
+                          )}
+                          {h.confirmationNo && (
+                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                              <Hash size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.confirmationNo}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="hotel-card-actions" onClick={e => e.stopPropagation()}>
+                      {h.address && (
+                        <button
+                          className="mini-icon-btn"
+                          data-tooltip="Open in Maps"
+                          data-tooltip-position="bottom"
+                          onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address!)}`, '_blank')}
+                        >
+                          <Map size={14} />
+                        </button>
+                      )}
+                      {trip.canEdit !== false && (
+                        <div className="card-options-menu" onClick={e => e.stopPropagation()}>
+                          <button
+                            className="mini-icon-btn"
+                            onClick={() => setOpenHotelMenuId(prev => prev === h.id ? null : h.id)}
+                            data-tooltip="Options"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          {openHotelMenuId === h.id && (
+                            <div className="dropdown-menu dropdown-menu--right">
+                              <button className="dropdown-item" onClick={() => { handleOpenEditHotel(h); setOpenHotelMenuId(null); }}>
+                                <Edit2 size={13} /> Edit
+                              </button>
+                              <button className="dropdown-item danger" onClick={() => { handleDeleteHotel(h.id); setOpenHotelMenuId(null); }}>
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {getHotelsForDay(activeDayStr).length === 0 && (
                 <p className="no-transport-text no-transport-text--warning">
@@ -862,49 +949,111 @@ function ItineraryPanel({
               {getTransportsForDay(activeDayStr).map(t => {
                 const isDeparture = t.departureDate === activeDayStr;
                 const isArrival = t.arrivalDate === activeDayStr;
-                
-                return (
-                  <div key={t.id} className={`transport-card${openTransportMenuId === t.id ? ' dropdown-active' : ''}`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex-align">
-                        <div className="transport-icon-wrapper">
-                          {t.type === 'flight' && <Plane size={16} />}
-                          {t.type === 'train' && <Train size={16} />}
-                          {t.type === 'bus' && <Bus size={16} />}
-                          {t.type === 'car' && <Car size={16} />}
-                          {t.type === 'ferry' && <Anchor size={16} />}
-                          {t.type === 'other' && <Navigation size={16} />}
-                        </div>
+                const isExpanded = expandedTransitId === t.id;
+                const isEditingNote = editingTransitNoteId === t.id;
+                const transitName = t.name || `${t.departureLocationName} → ${t.arrivalLocationName}`;
+                const carrierLine = [t.carrier, t.transitCode].filter(Boolean).join(' · ');
+                const depTzLabel = t.departureTimezone ? ` (${formatTzOffset(t.departureTimezone)})` : '';
+                const arrTzLabel = t.arrivalTimezone ? ` (${formatTzOffset(t.arrivalTimezone)})` : '';
 
-                        <div className="transport-details-grid">
+                return (
+                  <div key={t.id} className={`transport-card${openTransportMenuId === t.id || openMapMenuId === t.id ? ' dropdown-active' : ''}`}>
+                    {/* Clickable header row */}
+                    <div className="transport-card-body" onClick={() => setExpandedTransitId(isExpanded ? null : t.id)}>
+                      <div className="transport-icon-wrapper">
+                        {t.type === 'flight' && <Plane size={16} />}
+                        {t.type === 'train' && <Train size={16} />}
+                        {t.type === 'bus' && <Bus size={16} />}
+                        {t.type === 'car' && <Car size={16} />}
+                        {t.type === 'ferry' && <Anchor size={16} />}
+                        {t.type === 'other' && <Navigation size={16} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h4 className="place-title-text">{transitName}</h4>
+                        {carrierLine && <p className="place-desc-text">{carrierLine}</p>}
+                        <div className="transport-details-grid" style={{ marginTop: '6px' }}>
                           <div className="transport-flow" style={{ opacity: isDeparture ? 1 : 0.5 }}>
                             <span className="transport-flow-sub">
                               Departure {isDeparture && <ArrowUpRight size={11} className="transport-flag-icon" />}
                             </span>
                             <span className="transport-flow-main">{t.departureLocationName}</span>
                             <span className="transport-time-detail">
-                              {t.departureTime} ({t.departureTimezone}) - {formatDisplayDate(t.departureDate)}
+                              {t.departureTime}{depTzLabel} · {formatCardDate(t.departureDate)}
                             </span>
                           </div>
-
                           <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
                             <span className="transport-flow-sub">
                               Arrival {isArrival && <ArrowDownLeft size={11} className="transport-flag-icon" />}
                             </span>
                             <span className="transport-flow-main">{t.arrivalLocationName}</span>
                             <span className="transport-time-detail">
-                              {t.arrivalTime} ({t.arrivalTimezone}) - {formatDisplayDate(t.arrivalDate)}
+                              {t.arrivalTime}{arrTzLabel} · {formatCardDate(t.arrivalDate)}
                             </span>
                           </div>
                         </div>
                       </div>
-                      {t.notes && <p className="timeline-card-notes">{t.notes}</p>}
+                      <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} />
                     </div>
-                    <div className="card-col-actions">
+
+                    {/* Notes — always visible */}
+                    {isEditingNote ? (
+                      <div className="place-notes-btn-wrapper" onClick={e => e.stopPropagation()}>
+                        <textarea
+                          value={editingTransitNoteText}
+                          onChange={e => setEditingTransitNoteText(e.target.value)}
+                          placeholder="Add notes..."
+                          rows={4}
+                          className="place-notes-textarea"
+                        />
+                        <div className="place-notes-actions">
+                          <button className="btn-secondary place-notes-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
+                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveTransportNotes(t.id, editingTransitNoteText); setEditingTransitNoteId(null); }}>
+                            <Check size={10} /> Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="place-note-wrapper"
+                        style={{ marginTop: '2px', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
+                        onClick={trip.canEdit !== false ? (e) => { e.stopPropagation(); setEditingTransitNoteId(t.id); setEditingTransitNoteText(t.notes || ''); } : undefined}
+                      >
+                        <div style={{ fontSize: '12.5px', color: t.notes ? 'var(--accent-primary)' : 'var(--text-muted)', fontStyle: 'italic', whiteSpace: 'pre-wrap', lineHeight: 1.4, margin: 0, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                          <FileText size={13} style={{ marginTop: '2px', color: t.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                          <span>{t.notes || 'Add notes...'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Expandable details */}
+                    <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
+                      <div>
+                        <div style={{ paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {t.confirmationNo && (
+                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                              <Hash size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {t.confirmationNo}
+                            </p>
+                          )}
+                          {t.departureAddress && (
+                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                              <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {t.departureAddress}
+                            </p>
+                          )}
+                          {t.arrivalAddress && (
+                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                              <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {t.arrivalAddress}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="transport-card-actions" onClick={e => e.stopPropagation()}>
                       <div className={`card-options-menu${openMapMenuId === t.id ? ' dropdown-active' : ''}`} onClick={e => e.stopPropagation()}>
                         <button
                           className="mini-icon-btn"
-                          data-tooltip="Map location"
+                          data-tooltip="Open in Maps"
                           data-tooltip-position="bottom"
                           onClick={() => setOpenMapMenuId(prev => prev === t.id ? null : t.id)}
                         >
@@ -1254,7 +1403,7 @@ function ItineraryPanel({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="preview-place-title-row">
-                            <h4 className="timeline-place-title">{previewPlace.title}</h4>
+                            <h4 className="place-title-text">{previewPlace.title}</h4>
                             <span className="preview-badge" style={isAiSuggestion ? { background: 'rgba(167,139,250,0.15)', color: '#c4b5fd', borderColor: 'rgba(167,139,250,0.3)' } : undefined}>
                               {isAiSuggestion ? 'AI Suggestion' : 'Preview'}
                             </span>
@@ -1407,11 +1556,11 @@ function ItineraryPanel({
 
                                   <div className="flex-1 min-w-0">
                                     <div className="place-title-row">
-                                      <h4 className="timeline-place-title">{place.title}</h4>
+                                      <h4 className="place-title-text">{place.title}</h4>
                                     </div>
-                                    <p className="place-excerpt-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
+                                    <p className="place-desc-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
                                     {editingPlaceNotesId === place.id ? (
-                                      <div className="place-notes-col" onClick={e => e.stopPropagation()}>
+                                      <div className="place-notes-btn-wrapper" onClick={e => e.stopPropagation()}>
                                         <textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Add notes..." rows={4} className="place-notes-textarea" />
                                         <div className="place-notes-actions">
                                           <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
@@ -1467,12 +1616,14 @@ function ItineraryPanel({
                               )}
 
                               {/* Expand Details if selected */}
-                              {activePlaceId === place.id && (
-                                <div className="card-expanded-section" onClick={e => e.stopPropagation()}>
-                                  {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
-                                  <AiDetailsView place={place} onGenerate={() => handleGenerateSinglePlaceAiDetails(place!.id)} canEdit={canEdit} isGenerating={placeGeneratingIds.has(place.id)} layoutMode="adaptive-2-col" customAiFields={trip.customAiFields} disabledPlaceFields={trip.disabledPlaceFields} fieldIcons={trip.fieldIcons} placeFieldsOrder={trip.placeFieldsOrder} />
+                              <div className={`card-expandable-wrapper${activePlaceId === place.id ? ' is-expanded' : ''}`}>
+                                <div>
+                                  <div className="card-expanded-section" onClick={e => e.stopPropagation()}>
+                                    {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
+                                    <AiDetailsView place={place} onGenerate={() => handleGenerateSinglePlaceAiDetails(place!.id)} canEdit={canEdit} isGenerating={placeGeneratingIds.has(place.id)} layoutMode="adaptive-2-col" customAiFields={trip.customAiFields} disabledPlaceFields={trip.disabledPlaceFields} fieldIcons={trip.fieldIcons} placeFieldsOrder={trip.placeFieldsOrder} />
+                                  </div>
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </div>
                         </React.Fragment>

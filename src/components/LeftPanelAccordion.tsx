@@ -274,6 +274,7 @@ export default function LeftPanelAccordion({
             trip={trip}
             activePlan={activePlan}
             daysList={daysList}
+            selectedDateStr={activeDayStr}
             onPlaceClick={(id) => {
               setExpandedLeftSection('catalog');
               setActivePlaceId(id);

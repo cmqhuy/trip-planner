@@ -53,6 +53,7 @@ export interface Location {
 export interface Transportation {
   id: string;
   type: 'flight' | 'train' | 'bus' | 'car' | 'ferry' | 'other';
+  name?: string;
   departureLocationName: string;
   arrivalLocationName: string;
   departureDate: string;        // YYYY-MM-DD
@@ -65,6 +66,15 @@ export interface Transportation {
   transitCode?: string;
   notes?: string;
   confirmationNo?: string;
+  bookedThrough?: string;
+  price?: number;
+  currency?: string;
+  departureAddress?: string;
+  departureLat?: number;
+  departureLng?: number;
+  arrivalAddress?: string;
+  arrivalLat?: number;
+  arrivalLng?: number;
   attachmentFileIds?: string[];
 }
 
@@ -78,6 +88,11 @@ export interface Hotel {
   checkOutTime?: string; // HH:MM
   notes?: string;
   confirmationNo?: string;
+  bookedThrough?: string;
+  price?: number;
+  currency?: string;
+  lat?: number;
+  lng?: number;
   attachmentFileIds?: string[];
 }
 

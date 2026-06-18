@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, RotateCcw, Paperclip, Trash2 } from 'lucide-react';
+import { X, Sparkles, RotateCcw, Paperclip, Trash2, ChevronDown } from 'lucide-react';
 import type { Hotel } from '../types';
 import { GeminiService } from '../utils/ai';
+import { CURRENCY_LIST } from '../utils/currencies';
+import MapPicker from './MapPicker';
 import {
   getOrCreateTripFileFolder,
   uploadFile,
@@ -33,7 +35,21 @@ interface HotelModalProps {
 type SavedValues = {
   name: string; address: string; checkInDate: string; checkInTime: string;
   checkOutDate: string; checkOutTime: string; confirmationNo: string; notes: string;
+  bookedThrough: string; price: string; currency: string; lat: string; lng: string;
 };
+
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+    clearTimeout(timeout);
+    const data = await res.json();
+    if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    return null;
+  } catch { return null; }
+}
 
 export default function HotelModal({
   isOpen,
@@ -56,6 +72,11 @@ export default function HotelModal({
   const [checkOutDate, setCheckOutDate] = useState('');
   const [checkOutTime, setCheckOutTime] = useState('');
   const [confirmationNo, setConfirmationNo] = useState('');
+  const [bookedThrough, setBookedThrough] = useState('');
+  const [price, setPrice] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
   const [notes, setNotes] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -63,8 +84,21 @@ export default function HotelModal({
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
   const [removePrompt, setRemovePrompt] = useState<AttachedFile | null>(null);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currencyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!currencyOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (currencyRef.current && !currencyRef.current.contains(e.target as Node)) {
+        setCurrencyOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [currencyOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -77,6 +111,11 @@ export default function HotelModal({
         checkOutDate: h?.checkOutDate ?? tripStartDate,
         checkOutTime: h?.checkOutTime ?? '',
         confirmationNo: h?.confirmationNo ?? '',
+        bookedThrough: h?.bookedThrough ?? '',
+        price: h?.price != null ? String(h.price) : '',
+        currency: h?.currency ?? 'USD',
+        lat: h?.lat != null ? String(h.lat) : '',
+        lng: h?.lng != null ? String(h.lng) : '',
         notes: h?.notes ?? '',
       };
       setName(initial.name);
@@ -86,6 +125,11 @@ export default function HotelModal({
       setCheckOutDate(initial.checkOutDate);
       setCheckOutTime(initial.checkOutTime);
       setConfirmationNo(initial.confirmationNo);
+      setBookedThrough(initial.bookedThrough);
+      setPrice(initial.price);
+      setCurrency(initial.currency);
+      setLat(initial.lat);
+      setLng(initial.lng);
       setNotes(initial.notes);
       setAttachedFiles(
         (h?.attachmentFileIds ?? []).map((id, i) => ({ name: `File ${i + 1}`, fileId: id }))
@@ -93,6 +137,7 @@ export default function HotelModal({
       setSavedValues(initial);
       setAiError(null);
       setRemovePrompt(null);
+      setCurrencyOpen(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -105,6 +150,9 @@ export default function HotelModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !checkInDate || !checkOutDate) return;
+    const parsedLat = lat.trim() ? parseFloat(lat) : undefined;
+    const parsedLng = lng.trim() ? parseFloat(lng) : undefined;
+    const parsedPrice = price.trim() ? parseFloat(price) : undefined;
     onSave({
       name: name.trim(),
       address: address.trim() || undefined,
@@ -113,6 +161,11 @@ export default function HotelModal({
       checkOutDate,
       checkOutTime: checkOutTime || undefined,
       confirmationNo: confirmationNo.trim() || undefined,
+      bookedThrough: bookedThrough.trim() || undefined,
+      price: parsedPrice,
+      currency: parsedPrice != null ? currency : undefined,
+      lat: parsedLat,
+      lng: parsedLng,
       notes: notes.trim() || undefined,
       attachmentFileIds: attachedFiles.map(f => f.fileId),
     });
@@ -190,7 +243,22 @@ export default function HotelModal({
       if (result.checkOutDate) setCheckOutDate(result.checkOutDate);
       if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
       if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
+      if (result.bookedThrough) setBookedThrough(result.bookedThrough);
+      if (result.price != null) setPrice(String(result.price));
+      if (result.currency) setCurrency(result.currency);
       if (result.notes) setNotes(result.notes);
+      // Geocode address if lat/lng not already set
+      const fillAddress = result.address || address;
+      if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
+        const coords = await geocodeAddress(fillAddress);
+        if (coords) {
+          setLat(coords.lat.toFixed(6));
+          setLng(coords.lng.toFixed(6));
+        }
+      } else {
+        if (result.lat != null) setLat(String(result.lat));
+        if (result.lng != null) setLng(String(result.lng));
+      }
     } catch (err: any) {
       setAiError(err.message || 'AI fill failed.');
     } finally {
@@ -209,12 +277,14 @@ export default function HotelModal({
 
   if (!isOpen) return null;
 
+  const selectedCurrency = CURRENCY_LIST.find(c => c.code === currency) ?? { code: currency, name: currency };
+
   return (
     <>
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content glass-panel scrollable" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
           <div className="modal-header">
-            <h3>Hotel Details</h3>
+            <h3>{editingHotel ? 'Edit Hotel Details' : 'Add Hotel Details'}</h3>
             <button className="modal-close" onClick={onClose}><X size={20} /></button>
           </div>
 
@@ -246,6 +316,43 @@ export default function HotelModal({
                 id="hotel-address"
                 value={address}
                 onChange={e => setAddress(e.target.value)}
+              />
+            </div>
+
+            {/* Lat / Lng */}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="hotel-lat">Latitude (Optional)</label>
+                <input
+                  type="text"
+                  id="hotel-lat"
+                  value={lat}
+                  onChange={e => setLat(e.target.value)}
+                  placeholder="e.g. 48.8584"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="hotel-lng">Longitude (Optional)</label>
+                <input
+                  type="text"
+                  id="hotel-lng"
+                  value={lng}
+                  onChange={e => setLng(e.target.value)}
+                  placeholder="e.g. 2.2945"
+                />
+              </div>
+            </div>
+
+            {/* MapPicker */}
+            <div className="form-group form-group--mb16">
+              <label>Click on the map to set coordinates</label>
+              <MapPicker
+                lat={parseFloat(lat)}
+                lng={parseFloat(lng)}
+                onPick={(pickedLat, pickedLng) => {
+                  setLat(pickedLat.toFixed(6));
+                  setLng(pickedLng.toFixed(6));
+                }}
               />
             </div>
 
@@ -311,18 +418,82 @@ export default function HotelModal({
               </div>
             </div>
 
-            {/* Confirmation No */}
-            <div className="form-group">
-              <label htmlFor="hotel-conf">
-                Confirmation No (Optional)
-                {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
-              </label>
-              <input
-                type="text"
-                id="hotel-conf"
-                value={confirmationNo}
-                onChange={e => setConfirmationNo(e.target.value)}
-              />
+            {/* Confirmation No + Booked via */}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="hotel-conf">
+                  Confirmation No (Optional)
+                  {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
+                </label>
+                <input
+                  type="text"
+                  id="hotel-conf"
+                  value={confirmationNo}
+                  onChange={e => setConfirmationNo(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="hotel-booked">
+                  Booked via (Optional)
+                  {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
+                </label>
+                <input
+                  type="text"
+                  id="hotel-booked"
+                  value={bookedThrough}
+                  onChange={e => setBookedThrough(e.target.value)}
+                  placeholder="e.g. Booking.com"
+                />
+              </div>
+            </div>
+
+            {/* Price + Currency */}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="hotel-price">
+                  Price (Optional)
+                  {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
+                </label>
+                <input
+                  type="number"
+                  id="hotel-price"
+                  value={price}
+                  onChange={e => setPrice(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-group">
+                <label>
+                  Currency
+                  {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
+                </label>
+                <div className="loc-select-wrapper" ref={currencyRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    className="loc-select-trigger combo-trigger"
+                    onClick={() => setCurrencyOpen(o => !o)}
+                  >
+                    <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
+                    <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
+                  </button>
+                  {currencyOpen && (
+                    <div className="loc-select-dropdown combo-dropdown" style={{ maxHeight: '200px', overflowY: 'auto', zIndex: 10 }}>
+                      {CURRENCY_LIST.map(c => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          className={`loc-select-option${c.code === currency ? ' selected' : ''}`}
+                          onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
+                        >
+                          {c.code} — {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Notes */}

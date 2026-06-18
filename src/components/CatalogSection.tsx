@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import LocationSelect from './LocationSelect';
 import {
   MapPin, Plus, Edit2, ChevronUp, ChevronDown,
-  Clock, FileText, Sparkles, MoreVertical, Check, RefreshCw
+  Clock, FileText, Sparkles, MoreVertical, Check, RefreshCw, ExternalLink
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
 import { DEFAULT_PLACE_GROUPS, buildMapsLink } from '../utils/api';
@@ -432,7 +432,7 @@ function CatalogSection({
                           )}
                           <div className="place-card-info">
                             <div className="catalog-place-info-header">
-                              <h4 className="place-card-title place-card-title--no-margin">{place.title}</h4>
+                              <h4 className="catalog-place-title catalog-place-title--no-margin">{place.title}</h4>
                               {(() => {
                                 const allocatedDays = placeAllocatedDaysMap.get(place.id) || [];
                                 if (allocatedDays.length === 0) return null;
@@ -567,7 +567,8 @@ function CatalogSection({
                         )}
 
                         {/* Expand Details if selected */}
-                        {activePlaceId === place.id && (
+                        <div className={`card-expandable-wrapper${activePlaceId === place.id ? ' is-expanded' : ''}`}>
+                          <div>
                           <div className="catalog-place-expanded" onClick={e => e.stopPropagation()}>
                             {place.description && <p className="catalog-place-desc">{place.description}</p>}
 
@@ -659,7 +660,8 @@ function CatalogSection({
                               )}
                             </div>
                           </div>
-                        )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -722,7 +724,7 @@ function CatalogSection({
                           </div>
                         )}
                         <div className="place-card-info">
-                          <h4 className="place-card-title place-card-title--no-margin">{place.title}</h4>
+                          <h4 className="catalog-place-title catalog-place-title--no-margin">{place.title}</h4>
                           {place.openingHours && (
                             <div className="place-card-hours">
                               <Clock size={10} /> {place.openingHours}
@@ -732,7 +734,8 @@ function CatalogSection({
                       </div>
 
                       {/* Expanded details */}
-                      {activePlaceId === place.id && (
+                      <div className={`card-expandable-wrapper${activePlaceId === place.id ? ' is-expanded' : ''}`}>
+                        <div>
                         <div className="catalog-ai-expanded" onClick={e => e.stopPropagation()}>
                           {place.description && (
                             <p className="catalog-place-desc">{place.description}</p>
@@ -753,7 +756,8 @@ function CatalogSection({
                             </a>
                           </div>
                         </div>
-                      )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
