@@ -17,7 +17,7 @@ export default function DeleteReservationModal({ type, item, googleToken, onConf
   const [fileChoice, setFileChoice] = useState<FileChoice>('keep');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const attachmentCount = item.attachmentFileIds?.length ?? 0;
+  const attachmentCount = item.attachments?.length ?? 0;
   const hasAttachments = attachmentCount > 0 && !!googleToken;
 
   const title = type === 'hotel' ? 'Delete Hotel Reservation' : 'Delete Transit Reservation';
@@ -29,11 +29,11 @@ export default function DeleteReservationModal({ type, item, googleToken, onConf
     if (hasAttachments && fileChoice !== 'keep') {
       setIsProcessing(true);
       try {
-        for (const fileId of item.attachmentFileIds!) {
+        for (const att of item.attachments ?? []) {
           if (fileChoice === 'delete') {
-            try { await deleteFileFromDrive(googleToken!, fileId); } catch { /* ignore */ }
+            try { await deleteFileFromDrive(googleToken!, att.fileId); } catch { /* ignore */ }
           } else if (fileChoice === 'archive') {
-            try { await renameFolderInDrive(googleToken!, fileId, `[Archived] file`); } catch { /* ignore */ }
+            try { await renameFolderInDrive(googleToken!, att.fileId, `[Archived] ${att.name}`); } catch { /* ignore */ }
           }
         }
       } finally {

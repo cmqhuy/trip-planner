@@ -347,6 +347,55 @@ className={`card-expandable-wrapper${isOpen ? ' has-open-dropdown' : ''}`}
 className={`reservation-card${isOpen ? ' dropdown-active' : ''}`}
 ```
 
+**Card action dropdowns (options menus on cards)** — all card-level action menus (Edit/Delete, Map, etc.) triggered by a `mini-icon-btn` must use this exact structure:
+```tsx
+<div className="card-options-menu">          {/* position:relative anchor */}
+  <button
+    type="button"
+    className="mini-icon-btn"
+    onClick={() => setOpen(o => !o)}
+    data-tooltip="Options"
+  >
+    <MoreVertical size={14} />
+  </button>
+  {isOpen && (
+    <div className="dropdown-menu dropdown-menu--right">
+      <button className="dropdown-item" onClick={handleEdit}><Pencil size={13} /> Edit</button>
+      <button className="dropdown-item danger" onClick={handleDelete}><Trash2 size={13} /> Delete</button>
+    </div>
+  )}
+</div>
+```
+Do **not** invent new class names or inline styles for this. `.dropdown-menu` and `.dropdown-item` are the canonical styled classes. See `CatalogSection.tsx` (group dropdown, mobile place "···" dropdown) for live examples. The card root must also receive `dropdown-active` when the menu is open — this lifts it above siblings with `z-index: 1100`.
+
+**Combo boxes inside modals must use `createPortal`.** A `combo-dropdown` with `position: absolute` inside a scrollable modal will push the modal to overflow or get clipped by `overflow: hidden`. Always render the dropdown panel via `createPortal(…, document.body)` with a fixed-inset overlay for outside-click dismissal:
+```tsx
+import { createPortal } from 'react-dom';
+
+const triggerRef = useRef<HTMLButtonElement>(null);
+const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+const [open, setOpen] = useState(false);
+
+// on trigger click:
+const r = triggerRef.current!.getBoundingClientRect();
+setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+setOpen(true);
+
+// render:
+{open && pos && createPortal(<>
+  <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setOpen(false)} />
+  <div className="combo-dropdown--portal" style={{ top: pos.top, left: pos.left, width: Math.max(pos.width, 220) }}>
+    {items.map(item => (
+      <button key={item.value} type="button" className={`combo-option${value === item.value ? ' selected' : ''}`}
+        onClick={() => { setValue(item.value); setOpen(false); }}>
+        {item.label}
+      </button>
+    ))}
+  </div>
+</>, document.body)}
+```
+CSS class `.combo-dropdown--portal` (already in `index.css`) applies `position: fixed`, `z-index: 10000`, glassmorphic styling, and `max-height: 200px; overflow-y: auto`. See `HotelModal.tsx` and `TransportModal.tsx` (currency combos) for live examples.
+
 ### Icons
 
 **Always use Lucide React icons — never emoji.** All UI elements (cards, labels, empty states, option lists, badges) must use icons from `lucide-react`. Emoji characters are not permitted in JSX renders under any circumstances.
@@ -356,3 +405,22 @@ className={`reservation-card${isOpen ? ' dropdown-active' : ''}`}
 ### Schema Versioning
 
 **Only bump `CURRENT_SCHEMA_VERSION` when a migration transform is needed.** Adding optional (`?`) fields to TypeScript interfaces does NOT require a version bump — new optional fields are backward-compatible by definition and need no migration. Only increment the version (and add a migration block in `migrateTrips()`) when existing data must be transformed, renamed, or removed.
+
+---
+
+## AI Calls
+
+**Always guard with `GeminiService.isAiEnabled()` before calling any GeminiService method.** This is a static method that reads from localStorage — no props or constructor injection needed.
+
+```tsx
+if (!GeminiService.isAiEnabled()) {
+  showApiKeyMissingModal();   // in TripPlanner context
+  // or: return;              // in modal context where showApiKeyMissingModal is unavailable
+  return;
+}
+const result = await GeminiService.someMethod(...);
+```
+
+This guard is required even when the trigger button is already conditionally hidden via `GeminiService.isAiEnabled()` in JSX — the handler needs it for defense in depth. See `TripPlanner.tsx` (`handleGenerateSinglePlaceAiDetails` ~line 750, `handleAiSuggestPlaces` ~line 1199) for the canonical live examples.
+
+`GeminiService` reads its API keys from `localStorage` key `vacation-itineraries-gemini-api-keys` and the active model from `vacation-itineraries-gemini-model` on every call — no singleton state to manage. Use the `*WithRotation` variants (e.g. `GeminiService.generateHotelDetailsFromFilesWithRotation(...)`) so key rotation and retry logic are handled automatically.

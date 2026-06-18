@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
-  Sparkles, RotateCcw, Paperclip, Trash2, MapPin,
+  Sparkles, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink,
 } from 'lucide-react';
-import type { Transportation } from '../types';
+import type { Transportation, Attachment } from '../types';
 import { GeminiService } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import { lookupTimezone } from '../utils/api';
@@ -16,11 +16,6 @@ import {
   deleteFileFromDrive,
   renameFolderInDrive,
 } from '../utils/googleDrive';
-
-interface AttachedFile {
-  name: string;
-  fileId: string;
-}
 
 interface TransportModalProps {
   isOpen: boolean;
@@ -144,12 +139,12 @@ export default function TransportModal({
   const [arrLat, setArrLat] = useState('');
   const [arrLng, setArrLng] = useState('');
   const [notes, setNotes] = useState('');
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [attachedFiles, setAttachments] = useState<Attachment[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [isAiFilling, setIsAiFilling] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
-  const [removePrompt, setRemovePrompt] = useState<AttachedFile | null>(null);
+  const [removePrompt, setRemovePrompt] = useState<Attachment | null>(null);
 
   const [typeOpen, setTypeOpen] = useState(false);
   const [depTzOpen, setDepTzOpen] = useState(false);
@@ -218,9 +213,7 @@ export default function TransportModal({
       setArrLat(initial.arrLat);
       setArrLng(initial.arrLng);
       setNotes(initial.notes);
-      setAttachedFiles(
-        (t?.attachmentFileIds ?? []).map((id, i) => ({ name: `File ${i + 1}`, fileId: id }))
-      );
+      setAttachments(t?.attachments ?? []);
       setSavedValues(initial);
       setAiError(null);
       setRemovePrompt(null);
@@ -274,7 +267,7 @@ export default function TransportModal({
       arrivalLat: arrLat.trim() ? parseFloat(arrLat) : undefined,
       arrivalLng: arrLng.trim() ? parseFloat(arrLng) : undefined,
       notes: notes.trim() || undefined,
-      attachmentFileIds: attachedFiles.map(f => f.fileId),
+      attachments: attachedFiles,
     });
     onClose();
   };
@@ -303,7 +296,7 @@ export default function TransportModal({
     for (const file of files) {
       try {
         const fileId = await uploadFile(googleToken, folderId, file);
-        setAttachedFiles(prev => [...prev, { name: file.name, fileId }]);
+        setAttachments(prev => [...prev, { name: file.name, fileId }]);
       } catch {
         setAiError(`Failed to upload "${file.name}".`);
       } finally {
@@ -312,7 +305,7 @@ export default function TransportModal({
     }
   };
 
-  const handleRemoveChip = (file: AttachedFile) => setRemovePrompt(file);
+  const handleRemoveChip = (file: Attachment) => setRemovePrompt(file);
 
   const confirmRemoveChip = async (action: 'delete' | 'archive' | 'keep') => {
     if (!removePrompt) return;
@@ -323,11 +316,12 @@ export default function TransportModal({
     } else if (action === 'archive' && googleToken) {
       try { await renameFolderInDrive(googleToken, file.fileId, `[Archived] ${file.name}`); } catch { /* ignore */ }
     }
-    setAttachedFiles(prev => prev.filter(f => f.fileId !== file.fileId));
+    setAttachments(prev => prev.filter(f => f.fileId !== file.fileId));
   };
 
   const handleAiFill = async () => {
     if (!googleToken || attachedFiles.length === 0) return;
+    if (!GeminiService.isAiEnabled()) return;
     setIsAiFilling(true);
     setAiError(null);
     try {
@@ -505,7 +499,7 @@ export default function TransportModal({
                       Departure Date
                       {undoBtn(depDate, savedValues?.depDate, () => setDepDate(savedValues!.depDate))}
                     </label>
-                    <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} min={tripStartDate} max={tripEndDate} required />
+                    <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} required />
                   </div>
                   <div className="form-group">
                     <label htmlFor="dep-time" className="place-form-label">
@@ -563,7 +557,7 @@ export default function TransportModal({
                     Arrival Location
                     {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
                   </label>
-                  <input type="text" id="arr-loc" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Tokyo NRT Airport" required />
+                  <input type="text" id="arr-loc" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Seattle SEA Airport" required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="arr-address" className="place-form-label">
@@ -580,7 +574,7 @@ export default function TransportModal({
                       Arrival Date
                       {undoBtn(arrDate, savedValues?.arrDate, () => setArrDate(savedValues!.arrDate))}
                     </label>
-                    <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} min={depDate || tripStartDate} max={tripEndDate} required />
+                    <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} required />
                   </div>
                   <div className="form-group">
                     <label htmlFor="arr-time" className="place-form-label">
@@ -767,23 +761,32 @@ export default function TransportModal({
                       </button>
                     </div>
                     <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
+                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
+                      <button type="button" className="modal-ai-fill-btn" onClick={handleAiFill} disabled={isAiFilling}>
+                        <Sparkles size={13} />
+                        {isAiFilling ? 'Filling…' : 'Fill Reservation Details with AI'}
+                      </button>
+                    )}
                     {attachedFiles.length > 0 && (
                       <div className="attachment-chip-list">
                         {attachedFiles.map(f => (
                           <span key={f.fileId} className="attachment-chip">
-                            <span className="attachment-chip-name">{f.name}</span>
+                            <a
+                              href={`https://drive.google.com/file/d/${f.fileId}/view`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="attachment-chip-name"
+                              data-tooltip="Open file"
+                            >
+                              <ExternalLink size={10} style={{ flexShrink: 0 }} />
+                              {f.name}
+                            </a>
                             <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
                               <X size={10} />
                             </button>
                           </span>
                         ))}
                       </div>
-                    )}
-                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
-                      <button type="button" className="modal-ai-fill-btn" onClick={handleAiFill} disabled={isAiFilling}>
-                        <Sparkles size={13} />
-                        {isAiFilling ? 'Filling…' : 'Fill with AI'}
-                      </button>
                     )}
                     {aiError && <p className="form-error-text">{aiError}</p>}
                   </div>

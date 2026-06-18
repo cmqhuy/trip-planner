@@ -2557,7 +2557,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         editingTransport={editingTransport}
         googleToken={googleToken}
         tripPlannerFolderId={googleFolderId}
-        tripName={`trip-${trip.id}`}
+        tripName={trip.id}
         tripFilesFolderId={trip.filesFolderId}
         onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
       />
@@ -2576,7 +2576,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         editingHotel={editingHotel}
         googleToken={googleToken}
         tripPlannerFolderId={googleFolderId}
-        tripName={`trip-${trip.id}`}
+        tripName={trip.id}
         tripFilesFolderId={trip.filesFolderId}
         onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
       />

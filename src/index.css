@@ -1115,7 +1115,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border: 1px solid rgba(245, 158, 11, 0.15);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .transport-card-body {
@@ -1150,7 +1150,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  padding-left: 12px;
   gap: 12px;
 }
 
@@ -1177,7 +1176,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border: 1px solid rgba(16, 185, 129, 0.15);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .hotel-card-body {
@@ -2371,6 +2370,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   gap: 24px;
   align-items: start;
 }
+.place-form-left-col,
+.place-form-right-col { min-width: 0; }
+.form-row--3col .place-form-label { white-space: nowrap; overflow: hidden; }
 
 @media (max-width: 1080px) {
   .modal-content.place-modal-content {
@@ -2879,7 +2881,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .hotel-name-text { font-size: 13px; font-weight: 600; }
 .hotel-address-text { font-size: 11px; color: var(--text-secondary); }
 .hotel-dates-text { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-.transport-time-detail { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
+.transport-time-detail { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
 .transport-time-detail svg { flex-shrink: 0; }
 .no-transport-text { font-size: 12px; color: var(--text-muted); font-style: italic; }
 .mini-icon-btn.timeline-add-btn--success { gap: 4px; color: var(--color-success); }
@@ -3745,9 +3747,10 @@ div.google-auth-avatar-desktop {
   }
 }
 
-/* Expanded place card bottom padding */
+/* Expanded place card bottom padding + glow matching reservation-card--in-range */
 .catalog-place-card.details-expanded {
   padding-bottom: 6px !important;
+  box-shadow: 0 0 0 1px var(--accent-primary), 0 0 10px rgba(99, 102, 241, 0.25);
 }
 
 /* Align accordion-content panel header select margins on mobile */
@@ -3955,7 +3958,7 @@ div.google-auth-avatar-desktop {
 
 /* Combo box (generic picker — LocationSelect, TransportModal type/timezone, ItineraryPanel plan picker) */
 .combo-trigger-inner { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.combo-trigger-content { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.combo-trigger-content { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .combo-emoji { font-size: 14px; flex-shrink: 0; }
 .combo-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combo-divider { height: 1px; background: var(--border-glass); margin: 4px 0; }
@@ -3973,7 +3976,7 @@ div.google-auth-avatar-desktop {
 .reservations-inner { display: flex; flex-direction: column; }
 .reservation-card { padding: 8px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: border-color 0.25s ease, background-color 0.25s ease; }
 .reservation-card:hover { border-color: rgba(255, 255, 255, 0.15); background: rgba(30, 41, 59, 0.35); }
-.reservation-card--in-range { border-color: var(--accent-primary) !important; }
+.reservation-card--expanded { box-shadow: 0 0 0 1px var(--accent-primary), 0 0 10px rgba(99, 102, 241, 0.25); }
 .reservation-card--clickable { cursor: pointer; }
 .reservation-card-title { font-size: 12px; color: var(--text-primary); }
 .reservation-card-meta { font-size: 10px; color: var(--text-secondary); display: block; margin-top: 2px; }
@@ -4024,7 +4027,7 @@ div.google-auth-avatar-desktop {
 
 /* Expandable reservation card */
 .reservation-card--expandable { padding: 0; overflow: hidden; }
-.reservation-card-expand { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 8px 10px; cursor: pointer; }
+.reservation-card-expand { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; cursor: pointer; }
 .reservation-card-expand:hover { background: rgba(255,255,255,0.03); }
 .reservation-card-expand-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .reservation-card-icon-row { display: flex; align-items: center; gap: 5px; }
@@ -4104,9 +4107,9 @@ div.google-auth-avatar-desktop {
 .reservation-card-notes-textarea { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; padding: 4px 6px; font-size: 11px; resize: vertical; min-height: 52px; }
 .reservation-card-notes-actions { display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end; }
 .reservation-card-first-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
-.reservation-card-icon-row svg { flex-shrink: 0; }
+.reservation-card-icon-row svg { flex-shrink: 0; color: var(--text-muted); }
 .accordion-warning-icon { color: #f59e0b; flex-shrink: 0; }
-.card-expanded-inner { padding-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+.card-expanded-inner { padding-top: 2px; display: flex; flex-direction: column; gap: 4px; }
 .reservation-card-notes-wrap { padding: 0 0 8px; }
 
 /* Modal delete file options */

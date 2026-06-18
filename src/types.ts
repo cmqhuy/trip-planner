@@ -1,3 +1,8 @@
+export interface Attachment {
+  fileId: string;
+  name: string;
+}
+
 export interface SuggestedMarker {
   title: string;
   lat: number;
@@ -75,7 +80,7 @@ export interface Transportation {
   arrivalAddress?: string;
   arrivalLat?: number;
   arrivalLng?: number;
-  attachmentFileIds?: string[];
+  attachments?: Attachment[];
 }
 
 export interface Hotel {
@@ -93,7 +98,7 @@ export interface Hotel {
   currency?: string;
   lat?: number;
   lng?: number;
-  attachmentFileIds?: string[];
+  attachments?: Attachment[];
 }
 
 export interface SchedulePlaceItem {

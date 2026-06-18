@@ -833,7 +833,7 @@ function ItineraryPanel({
                 const isExpanded = expandedHotelId === h.id;
                 const isEditingNote = editingHotelNoteId === h.id;
                 return (
-                  <div key={h.id} className={`hotel-card${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
+                  <div key={h.id} className={`hotel-card${isExpanded ? ' reservation-card--expanded' : ''}${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
                     <div className="hotel-card-body" onClick={() => setExpandedHotelId(isExpanded ? null : h.id)}>
                       <div className="hotel-icon-wrapper">
@@ -966,7 +966,7 @@ function ItineraryPanel({
                 const arrTzLabel = t.arrivalTimezone ? ` (${formatTzOffset(t.arrivalTimezone)})` : '';
 
                 return (
-                  <div key={t.id} className={`transport-card${openTransportMenuId === t.id || openMapMenuId === t.id ? ' dropdown-active' : ''}`}>
+                  <div key={t.id} className={`transport-card${isExpanded ? ' reservation-card--expanded' : ''}${openTransportMenuId === t.id || openMapMenuId === t.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
                     <div className="transport-card-body" onClick={() => setExpandedTransitId(isExpanded ? null : t.id)}>
                       <div className="transport-icon-wrapper">
@@ -987,7 +987,7 @@ function ItineraryPanel({
                             </span>
                             <span className="transport-flow-main">{t.departureLocationName}</span>
                             <span className="transport-time-detail">
-                              <Calendar size={10} />{formatCardDate(t.departureDate)}{t.departureTime ? ` · ${t.departureTime}` : ''}{depTzLabel}
+                              <Calendar size={11} />{formatCardDate(t.departureDate)}{t.departureTime ? ` · ${t.departureTime}` : ''}{depTzLabel}
                             </span>
                           </div>
                           <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
@@ -996,7 +996,7 @@ function ItineraryPanel({
                             </span>
                             <span className="transport-flow-main">{t.arrivalLocationName}</span>
                             <span className="transport-time-detail">
-                              <Calendar size={10} />{formatCardDate(t.arrivalDate)}{t.arrivalTime ? ` · ${t.arrivalTime}` : ''}{arrTzLabel}
+                              <Calendar size={11} />{formatCardDate(t.arrivalDate)}{t.arrivalTime ? ` · ${t.arrivalTime}` : ''}{arrTzLabel}
                             </span>
                           </div>
                         </div>
@@ -1058,12 +1058,12 @@ function ItineraryPanel({
                           )}
                           {t.departureAddress && (
                             <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
-                              <ArrowUpRight size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Dep: {t.departureAddress}
+                              <ArrowUpRight size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Departure: {t.departureAddress}
                             </p>
                           )}
                           {t.arrivalAddress && (
                             <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
-                              <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arr: {t.arrivalAddress}
+                              <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arrival: {t.arrivalAddress}
                             </p>
                           )}
                         </div>

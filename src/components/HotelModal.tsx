@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sparkles, RotateCcw, Paperclip, Trash2, ChevronDown, MapPin } from 'lucide-react';
-import type { Hotel } from '../types';
+import { X, Sparkles, RotateCcw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink } from 'lucide-react';
+import type { Hotel, Attachment } from '../types';
 import { GeminiService } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
@@ -12,11 +12,6 @@ import {
   deleteFileFromDrive,
   renameFolderInDrive,
 } from '../utils/googleDrive';
-
-interface AttachedFile {
-  name: string;
-  fileId: string;
-}
 
 interface HotelModalProps {
   isOpen: boolean;
@@ -79,12 +74,12 @@ export default function HotelModal({
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [notes, setNotes] = useState('');
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [attachedFiles, setAttachments] = useState<Attachment[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [isAiFilling, setIsAiFilling] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
-  const [removePrompt, setRemovePrompt] = useState<AttachedFile | null>(null);
+  const [removePrompt, setRemovePrompt] = useState<Attachment | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
@@ -122,9 +117,7 @@ export default function HotelModal({
       setLat(initial.lat);
       setLng(initial.lng);
       setNotes(initial.notes);
-      setAttachedFiles(
-        (h?.attachmentFileIds ?? []).map((id, i) => ({ name: `File ${i + 1}`, fileId: id }))
-      );
+      setAttachments(h?.attachments ?? []);
       setSavedValues(initial);
       setAiError(null);
       setRemovePrompt(null);
@@ -158,7 +151,7 @@ export default function HotelModal({
       lat: parsedLat,
       lng: parsedLng,
       notes: notes.trim() || undefined,
-      attachmentFileIds: attachedFiles.map(f => f.fileId),
+      attachments: attachedFiles,
     });
     onClose();
   };
@@ -191,7 +184,7 @@ export default function HotelModal({
     for (const file of files) {
       try {
         const fileId = await uploadFile(googleToken, folderId, file);
-        setAttachedFiles(prev => [...prev, { name: file.name, fileId }]);
+        setAttachments(prev => [...prev, { name: file.name, fileId }]);
       } catch {
         setAiError(`Failed to upload "${file.name}".`);
       } finally {
@@ -200,7 +193,7 @@ export default function HotelModal({
     }
   };
 
-  const handleRemoveChip = (file: AttachedFile) => {
+  const handleRemoveChip = (file: Attachment) => {
     setRemovePrompt(file);
   };
 
@@ -215,11 +208,12 @@ export default function HotelModal({
         await renameFolderInDrive(googleToken, file.fileId, `[Archived] ${file.name}`);
       } catch { /* ignore */ }
     }
-    setAttachedFiles(prev => prev.filter(f => f.fileId !== file.fileId));
+    setAttachments(prev => prev.filter(f => f.fileId !== file.fileId));
   };
 
   const handleAiFill = async () => {
     if (!googleToken || attachedFiles.length === 0) return;
+    if (!GeminiService.isAiEnabled()) return;
     setIsAiFilling(true);
     setAiError(null);
     try {
@@ -327,8 +321,6 @@ export default function HotelModal({
                       id="hotel-checkin"
                       value={checkInDate}
                       onChange={e => handleCheckInChange(e.target.value)}
-                      min={tripStartDate}
-                      max={tripEndDate}
                       required
                     />
                   </div>
@@ -358,8 +350,6 @@ export default function HotelModal({
                       id="hotel-checkout"
                       value={checkOutDate}
                       onChange={e => setCheckOutDate(e.target.value)}
-                      min={checkInDate || tripStartDate}
-                      max={tripEndDate}
                       required
                     />
                   </div>
@@ -548,11 +538,31 @@ export default function HotelModal({
                       className="visually-hidden"
                       onChange={handleFileSelect}
                     />
+                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
+                      <button
+                        type="button"
+                        className="modal-ai-fill-btn"
+                        onClick={handleAiFill}
+                        disabled={isAiFilling}
+                      >
+                        <Sparkles size={13} />
+                        {isAiFilling ? 'Filling…' : 'Fill Reservation Details with AI'}
+                      </button>
+                    )}
                     {attachedFiles.length > 0 && (
                       <div className="attachment-chip-list">
                         {attachedFiles.map(f => (
                           <span key={f.fileId} className="attachment-chip">
-                            <span className="attachment-chip-name">{f.name}</span>
+                            <a
+                              href={`https://drive.google.com/file/d/${f.fileId}/view`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="attachment-chip-name"
+                              data-tooltip="Open file"
+                            >
+                              <ExternalLink size={10} style={{ flexShrink: 0 }} />
+                              {f.name}
+                            </a>
                             <button
                               type="button"
                               className="attachment-chip-remove"
@@ -564,17 +574,6 @@ export default function HotelModal({
                           </span>
                         ))}
                       </div>
-                    )}
-                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
-                      <button
-                        type="button"
-                        className="modal-ai-fill-btn"
-                        onClick={handleAiFill}
-                        disabled={isAiFilling}
-                      >
-                        <Sparkles size={13} />
-                        {isAiFilling ? 'Filling…' : 'Fill with AI'}
-                      </button>
                     )}
                     {aiError && <p className="form-error-text">{aiError}</p>}
                   </div>

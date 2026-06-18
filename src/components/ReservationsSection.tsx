@@ -104,6 +104,20 @@ export default function ReservationsSection({
     return () => document.removeEventListener('click', handler);
   }, [openTransitMapId, openOptionsMenuId]);
 
+  useEffect(() => {
+    if (editingHotelNoteId) {
+      const h = activePlan.hotels.find(h => h.id === editingHotelNoteId);
+      setEditingNotesText(h?.notes ?? '');
+    }
+  }, [editingHotelNoteId]);
+
+  useEffect(() => {
+    if (editingTransitNoteId) {
+      const t = activePlan.transports.find(t => t.id === editingTransitNoteId);
+      setEditingNotesText(t?.notes ?? '');
+    }
+  }, [editingTransitNoteId]);
+
   const shortDate = (d: string) =>
     new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
@@ -119,6 +133,17 @@ export default function ReservationsSection({
     if (!coveredDay) return undefined;
     const locId = activePlan.days[coveredDay]?.locationId;
     return locId ? trip.locations.find(l => l.id === locId)?.city : undefined;
+  };
+
+  const getTransitLocationText = (t: Transportation): string | undefined => {
+    const depLocId = activePlan.days[t.departureDate]?.locationId;
+    const arrLocId = activePlan.days[t.arrivalDate]?.locationId;
+    const depCity = depLocId ? trip.locations.find(l => l.id === depLocId)?.city : undefined;
+    const arrCity = arrLocId ? trip.locations.find(l => l.id === arrLocId)?.city : undefined;
+    if (!depCity && !arrCity) return undefined;
+    if (!depCity) return arrCity;
+    if (!arrCity) return depCity;
+    return depCity === arrCity ? depCity : `${depCity} → ${arrCity}`;
   };
 
   const computeHotelWarnings = (): { locationName: string; start: string; end: string }[] => {
@@ -207,23 +232,22 @@ export default function ReservationsSection({
               const isExpanded = expandedHotelId === h.id;
               const locationName = getHotelLocationName(h);
               const isInRange = !!selectedDateStr && selectedDateStr >= h.checkInDate && selectedDateStr <= h.checkOutDate;
-
               return (
                 <div
                   key={h.id}
-                  className={`glass-panel reservation-card reservation-card--expandable${isInRange ? ' reservation-card--in-range' : ''}${openOptionsMenuId === h.id ? ' dropdown-active' : ''}`}
+                  className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${openOptionsMenuId === h.id ? ' dropdown-active' : ''}`}
                 >
                   {/* Always-visible header */}
                   <div
                     className="reservation-card-expand"
                     onClick={() => { setExpandedHotelId(expandedHotelId === h.id ? null : h.id); }}
                   >
-                    <div className="reservation-card-expand-main">
-                      <div className="reservation-card-first-row">
-                        <div className="reservation-card-icon-row">
-                          <Building size={13} className="reservation-card-type-icon" />
-                          {locationName && <span className="reservation-card-location">{locationName}</span>}
-                        </div>
+                    <div className="reservation-card-first-row">
+                      <div className="reservation-card-icon-row">
+                        <Building size={13} className="reservation-card-type-icon" />
+                        {locationName && <span className="reservation-card-location">{locationName}</span>}
+                      </div>
+                      <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
                         <div className="catalog-allocated-days">
                           <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
                             {shortDate(h.checkInDate)}
@@ -232,45 +256,43 @@ export default function ReservationsSection({
                             {shortDate(h.checkOutDate)}
                           </span>
                         </div>
-                      </div>
-                      <h4 className="catalog-place-title catalog-place-title--no-margin">{h.name}</h4>
-                      <p className="place-desc-text"><Calendar size={11} /> Check-in: {formatCardDate(h.checkInDate, h.checkInTime)}</p>
-                      <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
-                    </div>
-                    <div className="place-card-move-buttons" onClick={e => e.stopPropagation()}>
-                      {(h.address || (h.lat != null && h.lng != null)) && (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address || `${h.lat},${h.lng}`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mini-icon-btn"
-                          data-tooltip="Open in Maps"
-                        >
-                          <MapPin size={14} />
-                        </a>
-                      )}
-                      {trip.canEdit !== false && (
-                        <div className="card-options-menu">
-                          <button
+                        {(h.address || (h.lat != null && h.lng != null)) && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address || `${h.lat},${h.lng}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="mini-icon-btn"
-                            onClick={() => setOpenOptionsMenuId(prev => prev === h.id ? null : h.id)}
-                            data-tooltip="More options"
+                            data-tooltip="Open in Maps"
                           >
-                            <MoreVertical size={14} />
-                          </button>
-                          {openOptionsMenuId === h.id && (
-                            <div className="dropdown-menu dropdown-menu--right">
-                              <button className="dropdown-item" onClick={() => { onEditHotel(h); setOpenOptionsMenuId(null); }}>
-                                <Edit2 size={12} /> Edit
-                              </button>
-                              <button className="dropdown-item danger" onClick={() => { onDeleteHotel(h.id); setOpenOptionsMenuId(null); }}>
-                                <Trash2 size={12} /> Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            <MapPin size={14} />
+                          </a>
+                        )}
+                        {trip.canEdit !== false && (
+                          <div className="card-options-menu">
+                            <button
+                              className="mini-icon-btn"
+                              onClick={() => setOpenOptionsMenuId(prev => prev === h.id ? null : h.id)}
+                              data-tooltip="Options"
+                            >
+                              <MoreVertical size={14} />
+                            </button>
+                            {openOptionsMenuId === h.id && (
+                              <div className="dropdown-menu dropdown-menu--right">
+                                <button className="dropdown-item" onClick={() => { onEditHotel(h); setOpenOptionsMenuId(null); }}>
+                                  <Edit2 size={12} /> Edit
+                                </button>
+                                <button className="dropdown-item danger" onClick={() => { onDeleteHotel(h.id); setOpenOptionsMenuId(null); }}>
+                                  <Trash2 size={12} /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    <h4 className="catalog-place-title catalog-place-title--no-margin">{h.name}</h4>
+                    <p className="place-desc-text"><Calendar size={11} /> Check-in: {formatCardDate(h.checkInDate, h.checkInTime)}</p>
+                    <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
                   </div>
 
                   {/* Expandable section: address and confirmation only */}
@@ -359,25 +381,25 @@ export default function ReservationsSection({
             {activePlan.transports.map(t => {
               const isExpanded = expandedTransitId === t.id;
               const transitName = t.name || `${t.departureLocationName} → ${t.arrivalLocationName}`;
-              const isInRange = !!selectedDateStr && selectedDateStr >= t.departureDate && selectedDateStr <= t.arrivalDate;
               const hasOpenDropdown = openTransitMapId === t.id || openOptionsMenuId === t.id;
+              const isInRange = !!selectedDateStr && selectedDateStr >= t.departureDate && selectedDateStr <= t.arrivalDate;
 
               return (
                 <div
                   key={t.id}
-                  className={`glass-panel reservation-card reservation-card--expandable${isInRange ? ' reservation-card--in-range' : ''}${hasOpenDropdown ? ' dropdown-active' : ''}`}
+                  className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${hasOpenDropdown ? ' dropdown-active' : ''}`}
                 >
                   {/* Always-visible header */}
                   <div
                     className="reservation-card-expand"
                     onClick={() => { setExpandedTransitId(expandedTransitId === t.id ? null : t.id); }}
                   >
-                    <div className="reservation-card-expand-main">
-                      <div className="reservation-card-first-row">
-                        <div className="reservation-card-icon-row">
-                          <TransportTypeIcon type={t.type} size={13} />
-                          <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ flex: 1, minWidth: 0 }}>{transitName}</h4>
-                        </div>
+                    <div className="reservation-card-first-row">
+                      <div className="reservation-card-icon-row">
+                        <TransportTypeIcon type={t.type} size={13} />
+                        {(() => { const loc = getTransitLocationText(t); return loc ? <span className="reservation-card-location">{loc}</span> : null; })()}
+                      </div>
+                      <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
                         <div className="catalog-allocated-days">
                           <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
                             {shortDate(t.departureDate)}
@@ -388,57 +410,56 @@ export default function ReservationsSection({
                             </span>
                           )}
                         </div>
-                      </div>
-                      {t.carrier && (
-                        <p className="place-desc-text">
-                          {t.carrier}{t.transitCode ? ` · ${t.transitCode}` : ''}
-                        </p>
-                      )}
-                      <p className="place-desc-text"><Calendar size={11} /> Departs: {formatCardDateTime(t.departureDate, t.departureTime, t.departureTimezone)}</p>
-                      <p className="place-desc-text"><Calendar size={11} /> Arrives: {formatCardDateTime(t.arrivalDate, t.arrivalTime, t.arrivalTimezone)}</p>
-                    </div>
-                    <div className="place-card-move-buttons" onClick={e => e.stopPropagation()}>
-                      <div className="card-options-menu">
-                        <button
-                          className="mini-icon-btn"
-                          onClick={() => setOpenTransitMapId(prev => prev === t.id ? null : t.id)}
-                          data-tooltip="Map"
-                        >
-                          <MapPin size={14} />
-                        </button>
-                        {openTransitMapId === t.id && (
-                          <div className="dropdown-menu dropdown-menu--right">
-                            <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`, '_blank'); setOpenTransitMapId(null); }}>
-                              <ArrowUpRight size={12} /> {t.departureLocationName}
-                            </button>
-                            <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress || t.arrivalLocationName)}`, '_blank'); setOpenTransitMapId(null); }}>
-                              <ArrowDownLeft size={12} /> {t.arrivalLocationName}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {trip.canEdit !== false && (
                         <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
-                            onClick={() => setOpenOptionsMenuId(prev => prev === t.id ? null : t.id)}
-                            data-tooltip="More options"
+                            onClick={() => setOpenTransitMapId(prev => prev === t.id ? null : t.id)}
+                            data-tooltip="Map"
                           >
-                            <MoreVertical size={14} />
+                            <MapPin size={14} />
                           </button>
-                          {openOptionsMenuId === t.id && (
+                          {openTransitMapId === t.id && (
                             <div className="dropdown-menu dropdown-menu--right">
-                              <button className="dropdown-item" onClick={() => { onEditTransport(t); setOpenOptionsMenuId(null); }}>
-                                <Edit2 size={12} /> Edit
+                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`, '_blank'); setOpenTransitMapId(null); }}>
+                                <ArrowUpRight size={12} /> {t.departureLocationName}
                               </button>
-                              <button className="dropdown-item danger" onClick={() => { onDeleteTransport(t.id); setOpenOptionsMenuId(null); }}>
-                                <Trash2 size={12} /> Delete
+                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress || t.arrivalLocationName)}`, '_blank'); setOpenTransitMapId(null); }}>
+                                <ArrowDownLeft size={12} /> {t.arrivalLocationName}
                               </button>
                             </div>
                           )}
                         </div>
-                      )}
+                        {trip.canEdit !== false && (
+                          <div className="card-options-menu">
+                            <button
+                              className="mini-icon-btn"
+                              onClick={() => setOpenOptionsMenuId(prev => prev === t.id ? null : t.id)}
+                              data-tooltip="Options"
+                            >
+                              <MoreVertical size={14} />
+                            </button>
+                            {openOptionsMenuId === t.id && (
+                              <div className="dropdown-menu dropdown-menu--right">
+                                <button className="dropdown-item" onClick={() => { onEditTransport(t); setOpenOptionsMenuId(null); }}>
+                                  <Edit2 size={12} /> Edit
+                                </button>
+                                <button className="dropdown-item danger" onClick={() => { onDeleteTransport(t.id); setOpenOptionsMenuId(null); }}>
+                                  <Trash2 size={12} /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    <h4 className="catalog-place-title catalog-place-title--no-margin">{transitName}</h4>
+                    {t.carrier && (
+                      <p className="place-desc-text">
+                        {t.carrier}{t.transitCode ? ` · ${t.transitCode}` : ''}
+                      </p>
+                    )}
+                    <p className="place-desc-text"><Calendar size={11} /> Departs: {formatCardDateTime(t.departureDate, t.departureTime, t.departureTimezone)}</p>
+                    <p className="place-desc-text"><Calendar size={11} /> Arrives: {formatCardDateTime(t.arrivalDate, t.arrivalTime, t.arrivalTimezone)}</p>
                   </div>
 
                   {/* Expandable section: confirmation + labeled addresses */}
@@ -454,13 +475,13 @@ export default function ReservationsSection({
                         {t.departureAddress && (
                           <div className="reservation-card-field-row">
                             <ArrowUpRight size={11} />
-                            <span className="place-desc-text">Dep: {t.departureAddress}</span>
+                            <span className="place-desc-text">Departure: {t.departureAddress}</span>
                           </div>
                         )}
                         {t.arrivalAddress && (
                           <div className="reservation-card-field-row">
                             <ArrowDownLeft size={11} />
-                            <span className="place-desc-text">Arr: {t.arrivalAddress}</span>
+                            <span className="place-desc-text">Arrival: {t.arrivalAddress}</span>
                           </div>
                         )}
                       </div>
