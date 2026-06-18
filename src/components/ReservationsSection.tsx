@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Plane, Building, Ticket, AlertTriangle, MapPin, Hash,
-  ChevronDown, Edit2, Trash2, Check,
+  ChevronDown, Edit2, Trash2, Check, Calendar,
   Train, Bus, Car, Anchor, Navigation, FileText,
   MoreVertical, ArrowUpRight, ArrowDownLeft,
 } from 'lucide-react';
@@ -18,6 +18,10 @@ interface ReservationsSectionProps {
   onDeleteHotel: (id: string) => void;
   onEditTransport: (transport: Transportation) => void;
   onDeleteTransport: (id: string) => void;
+  expandedHotelId: string | null;
+  setExpandedHotelId: (id: string | null) => void;
+  expandedTransitId: string | null;
+  setExpandedTransitId: (id: string | null) => void;
 }
 
 function TransportTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
@@ -55,7 +59,7 @@ function formatCardDate(dateStr: string, timeStr?: string): string {
   const d = new Date(dateStr + 'T00:00');
   const month = d.toLocaleDateString('en-US', { month: 'short' });
   const day = d.getDate();
-  return timeStr ? `${month} ${day} ${timeStr}` : `${month} ${day}`;
+  return timeStr ? `${month} ${day} · ${timeStr}` : `${month} ${day}`;
 }
 
 function formatCardDateTime(dateStr: string, timeStr: string, tz?: string): string {
@@ -76,17 +80,15 @@ export default function ReservationsSection({
   onDeleteHotel,
   onEditTransport,
   onDeleteTransport,
+  expandedHotelId,
+  setExpandedHotelId,
+  expandedTransitId,
+  setExpandedTransitId,
 }: ReservationsSectionProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [editingNotesText, setEditingNotesText] = useState('');
   const [openTransitMapId, setOpenTransitMapId] = useState<string | null>(null);
   const [openMobileMenuId, setOpenMobileMenuId] = useState<string | null>(null);
-
-  const toggleExpanded = (id: string) => {
-    setExpandedId(prev => prev === id ? null : id);
-    setEditingNotesId(null);
-  };
 
   useEffect(() => {
     if (!openTransitMapId && !openMobileMenuId) return;
@@ -195,26 +197,24 @@ export default function ReservationsSection({
             ))}
 
             {activePlan.hotels.map(h => {
-              const key = `hotel-${h.id}`;
-              const isExpanded = expandedId === key;
+              const notesKey = `hotel-${h.id}`;
+              const isExpanded = expandedHotelId === h.id;
               const locationName = getHotelLocationName(h);
-              const isInRange = !!selectedDateStr && selectedDateStr >= h.checkInDate && selectedDateStr < h.checkOutDate;
+              const isInRange = !!selectedDateStr && selectedDateStr >= h.checkInDate && selectedDateStr <= h.checkOutDate;
+              const hasOpenDropdown = openMobileMenuId === notesKey;
 
               return (
-                <div key={h.id} className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' dropdown-active' : ''}`}>
+                <div key={h.id} className={`glass-panel reservation-card reservation-card--expandable${isExpanded || hasOpenDropdown ? ' dropdown-active' : ''}`}>
                   {/* Always-visible header */}
-                  <div className="reservation-card-expand" onClick={() => toggleExpanded(key)}>
+                  <div className="reservation-card-expand" onClick={() => { setExpandedHotelId(expandedHotelId === h.id ? null : h.id); setEditingNotesId(null); }}>
                     <div className="reservation-card-expand-main">
                       <div className="reservation-card-icon-row">
-                        <Building size={13} className="reservation-card-type-icon" style={{ flexShrink: 0, alignSelf: 'flex-start', marginTop: 1 }} />
+                        <Building size={13} className="reservation-card-type-icon" style={{ flexShrink: 0 }} />
                         {locationName && <span className="place-card-hours">{locationName}</span>}
                       </div>
                       <h4 className="catalog-place-title catalog-place-title--no-margin">{h.name}</h4>
-                      <p className="place-desc-text">
-                        Check-in: {formatCardDate(h.checkInDate, h.checkInTime)}
-                        {' · '}
-                        Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}
-                      </p>
+                      <p className="place-desc-text"><Calendar size={11} /> Check-in: {formatCardDate(h.checkInDate, h.checkInTime)}</p>
+                      <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
                     </div>
                     <div className="reservation-card-header-right">
                       <div className="catalog-allocated-days">
@@ -230,7 +230,7 @@ export default function ReservationsSection({
                   </div>
 
                   {/* Animated expanded section */}
-                  <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
+                  <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${hasOpenDropdown ? ' has-open-dropdown' : ''}`}>
                     <div>
                       <div className="reservation-card-expanded-content">
                         {h.address && (
@@ -246,21 +246,21 @@ export default function ReservationsSection({
                           </div>
                         )}
 
-                        {/* Notes — last in expanded section */}
+                        {/* Notes */}
                         <div className="catalog-notes-box">
                           <label className="catalog-notes-label">
                             <FileText size={11} /> Notes
-                            {trip.canEdit !== false && editingNotesId !== key && (
+                            {trip.canEdit !== false && editingNotesId !== notesKey && (
                               <button
                                 className="mini-icon-btn catalog-notes-edit-btn"
-                                onClick={e => { e.stopPropagation(); setEditingNotesId(key); setEditingNotesText(h.notes ?? ''); }}
+                                onClick={e => { e.stopPropagation(); setEditingNotesId(notesKey); setEditingNotesText(h.notes ?? ''); }}
                                 data-tooltip="Edit notes"
                               >
                                 <Edit2 size={12} />
                               </button>
                             )}
                           </label>
-                          {editingNotesId === key ? (
+                          {editingNotesId === notesKey ? (
                             <div className="catalog-notes-edit-container">
                               <textarea
                                 className="catalog-notes-textarea"
@@ -308,10 +308,10 @@ export default function ReservationsSection({
                                 </button>
                               </div>
                               <div className="reservation-card-mobile-menu" onClick={e => e.stopPropagation()}>
-                                <button className="mini-icon-btn" onClick={() => setOpenMobileMenuId(prev => prev === key ? null : key)} data-tooltip="More options">
+                                <button className="mini-icon-btn" onClick={() => setOpenMobileMenuId(prev => prev === notesKey ? null : notesKey)} data-tooltip="More options">
                                   <MoreVertical size={14} />
                                 </button>
-                                {openMobileMenuId === key && (
+                                {openMobileMenuId === notesKey && (
                                   <div className="dropdown-menu dropdown-menu--right">
                                     <button className="dropdown-item" onClick={() => { onEditHotel(h); setOpenMobileMenuId(null); }}>
                                       <Edit2 size={12} /> Edit
@@ -354,15 +354,16 @@ export default function ReservationsSection({
             ))}
 
             {activePlan.transports.map(t => {
-              const key = `transport-${t.id}`;
-              const isExpanded = expandedId === key;
+              const notesKey = `transport-${t.id}`;
+              const isExpanded = expandedTransitId === t.id;
               const transitName = t.name || `${t.departureLocationName} → ${t.arrivalLocationName}`;
               const isInRange = !!selectedDateStr && selectedDateStr >= t.departureDate && selectedDateStr <= t.arrivalDate;
+              const hasOpenDropdown = openTransitMapId === t.id || openMobileMenuId === notesKey;
 
               return (
-                <div key={t.id} className={`glass-panel reservation-card reservation-card--expandable${isExpanded || openTransitMapId === t.id ? ' dropdown-active' : ''}`}>
+                <div key={t.id} className={`glass-panel reservation-card reservation-card--expandable${isExpanded || hasOpenDropdown ? ' dropdown-active' : ''}`}>
                   {/* Always-visible header */}
-                  <div className="reservation-card-expand" onClick={() => toggleExpanded(key)}>
+                  <div className="reservation-card-expand" onClick={() => { setExpandedTransitId(expandedTransitId === t.id ? null : t.id); setEditingNotesId(null); }}>
                     <div className="reservation-card-expand-main">
                       <div className="reservation-card-icon-row">
                         <TransportTypeIcon type={t.type} size={13} />
@@ -373,8 +374,8 @@ export default function ReservationsSection({
                           {t.carrier}{t.transitCode ? ` · ${t.transitCode}` : ''}
                         </p>
                       )}
-                      <p className="place-desc-text">{formatCardDateTime(t.departureDate, t.departureTime, t.departureTimezone)}</p>
-                      <p className="place-desc-text">{formatCardDateTime(t.arrivalDate, t.arrivalTime, t.arrivalTimezone)}</p>
+                      <p className="place-desc-text"><Calendar size={11} /> Departs: {formatCardDateTime(t.departureDate, t.departureTime, t.departureTimezone)}</p>
+                      <p className="place-desc-text"><Calendar size={11} /> Arrives: {formatCardDateTime(t.arrivalDate, t.arrivalTime, t.arrivalTimezone)}</p>
                     </div>
                     <div className="reservation-card-header-right">
                       <div className="catalog-allocated-days">
@@ -392,7 +393,7 @@ export default function ReservationsSection({
                   </div>
 
                   {/* Animated expanded section */}
-                  <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${openTransitMapId === t.id ? ' has-open-dropdown' : ''}`}>
+                  <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${hasOpenDropdown ? ' has-open-dropdown' : ''}`}>
                     <div>
                       <div className="reservation-card-expanded-content">
                         {t.confirmationNo && (
@@ -414,21 +415,21 @@ export default function ReservationsSection({
                           </div>
                         )}
 
-                        {/* Notes — last in expanded section */}
+                        {/* Notes */}
                         <div className="catalog-notes-box">
                           <label className="catalog-notes-label">
                             <FileText size={11} /> Notes
-                            {trip.canEdit !== false && editingNotesId !== key && (
+                            {trip.canEdit !== false && editingNotesId !== notesKey && (
                               <button
                                 className="mini-icon-btn catalog-notes-edit-btn"
-                                onClick={e => { e.stopPropagation(); setEditingNotesId(key); setEditingNotesText(t.notes ?? ''); }}
+                                onClick={e => { e.stopPropagation(); setEditingNotesId(notesKey); setEditingNotesText(t.notes ?? ''); }}
                                 data-tooltip="Edit notes"
                               >
                                 <Edit2 size={12} />
                               </button>
                             )}
                           </label>
-                          {editingNotesId === key ? (
+                          {editingNotesId === notesKey ? (
                             <div className="catalog-notes-edit-container">
                               <textarea
                                 className="catalog-notes-textarea"
@@ -453,8 +454,8 @@ export default function ReservationsSection({
 
                         {/* Action buttons */}
                         <div className="reservation-card-actions">
-                          {/* Single map button → dropdown */}
-                          <div className={`card-options-menu`} onClick={e => e.stopPropagation()}>
+                          {/* Map dropdown */}
+                          <div className="card-options-menu" onClick={e => e.stopPropagation()}>
                             <button
                               className="btn-secondary catalog-place-link-btn flex-align"
                               onClick={() => setOpenTransitMapId(prev => prev === t.id ? null : t.id)}
@@ -485,10 +486,10 @@ export default function ReservationsSection({
                                 </button>
                               </div>
                               <div className="reservation-card-mobile-menu" onClick={e => e.stopPropagation()}>
-                                <button className="mini-icon-btn" onClick={() => setOpenMobileMenuId(prev => prev === key ? null : key)} data-tooltip="More options">
+                                <button className="mini-icon-btn" onClick={() => setOpenMobileMenuId(prev => prev === notesKey ? null : notesKey)} data-tooltip="More options">
                                   <MoreVertical size={14} />
                                 </button>
-                                {openMobileMenuId === key && (
+                                {openMobileMenuId === notesKey && (
                                   <div className="dropdown-menu dropdown-menu--right">
                                     <button className="dropdown-item" onClick={() => { onEditTransport(t); setOpenMobileMenuId(null); }}>
                                       <Edit2 size={12} /> Edit

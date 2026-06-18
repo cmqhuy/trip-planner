@@ -569,6 +569,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .form-row--top { align-items: flex-start; }
 .form-row--compact { gap: 8px; align-items: flex-end; }
+.form-row--3col { grid-template-columns: 1fr 1fr 1fr; }
 .form-group--mb16 { margin-bottom: 16px; }
 .form-group--mt12 { margin-top: 12px; }
 .form-group--no-margin { margin: 0; }
@@ -1200,6 +1201,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   justify-content: center;
   flex-shrink: 0;
   align-self: flex-start;
+}
+
+.hotel-card-right-actions,
+.transport-card-right-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: 4px;
 }
 
 /* Right Panel: Map Container */
@@ -2363,7 +2374,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   }
   .place-form-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 0;
   }
 }
 
@@ -2371,7 +2382,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-place-card.dropdown-active,
 .timeline-card.dropdown-active,
 .hotel-card.dropdown-active,
-.transport-card.dropdown-active {
+.transport-card.dropdown-active,
+.reservation-card.dropdown-active {
   position: relative;
   z-index: 1100;
 }
@@ -3942,7 +3954,7 @@ div.google-auth-avatar-desktop {
 .combo-divider { height: 1px; background: var(--border-glass); margin: 4px 0; }
 .combo-add-new { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--accent-primary); background: transparent; transition: all 0.15s ease; border-top: 1px solid var(--border-glass); margin-top: 4px; }
 .combo-add-new-label { font-weight: 600; }
-.combo-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5); }
+.combo-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; min-width: 100%; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5); }
 .combo-trigger { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); font-size: 12px; min-height: 32px; text-align: left; cursor: pointer; }
 .combo-trigger:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
 .combo-trigger-round { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
@@ -4110,6 +4122,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
 /* Transit map dropdown overflow escape */
 .card-expandable-wrapper.has-open-dropdown { overflow: visible; }
+.card-expandable-wrapper.has-open-dropdown > div { overflow: visible; }
 
 /* Mobile button heights in Reservations cards only */
 @media (max-width: 768px) {

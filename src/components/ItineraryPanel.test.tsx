@@ -175,6 +175,10 @@ describe('ItineraryPanel Component', () => {
         daysTabsNavRef={{ current: null }}
         lastScrollLeft={{ current: 0 }}
         searchDropdownRef={{ current: null }}
+        expandedHotelId={null}
+        setExpandedHotelId={vi.fn()}
+        expandedTransitId={null}
+        setExpandedTransitId={vi.fn()}
       />
     );
 

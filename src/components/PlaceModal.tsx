@@ -411,6 +411,8 @@ export default function PlaceModal({
                 mapsLink: place.mapsLink || '',
                 photoUrl: place.photoUrl || '',
                 notes: place.notes || '',
+                lat: place.lat != null ? String(place.lat) : '',
+                lng: place.lng != null ? String(place.lng) : '',
                 aiDetails: place.aiDetails || {}
               } : undefined}
             />

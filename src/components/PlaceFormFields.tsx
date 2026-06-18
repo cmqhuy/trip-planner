@@ -44,6 +44,8 @@ interface PlaceFormFieldsProps {
     mapsLink?: string;
     photoUrl?: string;
     notes?: string;
+    lat?: string;
+    lng?: string;
     aiDetails?: { [key: string]: string };
   };
 }
@@ -209,21 +211,27 @@ export default function PlaceFormFields({
       <div className="place-form-right-col">
         <div className="form-row">
           <div className="form-group">
-            <label>Latitude (Optional)</label>
-            <input 
-              type="text" 
-              value={lat} 
-              onChange={e => setLat(e.target.value)} 
-              placeholder="e.g. 48.8584" 
+            <label className="place-form-label">
+              Latitude (Optional)
+              {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat!))}
+            </label>
+            <input
+              type="text"
+              value={lat}
+              onChange={e => setLat(e.target.value)}
+              placeholder="e.g. 48.8584"
             />
           </div>
           <div className="form-group">
-            <label>Longitude (Optional)</label>
-            <input 
-              type="text" 
-              value={lng} 
-              onChange={e => setLng(e.target.value)} 
-              placeholder="e.g. 2.2945" 
+            <label className="place-form-label">
+              Longitude (Optional)
+              {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng!))}
+            </label>
+            <input
+              type="text"
+              value={lng}
+              onChange={e => setLng(e.target.value)}
+              placeholder="e.g. 2.2945"
             />
           </div>
         </div>

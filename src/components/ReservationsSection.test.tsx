@@ -88,6 +88,10 @@ describe('ReservationsSection Component', () => {
         onDeleteHotel={vi.fn()}
         onEditTransport={vi.fn()}
         onDeleteTransport={vi.fn()}
+        expandedHotelId={null}
+        setExpandedHotelId={vi.fn()}
+        expandedTransitId={null}
+        setExpandedTransitId={vi.fn()}
       />
     );
 

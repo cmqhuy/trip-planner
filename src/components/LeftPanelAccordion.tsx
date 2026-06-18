@@ -73,6 +73,10 @@ interface LeftPanelAccordionProps {
   onDeleteHotel: (id: string) => void;
   onEditTransport: (transport: Transportation) => void;
   onDeleteTransport: (id: string) => void;
+  expandedHotelId: string | null;
+  setExpandedHotelId: (id: string | null) => void;
+  expandedTransitId: string | null;
+  setExpandedTransitId: (id: string | null) => void;
 }
 
 export default function LeftPanelAccordion({
@@ -143,6 +147,10 @@ export default function LeftPanelAccordion({
   onDeleteHotel,
   onEditTransport,
   onDeleteTransport,
+  expandedHotelId,
+  setExpandedHotelId,
+  expandedTransitId,
+  setExpandedTransitId,
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
@@ -284,6 +292,10 @@ export default function LeftPanelAccordion({
             onDeleteHotel={onDeleteHotel}
             onEditTransport={onEditTransport}
             onDeleteTransport={onDeleteTransport}
+            expandedHotelId={expandedHotelId}
+            setExpandedHotelId={setExpandedHotelId}
+            expandedTransitId={expandedTransitId}
+            setExpandedTransitId={setExpandedTransitId}
           />
         )}
       </div>

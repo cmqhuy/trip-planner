@@ -339,6 +339,14 @@ Attach `ref={wrapperRef}` to the `.combo-wrapper` div. Do **not** use `e.stopPro
 className={`timeline-card glass-panel ${isDropdownOpen ? 'dropdown-active' : ''}`}
 ```
 
+**Dropdowns inside expandable card sections**: `.card-expandable-wrapper > div` has `overflow: hidden` (required for the grid-row CSS animation). Any `position: absolute` dropdown inside will be clipped — even when `has-open-dropdown` sets `overflow: visible` on the wrapper, the inner `> div` still clips. Fix: add BOTH `has-open-dropdown` to `.card-expandable-wrapper` AND `dropdown-active` to the card's root element. CSS handles both: `has-open-dropdown` sets `overflow: visible` on the wrapper AND the inner `> div`, while `dropdown-active` lifts the card above siblings with `z-index: 1100`. Both classes are required — one without the other still clips.
+```tsx
+// wrapper: overflow escape
+className={`card-expandable-wrapper${isOpen ? ' has-open-dropdown' : ''}`}
+// card root: lift above siblings
+className={`reservation-card${isOpen ? ' dropdown-active' : ''}`}
+```
+
 ### Icons
 
 **Always use Lucide React icons — never emoji.** All UI elements (cards, labels, empty states, option lists, badges) must use icons from `lucide-react`. Emoji characters are not permitted in JSX renders under any circumstances.

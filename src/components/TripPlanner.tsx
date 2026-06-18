@@ -337,6 +337,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
   const [deleteHotelData, setDeleteHotelData] = useState<Hotel | null>(null);
+  const [expandedHotelId, setExpandedHotelId] = useState<string | null>(null);
+  const [expandedTransitId, setExpandedTransitId] = useState<string | null>(null);
 
   // Day timeline search state
   const [placeQuery, setPlaceQuery] = useState('');
@@ -2263,6 +2265,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onDeleteHotel={handleDeleteHotel}
         onEditTransport={handleOpenEditTransport}
         onDeleteTransport={handleDeleteTransportation}
+        expandedHotelId={expandedHotelId}
+        setExpandedHotelId={setExpandedHotelId}
+        expandedTransitId={expandedTransitId}
+        setExpandedTransitId={setExpandedTransitId}
       />
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}
@@ -2367,6 +2373,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setLeftCollapsed={setLeftCollapsed}
         rightCollapsed={rightCollapsed}
         setRightCollapsed={setRightCollapsed}
+        expandedHotelId={expandedHotelId}
+        setExpandedHotelId={setExpandedHotelId}
+        expandedTransitId={expandedTransitId}
+        setExpandedTransitId={setExpandedTransitId}
       />
       
       {/* RIGHT PANEL: Interactive Leaflet Map */}

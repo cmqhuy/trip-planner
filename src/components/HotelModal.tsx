@@ -297,7 +297,7 @@ export default function HotelModal({
 
                 {/* Hotel Name */}
                 <div className="form-group">
-                  <label htmlFor="hotel-name">
+                  <label htmlFor="hotel-name" className="place-form-label">
                     Hotel Name
                     {undoBtn(name, savedValues?.name, () => setName(savedValues!.name))}
                   </label>
@@ -312,7 +312,7 @@ export default function HotelModal({
 
                 {/* Address */}
                 <div className="form-group">
-                  <label htmlFor="hotel-address">
+                  <label htmlFor="hotel-address" className="place-form-label">
                     Address (Optional)
                     {undoBtn(address, savedValues?.address, () => setAddress(savedValues!.address))}
                   </label>
@@ -327,7 +327,7 @@ export default function HotelModal({
                 {/* Check-In Date + Time */}
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="hotel-checkin">
+                    <label htmlFor="hotel-checkin" className="place-form-label">
                       Check-In Date
                       {undoBtn(checkInDate, savedValues?.checkInDate, () => setCheckInDate(savedValues!.checkInDate))}
                     </label>
@@ -342,7 +342,7 @@ export default function HotelModal({
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="hotel-checkin-time">
+                    <label htmlFor="hotel-checkin-time" className="place-form-label">
                       Check-In Time
                       {undoBtn(checkInTime, savedValues?.checkInTime, () => setCheckInTime(savedValues!.checkInTime))}
                     </label>
@@ -358,7 +358,7 @@ export default function HotelModal({
                 {/* Check-Out Date + Time */}
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="hotel-checkout">
+                    <label htmlFor="hotel-checkout" className="place-form-label">
                       Check-Out Date
                       {undoBtn(checkOutDate, savedValues?.checkOutDate, () => setCheckOutDate(savedValues!.checkOutDate))}
                     </label>
@@ -373,7 +373,7 @@ export default function HotelModal({
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="hotel-checkout-time">
+                    <label htmlFor="hotel-checkout-time" className="place-form-label">
                       Check-Out Time
                       {undoBtn(checkOutTime, savedValues?.checkOutTime, () => setCheckOutTime(savedValues!.checkOutTime))}
                     </label>
@@ -389,7 +389,7 @@ export default function HotelModal({
                 {/* Confirmation No + Booked via */}
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="hotel-conf">
+                    <label htmlFor="hotel-conf" className="place-form-label">
                       Confirmation No (Optional)
                       {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
                     </label>
@@ -401,7 +401,7 @@ export default function HotelModal({
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="hotel-booked">
+                    <label htmlFor="hotel-booked" className="place-form-label">
                       Booked via (Optional)
                       {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
                     </label>
@@ -418,7 +418,7 @@ export default function HotelModal({
                 {/* Price + Currency */}
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="hotel-price">
+                    <label htmlFor="hotel-price" className="place-form-label">
                       Price (Optional)
                       {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
                     </label>
@@ -433,7 +433,7 @@ export default function HotelModal({
                     />
                   </div>
                   <div className="form-group">
-                    <label>
+                    <label className="place-form-label">
                       Currency
                       {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
                     </label>
@@ -464,9 +464,56 @@ export default function HotelModal({
                   </div>
                 </div>
 
+              </div>
+
+              {/* Right column — Coordinates, Map, Notes, Attachments */}
+              <div className="place-form-right-col">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="hotel-lat" className="place-form-label">
+                      Latitude (Optional)
+                      {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat))}
+                    </label>
+                    <input
+                      type="text"
+                      id="hotel-lat"
+                      value={lat}
+                      onChange={e => setLat(e.target.value)}
+                      placeholder="e.g. 48.8584"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="hotel-lng" className="place-form-label">
+                      Longitude (Optional)
+                      {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng))}
+                    </label>
+                    <input
+                      type="text"
+                      id="hotel-lng"
+                      value={lng}
+                      onChange={e => setLng(e.target.value)}
+                      placeholder="e.g. 2.2945"
+                    />
+                  </div>
+                </div>
+                <div className="form-group form-group--mb16">
+                  <label className="place-form-label">
+                    <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                    Click on the map to set coordinates
+                  </label>
+                  <MapPicker
+                    lat={parseFloat(lat)}
+                    lng={parseFloat(lng)}
+                    onPick={(pickedLat, pickedLng) => {
+                      setLat(pickedLat.toFixed(6));
+                      setLng(pickedLng.toFixed(6));
+                    }}
+                  />
+                </div>
+
                 {/* Notes */}
                 <div className="form-group">
-                  <label htmlFor="hotel-notes">
+                  <label htmlFor="hotel-notes" className="place-form-label">
                     Notes (Optional)
                     {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
                   </label>
@@ -532,52 +579,6 @@ export default function HotelModal({
                     {aiError && <p className="form-error-text">{aiError}</p>}
                   </div>
                 )}
-              </div>
-
-              {/* Right column — Coordinates & Map */}
-              <div className="place-form-right-col">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="hotel-lat">
-                      Latitude (Optional)
-                      {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat))}
-                    </label>
-                    <input
-                      type="text"
-                      id="hotel-lat"
-                      value={lat}
-                      onChange={e => setLat(e.target.value)}
-                      placeholder="e.g. 48.8584"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="hotel-lng">
-                      Longitude (Optional)
-                      {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng))}
-                    </label>
-                    <input
-                      type="text"
-                      id="hotel-lng"
-                      value={lng}
-                      onChange={e => setLng(e.target.value)}
-                      placeholder="e.g. 2.2945"
-                    />
-                  </div>
-                </div>
-                <div className="form-group form-group--mb16">
-                  <label className="place-form-label">
-                    <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                    Click on the map to set coordinates
-                  </label>
-                  <MapPicker
-                    lat={parseFloat(lat)}
-                    lng={parseFloat(lng)}
-                    onPick={(pickedLat, pickedLng) => {
-                      setLat(pickedLat.toFixed(6));
-                      setLng(pickedLng.toFixed(6));
-                    }}
-                  />
-                </div>
               </div>
 
             </div>
