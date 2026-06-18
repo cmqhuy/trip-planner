@@ -316,16 +316,21 @@ box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5);
 ```
 The trigger chevron must be a Lucide `ChevronDown`, rotated 180° via a CSS class toggle when open — never a static `background-image` arrow. Native `<select>` elements are not permitted for combo boxes.
 
-**All dropdowns must close when the user clicks outside.** Use a `useEffect` that adds a `document` click listener whenever the dropdown is open and removes it on cleanup:
+**Combo box items must use `className="combo-option"` (or `combo-option selected` when selected).** This class is defined in `index.css` and handles transparent background, hover highlight, and selected highlight via CSS. Use `<button type="button" className={`combo-option${isSelected ? ' selected' : ''}`}>` — no inline styles, no onMouseEnter/Leave handlers. Never invent a new class name for combo items; `.combo-option` is the single shared class.
+
+**All dropdowns must close when the user clicks outside.** Use a `useEffect` with a `mousedown` listener and a `ref.contains()` check so the trigger button doesn't immediately close the dropdown it just opened:
 ```typescript
+const wrapperRef = useRef<HTMLDivElement>(null);
 useEffect(() => {
   if (!isOpen) return;
-  const handler = () => setIsOpen(false);
-  document.addEventListener('click', handler);
-  return () => document.removeEventListener('click', handler);
+  const handler = (e: MouseEvent) => {
+    if (!wrapperRef.current?.contains(e.target as Node)) setIsOpen(false);
+  };
+  document.addEventListener('mousedown', handler);
+  return () => document.removeEventListener('mousedown', handler);
 }, [isOpen]);
 ```
-The dropdown's own click handlers call `e.stopPropagation()` so they don't trigger the document listener.
+Attach `ref={wrapperRef}` to the `.combo-wrapper` div. Do **not** use `e.stopPropagation()` or `e.nativeEvent.stopImmediatePropagation()` on the wrapper — those are anti-patterns that break other listeners. For portal-rendered dropdowns (e.g. timezone pickers rendered in `document.body`), use a transparent fullscreen overlay instead: render a `<div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setIsOpen(false)} />` before the portal content, with the portal panel at `zIndex: 10000`.
 
 **Combo box trigger layout**: Every `.combo-trigger` must use `justify-content: space-between` to push the chevron to the right edge, and the content span must use `display: flex; align-items: center; gap: 6px`. These are enforced in CSS on `.combo-trigger` and `.combo-trigger-content` — do not add duplicate inline styles.
 

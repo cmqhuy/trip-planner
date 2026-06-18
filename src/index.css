@@ -2077,7 +2077,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* PlaceFormFields component classes */
-.undo-btn { background: none; border: none; cursor: pointer; padding: 0 2px; color: var(--text-muted); display: flex; align-items: center; line-height: 1; }
+.undo-btn { background: none; border: none; cursor: pointer; padding: 0 2px; color: var(--text-muted); display: inline-flex; align-items: center; line-height: 1; }
 .label-icon-row { display: flex; align-items: center; gap: 6px; }
 .ai-fill-btn-wrapper { display: inline-block; }
 .ai-fill-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; gap: 6px; }
@@ -3381,6 +3381,7 @@ div.google-auth-avatar-desktop {
   /* Stacking form fields vertically on mobile */
   .form-row {
     grid-template-columns: 1fr !important;
+    gap: 0 !important;
   }
 
   /* Override touch-optimization stretch for specific compact buttons */
@@ -3998,7 +3999,7 @@ div.google-auth-avatar-desktop {
 .card-options-menu { position: relative; flex-shrink: 0; }
 
 /* ReservationsSection warnings */
-.reservation-warning { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; font-size: 11px; color: #f59e0b; margin-bottom: 6px; line-height: 1.4; }
+.reservation-warning { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; font-size: 11px; color: #f59e0b; margin-bottom: 6px; line-height: 1.4; }
 
 /* Expandable reservation card */
 .reservation-card--expandable { padding: 0; overflow: hidden; }
@@ -4086,3 +4087,47 @@ div.google-auth-avatar-desktop {
 .modal-delete-file-opt { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-primary); text-align: left; transition: var(--transition-fast); width: 100%; }
 .modal-delete-file-opt.selected { border-color: var(--accent-primary); background: rgba(99,102,241,0.1); color: var(--accent-primary); }
 .modal-delete-file-opt:hover:not(.selected) { background: rgba(255,255,255,0.05); }
+
+/* ===== Combo box items (shared across all dialogs) ===== */
+.combo-option, .loc-select-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 4px; cursor: pointer;
+  font-size: 12px; color: var(--text-muted); background: transparent;
+  border: none; width: 100%; text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.combo-option:hover, .loc-select-option:hover {
+  background: rgba(255,255,255,0.04); color: var(--text-primary);
+}
+.combo-option.selected, .loc-select-option.selected {
+  background: rgba(255,255,255,0.08); color: var(--text-primary); font-weight: 600;
+}
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* Transit map dropdown overflow escape */
+.card-expandable-wrapper.has-open-dropdown { overflow: visible; }
+
+/* Mobile button heights in Reservations cards only */
+@media (max-width: 768px) {
+  .reservation-card .reservation-card-mobile-menu .mini-icon-btn {
+    min-height: auto !important;
+    min-width: auto !important;
+    padding: 4px 8px !important;
+  }
+  .reservation-card .reservation-card-actions a.catalog-place-link-btn,
+  .reservation-card .reservation-card-actions button.catalog-place-link-btn {
+    min-height: auto !important;
+    padding: 4px 8px !important;
+    height: auto;
+  }
+}
+
+/* DualMapPicker toggle buttons */
+.dual-map-toggle { display: flex; gap: 6px; margin-bottom: 6px; }
+.dual-map-toggle-btn { font-size: 11px; padding: 3px 10px; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); color: var(--text-muted); cursor: pointer; transition: all 0.15s ease; }
+.dual-map-toggle-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.dual-map-toggle-btn.active { background: rgba(99,102,241,0.2); color: var(--accent-primary); border-color: rgba(99,102,241,0.4); }

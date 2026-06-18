@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, RotateCcw, Paperclip, Trash2, ChevronDown } from 'lucide-react';
+import { X, Sparkles, RotateCcw, Paperclip, Trash2, ChevronDown, MapPin } from 'lucide-react';
 import type { Hotel } from '../types';
 import { GeminiService } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
@@ -282,7 +282,7 @@ export default function HotelModal({
   return (
     <>
       <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content glass-panel scrollable" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-content glass-panel scrollable" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h3>{editingHotel ? 'Edit Hotel Details' : 'Add Hotel Details'}</h3>
             <button className="modal-close" onClick={onClose}><X size={20} /></button>
@@ -290,280 +290,297 @@ export default function HotelModal({
 
           <form onSubmit={handleSubmit}>
             <div className="modal-scroll-body">
-            {/* Hotel Name */}
-            <div className="form-group">
-              <label htmlFor="hotel-name">
-                Hotel Name
-                {undoBtn(name, savedValues?.name, () => setName(savedValues!.name))}
-              </label>
-              <input
-                type="text"
-                id="hotel-name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                required
-              />
-            </div>
+            <div className="place-form-grid">
 
-            {/* Address */}
-            <div className="form-group">
-              <label htmlFor="hotel-address">
-                Address (Optional)
-                {undoBtn(address, savedValues?.address, () => setAddress(savedValues!.address))}
-              </label>
-              <input
-                type="text"
-                id="hotel-address"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-              />
-            </div>
+              {/* Left column */}
+              <div className="place-form-left-col">
 
-            {/* Lat / Lng */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="hotel-lat">Latitude (Optional)</label>
-                <input
-                  type="text"
-                  id="hotel-lat"
-                  value={lat}
-                  onChange={e => setLat(e.target.value)}
-                  placeholder="e.g. 48.8584"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="hotel-lng">Longitude (Optional)</label>
-                <input
-                  type="text"
-                  id="hotel-lng"
-                  value={lng}
-                  onChange={e => setLng(e.target.value)}
-                  placeholder="e.g. 2.2945"
-                />
-              </div>
-            </div>
+                {/* Hotel Name */}
+                <div className="form-group">
+                  <label htmlFor="hotel-name">
+                    Hotel Name
+                    {undoBtn(name, savedValues?.name, () => setName(savedValues!.name))}
+                  </label>
+                  <input
+                    type="text"
+                    id="hotel-name"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    required
+                  />
+                </div>
 
-            {/* MapPicker */}
-            <div className="form-group form-group--mb16">
-              <label>Click on the map to set coordinates</label>
-              <MapPicker
-                lat={parseFloat(lat)}
-                lng={parseFloat(lng)}
-                onPick={(pickedLat, pickedLng) => {
-                  setLat(pickedLat.toFixed(6));
-                  setLng(pickedLng.toFixed(6));
-                }}
-              />
-            </div>
+                {/* Address */}
+                <div className="form-group">
+                  <label htmlFor="hotel-address">
+                    Address (Optional)
+                    {undoBtn(address, savedValues?.address, () => setAddress(savedValues!.address))}
+                  </label>
+                  <input
+                    type="text"
+                    id="hotel-address"
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                  />
+                </div>
 
-            {/* Check-In Date + Time */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="hotel-checkin">
-                  Check-In Date
-                  {undoBtn(checkInDate, savedValues?.checkInDate, () => setCheckInDate(savedValues!.checkInDate))}
-                </label>
-                <input
-                  type="date"
-                  id="hotel-checkin"
-                  value={checkInDate}
-                  onChange={e => handleCheckInChange(e.target.value)}
-                  min={tripStartDate}
-                  max={tripEndDate}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="hotel-checkin-time">
-                  Check-In Time
-                  {undoBtn(checkInTime, savedValues?.checkInTime, () => setCheckInTime(savedValues!.checkInTime))}
-                </label>
-                <input
-                  type="time"
-                  id="hotel-checkin-time"
-                  value={checkInTime}
-                  onChange={e => setCheckInTime(e.target.value)}
-                />
-              </div>
-            </div>
+                {/* Check-In Date + Time */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="hotel-checkin">
+                      Check-In Date
+                      {undoBtn(checkInDate, savedValues?.checkInDate, () => setCheckInDate(savedValues!.checkInDate))}
+                    </label>
+                    <input
+                      type="date"
+                      id="hotel-checkin"
+                      value={checkInDate}
+                      onChange={e => handleCheckInChange(e.target.value)}
+                      min={tripStartDate}
+                      max={tripEndDate}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="hotel-checkin-time">
+                      Check-In Time
+                      {undoBtn(checkInTime, savedValues?.checkInTime, () => setCheckInTime(savedValues!.checkInTime))}
+                    </label>
+                    <input
+                      type="time"
+                      id="hotel-checkin-time"
+                      value={checkInTime}
+                      onChange={e => setCheckInTime(e.target.value)}
+                    />
+                  </div>
+                </div>
 
-            {/* Check-Out Date + Time */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="hotel-checkout">
-                  Check-Out Date
-                  {undoBtn(checkOutDate, savedValues?.checkOutDate, () => setCheckOutDate(savedValues!.checkOutDate))}
-                </label>
-                <input
-                  type="date"
-                  id="hotel-checkout"
-                  value={checkOutDate}
-                  onChange={e => setCheckOutDate(e.target.value)}
-                  min={checkInDate || tripStartDate}
-                  max={tripEndDate}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="hotel-checkout-time">
-                  Check-Out Time
-                  {undoBtn(checkOutTime, savedValues?.checkOutTime, () => setCheckOutTime(savedValues!.checkOutTime))}
-                </label>
-                <input
-                  type="time"
-                  id="hotel-checkout-time"
-                  value={checkOutTime}
-                  onChange={e => setCheckOutTime(e.target.value)}
-                />
-              </div>
-            </div>
+                {/* Check-Out Date + Time */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="hotel-checkout">
+                      Check-Out Date
+                      {undoBtn(checkOutDate, savedValues?.checkOutDate, () => setCheckOutDate(savedValues!.checkOutDate))}
+                    </label>
+                    <input
+                      type="date"
+                      id="hotel-checkout"
+                      value={checkOutDate}
+                      onChange={e => setCheckOutDate(e.target.value)}
+                      min={checkInDate || tripStartDate}
+                      max={tripEndDate}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="hotel-checkout-time">
+                      Check-Out Time
+                      {undoBtn(checkOutTime, savedValues?.checkOutTime, () => setCheckOutTime(savedValues!.checkOutTime))}
+                    </label>
+                    <input
+                      type="time"
+                      id="hotel-checkout-time"
+                      value={checkOutTime}
+                      onChange={e => setCheckOutTime(e.target.value)}
+                    />
+                  </div>
+                </div>
 
-            {/* Confirmation No + Booked via */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="hotel-conf">
-                  Confirmation No (Optional)
-                  {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
-                </label>
-                <input
-                  type="text"
-                  id="hotel-conf"
-                  value={confirmationNo}
-                  onChange={e => setConfirmationNo(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="hotel-booked">
-                  Booked via (Optional)
-                  {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
-                </label>
-                <input
-                  type="text"
-                  id="hotel-booked"
-                  value={bookedThrough}
-                  onChange={e => setBookedThrough(e.target.value)}
-                  placeholder="e.g. Booking.com"
-                />
-              </div>
-            </div>
+                {/* Confirmation No + Booked via */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="hotel-conf">
+                      Confirmation No (Optional)
+                      {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
+                    </label>
+                    <input
+                      type="text"
+                      id="hotel-conf"
+                      value={confirmationNo}
+                      onChange={e => setConfirmationNo(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="hotel-booked">
+                      Booked via (Optional)
+                      {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
+                    </label>
+                    <input
+                      type="text"
+                      id="hotel-booked"
+                      value={bookedThrough}
+                      onChange={e => setBookedThrough(e.target.value)}
+                      placeholder="e.g. Booking.com"
+                    />
+                  </div>
+                </div>
 
-            {/* Price + Currency */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="hotel-price">
-                  Price (Optional)
-                  {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
-                </label>
-                <input
-                  type="number"
-                  id="hotel-price"
-                  value={price}
-                  onChange={e => setPrice(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-group">
-                <label>
-                  Currency
-                  {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
-                </label>
-                <div className="loc-select-wrapper" ref={currencyRef} style={{ position: 'relative' }}>
-                  <button
-                    type="button"
-                    className="loc-select-trigger combo-trigger"
-                    onClick={() => setCurrencyOpen(o => !o)}
-                  >
-                    <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
-                    <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
-                  </button>
-                  {currencyOpen && (
-                    <div className="loc-select-dropdown combo-dropdown" style={{ maxHeight: '200px', overflowY: 'auto', zIndex: 10 }}>
-                      {CURRENCY_LIST.map(c => (
-                        <button
-                          key={c.code}
-                          type="button"
-                          className={`loc-select-option${c.code === currency ? ' selected' : ''}`}
-                          onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
-                        >
-                          {c.code} — {c.name}
-                        </button>
-                      ))}
+                {/* Price + Currency */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="hotel-price">
+                      Price (Optional)
+                      {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
+                    </label>
+                    <input
+                      type="number"
+                      id="hotel-price"
+                      value={price}
+                      onChange={e => setPrice(e.target.value)}
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>
+                      Currency
+                      {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
+                    </label>
+                    <div className="combo-wrapper" ref={currencyRef}>
+                      <button
+                        type="button"
+                        className="combo-trigger"
+                        onClick={() => setCurrencyOpen(o => !o)}
+                      >
+                        <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
+                        <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
+                      </button>
+                      {currencyOpen && (
+                        <div className="combo-dropdown">
+                          {CURRENCY_LIST.map(c => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              className={`combo-option${c.code === currency ? ' selected' : ''}`}
+                              onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
+                            >
+                              {c.code} — {c.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Notes */}
-            <div className="form-group">
-              <label htmlFor="hotel-notes">
-                Notes (Optional)
-                {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
-              </label>
-              <textarea
-                id="hotel-notes"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            {/* File Attachments (only when Google signed in) */}
-            {googleToken && (
-              <div className="attachment-section">
-                <div className="attachment-header-row">
-                  <span className="attachment-section-label">Attachments</span>
-                  <button
-                    type="button"
-                    className="mini-icon-btn flex-align"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingCount > 0}
-                  >
-                    <Paperclip size={13} />
-                    {uploadingCount > 0 ? `Uploading…` : 'Attach Files'}
-                  </button>
+                {/* Notes */}
+                <div className="form-group">
+                  <label htmlFor="hotel-notes">
+                    Notes (Optional)
+                    {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
+                  </label>
+                  <textarea
+                    id="hotel-notes"
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    rows={2}
+                  />
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,application/pdf,.eml,.txt"
-                  className="visually-hidden"
-                  onChange={handleFileSelect}
-                />
-                {attachedFiles.length > 0 && (
-                  <div className="attachment-chip-list">
-                    {attachedFiles.map(f => (
-                      <span key={f.fileId} className="attachment-chip">
-                        <span className="attachment-chip-name">{f.name}</span>
-                        <button
-                          type="button"
-                          className="attachment-chip-remove"
-                          onClick={() => handleRemoveChip(f)}
-                          data-tooltip="Remove file"
-                        >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
+
+                {/* File Attachments (only when Google signed in) */}
+                {googleToken && (
+                  <div className="attachment-section">
+                    <div className="attachment-header-row">
+                      <span className="attachment-section-label">Attachments</span>
+                      <button
+                        type="button"
+                        className="mini-icon-btn flex-align"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingCount > 0}
+                      >
+                        <Paperclip size={13} />
+                        {uploadingCount > 0 ? `Uploading…` : 'Attach Files'}
+                      </button>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf,.eml,.txt"
+                      className="visually-hidden"
+                      onChange={handleFileSelect}
+                    />
+                    {attachedFiles.length > 0 && (
+                      <div className="attachment-chip-list">
+                        {attachedFiles.map(f => (
+                          <span key={f.fileId} className="attachment-chip">
+                            <span className="attachment-chip-name">{f.name}</span>
+                            <button
+                              type="button"
+                              className="attachment-chip-remove"
+                              onClick={() => handleRemoveChip(f)}
+                              data-tooltip="Remove file"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
+                      <button
+                        type="button"
+                        className="modal-ai-fill-btn"
+                        onClick={handleAiFill}
+                        disabled={isAiFilling}
+                      >
+                        <Sparkles size={13} />
+                        {isAiFilling ? 'Filling…' : 'Fill with AI'}
+                      </button>
+                    )}
+                    {aiError && <p className="form-error-text">{aiError}</p>}
                   </div>
                 )}
-                {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
-                  <button
-                    type="button"
-                    className="modal-ai-fill-btn"
-                    onClick={handleAiFill}
-                    disabled={isAiFilling}
-                  >
-                    <Sparkles size={13} />
-                    {isAiFilling ? 'Filling…' : 'Fill with AI'}
-                  </button>
-                )}
-                {aiError && <p className="form-error-text">{aiError}</p>}
               </div>
-            )}
+
+              {/* Right column — Coordinates & Map */}
+              <div className="place-form-right-col">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="hotel-lat">
+                      Latitude (Optional)
+                      {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat))}
+                    </label>
+                    <input
+                      type="text"
+                      id="hotel-lat"
+                      value={lat}
+                      onChange={e => setLat(e.target.value)}
+                      placeholder="e.g. 48.8584"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="hotel-lng">
+                      Longitude (Optional)
+                      {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng))}
+                    </label>
+                    <input
+                      type="text"
+                      id="hotel-lng"
+                      value={lng}
+                      onChange={e => setLng(e.target.value)}
+                      placeholder="e.g. 2.2945"
+                    />
+                  </div>
+                </div>
+                <div className="form-group form-group--mb16">
+                  <label className="place-form-label">
+                    <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                    Click on the map to set coordinates
+                  </label>
+                  <MapPicker
+                    lat={parseFloat(lat)}
+                    lng={parseFloat(lng)}
+                    onPick={(pickedLat, pickedLng) => {
+                      setLat(pickedLat.toFixed(6));
+                      setLng(pickedLng.toFixed(6));
+                    }}
+                  />
+                </div>
+              </div>
+
+            </div>
             </div>
 
             <div className="modal-actions">

@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
-  Sparkles, RotateCcw, Paperclip, Trash2,
+  Sparkles, RotateCcw, Paperclip, Trash2, MapPin,
 } from 'lucide-react';
 import type { Transportation } from '../types';
 import { GeminiService } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import { lookupTimezone } from '../utils/api';
-import MapPicker from './MapPicker';
+import DualMapPicker from './DualMapPicker';
 import {
   getOrCreateTripFileFolder,
   uploadFile,
@@ -159,6 +159,7 @@ export default function TransportModal({
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typeRef = useRef<HTMLDivElement>(null);
   const depTzTriggerRef = useRef<HTMLButtonElement>(null);
   const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
   const currencyRef = useRef<HTMLDivElement>(null);
@@ -232,24 +233,12 @@ export default function TransportModal({
 
   useEffect(() => {
     if (!typeOpen) return;
-    const handler = () => setTypeOpen(false);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    const handler = (e: MouseEvent) => {
+      if (!typeRef.current?.contains(e.target as Node)) setTypeOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [typeOpen]);
-
-  useEffect(() => {
-    if (!depTzOpen) return;
-    const handler = () => setDepTzOpen(false);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, [depTzOpen]);
-
-  useEffect(() => {
-    if (!arrTzOpen) return;
-    const handler = () => setArrTzOpen(false);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, [arrTzOpen]);
 
   useEffect(() => {
     if (!currencyOpen) return;
@@ -438,7 +427,7 @@ export default function TransportModal({
       <div className="modal-overlay" onClick={onClose}>
         <div
           className="modal-content glass-panel scrollable"
-          style={{ maxWidth: '600px' }}
+          style={{ maxWidth: '900px' }}
           onClick={e => e.stopPropagation()}
         >
           <div className="modal-header">
@@ -448,184 +437,75 @@ export default function TransportModal({
 
           <form onSubmit={handleSubmit}>
             <div className="modal-scroll-body">
+            <div className="place-form-grid">
 
-              {/* Transit Name */}
-              <div className="form-group">
-                <label htmlFor="transit-name">
-                  Transit Name (Optional)
-                  {undoBtn(transitName, savedValues?.transitName, () => setTransitName(savedValues!.transitName))}
-                </label>
-                <input
-                  type="text"
-                  id="transit-name"
-                  value={transitName}
-                  onChange={e => setTransitName(e.target.value)}
-                  placeholder="Flight to Seattle"
-                />
-              </div>
+              {/* Left column */}
+              <div className="place-form-left-col">
 
-              {/* Type combo box */}
-              <div className="form-group">
-                <label>Type</label>
-                <div
-                  className={`combo-wrapper${typeOpen ? ' dropdown-active' : ''}`}
-                  onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                >
-                  <button
-                    type="button"
-                    className="combo-trigger"
-                    onClick={() => setTypeOpen(o => !o)}
-                  >
-                    <span className="combo-trigger-content">
-                      <selectedTypeObj.Icon size={14} />
-                      {selectedTypeObj.label}
-                    </span>
-                    <ChevronDown size={14} className={`expand-chevron${typeOpen ? ' is-open' : ''}`} />
-                  </button>
-                  {typeOpen && (
-                    <div className="combo-dropdown">
-                      {TRANSPORT_TYPES.map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          className={`combo-option${type === opt.value ? ' selected' : ''}`}
-                          onClick={() => { setType(opt.value); setTypeOpen(false); }}
-                        >
-                          <opt.Icon size={14} />
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                {/* Transit Name */}
+                <div className="form-group">
+                  <label htmlFor="transit-name">
+                    Transit Name (Optional)
+                    {undoBtn(transitName, savedValues?.transitName, () => setTransitName(savedValues!.transitName))}
+                  </label>
+                  <input type="text" id="transit-name" value={transitName} onChange={e => setTransitName(e.target.value)} placeholder="Flight to Seattle" />
                 </div>
-              </div>
 
-              {/* Departure location + address + coords */}
-              <div className="form-group">
-                <label htmlFor="dep-loc">
-                  Departure Location
-                  {undoBtn(depLoc, savedValues?.depLoc, () => setDepLoc(savedValues!.depLoc))}
-                </label>
-                <input
-                  type="text"
-                  id="dep-loc"
-                  value={depLoc}
-                  onChange={e => setDepLoc(e.target.value)}
-                  placeholder="e.g. Seattle SEA Airport"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="dep-address">
-                  Departure Address (Optional)
-                  {undoBtn(depAddress, savedValues?.depAddress, () => setDepAddress(savedValues!.depAddress))}
-                </label>
-                <input
-                  type="text"
-                  id="dep-address"
-                  value={depAddress}
-                  onChange={e => setDepAddress(e.target.value)}
-                  placeholder="e.g. 17801 International Blvd, SeaTac, WA"
-                />
-              </div>
-              <div className="form-row">
+                {/* Type combo */}
                 <div className="form-group">
-                  <label htmlFor="dep-lat">Dep. Latitude (Optional)</label>
-                  <input type="text" id="dep-lat" value={depLat} onChange={e => setDepLat(e.target.value)} placeholder="e.g. 47.4502" />
+                  <label>Type</label>
+                  <div className="combo-wrapper" ref={typeRef}>
+                    <button type="button" className="combo-trigger" onClick={() => setTypeOpen(o => !o)}>
+                      <span className="combo-trigger-content">
+                        <selectedTypeObj.Icon size={14} />
+                        {selectedTypeObj.label}
+                      </span>
+                      <ChevronDown size={14} className={`expand-chevron${typeOpen ? ' is-open' : ''}`} />
+                    </button>
+                    {typeOpen && (
+                      <div className="combo-dropdown">
+                        {TRANSPORT_TYPES.map(opt => (
+                          <button key={opt.value} type="button" className={`combo-option${type === opt.value ? ' selected' : ''}`} onClick={() => { setType(opt.value); setTypeOpen(false); }}>
+                            <opt.Icon size={14} />{opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="dep-lng">Dep. Longitude (Optional)</label>
-                  <input type="text" id="dep-lng" value={depLng} onChange={e => setDepLng(e.target.value)} placeholder="e.g. -122.3088" />
-                </div>
-              </div>
-              <div className="form-group form-group--mb16">
-                <label>Click on the map to set departure coordinates</label>
-                <MapPicker
-                  lat={parseFloat(depLat)}
-                  lng={parseFloat(depLng)}
-                  onPick={(pickedLat, pickedLng) => { setDepLat(pickedLat.toFixed(6)); setDepLng(pickedLng.toFixed(6)); }}
-                />
-              </div>
 
-              {/* Arrival location + address + coords */}
-              <div className="form-group">
-                <label htmlFor="arr-loc">
-                  Arrival Location
-                  {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
-                </label>
-                <input
-                  type="text"
-                  id="arr-loc"
-                  value={arrLoc}
-                  onChange={e => setArrLoc(e.target.value)}
-                  placeholder="e.g. Tokyo Narita Airport"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="arr-address">
-                  Arrival Address (Optional)
-                  {undoBtn(arrAddress, savedValues?.arrAddress, () => setArrAddress(savedValues!.arrAddress))}
-                </label>
-                <input
-                  type="text"
-                  id="arr-address"
-                  value={arrAddress}
-                  onChange={e => setArrAddress(e.target.value)}
-                  placeholder="e.g. 1-1 Furugome, Narita, Chiba"
-                />
-              </div>
-              <div className="form-row">
+                {/* Departure location + address */}
                 <div className="form-group">
-                  <label htmlFor="arr-lat">Arr. Latitude (Optional)</label>
-                  <input type="text" id="arr-lat" value={arrLat} onChange={e => setArrLat(e.target.value)} placeholder="e.g. 35.7720" />
+                  <label htmlFor="dep-loc">
+                    Departure Location
+                    {undoBtn(depLoc, savedValues?.depLoc, () => setDepLoc(savedValues!.depLoc))}
+                  </label>
+                  <input type="text" id="dep-loc" value={depLoc} onChange={e => setDepLoc(e.target.value)} placeholder="e.g. Seattle SEA Airport" required />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="arr-lng">Arr. Longitude (Optional)</label>
-                  <input type="text" id="arr-lng" value={arrLng} onChange={e => setArrLng(e.target.value)} placeholder="e.g. 140.3929" />
+                  <label htmlFor="dep-address">
+                    Departure Address (Optional)
+                    {undoBtn(depAddress, savedValues?.depAddress, () => setDepAddress(savedValues!.depAddress))}
+                  </label>
+                  <input type="text" id="dep-address" value={depAddress} onChange={e => setDepAddress(e.target.value)} placeholder="e.g. 17801 International Blvd, SeaTac, WA" />
                 </div>
-              </div>
-              <div className="form-group form-group--mb16">
-                <label>Click on the map to set arrival coordinates</label>
-                <MapPicker
-                  lat={parseFloat(arrLat)}
-                  lng={parseFloat(arrLng)}
-                  onPick={(pickedLat, pickedLng) => { setArrLat(pickedLat.toFixed(6)); setArrLng(pickedLng.toFixed(6)); }}
-                />
-              </div>
 
-              {/* Departure / Arrival dates */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="dep-date">Departure Date</label>
-                  <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} min={tripStartDate} max={tripEndDate} required />
+                {/* Departure Date + Time */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="dep-date">Departure Date</label>
+                    <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} min={tripStartDate} max={tripEndDate} required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="dep-time">Departure Time</label>
+                    <input type="time" id="dep-time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="arr-date">Arrival Date</label>
-                  <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} min={depDate || tripStartDate} max={tripEndDate} required />
-                </div>
-              </div>
 
-              {/* Departure / Arrival times */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="dep-time">Departure Time</label>
-                  <input type="time" id="dep-time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="arr-time">Arrival Time</label>
-                  <input type="time" id="arr-time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
-                </div>
-              </div>
-
-              {/* Departure / Arrival timezones */}
-              <div className="form-row">
+                {/* Departure Timezone */}
                 <div className="form-group">
                   <label>Departure Timezone</label>
-                  <div
-                    className={`combo-wrapper${depTzOpen ? ' dropdown-active' : ''}`}
-                    onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                  >
+                  <div className="combo-wrapper">
                     <button
                       ref={depTzTriggerRef}
                       type="button"
@@ -644,44 +524,57 @@ export default function TransportModal({
                     </button>
                   </div>
                   {depTzOpen && depTzPos && createPortal(
-                    <div
-                      className="combo-dropdown--tz-portal"
-                      style={{ top: depTzPos.top, left: depTzPos.left, width: Math.max(depTzPos.width, 260) }}
-                      onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                    >
-                      <div className="tz-search-wrapper">
-                        <input
-                          className="tz-search-input"
-                          type="text"
-                          placeholder="Search timezone…"
-                          value={depTzSearch}
-                          onChange={e => setDepTzSearch(e.target.value)}
-                          autoFocus
-                        />
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setDepTzOpen(false)} />
+                      <div className="combo-dropdown--tz-portal" style={{ top: depTzPos.top, left: depTzPos.left, width: Math.max(depTzPos.width, 260), zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                        <div className="tz-search-wrapper">
+                          <input className="tz-search-input" type="text" placeholder="Search timezone…" value={depTzSearch} onChange={e => setDepTzSearch(e.target.value)} autoFocus />
+                        </div>
+                        <div className="tz-option-list">
+                          {filteredDepTz.map(tz => (
+                            <button key={tz} type="button" className={`combo-option${depTz === tz ? ' selected' : ''}`} onClick={() => { setDepTz(tz); setDepTzOpen(false); }}>
+                              {formatTimezoneLabel(tz)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div className="tz-option-list">
-                        {filteredDepTz.map(tz => (
-                          <button
-                            key={tz}
-                            type="button"
-                            className={`combo-option${depTz === tz ? ' selected' : ''}`}
-                            onClick={() => { setDepTz(tz); setDepTzOpen(false); }}
-                          >
-                            {formatTimezoneLabel(tz)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>,
+                    </>,
                     document.body
                   )}
                 </div>
 
+                {/* Arrival location + address */}
+                <div className="form-group">
+                  <label htmlFor="arr-loc">
+                    Arrival Location
+                    {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
+                  </label>
+                  <input type="text" id="arr-loc" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Tokyo Narita Airport" required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="arr-address">
+                    Arrival Address (Optional)
+                    {undoBtn(arrAddress, savedValues?.arrAddress, () => setArrAddress(savedValues!.arrAddress))}
+                  </label>
+                  <input type="text" id="arr-address" value={arrAddress} onChange={e => setArrAddress(e.target.value)} placeholder="e.g. 1-1 Furugome, Narita, Chiba" />
+                </div>
+
+                {/* Arrival Date + Time */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="arr-date">Arrival Date</label>
+                    <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} min={depDate || tripStartDate} max={tripEndDate} required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="arr-time">Arrival Time</label>
+                    <input type="time" id="arr-time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
+                  </div>
+                </div>
+
+                {/* Arrival Timezone */}
                 <div className="form-group">
                   <label>Arrival Timezone</label>
-                  <div
-                    className={`combo-wrapper${arrTzOpen ? ' dropdown-active' : ''}`}
-                    onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                  >
+                  <div className="combo-wrapper">
                     <button
                       ref={arrTzTriggerRef}
                       type="button"
@@ -700,157 +593,187 @@ export default function TransportModal({
                     </button>
                   </div>
                   {arrTzOpen && arrTzPos && createPortal(
-                    <div
-                      className="combo-dropdown--tz-portal"
-                      style={{ top: arrTzPos.top, left: arrTzPos.left, width: Math.max(arrTzPos.width, 260) }}
-                      onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                    >
-                      <div className="tz-search-wrapper">
-                        <input
-                          className="tz-search-input"
-                          type="text"
-                          placeholder="Search timezone…"
-                          value={arrTzSearch}
-                          onChange={e => setArrTzSearch(e.target.value)}
-                          autoFocus
-                        />
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setArrTzOpen(false)} />
+                      <div className="combo-dropdown--tz-portal" style={{ top: arrTzPos.top, left: arrTzPos.left, width: Math.max(arrTzPos.width, 260), zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                        <div className="tz-search-wrapper">
+                          <input className="tz-search-input" type="text" placeholder="Search timezone…" value={arrTzSearch} onChange={e => setArrTzSearch(e.target.value)} autoFocus />
+                        </div>
+                        <div className="tz-option-list">
+                          {filteredArrTz.map(tz => (
+                            <button key={tz} type="button" className={`combo-option${arrTz === tz ? ' selected' : ''}`} onClick={() => { setArrTz(tz); setArrTzOpen(false); }}>
+                              {formatTimezoneLabel(tz)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div className="tz-option-list">
-                        {filteredArrTz.map(tz => (
-                          <button
-                            key={tz}
-                            type="button"
-                            className={`combo-option${arrTz === tz ? ' selected' : ''}`}
-                            onClick={() => { setArrTz(tz); setArrTzOpen(false); }}
-                          >
-                            {formatTimezoneLabel(tz)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>,
+                    </>,
                     document.body
                   )}
                 </div>
-              </div>
 
-              {/* Carrier / Transit Code */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="transit-carrier">
-                    Carrier / Operator (Optional)
-                    {undoBtn(carrier, savedValues?.carrier, () => setCarrier(savedValues!.carrier))}
-                  </label>
-                  <input type="text" id="transit-carrier" value={carrier} onChange={e => setCarrier(e.target.value)} />
+                {/* Carrier / Transit Code */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="transit-carrier">
+                      Carrier / Operator (Optional)
+                      {undoBtn(carrier, savedValues?.carrier, () => setCarrier(savedValues!.carrier))}
+                    </label>
+                    <input type="text" id="transit-carrier" value={carrier} onChange={e => setCarrier(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="transit-code">
+                      Transit Code / Flight No (Optional)
+                      {undoBtn(transitCode, savedValues?.transitCode, () => setTransitCode(savedValues!.transitCode))}
+                    </label>
+                    <input type="text" id="transit-code" value={transitCode} onChange={e => setTransitCode(e.target.value)} />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="transit-code">
-                    Transit Code / Flight No (Optional)
-                    {undoBtn(transitCode, savedValues?.transitCode, () => setTransitCode(savedValues!.transitCode))}
-                  </label>
-                  <input type="text" id="transit-code" value={transitCode} onChange={e => setTransitCode(e.target.value)} />
-                </div>
-              </div>
 
-              {/* Confirmation No + Booked via */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="transit-conf">
-                    Confirmation No (Optional)
-                    {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
-                  </label>
-                  <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
+                {/* Confirmation No + Booked via */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="transit-conf">
+                      Confirmation No (Optional)
+                      {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
+                    </label>
+                    <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="transit-booked">
+                      Booked via (Optional)
+                      {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
+                    </label>
+                    <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="transit-booked">
-                    Booked via (Optional)
-                    {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
-                  </label>
-                  <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
-                </div>
-              </div>
 
-              {/* Price + Currency */}
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="transit-price">
-                    Price (Optional)
-                    {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
-                  </label>
-                  <input type="number" id="transit-price" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                {/* Price + Currency */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="transit-price">
+                      Price (Optional)
+                      {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
+                    </label>
+                    <input type="number" id="transit-price" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                  </div>
+                  <div className="form-group">
+                    <label>
+                      Currency
+                      {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
+                    </label>
+                    <div className="combo-wrapper" ref={currencyRef}>
+                      <button type="button" className="combo-trigger" onClick={() => setCurrencyOpen(o => !o)}>
+                        <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
+                        <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
+                      </button>
+                      {currencyOpen && (
+                        <div className="combo-dropdown">
+                          {CURRENCY_LIST.map(c => (
+                            <button key={c.code} type="button" className={`combo-option${c.code === currency ? ' selected' : ''}`} onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}>
+                              {c.code} — {c.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {/* Notes */}
                 <div className="form-group">
-                  <label>
-                    Currency
-                    {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
+                  <label htmlFor="transit-notes">
+                    Notes (Optional)
+                    {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
                   </label>
-                  <div className="loc-select-wrapper" ref={currencyRef} style={{ position: 'relative' }}>
-                    <button
-                      type="button"
-                      className="loc-select-trigger combo-trigger"
-                      onClick={() => setCurrencyOpen(o => !o)}
-                    >
-                      <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
-                      <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
-                    </button>
-                    {currencyOpen && (
-                      <div className="loc-select-dropdown combo-dropdown" style={{ maxHeight: '200px', overflowY: 'auto', zIndex: 10 }}>
-                        {CURRENCY_LIST.map(c => (
-                          <button
-                            key={c.code}
-                            type="button"
-                            className={`loc-select-option${c.code === currency ? ' selected' : ''}`}
-                            onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
-                          >
-                            {c.code} — {c.name}
-                          </button>
+                  <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
+                </div>
+
+                {/* File Attachments */}
+                {googleToken && (
+                  <div className="attachment-section">
+                    <div className="attachment-header-row">
+                      <span className="attachment-section-label">Attachments</span>
+                      <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
+                        <Paperclip size={13} />
+                        {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
+                      </button>
+                    </div>
+                    <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
+                    {attachedFiles.length > 0 && (
+                      <div className="attachment-chip-list">
+                        {attachedFiles.map(f => (
+                          <span key={f.fileId} className="attachment-chip">
+                            <span className="attachment-chip-name">{f.name}</span>
+                            <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
+                              <X size={10} />
+                            </button>
+                          </span>
                         ))}
                       </div>
                     )}
+                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
+                      <button type="button" className="modal-ai-fill-btn" onClick={handleAiFill} disabled={isAiFilling}>
+                        <Sparkles size={13} />
+                        {isAiFilling ? 'Filling…' : 'Fill with AI'}
+                      </button>
+                    )}
+                    {aiError && <p className="form-error-text">{aiError}</p>}
                   </div>
+                )}
+              </div>
+
+              {/* Right column — Coordinates & DualMapPicker */}
+              <div className="place-form-right-col">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="dep-lat">
+                      Departure Latitude (Optional)
+                      {undoBtn(depLat, savedValues?.depLat, () => setDepLat(savedValues!.depLat))}
+                    </label>
+                    <input type="text" id="dep-lat" value={depLat} onChange={e => setDepLat(e.target.value)} placeholder="e.g. 47.4502" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="dep-lng">
+                      Departure Longitude (Optional)
+                      {undoBtn(depLng, savedValues?.depLng, () => setDepLng(savedValues!.depLng))}
+                    </label>
+                    <input type="text" id="dep-lng" value={depLng} onChange={e => setDepLng(e.target.value)} placeholder="e.g. -122.3088" />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="arr-lat">
+                      Arrival Latitude (Optional)
+                      {undoBtn(arrLat, savedValues?.arrLat, () => setArrLat(savedValues!.arrLat))}
+                    </label>
+                    <input type="text" id="arr-lat" value={arrLat} onChange={e => setArrLat(e.target.value)} placeholder="e.g. 35.7720" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="arr-lng">
+                      Arrival Longitude (Optional)
+                      {undoBtn(arrLng, savedValues?.arrLng, () => setArrLng(savedValues!.arrLng))}
+                    </label>
+                    <input type="text" id="arr-lng" value={arrLng} onChange={e => setArrLng(e.target.value)} placeholder="e.g. 140.3929" />
+                  </div>
+                </div>
+                <div className="form-group form-group--mb16">
+                  <label className="place-form-label">
+                    <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                    Click on the map to set coordinates
+                  </label>
+                  <DualMapPicker
+                    depLat={parseFloat(depLat)}
+                    depLng={parseFloat(depLng)}
+                    arrLat={parseFloat(arrLat)}
+                    arrLng={parseFloat(arrLng)}
+                    onDepPick={(lat, lng) => { setDepLat(lat.toFixed(6)); setDepLng(lng.toFixed(6)); }}
+                    onArrPick={(lat, lng) => { setArrLat(lat.toFixed(6)); setArrLng(lng.toFixed(6)); }}
+                  />
                 </div>
               </div>
 
-              {/* Notes */}
-              <div className="form-group">
-                <label htmlFor="transit-notes">
-                  Notes (Optional)
-                  {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
-                </label>
-                <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
-              </div>
-
-              {/* File Attachments */}
-              {googleToken && (
-                <div className="attachment-section">
-                  <div className="attachment-header-row">
-                    <span className="attachment-section-label">Attachments</span>
-                    <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
-                      <Paperclip size={13} />
-                      {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
-                    </button>
-                  </div>
-                  <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
-                  {attachedFiles.length > 0 && (
-                    <div className="attachment-chip-list">
-                      {attachedFiles.map(f => (
-                        <span key={f.fileId} className="attachment-chip">
-                          <span className="attachment-chip-name">{f.name}</span>
-                          <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
-                            <X size={10} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
-                    <button type="button" className="modal-ai-fill-btn" onClick={handleAiFill} disabled={isAiFilling}>
-                      <Sparkles size={13} />
-                      {isAiFilling ? 'Filling…' : 'Fill with AI'}
-                    </button>
-                  )}
-                  {aiError && <p className="form-error-text">{aiError}</p>}
-                </div>
-              )}
+            </div>
             </div>
 
             <div className="modal-actions">

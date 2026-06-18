@@ -187,7 +187,7 @@ export default function ReservationsSection({
           <div className="subsection-content">
             {hotelWarnings.map((w, i) => (
               <div key={i} className="reservation-warning">
-                <AlertTriangle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+                <AlertTriangle size={11} style={{ flexShrink: 0 }} />
                 {w.start === w.end
                   ? `No hotels for ${w.locationName} on ${shortDate(w.start)}.`
                   : `No hotels for ${w.locationName} from ${shortDate(w.start)} to ${shortDate(w.end)}.`}
@@ -348,7 +348,7 @@ export default function ReservationsSection({
           <div className="subsection-content">
             {transitWarnings.map((w, i) => (
               <div key={i} className="reservation-warning">
-                <AlertTriangle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+                <AlertTriangle size={11} style={{ flexShrink: 0 }} />
                 No transit from {w.from} to {w.to}.
               </div>
             ))}
@@ -373,11 +373,8 @@ export default function ReservationsSection({
                           {t.carrier}{t.transitCode ? ` · ${t.transitCode}` : ''}
                         </p>
                       )}
-                      <p className="place-desc-text">
-                        {formatCardDateTime(t.departureDate, t.departureTime, t.departureTimezone)}
-                        {' → '}
-                        {formatCardDateTime(t.arrivalDate, t.arrivalTime, t.arrivalTimezone)}
-                      </p>
+                      <p className="place-desc-text">{formatCardDateTime(t.departureDate, t.departureTime, t.departureTimezone)}</p>
+                      <p className="place-desc-text">{formatCardDateTime(t.arrivalDate, t.arrivalTime, t.arrivalTimezone)}</p>
                     </div>
                     <div className="reservation-card-header-right">
                       <div className="catalog-allocated-days">
@@ -395,7 +392,7 @@ export default function ReservationsSection({
                   </div>
 
                   {/* Animated expanded section */}
-                  <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
+                  <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${openTransitMapId === t.id ? ' has-open-dropdown' : ''}`}>
                     <div>
                       <div className="reservation-card-expanded-content">
                         {t.confirmationNo && (

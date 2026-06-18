@@ -1,4 +1,4 @@
-import { Sparkles, RefreshCw, AlertTriangle, HelpCircle, RotateCcw } from 'lucide-react';
+import { Sparkles, RefreshCw, AlertTriangle, HelpCircle, RotateCcw, MapPin } from 'lucide-react';
 import ImagePreview from './ImagePreview';
 import CategoryGroupSelect from './CategoryGroupSelect';
 import MapPicker from './MapPicker';
@@ -229,7 +229,7 @@ export default function PlaceFormFields({
         </div>
 
         <div className="form-group form-group--mb16">
-          <label>📍 Click on the map to set coordinates</label>
+          <label className="place-form-label"><MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} /> Click on the map to set coordinates</label>
           <MapPicker
             lat={parseFloat(lat)}
             lng={parseFloat(lng)}
