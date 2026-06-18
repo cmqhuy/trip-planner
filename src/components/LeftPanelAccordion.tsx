@@ -1,4 +1,4 @@
-import { BookOpen, CheckSquare, Building, Sparkles } from 'lucide-react';
+import { BookOpen, CheckSquare, Building, Sparkles, AlertTriangle } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, Transportation } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
@@ -77,6 +77,10 @@ interface LeftPanelAccordionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
+  editingHotelNoteId: string | null;
+  setEditingHotelNoteId: (id: string | null) => void;
+  editingTransitNoteId: string | null;
+  setEditingTransitNoteId: (id: string | null) => void;
 }
 
 export default function LeftPanelAccordion({
@@ -151,6 +155,10 @@ export default function LeftPanelAccordion({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
+  editingHotelNoteId,
+  setEditingHotelNoteId,
+  editingTransitNoteId,
+  setEditingTransitNoteId,
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
@@ -268,13 +276,24 @@ export default function LeftPanelAccordion({
             <Building size={16} className="text-success" />
             Reservations
           </span>
-          <span className="text-muted-sm">
-            {(() => {
-              const hotelsCount = activePlan.hotels.length;
-              const transitCount = activePlan.transports.length;
-              return `${hotelsCount}H / ${transitCount}T`;
-            })()}
-          </span>
+          {(() => {
+            const hasHotelWarning = daysList.some(d => {
+              const locId = activePlan.days[d]?.locationId;
+              return !!locId && !activePlan.hotels.some(h => h.checkInDate <= d && d < h.checkOutDate);
+            });
+            const hasTransitWarning = daysList.some((d, i) => {
+              if (i === 0) return false;
+              const prevLoc = activePlan.days[daysList[i - 1]]?.locationId;
+              const currLoc = activePlan.days[d]?.locationId;
+              if (!prevLoc || !currLoc || prevLoc === currLoc) return false;
+              return !activePlan.transports.some(
+                t => t.departureDate === daysList[i - 1] || t.arrivalDate === d
+              );
+            });
+            return (hasHotelWarning || hasTransitWarning)
+              ? <AlertTriangle size={12} className="accordion-warning-icon" />
+              : null;
+          })()}
         </div>
         
         {expandedLeftSection === 'reservations' && (
@@ -296,6 +315,10 @@ export default function LeftPanelAccordion({
             setExpandedHotelId={setExpandedHotelId}
             expandedTransitId={expandedTransitId}
             setExpandedTransitId={setExpandedTransitId}
+            editingHotelNoteId={editingHotelNoteId}
+            setEditingHotelNoteId={setEditingHotelNoteId}
+            editingTransitNoteId={editingTransitNoteId}
+            setEditingTransitNoteId={setEditingTransitNoteId}
           />
         )}
       </div>

@@ -112,6 +112,10 @@ describe('LeftPanelAccordion Component', () => {
         setExpandedHotelId={vi.fn()}
         expandedTransitId={null}
         setExpandedTransitId={vi.fn()}
+        editingHotelNoteId={null}
+        setEditingHotelNoteId={vi.fn()}
+        editingTransitNoteId={null}
+        setEditingTransitNoteId={vi.fn()}
       />
     );
 

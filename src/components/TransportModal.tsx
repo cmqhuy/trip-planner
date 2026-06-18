@@ -162,9 +162,10 @@ export default function TransportModal({
   const typeRef = useRef<HTMLDivElement>(null);
   const depTzTriggerRef = useRef<HTMLButtonElement>(null);
   const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
-  const currencyRef = useRef<HTMLDivElement>(null);
+  const currencyTriggerRef = useRef<HTMLButtonElement>(null);
   const [depTzPos, setDepTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [arrTzPos, setArrTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -239,17 +240,6 @@ export default function TransportModal({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [typeOpen]);
-
-  useEffect(() => {
-    if (!currencyOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (currencyRef.current && !currencyRef.current.contains(e.target as Node)) {
-        setCurrencyOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [currencyOpen]);
 
   const handleDepDateChange = (val: string) => {
     setDepDate(val);
@@ -511,15 +501,23 @@ export default function TransportModal({
                 {/* Departure Date + Time + Timezone */}
                 <div className="form-row form-row--3col">
                   <div className="form-group">
-                    <label htmlFor="dep-date">Departure Date</label>
+                    <label htmlFor="dep-date" className="place-form-label">
+                      Departure Date
+                      {undoBtn(depDate, savedValues?.depDate, () => setDepDate(savedValues!.depDate))}
+                    </label>
                     <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} min={tripStartDate} max={tripEndDate} required />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="dep-time">Departure Time</label>
+                    <label htmlFor="dep-time" className="place-form-label">
+                      Departure Time
+                      {undoBtn(depTime, savedValues?.depTime, () => setDepTime(savedValues!.depTime))}
+                    </label>
                     <input type="time" id="dep-time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
                   </div>
                   <div className="form-group">
-                    <label>Departure Timezone</label>
+                    <label className="place-form-label">
+                      Departure Timezone
+                      {undoBtn(depTz, savedValues?.depTz, () => setDepTz(savedValues!.depTz))}</label>
                     <div className="combo-wrapper">
                       <button
                         ref={depTzTriggerRef}
@@ -565,7 +563,7 @@ export default function TransportModal({
                     Arrival Location
                     {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
                   </label>
-                  <input type="text" id="arr-loc" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Tokyo Narita Airport" required />
+                  <input type="text" id="arr-loc" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Tokyo NRT Airport" required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="arr-address" className="place-form-label">
@@ -578,15 +576,23 @@ export default function TransportModal({
                 {/* Arrival Date + Time + Timezone */}
                 <div className="form-row form-row--3col">
                   <div className="form-group">
-                    <label htmlFor="arr-date">Arrival Date</label>
+                    <label htmlFor="arr-date" className="place-form-label">
+                      Arrival Date
+                      {undoBtn(arrDate, savedValues?.arrDate, () => setArrDate(savedValues!.arrDate))}
+                    </label>
                     <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} min={depDate || tripStartDate} max={tripEndDate} required />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="arr-time">Arrival Time</label>
+                    <label htmlFor="arr-time" className="place-form-label">
+                      Arrival Time
+                      {undoBtn(arrTime, savedValues?.arrTime, () => setArrTime(savedValues!.arrTime))}
+                    </label>
                     <input type="time" id="arr-time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
                   </div>
                   <div className="form-group">
-                    <label>Arrival Timezone</label>
+                    <label className="place-form-label">
+                      Arrival Timezone
+                      {undoBtn(arrTz, savedValues?.arrTz, () => setArrTz(savedValues!.arrTz))}</label>
                     <div className="combo-wrapper">
                       <button
                         ref={arrTzTriggerRef}
@@ -658,21 +664,36 @@ export default function TransportModal({
                       Currency
                       {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
                     </label>
-                    <div className="combo-wrapper" ref={currencyRef}>
-                      <button type="button" className="combo-trigger" onClick={() => setCurrencyOpen(o => !o)}>
+                    <div className="combo-wrapper">
+                      <button
+                        ref={currencyTriggerRef}
+                        type="button"
+                        className="combo-trigger"
+                        onClick={() => {
+                          if (!currencyOpen && currencyTriggerRef.current) {
+                            const r = currencyTriggerRef.current.getBoundingClientRect();
+                            setCurrencyPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                          }
+                          setCurrencyOpen(o => !o);
+                        }}
+                      >
                         <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
                         <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
                       </button>
-                      {currencyOpen && (
-                        <div className="combo-dropdown">
+                    </div>
+                    {currencyOpen && currencyPos && createPortal(
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setCurrencyOpen(false)} />
+                        <div className="combo-dropdown--portal" style={{ top: currencyPos.top, left: currencyPos.left, width: Math.max(currencyPos.width, 220) }} onClick={e => e.stopPropagation()}>
                           {CURRENCY_LIST.map(c => (
                             <button key={c.code} type="button" className={`combo-option${c.code === currency ? ' selected' : ''}`} onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}>
                               {c.code} — {c.name}
                             </button>
                           ))}
                         </div>
-                      )}
-                    </div>
+                      </>,
+                      document.body
+                    )}
                   </div>
                 </div>
               </div>
@@ -685,14 +706,14 @@ export default function TransportModal({
                       Departure Latitude (Optional)
                       {undoBtn(depLat, savedValues?.depLat, () => setDepLat(savedValues!.depLat))}
                     </label>
-                    <input type="text" id="dep-lat" value={depLat} onChange={e => setDepLat(e.target.value)} placeholder="e.g. 47.4502" />
+                    <input type="text" id="dep-lat" value={depLat} onChange={e => setDepLat(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="dep-lng" className="place-form-label">
                       Departure Longitude (Optional)
                       {undoBtn(depLng, savedValues?.depLng, () => setDepLng(savedValues!.depLng))}
                     </label>
-                    <input type="text" id="dep-lng" value={depLng} onChange={e => setDepLng(e.target.value)} placeholder="e.g. -122.3088" />
+                    <input type="text" id="dep-lng" value={depLng} onChange={e => setDepLng(e.target.value)} />
                   </div>
                 </div>
                 <div className="form-row">
@@ -701,14 +722,14 @@ export default function TransportModal({
                       Arrival Latitude (Optional)
                       {undoBtn(arrLat, savedValues?.arrLat, () => setArrLat(savedValues!.arrLat))}
                     </label>
-                    <input type="text" id="arr-lat" value={arrLat} onChange={e => setArrLat(e.target.value)} placeholder="e.g. 35.7720" />
+                    <input type="text" id="arr-lat" value={arrLat} onChange={e => setArrLat(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="arr-lng" className="place-form-label">
                       Arrival Longitude (Optional)
                       {undoBtn(arrLng, savedValues?.arrLng, () => setArrLng(savedValues!.arrLng))}
                     </label>
-                    <input type="text" id="arr-lng" value={arrLng} onChange={e => setArrLng(e.target.value)} placeholder="e.g. 140.3929" />
+                    <input type="text" id="arr-lng" value={arrLng} onChange={e => setArrLng(e.target.value)} />
                   </div>
                 </div>
                 <div className="form-group form-group--mb16">

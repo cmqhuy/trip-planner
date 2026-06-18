@@ -466,7 +466,7 @@ function CatalogSection({
                             </div>
                             {place.openingHours && (
                               <div className="place-card-hours">
-                                <Clock size={10} /> {place.openingHours}
+                                <Clock size={10} /> <span>{place.openingHours}</span>
                               </div>
                             )}
                           </div>
@@ -727,7 +727,7 @@ function CatalogSection({
                           <h4 className="catalog-place-title catalog-place-title--no-margin">{place.title}</h4>
                           {place.openingHours && (
                             <div className="place-card-hours">
-                              <Clock size={10} /> {place.openingHours}
+                              <Clock size={10} /> <span>{place.openingHours}</span>
                             </div>
                           )}
                         </div>

@@ -127,6 +127,10 @@ interface ItineraryPanelProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
+  editingHotelNoteId: string | null;
+  setEditingHotelNoteId: (id: string | null) => void;
+  editingTransitNoteId: string | null;
+  setEditingTransitNoteId: (id: string | null) => void;
 }
 
 function ItineraryPanel({
@@ -234,6 +238,10 @@ function ItineraryPanel({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
+  editingHotelNoteId,
+  setEditingHotelNoteId,
+  editingTransitNoteId,
+  setEditingTransitNoteId,
 }: ItineraryPanelProps) {
 
   const [hoveredScheduleItemIndex, setHoveredScheduleItemIndex] = useState<number | null>(null);
@@ -244,9 +252,7 @@ function ItineraryPanel({
   const [openHotelMenuId, setOpenHotelMenuId] = useState<string | null>(null);
   const [openTransportMenuId, setOpenTransportMenuId] = useState<string | null>(null);
   const [openMapMenuId, setOpenMapMenuId] = useState<string | null>(null);
-  const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
   const [editingHotelNoteText, setEditingHotelNoteText] = useState('');
-  const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
   const [editingTransitNoteText, setEditingTransitNoteText] = useState('');
   const planPickerRef = useRef<HTMLDivElement>(null);
   const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -839,6 +845,7 @@ function ItineraryPanel({
                         <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
                       </div>
                       <div className="hotel-card-right-actions" onClick={e => e.stopPropagation()}>
+                        <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedHotelId(isExpanded ? null : h.id)} />
                         {h.address && (
                           <button
                             className="mini-icon-btn"
@@ -870,14 +877,13 @@ function ItineraryPanel({
                             )}
                           </div>
                         )}
-                        <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedHotelId(isExpanded ? null : h.id)} />
                       </div>
                     </div>
 
                     {/* Expandable details — above notes */}
                     <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${openHotelMenuId === h.id ? ' has-open-dropdown' : ''}`}>
                       <div>
-                        <div style={{ paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div className="card-expanded-inner">
                           {h.address && (
                             <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
                               <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.address}
@@ -912,7 +918,7 @@ function ItineraryPanel({
                     ) : (
                       <div
                         className="place-note-wrapper"
-                        style={{ marginTop: '2px', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
+                        style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
                         onClick={trip.canEdit !== false ? (e) => { e.stopPropagation(); setEditingHotelNoteId(h.id); setEditingHotelNoteText(h.notes || ''); } : undefined}
                       >
                         <div style={{ fontSize: '12.5px', color: h.notes ? 'var(--accent-primary)' : 'var(--text-muted)', fontStyle: 'italic', whiteSpace: 'pre-wrap', lineHeight: 1.4, margin: 0, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
@@ -974,14 +980,14 @@ function ItineraryPanel({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <h4 className="place-title-text">{transitName}</h4>
                         {carrierLine && <p className="place-desc-text">{carrierLine}</p>}
-                        <div className="transport-details-grid" style={{ marginTop: '6px' }}>
+                        <div className="transport-details-grid" style={{ marginTop: '2px' }}>
                           <div className="transport-flow" style={{ opacity: isDeparture ? 1 : 0.5 }}>
                             <span className="transport-flow-sub">
                               Departure {isDeparture && <ArrowUpRight size={11} className="transport-flag-icon" />}
                             </span>
                             <span className="transport-flow-main">{t.departureLocationName}</span>
                             <span className="transport-time-detail">
-                              {formatCardDate(t.departureDate)}{t.departureTime ? ` · ${t.departureTime}` : ''}{depTzLabel}
+                              <Calendar size={10} />{formatCardDate(t.departureDate)}{t.departureTime ? ` · ${t.departureTime}` : ''}{depTzLabel}
                             </span>
                           </div>
                           <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
@@ -990,12 +996,13 @@ function ItineraryPanel({
                             </span>
                             <span className="transport-flow-main">{t.arrivalLocationName}</span>
                             <span className="transport-time-detail">
-                              {formatCardDate(t.arrivalDate)}{t.arrivalTime ? ` · ${t.arrivalTime}` : ''}{arrTzLabel}
+                              <Calendar size={10} />{formatCardDate(t.arrivalDate)}{t.arrivalTime ? ` · ${t.arrivalTime}` : ''}{arrTzLabel}
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="transport-card-right-actions" onClick={e => e.stopPropagation()}>
+                        <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedTransitId(isExpanded ? null : t.id)} />
                         <div className={`card-options-menu`}>
                           <button
                             className="mini-icon-btn"
@@ -1037,14 +1044,13 @@ function ItineraryPanel({
                             )}
                           </div>
                         )}
-                        <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedTransitId(isExpanded ? null : t.id)} />
                       </div>
                     </div>
 
                     {/* Expandable details — above notes */}
                     <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${openTransportMenuId === t.id || openMapMenuId === t.id ? ' has-open-dropdown' : ''}`}>
                       <div>
-                        <div style={{ paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div className="card-expanded-inner">
                           {t.confirmationNo && (
                             <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
                               <Hash size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {t.confirmationNo}
@@ -1052,12 +1058,12 @@ function ItineraryPanel({
                           )}
                           {t.departureAddress && (
                             <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
-                              <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {t.departureAddress}
+                              <ArrowUpRight size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Dep: {t.departureAddress}
                             </p>
                           )}
                           {t.arrivalAddress && (
                             <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
-                              <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {t.arrivalAddress}
+                              <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arr: {t.arrivalAddress}
                             </p>
                           )}
                         </div>
@@ -1084,7 +1090,7 @@ function ItineraryPanel({
                     ) : (
                       <div
                         className="place-note-wrapper"
-                        style={{ marginTop: '2px', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
+                        style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
                         onClick={trip.canEdit !== false ? (e) => { e.stopPropagation(); setEditingTransitNoteId(t.id); setEditingTransitNoteText(t.notes || ''); } : undefined}
                       >
                         <div style={{ fontSize: '12.5px', color: t.notes ? 'var(--accent-primary)' : 'var(--text-muted)', fontStyle: 'italic', whiteSpace: 'pre-wrap', lineHeight: 1.4, margin: 0, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>

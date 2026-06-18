@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Sparkles, RotateCcw, Paperclip, Trash2, ChevronDown, MapPin } from 'lucide-react';
 import type { Hotel } from '../types';
 import { GeminiService } from '../utils/ai';
@@ -85,20 +86,10 @@ export default function HotelModal({
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
   const [removePrompt, setRemovePrompt] = useState<AttachedFile | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const currencyRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!currencyOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (currencyRef.current && !currencyRef.current.contains(e.target as Node)) {
-        setCurrencyOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [currencyOpen]);
+  const currencyTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -437,17 +428,27 @@ export default function HotelModal({
                       Currency
                       {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
                     </label>
-                    <div className="combo-wrapper" ref={currencyRef}>
+                    <div className="combo-wrapper">
                       <button
+                        ref={currencyTriggerRef}
                         type="button"
                         className="combo-trigger"
-                        onClick={() => setCurrencyOpen(o => !o)}
+                        onClick={() => {
+                          if (!currencyOpen && currencyTriggerRef.current) {
+                            const r = currencyTriggerRef.current.getBoundingClientRect();
+                            setCurrencyPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                          }
+                          setCurrencyOpen(o => !o);
+                        }}
                       >
                         <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
                         <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
                       </button>
-                      {currencyOpen && (
-                        <div className="combo-dropdown">
+                    </div>
+                    {currencyOpen && currencyPos && createPortal(
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setCurrencyOpen(false)} />
+                        <div className="combo-dropdown--portal" style={{ top: currencyPos.top, left: currencyPos.left, width: Math.max(currencyPos.width, 220) }} onClick={e => e.stopPropagation()}>
                           {CURRENCY_LIST.map(c => (
                             <button
                               key={c.code}
@@ -459,8 +460,9 @@ export default function HotelModal({
                             </button>
                           ))}
                         </div>
-                      )}
-                    </div>
+                      </>,
+                      document.body
+                    )}
                   </div>
                 </div>
 
@@ -479,7 +481,6 @@ export default function HotelModal({
                       id="hotel-lat"
                       value={lat}
                       onChange={e => setLat(e.target.value)}
-                      placeholder="e.g. 48.8584"
                     />
                   </div>
                   <div className="form-group">
@@ -492,7 +493,6 @@ export default function HotelModal({
                       id="hotel-lng"
                       value={lng}
                       onChange={e => setLng(e.target.value)}
-                      placeholder="e.g. 2.2945"
                     />
                   </div>
                 </div>
