@@ -312,6 +312,8 @@ useEffect(() => {
 ```
 The dropdown's own click handlers call `e.stopPropagation()` so they don't trigger the document listener.
 
+**Combo box trigger layout**: Every `.combo-trigger` must use `justify-content: space-between` to push the chevron to the right edge, and the content span must use `display: flex; align-items: center; gap: 6px`. These are enforced in CSS on `.combo-trigger` and `.combo-trigger-content` — do not add duplicate inline styles.
+
 **Cards with open dropdowns must lift above siblings.** Schedule items (`.timeline-card`) and catalog cards (`.catalog-place-card`) use `backdrop-filter`, which creates a CSS stacking context. Adjacent elements with an explicit `z-index` (e.g., `.schedule-add-slot` at `z-index: 2`) can overlap and obscure the dropdown. When a dropdown opens, add `dropdown-active` to the card's root element — the global CSS rule sets `position: relative; z-index: 1100` to lift it above siblings:
 ```tsx
 className={`timeline-card glass-panel ${isDropdownOpen ? 'dropdown-active' : ''}`}

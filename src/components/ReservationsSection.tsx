@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import {
   Plane, Building, Ticket, AlertTriangle, MapPin, Hash,
-  Calendar, ChevronDown, ChevronUp, ExternalLink, Edit2, Trash2,
-  Train, Bus, Car, Anchor, Navigation
+  ChevronDown, ChevronUp, Edit2, Trash2, Check,
+  Train, Bus, Car, Anchor, Navigation, FileText
 } from 'lucide-react';
 import type { Trip, Plan, Hotel, Transportation } from '../types';
 
@@ -41,8 +41,15 @@ export default function ReservationsSection({
   onDeleteTransport,
 }: ReservationsSectionProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [editingNotesText, setEditingNotesText] = useState('');
 
-  const toggleExpanded = (id: string) => setExpandedId(prev => prev === id ? null : id);
+  const toggleExpanded = (id: string) => { setExpandedId(prev => prev === id ? null : id); setEditingNotesId(null); };
+
+  const shortDate = (d: string) => new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const saveHotelNotes = (hotel: Hotel, text: string) => onEditHotel({ ...hotel, notes: text.trim() || undefined });
+  const saveTransportNotes = (transport: Transportation, text: string) => onEditTransport({ ...transport, notes: text.trim() || undefined });
 
   // --- Hotel helpers ---
 
@@ -129,7 +136,7 @@ export default function ReservationsSection({
             {hotelWarnings.map((w, i) => (
               <div key={i} className="reservation-warning">
                 <AlertTriangle size={11} />
-                No hotels for {w.locationName} {w.start === w.end ? `on ${formatDisplayDate(w.start)}` : `from ${formatDisplayDate(w.start)} to ${formatDisplayDate(w.end)}`}.
+                No hotels for {w.locationName} {shortDate(w.start)}{w.start !== w.end ? ` – ${shortDate(w.end)}` : ''}.
               </div>
             ))}
 
@@ -143,23 +150,18 @@ export default function ReservationsSection({
                     <div className="reservation-card-expand-main">
                       <div className="reservation-card-icon-row">
                         <Building size={13} className="reservation-card-type-icon" />
-                        {locationName && <span className="reservation-card-location">{locationName}</span>}
+                        {locationName && <span className="place-card-hours">{locationName}</span>}
                       </div>
-                      <strong className="reservation-card-title">{h.name}</strong>
-                      {h.address && (
-                        <div className="reservation-card-field-row">
-                          <MapPin size={11} /> <span>{h.address}</span>
-                        </div>
-                      )}
+                      <h4 className="place-card-title place-card-title--no-margin">{h.name}</h4>
+                      {h.address && <p className="reservation-card-desc">{h.address}</p>}
                       {h.confirmationNo && (
                         <div className="reservation-card-field-row">
                           <Hash size={11} /> <span>{h.confirmationNo}</span>
                         </div>
                       )}
-                      <div className="reservation-card-field-row">
-                        <Calendar size={11} />
-                        <span>{formatDisplayDate(h.checkInDate)}{h.checkInTime ? ` ${h.checkInTime}` : ''} → {formatDisplayDate(h.checkOutDate)}{h.checkOutTime ? ` ${h.checkOutTime}` : ''}</span>
-                      </div>
+                      <p className="reservation-card-desc">
+                        {formatDisplayDate(h.checkInDate)}{h.checkInTime ? ` ${h.checkInTime}` : ''} → {formatDisplayDate(h.checkOutDate)}{h.checkOutTime ? ` ${h.checkOutTime}` : ''}
+                      </p>
                     </div>
                     <span className="reservation-card-chevron">
                       {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -168,23 +170,57 @@ export default function ReservationsSection({
 
                   {isExpanded && (
                     <div className="reservation-card-expanded-content">
-                      {h.notes && <p className="reservation-card-notes">{h.notes}</p>}
+                      <div className="catalog-notes-box">
+                        <label className="catalog-notes-label">
+                          <FileText size={11} /> Notes
+                          {trip.canEdit !== false && editingNotesId !== key && (
+                            <button
+                              className="mini-icon-btn catalog-notes-edit-btn"
+                              onClick={e => { e.stopPropagation(); setEditingNotesId(key); setEditingNotesText(h.notes ?? ''); }}
+                              data-tooltip="Edit notes"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                          )}
+                        </label>
+                        {editingNotesId === key ? (
+                          <div className="catalog-notes-edit-container">
+                            <textarea
+                              className="catalog-notes-textarea"
+                              rows={3}
+                              value={editingNotesText}
+                              onChange={e => setEditingNotesText(e.target.value)}
+                              placeholder="Add notes..."
+                            />
+                            <div className="catalog-notes-actions">
+                              <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingNotesId(null)}>Cancel</button>
+                              <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingNotesText); setEditingNotesId(null); }}>
+                                <Check size={12} /> Save Notes
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="reservation-card-notes-text">
+                            {h.notes || 'No notes added yet.'}
+                          </span>
+                        )}
+                      </div>
                       <div className="reservation-card-actions">
                         {h.address && (
                           <button
-                            className="mini-icon-btn flex-align"
+                            className="btn-secondary catalog-place-link-btn flex-align"
                             onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address!)}`, '_blank')}
                             data-tooltip="Open in Maps"
                           >
-                            <ExternalLink size={12} /> Map
+                            <MapPin size={12} /> Map
                           </button>
                         )}
                         {trip.canEdit !== false && (
                           <>
-                            <button className="mini-icon-btn flex-align" onClick={() => onEditHotel(h)} data-tooltip="Edit">
+                            <button className="btn-secondary catalog-place-link-btn flex-align" onClick={() => onEditHotel(h)} data-tooltip="Edit">
                               <Edit2 size={12} /> Edit
                             </button>
-                            <button className="mini-icon-btn mini-icon-btn--danger flex-align" onClick={() => onDeleteHotel(h.id)} data-tooltip="Delete">
+                            <button className="btn-secondary catalog-place-link-btn flex-align" style={{ color: 'var(--color-danger)' }} onClick={() => onDeleteHotel(h.id)} data-tooltip="Delete">
                               <Trash2 size={12} /> Delete
                             </button>
                           </>
@@ -213,7 +249,7 @@ export default function ReservationsSection({
             {transitWarnings.map((w, i) => (
               <div key={i} className="reservation-warning">
                 <AlertTriangle size={11} />
-                No transit booked from {w.from} to {w.to}.
+                No transit from {w.from} to {w.to}.
               </div>
             ))}
 
@@ -226,17 +262,16 @@ export default function ReservationsSection({
                     <div className="reservation-card-expand-main">
                       <div className="reservation-card-icon-row">
                         <TransportTypeIcon type={t.type} size={13} />
-                        <strong className="reservation-card-title">{t.departureLocationName} → {t.arrivalLocationName}</strong>
-                      </div>
-                      <div className="reservation-card-field-row">
-                        <Calendar size={11} />
-                        <span>Departs {formatDisplayDate(t.departureDate)}{t.departureTime ? ` ${t.departureTime}` : ''}{t.departureTimezone ? ` (${t.departureTimezone})` : ''}</span>
+                        <span className="place-card-title place-card-title--no-margin">{t.departureLocationName} → {t.arrivalLocationName}</span>
                       </div>
                       {t.carrier && (
-                        <div className="reservation-card-field-row">
-                          <span className="reservation-card-meta">{t.carrier}{t.transitCode ? ` · ${t.transitCode}` : ''}</span>
-                        </div>
+                        <p className="reservation-card-desc">
+                          {t.carrier}{t.transitCode ? ` · ${t.transitCode}` : ''}
+                        </p>
                       )}
+                      <p className="reservation-card-desc">
+                        Departs {formatDisplayDate(t.departureDate)}{t.departureTime ? ` ${t.departureTime}` : ''}{t.departureTimezone ? ` (${t.departureTimezone})` : ''}
+                      </p>
                       {t.confirmationNo && (
                         <div className="reservation-card-field-row">
                           <Hash size={11} /> <span>{t.confirmationNo}</span>
@@ -250,14 +285,62 @@ export default function ReservationsSection({
 
                   {isExpanded && (
                     <div className="reservation-card-expanded-content">
-                      {t.notes && <p className="reservation-card-notes">{t.notes}</p>}
+                      <div className="catalog-notes-box">
+                        <label className="catalog-notes-label">
+                          <FileText size={11} /> Notes
+                          {trip.canEdit !== false && editingNotesId !== key && (
+                            <button
+                              className="mini-icon-btn catalog-notes-edit-btn"
+                              onClick={e => { e.stopPropagation(); setEditingNotesId(key); setEditingNotesText(t.notes ?? ''); }}
+                              data-tooltip="Edit notes"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                          )}
+                        </label>
+                        {editingNotesId === key ? (
+                          <div className="catalog-notes-edit-container">
+                            <textarea
+                              className="catalog-notes-textarea"
+                              rows={3}
+                              value={editingNotesText}
+                              onChange={e => setEditingNotesText(e.target.value)}
+                              placeholder="Add notes..."
+                            />
+                            <div className="catalog-notes-actions">
+                              <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingNotesId(null)}>Cancel</button>
+                              <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t, editingNotesText); setEditingNotesId(null); }}>
+                                <Check size={12} /> Save Notes
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="reservation-card-notes-text">
+                            {t.notes || 'No notes added yet.'}
+                          </span>
+                        )}
+                      </div>
                       <div className="reservation-card-actions">
+                        <button
+                          className="btn-secondary catalog-place-link-btn flex-align"
+                          onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureLocationName)}`, '_blank')}
+                          data-tooltip="Departure location"
+                        >
+                          <MapPin size={12} /> {t.departureLocationName}
+                        </button>
+                        <button
+                          className="btn-secondary catalog-place-link-btn flex-align"
+                          onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalLocationName)}`, '_blank')}
+                          data-tooltip="Arrival location"
+                        >
+                          <MapPin size={12} /> {t.arrivalLocationName}
+                        </button>
                         {trip.canEdit !== false && (
                           <>
-                            <button className="mini-icon-btn flex-align" onClick={() => onEditTransport(t)} data-tooltip="Edit">
+                            <button className="btn-secondary catalog-place-link-btn flex-align" onClick={() => onEditTransport(t)} data-tooltip="Edit">
                               <Edit2 size={12} /> Edit
                             </button>
-                            <button className="mini-icon-btn mini-icon-btn--danger flex-align" onClick={() => onDeleteTransport(t.id)} data-tooltip="Delete">
+                            <button className="btn-secondary catalog-place-link-btn flex-align" style={{ color: 'var(--color-danger)' }} onClick={() => onDeleteTransport(t.id)} data-tooltip="Delete">
                               <Trash2 size={12} /> Delete
                             </button>
                           </>

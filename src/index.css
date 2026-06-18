@@ -3873,18 +3873,21 @@ div.google-auth-avatar-desktop {
 .loc-reorder-emoji { font-size: 16px; }
 .loc-active-badge { font-size: 10px; background: var(--accent-primary); color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: auto; font-weight: 600; }
 
-/* LocationSelect */
-.loc-select-trigger-inner { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.loc-select-emoji { font-size: 14px; flex-shrink: 0; }
-.loc-select-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.loc-select-divider { height: 1px; background: var(--border-glass); margin: 4px 0; }
-.loc-select-add-new { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--accent-primary); background: transparent; transition: all 0.15s ease; border-top: 1px solid var(--border-glass); margin-top: 4px; }
-.loc-select-add-new-label { font-weight: 600; }
-.loc-select-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5); }
-.loc-select-trigger { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.loc-select-trigger:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
-.loc-select-trigger-round { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.loc-select-trigger-round:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
+/* Combo box (generic picker — LocationSelect, TransportModal type/timezone, ItineraryPanel plan picker) */
+.combo-trigger-inner { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-trigger-content { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.combo-emoji { font-size: 14px; flex-shrink: 0; }
+.combo-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-divider { height: 1px; background: var(--border-glass); margin: 4px 0; }
+.combo-add-new { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--accent-primary); background: transparent; transition: all 0.15s ease; border-top: 1px solid var(--border-glass); margin-top: 4px; }
+.combo-add-new-label { font-weight: 600; }
+.combo-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5); }
+.combo-trigger { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); font-size: 12px; min-height: 32px; text-align: left; cursor: pointer; }
+.combo-trigger:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
+.combo-trigger-round { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.combo-trigger-round:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
+.combo-wrapper { position: relative; }
+.card-col-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
 
 /* ReservationsSection */
 .reservations-inner { display: flex; flex-direction: column; }
@@ -3948,9 +3951,10 @@ div.google-auth-avatar-desktop {
 .reservation-card-chevron { color: var(--text-muted); flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; }
 .reservation-card-field-row { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-secondary); }
 .reservation-card-field-row svg { color: var(--text-muted); flex-shrink: 0; }
+.reservation-card-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin: 0; }
 .reservation-card-expanded-content { border-top: 1px solid var(--border-glass); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 .reservation-card-notes { font-size: 11px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
-.reservation-card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.reservation-card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
 /* mini-icon-btn danger variant */
 .mini-icon-btn--danger { color: var(--color-danger); }
@@ -3989,8 +3993,25 @@ div.google-auth-avatar-desktop {
 .form-error-text { font-size: 11px; color: var(--color-danger); margin: 4px 0 0; }
 
 /* ===== TransportModal timezone combo box ===== */
-.loc-select-dropdown--tz { min-width: 220px; max-height: 260px; overflow: hidden; display: flex; flex-direction: column; }
+.combo-dropdown--tz { min-width: 220px; max-height: 260px; overflow: hidden; display: flex; flex-direction: column; }
+.combo-dropdown--tz-portal { position: fixed; z-index: 10000; background: rgba(15,23,42,0.97); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; box-shadow: var(--shadow-lg), 0 0 20px rgba(0,0,0,0.6); display: flex; flex-direction: column; max-height: 240px; }
 .tz-search-wrapper { padding: 4px; border-bottom: 1px solid var(--border-glass); flex-shrink: 0; }
 .tz-search-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-radius: 4px; padding: 4px 8px; font-size: 12px; color: var(--text-primary); outline: none; }
 .tz-search-input::placeholder { color: var(--text-muted); }
 .tz-option-list { overflow-y: auto; flex: 1; }
+
+/* Timeline card notes display */
+.timeline-card-notes { margin-top: 8px; padding: 5px 8px; background: rgba(99,102,241,0.04); border-left: 2px solid var(--accent-primary); border-radius: 0 4px 4px 0; font-size: 11px; color: var(--text-secondary); line-height: 1.4; white-space: pre-wrap; }
+
+/* Reservation panel — inline notes editing */
+.reservation-card-notes-box { margin: 4px 0 8px; padding: 5px 8px; background: rgba(99,102,241,0.04); border-left: 2px solid var(--accent-primary); border-radius: 0 4px 4px 0; }
+.reservation-card-notes-label { font-size: 10px; color: var(--accent-primary); font-weight: 600; display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+.reservation-card-notes-text { font-size: 11px; color: var(--text-secondary); line-height: 1.4; white-space: pre-wrap; font-style: italic; margin: 0; }
+.reservation-card-notes-textarea { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; padding: 4px 6px; font-size: 11px; resize: vertical; min-height: 52px; }
+.reservation-card-notes-actions { display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end; }
+
+/* Modal delete file options */
+.modal-delete-file-opts { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.modal-delete-file-opt { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-primary); text-align: left; transition: var(--transition-fast); width: 100%; }
+.modal-delete-file-opt.selected { border-color: var(--accent-primary); background: rgba(99,102,241,0.1); color: var(--accent-primary); }
+.modal-delete-file-opt:hover:not(.selected) { background: rgba(255,255,255,0.05); }

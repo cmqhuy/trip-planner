@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import LocationSelect from './LocationSelect';
 import {
-  MapPin, Plus, Edit2, ExternalLink, ChevronUp, ChevronDown,
+  MapPin, Plus, Edit2, ChevronUp, ChevronDown,
   Clock, FileText, Sparkles, MoreVertical, Check, RefreshCw
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
@@ -633,7 +633,7 @@ function CatalogSection({
                                 rel="noopener noreferrer"
                                 className="btn-secondary flex-align catalog-place-link-btn"
                               >
-                                Map <ExternalLink size={10} />
+                                <MapPin size={10} /> Map
                               </a>
                               {trip.canEdit !== false && (
                                 <div className="catalog-place-actions-desktop catalog-place-actions-desktop--gap">

@@ -4,7 +4,7 @@ import {
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
-  ArrowUpRight, ArrowDownLeft, AlertTriangle
+  ArrowUpRight, ArrowDownLeft, AlertTriangle, ExternalLink
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
@@ -231,6 +231,7 @@ function ItineraryPanel({
   const [isPlanPickerOpen, setIsPlanPickerOpen] = useState(false);
   const [openHotelMenuId, setOpenHotelMenuId] = useState<string | null>(null);
   const [openTransportMenuId, setOpenTransportMenuId] = useState<string | null>(null);
+  const [openMapMenuId, setOpenMapMenuId] = useState<string | null>(null);
   const planPickerRef = useRef<HTMLDivElement>(null);
   const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -262,6 +263,13 @@ function ItineraryPanel({
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [openTransportMenuId]);
+
+  useEffect(() => {
+    if (!openMapMenuId) return;
+    const handler = () => setOpenMapMenuId(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openMapMenuId]);
 
   // Close plan picker dropdown when clicking outside
   useEffect(() => {
@@ -557,14 +565,14 @@ function ItineraryPanel({
                 <div ref={planPickerRef} className={`plan-picker-select-wrapper${isPlanPickerOpen ? ' plan-picker-open' : ''}`}>
                   <button
                     type="button"
-                    className="loc-select-trigger plan-picker"
+                    className="combo-trigger plan-picker"
                     onClick={() => setIsPlanPickerOpen(!isPlanPickerOpen)}
                   >
                     <span className="plan-picker-label">{activePlan?.name}</span>
                     <ChevronDown size={14} className="plan-picker-chevron" />
                   </button>
                   {isPlanPickerOpen && (
-                    <div className="loc-select-dropdown plan-picker-dropdown">
+                    <div className="combo-dropdown plan-picker-dropdown">
                       {trip.plans.map(p => (
                         <div
                           key={p.id}
@@ -788,29 +796,42 @@ function ItineraryPanel({
                       <p className="hotel-dates-text">
                         Check-in: {formatDisplayDate(h.checkInDate)}{h.checkInTime ? ` ${h.checkInTime}` : ''} | Check-out: {formatDisplayDate(h.checkOutDate)}{h.checkOutTime ? ` ${h.checkOutTime}` : ''}
                       </p>
+                      {h.notes && <p className="timeline-card-notes">{h.notes}</p>}
                     </div>
                   </div>
-                  {trip.canEdit !== false && (
-                    <div className="card-options-menu" onClick={e => e.stopPropagation()}>
+                  <div className="card-col-actions">
+                    {h.address && (
                       <button
-                        className="trip-delete-btn"
-                        onClick={() => setOpenHotelMenuId(prev => prev === h.id ? null : h.id)}
-                        data-tooltip="Options"
+                        className="mini-icon-btn"
+                        data-tooltip="Open in Maps"
+                        data-tooltip-position="bottom"
+                        onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address!)}`, '_blank')}
                       >
-                        <MoreVertical size={14} />
+                        <ExternalLink size={14} />
                       </button>
-                      {openHotelMenuId === h.id && (
-                        <div className="dropdown-menu dropdown-menu--right">
-                          <button className="dropdown-item" onClick={() => { handleOpenEditHotel(h); setOpenHotelMenuId(null); }}>
-                            <Edit2 size={13} /> Edit
-                          </button>
-                          <button className="dropdown-item danger" onClick={() => { handleDeleteHotel(h.id); setOpenHotelMenuId(null); }}>
-                            <Trash2 size={13} /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                    {trip.canEdit !== false && (
+                      <div className="card-options-menu" onClick={e => e.stopPropagation()}>
+                        <button
+                          className="mini-icon-btn"
+                          onClick={() => setOpenHotelMenuId(prev => prev === h.id ? null : h.id)}
+                          data-tooltip="Options"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                        {openHotelMenuId === h.id && (
+                          <div className="dropdown-menu dropdown-menu--right">
+                            <button className="dropdown-item" onClick={() => { handleOpenEditHotel(h); setOpenHotelMenuId(null); }}>
+                              <Edit2 size={13} /> Edit
+                            </button>
+                            <button className="dropdown-item danger" onClick={() => { handleDeleteHotel(h.id); setOpenHotelMenuId(null); }}>
+                              <Trash2 size={13} /> Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -844,59 +865,84 @@ function ItineraryPanel({
                 
                 return (
                   <div key={t.id} className={`transport-card${openTransportMenuId === t.id ? ' dropdown-active' : ''}`}>
-                    <div className="flex-align flex-1 min-w-0">
-                      <div className="transport-icon-wrapper">
-                        {t.type === 'flight' && <Plane size={16} />}
-                        {t.type === 'train' && <Train size={16} />}
-                        {t.type === 'bus' && <Bus size={16} />}
-                        {t.type === 'car' && <Car size={16} />}
-                        {t.type === 'ferry' && <Anchor size={16} />}
-                        {t.type === 'other' && <Navigation size={16} />}
-                      </div>
-
-                      <div className="transport-details-grid">
-                        <div className="transport-flow" style={{ opacity: isDeparture ? 1 : 0.5 }}>
-                          <span className="transport-flow-sub">
-                            Departure {isDeparture && <ArrowUpRight size={11} className="transport-flag-icon" />}
-                          </span>
-                          <span className="transport-flow-main">{t.departureLocationName}</span>
-                          <span className="transport-time-detail">
-                            {t.departureTime} ({t.departureTimezone}) - {formatDisplayDate(t.departureDate)}
-                          </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex-align">
+                        <div className="transport-icon-wrapper">
+                          {t.type === 'flight' && <Plane size={16} />}
+                          {t.type === 'train' && <Train size={16} />}
+                          {t.type === 'bus' && <Bus size={16} />}
+                          {t.type === 'car' && <Car size={16} />}
+                          {t.type === 'ferry' && <Anchor size={16} />}
+                          {t.type === 'other' && <Navigation size={16} />}
                         </div>
 
-                        <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
-                          <span className="transport-flow-sub">
-                            Arrival {isArrival && <ArrowDownLeft size={11} className="transport-flag-icon" />}
-                          </span>
-                          <span className="transport-flow-main">{t.arrivalLocationName}</span>
-                          <span className="transport-time-detail">
-                            {t.arrivalTime} ({t.arrivalTimezone}) - {formatDisplayDate(t.arrivalDate)}
-                          </span>
+                        <div className="transport-details-grid">
+                          <div className="transport-flow" style={{ opacity: isDeparture ? 1 : 0.5 }}>
+                            <span className="transport-flow-sub">
+                              Departure {isDeparture && <ArrowUpRight size={11} className="transport-flag-icon" />}
+                            </span>
+                            <span className="transport-flow-main">{t.departureLocationName}</span>
+                            <span className="transport-time-detail">
+                              {t.departureTime} ({t.departureTimezone}) - {formatDisplayDate(t.departureDate)}
+                            </span>
+                          </div>
+
+                          <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
+                            <span className="transport-flow-sub">
+                              Arrival {isArrival && <ArrowDownLeft size={11} className="transport-flag-icon" />}
+                            </span>
+                            <span className="transport-flow-main">{t.arrivalLocationName}</span>
+                            <span className="transport-time-detail">
+                              {t.arrivalTime} ({t.arrivalTimezone}) - {formatDisplayDate(t.arrivalDate)}
+                            </span>
+                          </div>
                         </div>
                       </div>
+                      {t.notes && <p className="timeline-card-notes">{t.notes}</p>}
                     </div>
-                    {trip.canEdit !== false && (
-                      <div className="card-options-menu" onClick={e => e.stopPropagation()}>
+                    <div className="card-col-actions">
+                      <div className={`card-options-menu${openMapMenuId === t.id ? ' dropdown-active' : ''}`} onClick={e => e.stopPropagation()}>
                         <button
-                          className="trip-delete-btn"
-                          onClick={() => setOpenTransportMenuId(prev => prev === t.id ? null : t.id)}
-                          data-tooltip="Options"
+                          className="mini-icon-btn"
+                          data-tooltip="Map location"
+                          data-tooltip-position="bottom"
+                          onClick={() => setOpenMapMenuId(prev => prev === t.id ? null : t.id)}
                         >
-                          <MoreVertical size={14} />
+                          <MapPin size={14} />
                         </button>
-                        {openTransportMenuId === t.id && (
+                        {openMapMenuId === t.id && (
                           <div className="dropdown-menu dropdown-menu--right">
-                            <button className="dropdown-item" onClick={() => { handleOpenEditTransport(t); setOpenTransportMenuId(null); }}>
-                              <Edit2 size={13} /> Edit
+                            <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
+                              <ArrowUpRight size={12} /> {t.departureLocationName}
                             </button>
-                            <button className="dropdown-item danger" onClick={() => { handleDeleteTransportation(t.id); setOpenTransportMenuId(null); }}>
-                              <Trash2 size={13} /> Delete
+                            <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
+                              <ArrowDownLeft size={12} /> {t.arrivalLocationName}
                             </button>
                           </div>
                         )}
                       </div>
-                    )}
+                      {trip.canEdit !== false && (
+                        <div className="card-options-menu" onClick={e => e.stopPropagation()}>
+                          <button
+                            className="mini-icon-btn"
+                            onClick={() => setOpenTransportMenuId(prev => prev === t.id ? null : t.id)}
+                            data-tooltip="Options"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          {openTransportMenuId === t.id && (
+                            <div className="dropdown-menu dropdown-menu--right">
+                              <button className="dropdown-item" onClick={() => { handleOpenEditTransport(t); setOpenTransportMenuId(null); }}>
+                                <Edit2 size={13} /> Edit
+                              </button>
+                              <button className="dropdown-item danger" onClick={() => { handleDeleteTransportation(t.id); setOpenTransportMenuId(null); }}>
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -910,7 +956,7 @@ function ItineraryPanel({
                 if (prevLocId && currLocId && prevLocId !== currLocId) {
                   return (
                     <p className="no-transport-text no-transport-text--warning">
-                      <AlertTriangle size={12} /> No transit booked from {prevLoc?.city ?? 'previous location'} to {currLoc?.city ?? 'this location'}.
+                      <AlertTriangle size={12} /> No transit from {prevLoc?.city ?? 'previous location'} to {currLoc?.city ?? 'this location'}.
                     </p>
                   );
                 }

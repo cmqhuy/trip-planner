@@ -27,6 +27,7 @@ import LocationModal from './LocationModal';
 import GroupModal from './GroupModal';
 import TransportModal from './TransportModal';
 import HotelModal from './HotelModal';
+import DeleteReservationModal from './DeleteReservationModal';
 import PlaceModal from './PlaceModal';
 import TripAiConfigModal from './TripAiConfigModal';
 import AiGenerateDaysModal from './AiGenerateDaysModal';
@@ -330,10 +331,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   // Transportation Modal
   const [showTransportModal, setShowTransportModal] = useState(false);
   const [editingTransport, setEditingTransport] = useState<Transportation | null>(null);
+  const [deleteTransportData, setDeleteTransportData] = useState<Transportation | null>(null);
 
   // Hotel Modal
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
+  const [deleteHotelData, setDeleteHotelData] = useState<Hotel | null>(null);
 
   // Day timeline search state
   const [placeQuery, setPlaceQuery] = useState('');
@@ -1704,26 +1707,19 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   }, []);
 
   const handleDeleteTransportation = useCallback((id: string) => {
-    setConfirmModal({
-      title: 'Delete Transportation',
-      message: 'Delete this transport booking?',
-      onConfirm: () => {
-        const updatedPlans = trip.plans.map(p => {
-          if (p.id === activePlan.id) {
-            return {
-              ...p,
-              transports: p.transports.filter(t => t.id !== id)
-            };
-          }
-          return p;
-        });
-        onUpdateTrip({
-          ...trip,
-          plans: updatedPlans
-        });
-      }
-    });
-  }, [trip, activePlan, onUpdateTrip]);
+    const transport = activePlan.transports.find(t => t.id === id);
+    if (transport) setDeleteTransportData(transport);
+  }, [activePlan.transports]);
+
+  const executeDeleteTransport = useCallback((id: string) => {
+    const updatedPlans = trip.plans.map(p =>
+      p.id === activePlan.id ? { ...p, transports: p.transports.filter(t => t.id !== id) } : p
+    );
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+    setDeleteTransportData(null);
+    setShowTransportModal(false);
+    setEditingTransport(null);
+  }, [trip, activePlan.id, onUpdateTrip]);
 
   // Get transport active on a day
   const getTransportsForDay = useCallback((dateStr: string) => {
@@ -1777,26 +1773,19 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   }, []);
 
   const handleDeleteHotel = useCallback((id: string) => {
-    setConfirmModal({
-      title: 'Delete Hotel Reservation',
-      message: 'Delete this hotel reservation?',
-      onConfirm: () => {
-        const updatedPlans = trip.plans.map(p => {
-          if (p.id === activePlan.id) {
-            return {
-              ...p,
-              hotels: p.hotels.filter(h => h.id !== id)
-            };
-          }
-          return p;
-        });
-        onUpdateTrip({
-          ...trip,
-          plans: updatedPlans
-        });
-      }
-    });
-  }, [trip, activePlan, onUpdateTrip]);
+    const hotel = activePlan.hotels.find(h => h.id === id);
+    if (hotel) setDeleteHotelData(hotel);
+  }, [activePlan.hotels]);
+
+  const executeDeleteHotel = useCallback((id: string) => {
+    const updatedPlans = trip.plans.map(p =>
+      p.id === activePlan.id ? { ...p, hotels: p.hotels.filter(h => h.id !== id) } : p
+    );
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+    setDeleteHotelData(null);
+    setShowHotelModal(false);
+    setEditingHotel(null);
+  }, [trip, activePlan.id, onUpdateTrip]);
 
   // Get hotels overlapping with active day
   const getHotelsForDay = useCallback((dateStr: string) => {
@@ -2524,6 +2513,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           ? handleEditTransportation({ ...data, id: editingTransport.id })
           : handleAddTransportation(data)
         }
+        onDelete={editingTransport ? () => setDeleteTransportData(editingTransport) : undefined}
         editingTransport={editingTransport}
         googleToken={googleToken}
         tripPlannerFolderId={googleFolderId}
@@ -2542,6 +2532,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           ? handleEditHotel({ ...data, id: editingHotel.id })
           : handleAddHotel(data)
         }
+        onDelete={editingHotel ? () => setDeleteHotelData(editingHotel) : undefined}
         editingHotel={editingHotel}
         googleToken={googleToken}
         tripPlannerFolderId={googleFolderId}
@@ -2549,6 +2540,26 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         tripFilesFolderId={trip.filesFolderId}
         onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
       />
+
+      {/* 9b. Delete Reservation Modal */}
+      {deleteHotelData && (
+        <DeleteReservationModal
+          type="hotel"
+          item={deleteHotelData}
+          googleToken={googleToken ?? undefined}
+          onConfirm={() => executeDeleteHotel(deleteHotelData.id)}
+          onCancel={() => setDeleteHotelData(null)}
+        />
+      )}
+      {deleteTransportData && (
+        <DeleteReservationModal
+          type="transport"
+          item={deleteTransportData}
+          googleToken={googleToken ?? undefined}
+          onConfirm={() => executeDeleteTransport(deleteTransportData.id)}
+          onCancel={() => setDeleteTransportData(null)}
+        />
+      )}
 
       {/* 10. Confirmation Modal */}
       {confirmModal && (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
   Sparkles, RotateCcw, Paperclip, Trash2,
@@ -24,6 +25,7 @@ interface TransportModalProps {
   tripStartDate: string;
   tripEndDate: string;
   onSave: (transportData: Omit<Transportation, 'id'>) => void;
+  onDelete?: () => void;
   editingTransport?: Transportation | null;
   googleToken?: string;
   tripPlannerFolderId?: string;
@@ -49,21 +51,30 @@ function getBrowserTimezone(): string {
   }
 }
 
-function getAllTimezones(): string[] {
+function getUtcOffsetMinutes(tz: string): number {
   try {
-    return (Intl as any).supportedValuesOf('timeZone') as string[];
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' });
+    const offsetStr = fmt.formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value ?? '';
+    const m = offsetStr.match(/GMT([+-])(\d+)(?::(\d+))?/);
+    if (!m) return 0;
+    return (m[1] === '+' ? 1 : -1) * (parseInt(m[2]) * 60 + parseInt(m[3] ?? '0'));
   } catch {
-    return [
-      'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-      'America/Anchorage', 'Pacific/Honolulu', 'Europe/London', 'Europe/Paris', 'Europe/Berlin',
-      'Europe/Rome', 'Europe/Madrid', 'Europe/Amsterdam', 'Europe/Stockholm', 'Europe/Moscow',
-      'Asia/Dubai', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Singapore', 'Asia/Tokyo',
-      'Asia/Shanghai', 'Asia/Seoul', 'Asia/Hong_Kong', 'Australia/Sydney', 'Pacific/Auckland',
-    ];
+    return 0;
   }
 }
 
-const ALL_TIMEZONES = getAllTimezones();
+const ALL_TIMEZONES: string[] = (() => {
+  try {
+    return [...(Intl as any).supportedValuesOf('timeZone') as string[]].sort(
+      (a, b) => getUtcOffsetMinutes(a) - getUtcOffsetMinutes(b)
+    );
+  } catch {
+    return [
+      'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+      'Europe/London', 'Europe/Paris', 'Asia/Kolkata', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney',
+    ];
+  }
+})();
 
 type SavedValues = {
   type: Transportation['type']; depLoc: string; arrLoc: string;
@@ -78,6 +89,7 @@ export default function TransportModal({
   tripStartDate,
   tripEndDate,
   onSave,
+  onDelete,
   editingTransport,
   googleToken,
   tripPlannerFolderId,
@@ -115,6 +127,10 @@ export default function TransportModal({
   const [arrTzSearch, setArrTzSearch] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const depTzTriggerRef = useRef<HTMLButtonElement>(null);
+  const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
+  const [depTzPos, setDepTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [arrTzPos, setArrTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -330,27 +346,27 @@ export default function TransportModal({
               <div className="form-group">
                 <label>Type</label>
                 <div
-                  className={`loc-select-wrapper${typeOpen ? ' dropdown-active' : ''}`}
-                  onClick={e => e.stopPropagation()}
+                  className={`combo-wrapper${typeOpen ? ' dropdown-active' : ''}`}
+                  onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
                 >
                   <button
                     type="button"
-                    className="loc-select-trigger"
+                    className="combo-trigger"
                     onClick={() => setTypeOpen(o => !o)}
                   >
-                    <span className="loc-select-trigger-content">
+                    <span className="combo-trigger-content">
                       <selectedTypeObj.Icon size={14} />
                       {selectedTypeObj.label}
                     </span>
                     <ChevronDown size={14} className={typeOpen ? 'chevron-open' : ''} />
                   </button>
                   {typeOpen && (
-                    <div className="loc-select-dropdown">
+                    <div className="combo-dropdown">
                       {TRANSPORT_TYPES.map(opt => (
                         <button
                           key={opt.value}
                           type="button"
-                          className={`loc-select-option${type === opt.value ? ' selected' : ''}`}
+                          className={`combo-option${type === opt.value ? ' selected' : ''}`}
                           onClick={() => { setType(opt.value); setTypeOpen(false); }}
                         >
                           <opt.Icon size={14} />
@@ -452,90 +468,114 @@ export default function TransportModal({
                 <div className="form-group">
                   <label>Departure Timezone</label>
                   <div
-                    className={`loc-select-wrapper${depTzOpen ? ' dropdown-active' : ''}`}
-                    onClick={e => e.stopPropagation()}
+                    className={`combo-wrapper${depTzOpen ? ' dropdown-active' : ''}`}
+                    onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
                   >
                     <button
+                      ref={depTzTriggerRef}
                       type="button"
-                      className="loc-select-trigger"
-                      onClick={() => { setDepTzOpen(o => !o); setDepTzSearch(''); }}
+                      className="combo-trigger"
+                      onClick={() => {
+                        if (!depTzOpen && depTzTriggerRef.current) {
+                          const r = depTzTriggerRef.current.getBoundingClientRect();
+                          setDepTzPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                        }
+                        setDepTzOpen(o => !o);
+                        setDepTzSearch('');
+                      }}
                     >
-                      <span className="loc-select-trigger-content loc-select-trigger-text">{depTz}</span>
+                      <span className="combo-trigger-content">{depTz}</span>
                       <ChevronDown size={14} className={depTzOpen ? 'chevron-open' : ''} />
                     </button>
-                    {depTzOpen && (
-                      <div className="loc-select-dropdown loc-select-dropdown--tz">
-                        <div className="tz-search-wrapper">
-                          <input
-                            className="tz-search-input"
-                            type="text"
-                            placeholder="Search timezone…"
-                            value={depTzSearch}
-                            onChange={e => setDepTzSearch(e.target.value)}
-                            onClick={e => e.stopPropagation()}
-                            autoFocus
-                          />
-                        </div>
-                        <div className="tz-option-list">
-                          {filteredDepTz.map(tz => (
-                            <button
-                              key={tz}
-                              type="button"
-                              className={`loc-select-option${depTz === tz ? ' selected' : ''}`}
-                              onClick={() => { setDepTz(tz); setDepTzOpen(false); }}
-                            >
-                              {tz}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
+                  {depTzOpen && depTzPos && createPortal(
+                    <div
+                      className="combo-dropdown--tz-portal"
+                      style={{ top: depTzPos.top, left: depTzPos.left, width: Math.max(depTzPos.width, 220) }}
+                      onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+                    >
+                      <div className="tz-search-wrapper">
+                        <input
+                          className="tz-search-input"
+                          type="text"
+                          placeholder="Search timezone…"
+                          value={depTzSearch}
+                          onChange={e => setDepTzSearch(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="tz-option-list">
+                        {filteredDepTz.map(tz => (
+                          <button
+                            key={tz}
+                            type="button"
+                            className={`combo-option${depTz === tz ? ' selected' : ''}`}
+                            onClick={() => { setDepTz(tz); setDepTzOpen(false); }}
+                          >
+                            {tz}
+                          </button>
+                        ))}
+                      </div>
+                    </div>,
+                    document.body
+                  )}
                 </div>
 
                 {/* Arrival timezone */}
                 <div className="form-group">
                   <label>Arrival Timezone</label>
                   <div
-                    className={`loc-select-wrapper${arrTzOpen ? ' dropdown-active' : ''}`}
-                    onClick={e => e.stopPropagation()}
+                    className={`combo-wrapper${arrTzOpen ? ' dropdown-active' : ''}`}
+                    onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
                   >
                     <button
+                      ref={arrTzTriggerRef}
                       type="button"
-                      className="loc-select-trigger"
-                      onClick={() => { setArrTzOpen(o => !o); setArrTzSearch(''); }}
+                      className="combo-trigger"
+                      onClick={() => {
+                        if (!arrTzOpen && arrTzTriggerRef.current) {
+                          const r = arrTzTriggerRef.current.getBoundingClientRect();
+                          setArrTzPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                        }
+                        setArrTzOpen(o => !o);
+                        setArrTzSearch('');
+                      }}
                     >
-                      <span className="loc-select-trigger-content loc-select-trigger-text">{arrTz}</span>
+                      <span className="combo-trigger-content">{arrTz}</span>
                       <ChevronDown size={14} className={arrTzOpen ? 'chevron-open' : ''} />
                     </button>
-                    {arrTzOpen && (
-                      <div className="loc-select-dropdown loc-select-dropdown--tz">
-                        <div className="tz-search-wrapper">
-                          <input
-                            className="tz-search-input"
-                            type="text"
-                            placeholder="Search timezone…"
-                            value={arrTzSearch}
-                            onChange={e => setArrTzSearch(e.target.value)}
-                            onClick={e => e.stopPropagation()}
-                            autoFocus
-                          />
-                        </div>
-                        <div className="tz-option-list">
-                          {filteredArrTz.map(tz => (
-                            <button
-                              key={tz}
-                              type="button"
-                              className={`loc-select-option${arrTz === tz ? ' selected' : ''}`}
-                              onClick={() => { setArrTz(tz); setArrTzOpen(false); }}
-                            >
-                              {tz}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
+                  {arrTzOpen && arrTzPos && createPortal(
+                    <div
+                      className="combo-dropdown--tz-portal"
+                      style={{ top: arrTzPos.top, left: arrTzPos.left, width: Math.max(arrTzPos.width, 220) }}
+                      onClick={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+                    >
+                      <div className="tz-search-wrapper">
+                        <input
+                          className="tz-search-input"
+                          type="text"
+                          placeholder="Search timezone…"
+                          value={arrTzSearch}
+                          onChange={e => setArrTzSearch(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="tz-option-list">
+                        {filteredArrTz.map(tz => (
+                          <button
+                            key={tz}
+                            type="button"
+                            className={`combo-option${arrTz === tz ? ' selected' : ''}`}
+                            onClick={() => { setArrTz(tz); setArrTzOpen(false); }}
+                          >
+                            {tz}
+                          </button>
+                        ))}
+                      </div>
+                    </div>,
+                    document.body
+                  )}
                 </div>
               </div>
 
@@ -653,6 +693,9 @@ export default function TransportModal({
             </div>
 
             <div className="modal-actions">
+              {onDelete && editingTransport && (
+                <button type="button" className="btn-danger" style={{ marginRight: 'auto' }} onClick={onDelete}>Delete</button>
+              )}
               <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn-primary">Save</button>
             </div>

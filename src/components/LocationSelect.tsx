@@ -46,7 +46,7 @@ export default function LocationSelect({
       {roundTrigger ? (
         <button
           type="button"
-          className="loc-select-trigger-round"
+          className="combo-trigger-round"
           onClick={() => (locations.length > 0 || showAddNew) && setIsOpen(!isOpen)}
           disabled={locations.length === 0 && !showAddNew}
           style={{
@@ -73,32 +73,21 @@ export default function LocationSelect({
       ) : (
         <button
           type="button"
-          className="loc-select-trigger"
+          className="combo-trigger"
           onClick={() => (locations.length > 0 || showAddNew) && setIsOpen(!isOpen)}
           disabled={locations.length === 0 && !showAddNew}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            padding: '6px 10px',
-            border: '1px solid var(--border-glass)',
-            borderRadius: '6px',
-            color: 'var(--text-primary)',
             cursor: (locations.length > 0 || showAddNew) ? 'pointer' : 'not-allowed',
-            fontSize: '12px',
             outline: 'none',
             transition: 'all 0.15s ease',
-            minHeight: '28px',
-            textAlign: 'left',
             ...buttonStyle
           }}
         >
-          <div className="loc-select-trigger-inner">
+          <div className="combo-trigger-inner">
             {selectedLoc ? (
               <>
-                <span className="loc-select-emoji">{getLocIcon(selectedLoc)}</span>
-                <span className="loc-select-name">
+                <span className="combo-emoji">{getLocIcon(selectedLoc)}</span>
+                <span className="combo-name">
                   {getFormattedLocationName(selectedLoc, locations)}
                 </span>
               </>
@@ -114,7 +103,7 @@ export default function LocationSelect({
 
       {isOpen && (
         <div
-          className="loc-select-dropdown"
+          className="combo-dropdown"
           style={{ left: roundTrigger ? 'auto' : 0, width: roundTrigger ? '240px' : 'auto' }}
         >
           {showClearOption && locations.length > 0 && (
@@ -158,7 +147,7 @@ export default function LocationSelect({
                   {placeholder && placeholder !== "No Locations Added" ? placeholder : "Select Location..."}
                 </span>
               </div>
-              <div className="loc-select-divider" />
+              <div className="combo-divider" />
             </>
           )}
           {locations.map(loc => {
@@ -199,7 +188,7 @@ export default function LocationSelect({
                   }
                 }}
               >
-                <span className="loc-select-emoji">{getLocIcon(loc)}</span>
+                <span className="combo-emoji">{getLocIcon(loc)}</span>
                 <span style={{ fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {getFormattedLocationName(loc, locations)}
                 </span>
@@ -208,7 +197,7 @@ export default function LocationSelect({
           })}
           {showAddNew && (
             <div
-              className="loc-select-add-new"
+              className="combo-add-new"
               onClick={() => {
                 onChange('ADD_NEW_LOCATION');
                 setIsOpen(false);
@@ -220,7 +209,7 @@ export default function LocationSelect({
                 e.currentTarget.style.background = 'transparent';
               }}
             >
-              <span className="loc-select-add-new-label">+ Add New Location</span>
+              <span className="combo-add-new-label">+ Add New Location</span>
             </div>
           )}
         </div>

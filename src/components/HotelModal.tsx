@@ -21,6 +21,7 @@ interface HotelModalProps {
   tripStartDate: string;
   tripEndDate: string;
   onSave: (hotelData: Omit<Hotel, 'id'>) => void;
+  onDelete?: () => void;
   editingHotel?: Hotel | null;
   googleToken?: string;
   tripPlannerFolderId?: string;
@@ -40,6 +41,7 @@ export default function HotelModal({
   tripStartDate,
   tripEndDate,
   onSave,
+  onDelete,
   editingHotel,
   googleToken,
   tripPlannerFolderId,
@@ -210,13 +212,14 @@ export default function HotelModal({
   return (
     <>
       <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
+        <div className="modal-content glass-panel scrollable" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h3>Hotel Details</h3>
             <button className="modal-close" onClick={onClose}><X size={20} /></button>
           </div>
 
           <form onSubmit={handleSubmit}>
+            <div className="modal-scroll-body">
             {/* Hotel Name */}
             <div className="form-group">
               <label htmlFor="hotel-name">
@@ -390,8 +393,12 @@ export default function HotelModal({
                 {aiError && <p className="form-error-text">{aiError}</p>}
               </div>
             )}
+            </div>
 
             <div className="modal-actions">
+              {onDelete && editingHotel && (
+                <button type="button" className="btn-danger" style={{ marginRight: 'auto' }} onClick={onDelete}>Delete</button>
+              )}
               <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn-primary">Save</button>
             </div>
