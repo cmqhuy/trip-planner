@@ -1000,7 +1000,7 @@ function ItineraryPanel({
                             onClick={() => setOpenMapMenuId(prev => prev === t.id ? null : t.id)}
                           >Map</button>
                           {openMapMenuId === t.id && (
-                            <div className="dropdown-menu dropdown-menu--right">
+                            <div className="dropdown-menu dropdown-menu--left">
                               <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
                                 <ArrowUpRight size={12} /> {t.departureLocationName}
                               </button>

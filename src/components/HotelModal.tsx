@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sparkles, RotateCcw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink } from 'lucide-react';
+import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2 } from 'lucide-react';
 import type { Hotel, Attachment } from '../types';
-import { GeminiService } from '../utils/ai';
+import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
 import {
@@ -26,6 +26,9 @@ interface HotelModalProps {
   tripName?: string;
   tripFilesFolderId?: string;
   onFileFolderCreated?: (folderId: string) => void;
+  isOwner?: boolean;
+  tripDriveFileId?: string;
+  onShareTrip?: () => void;
 }
 
 type SavedValues = {
@@ -59,6 +62,9 @@ export default function HotelModal({
   tripName,
   tripFilesFolderId,
   onFileFolderCreated,
+  isOwner = true,
+  tripDriveFileId,
+  onShareTrip,
 }: HotelModalProps) {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -156,10 +162,13 @@ export default function HotelModal({
   };
 
   const resolveFilesFolderId = async (): Promise<string | null> => {
-    if (!googleToken || !tripPlannerFolderId || !tripName) return null;
+    if (!googleToken) return null;
+    // If owner already has a files folder, use it directly (shared users upload there too)
+    if (tripFilesFolderId) return tripFilesFolderId;
+    if (!tripPlannerFolderId || !tripName) return null;
     try {
       const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-      if (folderId !== tripFilesFolderId) onFileFolderCreated?.(folderId);
+      onFileFolderCreated?.(folderId);
       return folderId;
     } catch {
       return null;
@@ -183,8 +192,12 @@ export default function HotelModal({
       try {
         const fileId = await uploadFile(googleToken, folderId, file);
         setAttachments(prev => [...prev, { name: file.name, fileId }]);
-      } catch {
-        setAiError(`Failed to upload "${file.name}".`);
+      } catch (err: any) {
+        if (err?.status === 403) {
+          setAiError(`No write access to the trip folder. Ask the trip owner to share the folder with you.`);
+        } else {
+          setAiError(`Failed to upload "${file.name}".`);
+        }
       } finally {
         setUploadingCount(prev => prev - 1);
       }
@@ -211,7 +224,7 @@ export default function HotelModal({
 
   const handleAiFill = async () => {
     if (!googleToken || attachedFiles.length === 0) return;
-    if (!GeminiService.isAiEnabled()) return;
+    if (!GeminiService.isAiEnabled() || GeminiService.isManualMode()) return;
     setIsAiFilling(true);
     setAiError(null);
     try {
@@ -230,14 +243,10 @@ export default function HotelModal({
       if (result.price != null) setPrice(String(result.price));
       if (result.currency) setCurrency(result.currency);
       if (result.notes) setNotes(result.notes);
-      // Geocode address if lat/lng not already set
       const fillAddress = result.address || address;
       if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
         const coords = await geocodeAddress(fillAddress);
-        if (coords) {
-          setLat(coords.lat.toFixed(6));
-          setLng(coords.lng.toFixed(6));
-        }
+        if (coords) { setLat(coords.lat.toFixed(6)); setLng(coords.lng.toFixed(6)); }
       } else {
         if (result.lat != null) setLat(String(result.lat));
         if (result.lng != null) setLng(String(result.lng));
@@ -528,6 +537,16 @@ export default function HotelModal({
                         {uploadingCount > 0 ? `Uploading…` : 'Attach Files'}
                       </button>
                     </div>
+                    {isOwner && tripDriveFileId && (
+                      <p className="attachment-share-notice">
+                        For shared users to access attachments, share the trip folder with them.
+                        {onShareTrip && (
+                          <button type="button" className="attachment-share-btn" onClick={onShareTrip}>
+                            <Share2 size={11} /> Share Folder
+                          </button>
+                        )}
+                      </p>
+                    )}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -536,15 +555,21 @@ export default function HotelModal({
                       className="visually-hidden"
                       onChange={handleFileSelect}
                     />
-                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
+                    {attachedFiles.length > 0 && (
                       <button
                         type="button"
                         className="modal-ai-fill-btn"
                         onClick={handleAiFill}
-                        disabled={isAiFilling}
+                        disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+                        data-tooltip={
+                          !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                          GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                          undefined
+                        }
+                        data-tooltip-position="bottom"
                       >
-                        <Sparkles size={13} />
-                        {isAiFilling ? 'Filling…' : 'Fill Reservation Details with AI'}
+                        {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+                        {isAiFilling ? 'Generating…' : 'Fill Reservation Details with AI'}
                       </button>
                     )}
                     {attachedFiles.length > 0 && (
@@ -558,8 +583,8 @@ export default function HotelModal({
                               className="attachment-chip-name"
                               data-tooltip="Open file"
                             >
-                              <ExternalLink size={10} style={{ flexShrink: 0 }} />
-                              {f.name}
+                              <ExternalLink size={10} />
+                              <span className="attachment-chip-filename">{f.name}</span>
                             </a>
                             <button
                               type="button"

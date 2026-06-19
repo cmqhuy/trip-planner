@@ -302,7 +302,9 @@ export async function uploadFile(accessToken: string, folderId: string, file: Fi
     }
   );
   if (!response.ok) {
-    throw new Error(`Failed to upload file '${file.name}' to Google Drive`);
+    const err = new Error(`Failed to upload file '${file.name}' to Google Drive`) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
   const data = await response.json();
   return data.id;

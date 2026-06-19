@@ -424,3 +424,89 @@ const result = await GeminiService.someMethod(...);
 This guard is required even when the trigger button is already conditionally hidden via `GeminiService.isAiEnabled()` in JSX — the handler needs it for defense in depth. See `TripPlanner.tsx` (`handleGenerateSinglePlaceAiDetails` ~line 750, `handleAiSuggestPlaces` ~line 1199) for the canonical live examples.
 
 `GeminiService` reads its API keys from `localStorage` key `vacation-itineraries-gemini-api-keys` and the active model from `vacation-itineraries-gemini-model` on every call — no singleton state to manage. Use the `*WithRotation` variants (e.g. `GeminiService.generateHotelDetailsFromFilesWithRotation(...)`) so key rotation and retry logic are handled automatically.
+
+### All new AI calls must use `runAiCall`
+
+Every new AI-triggered action must go through `runAiCall` (`src/utils/runAiCall.ts`). This handles all three modes uniformly:
+- **Disabled** (`!isAiEnabled()`): Returns silently. Pre-guard in the handler shows a user-facing error first.
+- **Manual** (`isManualMode()`): Shows `ManualAiPromptModal` via `showManualPrompt` — user copies the prompt, pastes the response.
+- **Live**: Calls the API via the request queue.
+
+`isAiEnabled()` returns `true` for both live and manual modes — manual mode is not blocked, it routes through `ManualAiPromptModal`. Never add an `isManualMode()` guard to skip or short-circuit an AI call.
+
+The canonical pattern (see `PlaceModal.tsx: handleAutoFillWithAi`, `AiGenerateModal.tsx`):
+
+```tsx
+// 1. Add showManualPrompt in the component (identical boilerplate):
+const showManualPrompt = (promptTitle: string, prompt: string, format: 'json' | 'markdown'): Promise<string | null> =>
+  new Promise(resolve => {
+    setPendingManualPrompt({
+      title: promptTitle, promptText: prompt, responseFormat: format,
+      onResponse: t => { setPendingManualPrompt(null); resolve(t); },
+      onCancel: () => { setPendingManualPrompt(null); resolve(null); },
+    });
+  });
+
+// 2. In the handler:
+const handleMyAiAction = async () => {
+  if (!GeminiService.isAiEnabled()) { setAiError(AI_NOT_CONFIGURED_MESSAGE); return; }
+  setAiError(null);
+  await runAiCall({
+    label: 'My Action Label',
+    buildPrompt: () => GeminiService.buildMyPrompt(...),
+    parse: (text) => GeminiService.parseMyResponse(text),  // or JSON.parse(text) for raw JSON
+    liveCall: () => GeminiService.myMethodWithRotation(...),
+    onSuccess: (result) => { /* apply result to state */ },
+    onError: (err) => setAiError(err.message || 'AI action failed.'),
+    onLoadingChange: setIsGenerating,
+    showManualPrompt,
+  });
+};
+
+// 3. In JSX: show button when AI is enabled (including manual mode — runAiCall routes it):
+{GeminiService.isAiEnabled() && (
+  <button onClick={handleMyAiAction} disabled={isGenerating}>...</button>
+)}
+
+// 4. Add ManualAiPromptModal to the component's JSX:
+{pendingManualPrompt && (
+  <ManualAiPromptModal
+    isOpen={true}
+    title={pendingManualPrompt.title}
+    promptText={pendingManualPrompt.promptText}
+    responseFormat={pendingManualPrompt.responseFormat}
+    onResponse={pendingManualPrompt.onResponse}
+    onCancel={pendingManualPrompt.onCancel}
+  />
+)}
+```
+
+Reset `setPendingManualPrompt(null)` inside the `useEffect` that fires when the modal opens (`isOpen`), alongside the other state resets.
+
+#### Exception: file-content AI calls (HotelModal / TransportModal attachment fill)
+
+The "Fill Reservation Details with AI" button sends raw file bytes to the Gemini API. Manual mode cannot support this — there is no way to pipe file contents through copy/paste. For these buttons:
+- **Disabled mode**: button shown, disabled, tooltip shows `AI_NOT_CONFIGURED_MESSAGE`
+- **Manual mode**: button shown, disabled, tooltip shows `AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE`
+- **Live mode**: button active
+
+```tsx
+{attachedFiles.length > 0 && (
+  <button
+    type="button"
+    className="modal-ai-fill-btn"
+    onClick={handleAiFill}
+    disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+    data-tooltip={
+      !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+      GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+      undefined
+    }
+    data-tooltip-position="bottom"
+  >
+    ...
+  </button>
+)}
+```
+
+The handler guards `!isAiEnabled() || isManualMode()` and returns silently (button is already disabled — defense-in-depth only).

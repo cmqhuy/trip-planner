@@ -121,6 +121,7 @@ export const AI_NOT_CONFIGURED_TITLE = 'No AI Integration';
 export const AI_NOT_CONFIGURED_MESSAGE = 'AI is not configured. Open AI Settings (top-right header) to set up AI.';
 // Alias kept for existing tooltip usages
 export const NO_API_KEY_TOOLTIP = AI_NOT_CONFIGURED_MESSAGE;
+export const AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE = 'Not available in manual AI mode — file contents require a live API Key.';
 
 const KEYS_STORAGE_KEY = 'vacation-itineraries-gemini-api-keys';
 const MODEL_STORAGE_KEY = 'vacation-itineraries-gemini-model';
@@ -1273,7 +1274,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   }
 
   static buildTransitDetailsFromFilesPrompt(): string {
-    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a flight ticket, train booking, or other transit reservation. Extract the transit details from these files and return them as JSON. Return only the fields you can confidently identify — leave any uncertain fields as empty strings. Do not guess or invent information that is not clearly visible in the provided files. For departure and arrival times, use HH:MM (24-hour) format. For dates, use YYYY-MM-DD format. For timezone, use IANA timezone names (e.g. America/New_York) or offset strings (e.g. UTC+9).`;
+    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a flight ticket, train booking, or other transit reservation. Extract the transit details from these files and return them as JSON. Return only the fields you can confidently identify — leave any uncertain fields as empty strings. Do not guess or invent information that is not clearly visible in the provided files. For departure and arrival times, use HH:MM (24-hour) format. For dates, use YYYY-MM-DD format. For timezone, use IANA timezone names (e.g. America/New_York) or offset strings (e.g. UTC+9). IMPORTANT: For the "name" field, use a route-based description derived from the departure and arrival locations (e.g. "Flight to Tokyo", "SFO → CDG", "Train to Paris") — do NOT use the passenger name printed on the ticket.`;
   }
 
   static async generateHotelDetailsFromFiles(

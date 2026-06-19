@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
-  Sparkles, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink,
+  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2,
 } from 'lucide-react';
 import type { Transportation, Attachment } from '../types';
-import { GeminiService } from '../utils/ai';
+import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import { lookupTimezone } from '../utils/api';
 import DualMapPicker from './DualMapPicker';
@@ -30,6 +30,9 @@ interface TransportModalProps {
   tripName?: string;
   tripFilesFolderId?: string;
   onFileFolderCreated?: (folderId: string) => void;
+  isOwner?: boolean;
+  tripDriveFileId?: string;
+  onShareTrip?: () => void;
 }
 
 const TRANSPORT_TYPES: { value: Transportation['type']; label: string; Icon: React.ElementType }[] = [
@@ -112,6 +115,9 @@ export default function TransportModal({
   tripName,
   tripFilesFolderId,
   onFileFolderCreated,
+  isOwner = true,
+  tripDriveFileId,
+  onShareTrip,
 }: TransportModalProps) {
   const browserTz = getBrowserTimezone();
 
@@ -272,10 +278,13 @@ export default function TransportModal({
   };
 
   const resolveFilesFolderId = async (): Promise<string | null> => {
-    if (!googleToken || !tripPlannerFolderId || !tripName) return null;
+    if (!googleToken) return null;
+    // If owner already has a files folder, use it directly (shared users upload there too)
+    if (tripFilesFolderId) return tripFilesFolderId;
+    if (!tripPlannerFolderId || !tripName) return null;
     try {
       const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-      if (folderId !== tripFilesFolderId) onFileFolderCreated?.(folderId);
+      onFileFolderCreated?.(folderId);
       return folderId;
     } catch { return null; }
   };
@@ -295,8 +304,12 @@ export default function TransportModal({
       try {
         const fileId = await uploadFile(googleToken, folderId, file);
         setAttachments(prev => [...prev, { name: file.name, fileId }]);
-      } catch {
-        setAiError(`Failed to upload "${file.name}".`);
+      } catch (err: any) {
+        if (err?.status === 403) {
+          setAiError(`No write access to the trip folder. Ask the trip owner to share the folder with you.`);
+        } else {
+          setAiError(`Failed to upload "${file.name}".`);
+        }
       } finally {
         setUploadingCount(prev => prev - 1);
       }
@@ -319,7 +332,7 @@ export default function TransportModal({
 
   const handleAiFill = async () => {
     if (!googleToken || attachedFiles.length === 0) return;
-    if (!GeminiService.isAiEnabled()) return;
+    if (!GeminiService.isAiEnabled() || GeminiService.isManualMode()) return;
     setIsAiFilling(true);
     setAiError(null);
     try {
@@ -762,11 +775,32 @@ export default function TransportModal({
                         {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
                       </button>
                     </div>
+                    {isOwner && tripDriveFileId && (
+                      <p className="attachment-share-notice">
+                        For shared users to access attachments, share the trip folder with them.
+                        {onShareTrip && (
+                          <button type="button" className="attachment-share-btn" onClick={onShareTrip}>
+                            <Share2 size={11} /> Share Folder
+                          </button>
+                        )}
+                      </p>
+                    )}
                     <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
-                    {attachedFiles.length > 0 && GeminiService.isAiEnabled() && (
-                      <button type="button" className="modal-ai-fill-btn" onClick={handleAiFill} disabled={isAiFilling}>
-                        <Sparkles size={13} />
-                        {isAiFilling ? 'Filling…' : 'Fill Reservation Details with AI'}
+                    {attachedFiles.length > 0 && (
+                      <button
+                        type="button"
+                        className="modal-ai-fill-btn"
+                        onClick={handleAiFill}
+                        disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+                        data-tooltip={
+                          !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                          GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                          undefined
+                        }
+                        data-tooltip-position="bottom"
+                      >
+                        {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+                        {isAiFilling ? 'Generating…' : 'Fill Reservation Details with AI'}
                       </button>
                     )}
                     {attachedFiles.length > 0 && (
@@ -780,8 +814,8 @@ export default function TransportModal({
                               className="attachment-chip-name"
                               data-tooltip="Open file"
                             >
-                              <ExternalLink size={10} style={{ flexShrink: 0 }} />
-                              {f.name}
+                              <ExternalLink size={10} />
+                              <span className="attachment-chip-filename">{f.name}</span>
                             </a>
                             <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
                               <X size={10} />
