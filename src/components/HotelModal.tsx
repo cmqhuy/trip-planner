@@ -157,11 +157,10 @@ export default function HotelModal({
   };
 
   const resolveFilesFolderId = async (): Promise<string | null> => {
-    if (tripFilesFolderId) return tripFilesFolderId;
     if (!googleToken || !tripPlannerFolderId || !tripName) return null;
     try {
       const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-      onFileFolderCreated?.(folderId);
+      if (folderId !== tripFilesFolderId) onFileFolderCreated?.(folderId);
       return folderId;
     } catch {
       return null;

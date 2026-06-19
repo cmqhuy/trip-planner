@@ -273,11 +273,10 @@ export default function TransportModal({
   };
 
   const resolveFilesFolderId = async (): Promise<string | null> => {
-    if (tripFilesFolderId) return tripFilesFolderId;
     if (!googleToken || !tripPlannerFolderId || !tripName) return null;
     try {
       const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-      onFileFolderCreated?.(folderId);
+      if (folderId !== tripFilesFolderId) onFileFolderCreated?.(folderId);
       return folderId;
     } catch { return null; }
   };
@@ -492,8 +491,8 @@ export default function TransportModal({
                   <input type="text" id="dep-address" value={depAddress} onChange={e => setDepAddress(e.target.value)} />
                 </div>
 
-                {/* Departure Date + Time + Timezone */}
-                <div className="form-row form-row--3col">
+                {/* Departure Date + Time */}
+                <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="dep-date" className="place-form-label">
                       Departure Date
@@ -508,7 +507,10 @@ export default function TransportModal({
                     </label>
                     <input type="time" id="dep-time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
                   </div>
-                  <div className="form-group">
+                </div>
+
+                {/* Departure Timezone */}
+                <div className="form-group">
                     <label className="place-form-label">
                       Departure Timezone
                       {undoBtn(depTz, savedValues?.depTz, () => setDepTz(savedValues!.depTz))}</label>
@@ -548,7 +550,6 @@ export default function TransportModal({
                       </>,
                       document.body
                     )}
-                  </div>
                 </div>
 
                 {/* Arrival location + address */}
@@ -567,8 +568,8 @@ export default function TransportModal({
                   <input type="text" id="arr-address" value={arrAddress} onChange={e => setArrAddress(e.target.value)} />
                 </div>
 
-                {/* Arrival Date + Time + Timezone */}
-                <div className="form-row form-row--3col">
+                {/* Arrival Date + Time */}
+                <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="arr-date" className="place-form-label">
                       Arrival Date
@@ -583,7 +584,10 @@ export default function TransportModal({
                     </label>
                     <input type="time" id="arr-time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
                   </div>
-                  <div className="form-group">
+                </div>
+
+                {/* Arrival Timezone */}
+                <div className="form-group">
                     <label className="place-form-label">
                       Arrival Timezone
                       {undoBtn(arrTz, savedValues?.arrTz, () => setArrTz(savedValues!.arrTz))}</label>
@@ -623,7 +627,6 @@ export default function TransportModal({
                       </>,
                       document.body
                     )}
-                  </div>
                 </div>
 
                 {/* Confirmation No + Booked via */}

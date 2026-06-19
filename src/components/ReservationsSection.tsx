@@ -3,7 +3,7 @@ import {
   Plane, Building, Ticket, AlertTriangle, MapPin, Hash,
   Edit2, Trash2, Check, Calendar,
   Train, Bus, Car, Anchor, Navigation, FileText,
-  MoreVertical, ArrowUpRight, ArrowDownLeft,
+  MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
 } from 'lucide-react';
 import type { Trip, Plan, Hotel, Transportation } from '../types';
 
@@ -267,27 +267,35 @@ export default function ReservationsSection({
                             <MapPin size={14} />
                           </a>
                         )}
-                        {trip.canEdit !== false && (
-                          <div className="card-options-menu">
-                            <button
-                              className="mini-icon-btn"
-                              onClick={() => setOpenOptionsMenuId(prev => prev === h.id ? null : h.id)}
-                              data-tooltip="Options"
-                            >
-                              <MoreVertical size={14} />
-                            </button>
-                            {openOptionsMenuId === h.id && (
-                              <div className="dropdown-menu dropdown-menu--right">
+                        <div className="card-options-menu">
+                          <button
+                            className="mini-icon-btn"
+                            onClick={() => setOpenOptionsMenuId(prev => prev === h.id ? null : h.id)}
+                            data-tooltip="Options"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          {openOptionsMenuId === h.id && (
+                            <div className="dropdown-menu dropdown-menu--right">
+                              <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(h.name); setOpenOptionsMenuId(null); }}>
+                                <Copy size={12} /> Copy Name
+                              </button>
+                              {h.address && (
+                                <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(h.address!); setOpenOptionsMenuId(null); }}>
+                                  <Copy size={12} /> Copy Address
+                                </button>
+                              )}
+                              {trip.canEdit !== false && <>
                                 <button className="dropdown-item" onClick={() => { onEditHotel(h); setOpenOptionsMenuId(null); }}>
                                   <Edit2 size={12} /> Edit
                                 </button>
                                 <button className="dropdown-item danger" onClick={() => { onDeleteHotel(h.id); setOpenOptionsMenuId(null); }}>
                                   <Trash2 size={12} /> Delete
                                 </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              </>}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <h4 className="catalog-place-title catalog-place-title--no-margin">{h.name}</h4>
@@ -300,10 +308,17 @@ export default function ReservationsSection({
                     <div>
                       <div className="reservation-card-expanded-content">
                         {h.address && (
-                          <div className="reservation-card-field-row">
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="reservation-card-field-row"
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                            onClick={e => e.stopPropagation()}
+                          >
                             <MapPin size={11} />
                             <span className="place-desc-text">{h.address}</span>
-                          </div>
+                          </a>
                         )}
                         {h.confirmationNo && (
                           <div className="reservation-card-field-row">
@@ -429,27 +444,43 @@ export default function ReservationsSection({
                             </div>
                           )}
                         </div>
-                        {trip.canEdit !== false && (
-                          <div className="card-options-menu">
-                            <button
-                              className="mini-icon-btn"
-                              onClick={() => setOpenOptionsMenuId(prev => prev === t.id ? null : t.id)}
-                              data-tooltip="Options"
-                            >
-                              <MoreVertical size={14} />
-                            </button>
-                            {openOptionsMenuId === t.id && (
-                              <div className="dropdown-menu dropdown-menu--right">
+                        <div className="card-options-menu">
+                          <button
+                            className="mini-icon-btn"
+                            onClick={() => setOpenOptionsMenuId(prev => prev === t.id ? null : t.id)}
+                            data-tooltip="Options"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          {openOptionsMenuId === t.id && (
+                            <div className="dropdown-menu dropdown-menu--right">
+                              <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.departureLocationName); setOpenOptionsMenuId(null); }}>
+                                <Copy size={12} /> Copy Departure Location
+                              </button>
+                              {t.departureAddress && (
+                                <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.departureAddress!); setOpenOptionsMenuId(null); }}>
+                                  <Copy size={12} /> Copy Departure Address
+                                </button>
+                              )}
+                              <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.arrivalLocationName); setOpenOptionsMenuId(null); }}>
+                                <Copy size={12} /> Copy Arrival Location
+                              </button>
+                              {t.arrivalAddress && (
+                                <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.arrivalAddress!); setOpenOptionsMenuId(null); }}>
+                                  <Copy size={12} /> Copy Arrival Address
+                                </button>
+                              )}
+                              {trip.canEdit !== false && <>
                                 <button className="dropdown-item" onClick={() => { onEditTransport(t); setOpenOptionsMenuId(null); }}>
                                   <Edit2 size={12} /> Edit
                                 </button>
                                 <button className="dropdown-item danger" onClick={() => { onDeleteTransport(t.id); setOpenOptionsMenuId(null); }}>
                                   <Trash2 size={12} /> Delete
                                 </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              </>}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <h4 className="catalog-place-title catalog-place-title--no-margin">{transitName}</h4>
@@ -473,16 +504,30 @@ export default function ReservationsSection({
                           </div>
                         )}
                         {t.departureAddress && (
-                          <div className="reservation-card-field-row">
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="reservation-card-field-row"
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                            onClick={e => e.stopPropagation()}
+                          >
                             <ArrowUpRight size={11} />
                             <span className="place-desc-text">Departure: {t.departureAddress}</span>
-                          </div>
+                          </a>
                         )}
                         {t.arrivalAddress && (
-                          <div className="reservation-card-field-row">
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="reservation-card-field-row"
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                            onClick={e => e.stopPropagation()}
+                          >
                             <ArrowDownLeft size={11} />
                             <span className="place-desc-text">Arrival: {t.arrivalAddress}</span>
-                          </div>
+                          </a>
                         )}
                       </div>
                     </div>

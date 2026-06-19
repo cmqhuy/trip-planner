@@ -4,7 +4,7 @@ import {
   Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building, Hash,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
-  ArrowUpRight, ArrowDownLeft, AlertTriangle
+  ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
@@ -836,8 +836,18 @@ function ItineraryPanel({
                   <div key={h.id} className={`hotel-card${isExpanded ? ' reservation-card--expanded' : ''}${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
                     <div className="hotel-card-body" onClick={() => setExpandedHotelId(isExpanded ? null : h.id)}>
-                      <div className="hotel-icon-wrapper">
-                        <Building size={16} />
+                      <div className="schedule-thumb-col" onClick={e => e.stopPropagation()}>
+                        <div className="hotel-icon-wrapper">
+                          <Building size={16} />
+                        </div>
+                        {h.address && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary timeline-place-map-link"
+                          >Map</a>
+                        )}
                       </div>
                       <div className="hotel-text-col" style={{ flex: 1, minWidth: 0 }}>
                         <h4 className="place-title-text">{h.name}</h4>
@@ -846,48 +856,53 @@ function ItineraryPanel({
                       </div>
                       <div className="hotel-card-right-actions" onClick={e => e.stopPropagation()}>
                         <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedHotelId(isExpanded ? null : h.id)} />
-                        {h.address && (
+                        <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
-                            data-tooltip="Open in Maps"
-                            data-tooltip-position="bottom"
-                            onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address!)}`, '_blank')}
+                            onClick={() => setOpenHotelMenuId(prev => prev === h.id ? null : h.id)}
+                            data-tooltip="Options"
                           >
-                            <MapPin size={14} />
+                            <MoreVertical size={14} />
                           </button>
-                        )}
-                        {trip.canEdit !== false && (
-                          <div className="card-options-menu">
-                            <button
-                              className="mini-icon-btn"
-                              onClick={() => setOpenHotelMenuId(prev => prev === h.id ? null : h.id)}
-                              data-tooltip="Options"
-                            >
-                              <MoreVertical size={14} />
-                            </button>
-                            {openHotelMenuId === h.id && (
-                              <div className="dropdown-menu dropdown-menu--right">
+                          {openHotelMenuId === h.id && (
+                            <div className="dropdown-menu dropdown-menu--right">
+                              <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(h.name); setOpenHotelMenuId(null); }}>
+                                <Copy size={13} /> Copy Name
+                              </button>
+                              {h.address && (
+                                <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(h.address!); setOpenHotelMenuId(null); }}>
+                                  <Copy size={13} /> Copy Address
+                                </button>
+                              )}
+                              {trip.canEdit !== false && <>
                                 <button className="dropdown-item" onClick={() => { handleOpenEditHotel(h); setOpenHotelMenuId(null); }}>
                                   <Edit2 size={13} /> Edit
                                 </button>
                                 <button className="dropdown-item danger" onClick={() => { handleDeleteHotel(h.id); setOpenHotelMenuId(null); }}>
                                   <Trash2 size={13} /> Delete
                                 </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              </>}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     {/* Expandable details — above notes */}
-                    <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${openHotelMenuId === h.id ? ' has-open-dropdown' : ''}`}>
+                    <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                       <div>
                         <div className="card-expanded-inner">
                           {h.address && (
-                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="place-desc-text"
+                              style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
+                              onClick={e => e.stopPropagation()}
+                            >
                               <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.address}
-                            </p>
+                            </a>
                           )}
                           {h.confirmationNo && (
                             <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
@@ -969,13 +984,32 @@ function ItineraryPanel({
                   <div key={t.id} className={`transport-card${isExpanded ? ' reservation-card--expanded' : ''}${openTransportMenuId === t.id || openMapMenuId === t.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
                     <div className="transport-card-body" onClick={() => setExpandedTransitId(isExpanded ? null : t.id)}>
-                      <div className="transport-icon-wrapper">
-                        {t.type === 'flight' && <Plane size={16} />}
-                        {t.type === 'train' && <Train size={16} />}
-                        {t.type === 'bus' && <Bus size={16} />}
-                        {t.type === 'car' && <Car size={16} />}
-                        {t.type === 'ferry' && <Anchor size={16} />}
-                        {t.type === 'other' && <Navigation size={16} />}
+                      <div className="schedule-thumb-col" onClick={e => e.stopPropagation()}>
+                        <div className="transport-icon-wrapper">
+                          {t.type === 'flight' && <Plane size={16} />}
+                          {t.type === 'train' && <Train size={16} />}
+                          {t.type === 'bus' && <Bus size={16} />}
+                          {t.type === 'car' && <Car size={16} />}
+                          {t.type === 'ferry' && <Anchor size={16} />}
+                          {t.type === 'other' && <Navigation size={16} />}
+                        </div>
+                        <div className="card-options-menu">
+                          <button
+                            type="button"
+                            className="btn-secondary timeline-place-map-link"
+                            onClick={() => setOpenMapMenuId(prev => prev === t.id ? null : t.id)}
+                          >Map</button>
+                          {openMapMenuId === t.id && (
+                            <div className="dropdown-menu dropdown-menu--right">
+                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
+                                <ArrowUpRight size={12} /> {t.departureLocationName}
+                              </button>
+                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress || t.arrivalLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
+                                <ArrowDownLeft size={12} /> {t.arrivalLocationName}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <h4 className="place-title-text">{transitName}</h4>
@@ -1003,52 +1037,48 @@ function ItineraryPanel({
                       </div>
                       <div className="transport-card-right-actions" onClick={e => e.stopPropagation()}>
                         <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedTransitId(isExpanded ? null : t.id)} />
-                        <div className={`card-options-menu`}>
+                        <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
-                            data-tooltip="Open in Maps"
-                            data-tooltip-position="bottom"
-                            onClick={() => setOpenMapMenuId(prev => prev === t.id ? null : t.id)}
+                            onClick={() => setOpenTransportMenuId(prev => prev === t.id ? null : t.id)}
+                            data-tooltip="Options"
                           >
-                            <MapPin size={14} />
+                            <MoreVertical size={14} />
                           </button>
-                          {openMapMenuId === t.id && (
+                          {openTransportMenuId === t.id && (
                             <div className="dropdown-menu dropdown-menu--right">
-                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
-                                <ArrowUpRight size={12} /> {t.departureLocationName}
+                              <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.departureLocationName); setOpenTransportMenuId(null); }}>
+                                <Copy size={13} /> Copy Departure Location
                               </button>
-                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
-                                <ArrowDownLeft size={12} /> {t.arrivalLocationName}
+                              {t.departureAddress && (
+                                <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.departureAddress!); setOpenTransportMenuId(null); }}>
+                                  <Copy size={13} /> Copy Departure Address
+                                </button>
+                              )}
+                              <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.arrivalLocationName); setOpenTransportMenuId(null); }}>
+                                <Copy size={13} /> Copy Arrival Location
                               </button>
-                            </div>
-                          )}
-                        </div>
-                        {trip.canEdit !== false && (
-                          <div className="card-options-menu">
-                            <button
-                              className="mini-icon-btn"
-                              onClick={() => setOpenTransportMenuId(prev => prev === t.id ? null : t.id)}
-                              data-tooltip="Options"
-                            >
-                              <MoreVertical size={14} />
-                            </button>
-                            {openTransportMenuId === t.id && (
-                              <div className="dropdown-menu dropdown-menu--right">
+                              {t.arrivalAddress && (
+                                <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.arrivalAddress!); setOpenTransportMenuId(null); }}>
+                                  <Copy size={13} /> Copy Arrival Address
+                                </button>
+                              )}
+                              {trip.canEdit !== false && <>
                                 <button className="dropdown-item" onClick={() => { handleOpenEditTransport(t); setOpenTransportMenuId(null); }}>
                                   <Edit2 size={13} /> Edit
                                 </button>
                                 <button className="dropdown-item danger" onClick={() => { handleDeleteTransportation(t.id); setOpenTransportMenuId(null); }}>
                                   <Trash2 size={13} /> Delete
                                 </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              </>}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     {/* Expandable details — above notes */}
-                    <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}${openTransportMenuId === t.id || openMapMenuId === t.id ? ' has-open-dropdown' : ''}`}>
+                    <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                       <div>
                         <div className="card-expanded-inner">
                           {t.confirmationNo && (
@@ -1057,14 +1087,28 @@ function ItineraryPanel({
                             </p>
                           )}
                           {t.departureAddress && (
-                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="place-desc-text"
+                              style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
+                              onClick={e => e.stopPropagation()}
+                            >
                               <ArrowUpRight size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Departure: {t.departureAddress}
-                            </p>
+                            </a>
                           )}
                           {t.arrivalAddress && (
-                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="place-desc-text"
+                              style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
+                              onClick={e => e.stopPropagation()}
+                            >
                               <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arrival: {t.arrivalAddress}
-                            </p>
+                            </a>
                           )}
                         </div>
                       </div>
@@ -1598,6 +1642,7 @@ function ItineraryPanel({
                                       <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
                                       {activeTimelinePlaceDropdownKey === dropdownKey && (
                                         <div className="dropdown-menu dropdown-menu-above">
+                                          <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(place!.title); setActiveTimelinePlaceDropdownKey(null); }}><Copy size={12} /> Copy Name</button>
                                           <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
                                           <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
                                         </div>
@@ -1615,6 +1660,7 @@ function ItineraryPanel({
                                     <div className="dropdown-menu">
                                       <button className="dropdown-item" disabled={isFirst} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
                                       <button className="dropdown-item" disabled={isLast} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                                      <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(place!.title); setActiveTimelinePlaceDropdownKey(null); }}><Copy size={12} /> Copy Name</button>
                                       <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
                                       <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
                                     </div>
