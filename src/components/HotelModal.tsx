@@ -51,7 +51,6 @@ export default function HotelModal({
   isOpen,
   onClose,
   tripStartDate,
-  tripEndDate,
   onSave,
   onDelete,
   editingHotel,

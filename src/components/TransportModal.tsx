@@ -104,7 +104,6 @@ export default function TransportModal({
   isOpen,
   onClose,
   tripStartDate,
-  tripEndDate,
   onSave,
   onDelete,
   editingTransport,
