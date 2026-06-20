@@ -44,17 +44,25 @@ trip-planner/
 │   │   ├── ItineraryPanel.tsx     # Day schedule, hotels, transits, place mapping
 │   │   ├── CatalogSection.tsx     # Place management, group categorization, list views
 │   │   ├── ChecklistSection.tsx   # Manual to-dos with drag-and-drop reordering
+│   │   ├── ReservationsSection.tsx# Timeline sub-section showing hotel stays & transportation details
+│   │   ├── TipsSection.tsx        # AI Travel assistant dashboard inside left accordion
 │   │   ├── GoogleAuthSection.tsx  # Google Drive auth status and sync controls
 │   │   ├── ShareTripModal.tsx     # Sharing trips with viewer permissions
 │   │   ├── SyncConflictModal.tsx  # Resolves local vs. Drive copy conflicts
 │   │   ├── TripAiConfigModal.tsx  # Enable/disable, reorder, and add custom AI fields
 │   │   ├── AiDetailsView.tsx      # Renders generated AI advice for places
 │   │   ├── AiMarkdownSection.tsx  # Displays markdown AI sections with custom styling
+│   │   ├── AiSettingsModal.tsx    # Configure Gemini API keys, active model, and manual mode
+│   │   ├── AiRequestQueuePanel.tsx# Concurrency queue observer UI showing pending/running AI operations
 │   │   ├── LeftPanelAccordion.tsx # Accordion: checklist, reservations, tips
+│   │   ├── ManualAiPromptModal.tsx# Direct copy-paste UI used when Gemini is in manual mode
 │   │   └── *Modal.tsx / *FormFields.tsx  # Creation/edit dialogs (Hotel, Transport, Location, Group, Place)
 │   ├── utils/
 │   │   ├── ai.ts          # GeminiService class, prompt design, custom AI fields
+│   │   ├── aiRequestQueue.ts # Singleton AI queue managing API concurrency and limits
+│   │   ├── runAiCall.ts   # Helper to route prompts through Manual, Live, or Disabled AI modes
 │   │   ├── api.ts         # Geocoding (OSM Nominatim, Photon), default place groups
+│   │   ├── currencies.ts  # Supported currencies mapping and metadata
 │   │   ├── dateUtils.ts   # Formatting, date range calculations
 │   │   ├── googleDrive.ts # Drive folder management, file sync, silent re-auth, shadow files
 │   │   └── image.ts       # Wikimedia Commons image queries
@@ -138,6 +146,8 @@ Key behaviors:
 - **Timeouts**: all `fetch` calls in `ai.ts` must use `AbortController` with a 30-second timeout. Never leave a bare `fetch` without one.
 - **Regeneration is always allowed** — do not add pre-flight guards that skip the API call when `aiDetails` already has values. Users intentionally regenerate.
 - **`generateDailyTips` sends only scheduled places** (`day.placeIds.map(...)` at TripPlanner.tsx:1792) — do not change this to send all trip places.
+- **Concurrency & Rate-Limiting Queue (`aiRequestQueue.ts`)**: All live AI queries route through a singleton queue (`aiRequestQueue.ts`). By default, it limits concurrency to `maxConcurrent = 1` execution thread to prevent API rate limits, overlapping prompts, and out-of-order responses. Components can subscribe to this queue to monitor pending/running states.
+- **Unified Request Wrapper (`runAiCall.ts`)**: Every AI invocation runs through the unified `runAiCall` utility. This routes the prompt based on user settings: silently returns if disabled, prompts for manual copy-paste via `ManualAiPromptModal` if in manual mode, or enqueues the request in `aiRequestQueue` for live execution.
 
 The 7 built-in place fields: `what_special`, `best_time`, `reservation`, `directions`, `area_guide`, `pro_tips`, `other_info`.
 
@@ -187,14 +197,14 @@ File sizes as of the last audit. Read these before adding features — these are
 
 | File | Lines | Notes |
 |------|-------|-------|
-| `src/components/TripPlanner.tsx` | 2,650 | God component — extract a custom hook before adding new feature state |
-| `src/components/ItineraryPanel.tsx` | 1,386 | Receives ~97 props from TripPlanner — don't add more; use TripContext instead |
-| `src/App.tsx` | 1,221 | Auth + sync + CRUD mixed — don't expand further |
-| `src/utils/googleDrive.ts` | 1,177 | No batch/retry — plan around its failure modes |
-| `src/utils/ai.ts` | 964 | Prompt construction scattered — consolidate before adding fields |
-| `src/components/TripAiConfigModal.tsx` | 881 | |
-| `src/components/CatalogSection.tsx` | 805 | |
-| `src/index.css` | 2,776 | 807 inline `style={{}}` occurrences exist across 79% of components — new code must use CSS classes instead |
+| `src/components/TripPlanner.tsx` | 2,398 | God component — extract a custom hook before adding new feature state |
+| `src/components/ItineraryPanel.tsx` | 1,646 | Receives ~97 props from TripPlanner — don't add more; use TripContext instead |
+| `src/App.tsx` | 1,115 | Auth + sync + CRUD mixed — don't expand further |
+| `src/utils/googleDrive.ts` | 1,202 | No batch/retry — plan around its failure modes |
+| `src/utils/ai.ts` | 1,299 | Prompt construction scattered — consolidate before adding fields |
+| `src/components/TripAiConfigModal.tsx` | 719 | |
+| `src/components/CatalogSection.tsx` | 759 | |
+| `src/index.css` | 3,776 | 807 inline `style={{}}` occurrences exist across 79% of components — new code must use CSS classes instead |
 
 **State ref duplication in App.tsx**: `tripsRef`, `googleTokenRef`, `googleFolderIdRef`, `activeTripIdRef`, `syncTimestampsRef` mirror their `useState` counterparts. This is intentional — sync callbacks need the latest value without re-registering effects. Don't remove these refs.
 
