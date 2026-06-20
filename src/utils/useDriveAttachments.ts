@@ -67,7 +67,7 @@ export function useDriveAttachments({
         const fileId = await uploadFile(googleToken, folderId, file);
         setAttachments(prev => [...prev, { name: file.name, filename: file.name, fileId }]);
       } catch (err: any) {
-        if (err?.status === 403) {
+        if (err?.status === 403 || err?.status === 404) {
           if (onAccessError) {
             onAccessError();
           } else {
