@@ -229,50 +229,26 @@ function ItineraryPanel({
 }: ItineraryPanelProps) {
 
   const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
-  const [localNotes, setLocalNotes] = useState('');
   const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
   const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
 
   const startEditingNotes = (place: Place) => {
     setEditingPlaceNotesId(place.id);
-    setLocalNotes(place.notes || '');
   };
 
-  const [prevEditingId, setPrevEditingId] = useState<string | null>(null);
-  if (editingPlaceNotesId !== prevEditingId) {
-    setPrevEditingId(editingPlaceNotesId);
-    if (editingPlaceNotesId) {
-      const placeBeingEdited = trip.locations.flatMap(l => l.places).find(p => p.id === editingPlaceNotesId);
-      setLocalNotes(placeBeingEdited?.notes || '');
-    } else {
-      setLocalNotes('');
-    }
-  }
+  const placeNotesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const hotelNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const transitNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [hoveredScheduleItemIndex, setHoveredScheduleItemIndex] = useState<number | null>(null);
   const [editingNoteItemIndex, setEditingNoteItemIndex] = useState<number | null>(null);
-  const [editingNoteText, setEditingNoteText] = useState('');
   const [activeAddDropdownIndex, setActiveAddDropdownIndex] = useState<number | null>(null);
   const [isPlanPickerOpen, setIsPlanPickerOpen] = useState(false);
   const [openHotelMenuId, setOpenHotelMenuId] = useState<string | null>(null);
   const [openTransportMenuId, setOpenTransportMenuId] = useState<string | null>(null);
   const [openMapMenuId, setOpenMapMenuId] = useState<string | null>(null);
-  const [editingHotelNoteText, setEditingHotelNoteText] = useState('');
-  const [editingTransitNoteText, setEditingTransitNoteText] = useState('');
 
-  useEffect(() => {
-    if (editingHotelNoteId) {
-      const h = activePlan?.hotels.find(h => h.id === editingHotelNoteId);
-      setEditingHotelNoteText(h?.notes ?? '');
-    }
-  }, [editingHotelNoteId, activePlan?.hotels]);
-
-  useEffect(() => {
-    if (editingTransitNoteId) {
-      const t = activePlan?.transports.find(t => t.id === editingTransitNoteId);
-      setEditingTransitNoteText(t?.notes ?? '');
-    }
-  }, [editingTransitNoteId, activePlan?.transports]);
   const planPickerRef = useRef<HTMLDivElement>(null);
   const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -387,7 +363,6 @@ function ItineraryPanel({
                 setActiveAddDropdownIndex(null);
                 handleAddScheduleNote(insertAtIndex, '');
                 setEditingNoteItemIndex(insertAtIndex);
-                setEditingNoteText('');
               }}
             >
               <FileText size={12} /> Add Note
@@ -444,15 +419,15 @@ function ItineraryPanel({
           <div
             className="timeline-card-content"
             style={{ cursor: canEdit && !isEditingThis ? 'pointer' : 'default' }}
-            onClick={canEdit && !isEditingThis ? () => { setEditingNoteItemIndex(idx); setEditingNoteText(note.text); } : undefined}
+            onClick={canEdit && !isEditingThis ? () => { setEditingNoteItemIndex(idx); } : undefined}
           >
             <div className="flex-1 min-w-0" style={{ paddingTop: '2px' }}>
               {isEditingThis ? (
                 <div onClick={e => e.stopPropagation()}>
                   <textarea
+                    ref={noteTextareaRef}
                     autoFocus
-                    value={editingNoteText}
-                    onChange={e => setEditingNoteText(e.target.value)}
+                    defaultValue={note.text}
                     placeholder="Add a note here..."
                     rows={4}
                     className="note-edit-textarea"
@@ -462,7 +437,8 @@ function ItineraryPanel({
                     <button
                       className="btn-primary flex-align note-edit-btn"
                       onClick={() => {
-                        if (editingNoteText.trim()) handleUpdateScheduleNote(idx, editingNoteText);
+                        const text = noteTextareaRef.current?.value ?? '';
+                        if (text.trim()) handleUpdateScheduleNote(idx, text);
                         setEditingNoteItemIndex(null);
                       }}
                       style={{ gap: '4px' }}
@@ -495,7 +471,7 @@ function ItineraryPanel({
                 </button>
                 {activeTimelinePlaceDropdownKey === dropdownKey && (
                   <div className="dropdown-menu dropdown-menu-above">
-                    <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); setEditingNoteItemIndex(idx); setEditingNoteText(note.text); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Note</button>
+                    <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); setEditingNoteItemIndex(idx); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Note</button>
                     <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleDeleteScheduleNote(idx); setActiveTimelinePlaceDropdownKey(null); }}>
                       <Trash2 size={12} /> Delete Note
                     </button>
@@ -524,7 +500,7 @@ function ItineraryPanel({
                 <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}>
                   <ChevronDown size={12} /> Move Down
                 </button>
-                <button className="dropdown-item" onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setEditingNoteText(note.text); setActiveTimelinePlaceDropdownKey(null); }}>
+                <button className="dropdown-item" onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setActiveTimelinePlaceDropdownKey(null); }}>
                   <Edit2 size={12} /> Edit Note
                 </button>
                 <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleDeleteScheduleNote(idx); setActiveTimelinePlaceDropdownKey(null); }}>
@@ -950,15 +926,15 @@ function ItineraryPanel({
                     {isEditingNote ? (
                       <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
                         <textarea
-                          value={editingHotelNoteText}
-                          onChange={e => setEditingHotelNoteText(e.target.value)}
+                          ref={hotelNoteTextareaRef}
+                          defaultValue={h.notes || ''}
                           placeholder="Add notes..."
                           rows={4}
                           className="notes-textarea"
                         />
                         <div className="notes-actions">
                           <button className="btn-secondary place-notes-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
-                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveHotelNotes(h.id, editingHotelNoteText); setEditingHotelNoteId(null); }}>
+                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveHotelNotes(h.id, hotelNoteTextareaRef.current?.value ?? ''); setEditingHotelNoteId(null); }}>
                             <Check size={10} /> Save
                           </button>
                         </div>
@@ -971,7 +947,6 @@ function ItineraryPanel({
                           e.stopPropagation();
                           setEditingHotelNoteId(h.id);
                           setEditingTransitNoteId(null);
-                          setEditingHotelNoteText(h.notes || '');
                         } : undefined}
                       >
                         <div className={`notes-text ${h.notes ? 'has-content' : 'no-content'}`}>
@@ -1156,15 +1131,15 @@ function ItineraryPanel({
                     {isEditingNote ? (
                       <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
                         <textarea
-                          value={editingTransitNoteText}
-                          onChange={e => setEditingTransitNoteText(e.target.value)}
+                          ref={transitNoteTextareaRef}
+                          defaultValue={t.notes || ''}
                           placeholder="Add notes..."
                           rows={4}
                           className="notes-textarea"
                         />
                         <div className="notes-actions">
                           <button className="btn-secondary place-notes-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveTransportNotes(t.id, editingTransitNoteText); setEditingTransitNoteId(null); }}>
+                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveTransportNotes(t.id, transitNoteTextareaRef.current?.value ?? ''); setEditingTransitNoteId(null); }}>
                             <Check size={10} /> Save
                           </button>
                         </div>
@@ -1177,7 +1152,6 @@ function ItineraryPanel({
                           e.stopPropagation();
                           setEditingTransitNoteId(t.id);
                           setEditingHotelNoteId(null);
-                          setEditingTransitNoteText(t.notes || '');
                         } : undefined}
                       >
                         <div className={`notes-text ${t.notes ? 'has-content' : 'no-content'}`}>
@@ -1385,7 +1359,6 @@ function ItineraryPanel({
                           onClick={() => {
                             handleAddScheduleNote(scheduleItems.length, '');
                             setEditingNoteItemIndex(scheduleItems.length);
-                            setEditingNoteText('');
                             setShowDayOptionsMenu(false);
                           }}
                         >
@@ -1675,10 +1648,10 @@ function ItineraryPanel({
                                     <p className="place-desc-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
                                     {editingPlaceNotesId === place.id ? (
                                       <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                                        <textarea value={localNotes} onChange={(e) => setLocalNotes(e.target.value)} placeholder="Add notes..." rows={4} className="notes-textarea" />
+                                        <textarea ref={placeNotesTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
                                         <div className="notes-actions">
                                           <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
-                                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place!.id, localNotes); setEditingPlaceNotesId(null); }} style={{ gap: '4px' }}><Check size={10} /> Save</button>
+                                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place!.id, placeNotesTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }} style={{ gap: '4px' }}><Check size={10} /> Save</button>
                                         </div>
                                       </div>
                                     ) : (
