@@ -44,10 +44,6 @@ interface ItineraryPanelProps {
   activePlaceId: string | undefined;
   setActivePlaceId: (id: string | undefined) => void;
   placeGeneratingIds: Set<string>;
-  editingPlaceNotesId: string | null;
-  setEditingPlaceNotesId: (id: string | null) => void;
-  tempNotes: string;
-  setTempNotes: (notes: string) => void;
   placeQuery: string;
   setPlaceQuery: (query: string) => void;
   placeSuggestions: Omit<Place, 'placeGroupId'>[];
@@ -111,8 +107,7 @@ interface ItineraryPanelProps {
   handleAddAiSuggestionToCatalog: (place: Place) => void;
   handleOpenEditPlace: (place: Place) => void;
   handleGenerateSinglePlaceAiDetails: (placeId: string) => void;
-  startEditingNotes: (place: Place) => void;
-  savePlaceNotes: (placeId: string) => void;
+  savePlaceNotes: (placeId: string, notes: string) => void;
   activeTimelinePlaceDropdownKey: string | null;
   setActiveTimelinePlaceDropdownKey: (key: string | null) => void;
   daysGeneratingDates: Set<string>;
@@ -127,10 +122,6 @@ interface ItineraryPanelProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
-  editingHotelNoteId: string | null;
-  setEditingHotelNoteId: (id: string | null) => void;
-  editingTransitNoteId: string | null;
-  setEditingTransitNoteId: (id: string | null) => void;
 }
 
 function ItineraryPanel({
@@ -155,10 +146,6 @@ function ItineraryPanel({
   activePlaceId,
   setActivePlaceId,
   placeGeneratingIds,
-  editingPlaceNotesId,
-  setEditingPlaceNotesId,
-  tempNotes,
-  setTempNotes,
   placeQuery,
   setPlaceQuery,
   placeSuggestions,
@@ -222,7 +209,6 @@ function ItineraryPanel({
   handleAddAiSuggestionToCatalog,
   handleOpenEditPlace,
   handleGenerateSinglePlaceAiDetails,
-  startEditingNotes,
   savePlaceNotes,
   activeTimelinePlaceDropdownKey,
   setActiveTimelinePlaceDropdownKey,
@@ -238,11 +224,28 @@ function ItineraryPanel({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
-  editingHotelNoteId,
-  setEditingHotelNoteId,
-  editingTransitNoteId,
-  setEditingTransitNoteId,
 }: ItineraryPanelProps) {
+
+  const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
+  const [localNotes, setLocalNotes] = useState('');
+  const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
+  const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
+
+  const startEditingNotes = (place: Place) => {
+    setEditingPlaceNotesId(place.id);
+    setLocalNotes(place.notes || '');
+  };
+
+  const [prevEditingId, setPrevEditingId] = useState<string | null>(null);
+  if (editingPlaceNotesId !== prevEditingId) {
+    setPrevEditingId(editingPlaceNotesId);
+    if (editingPlaceNotesId) {
+      const placeBeingEdited = trip.locations.flatMap(l => l.places).find(p => p.id === editingPlaceNotesId);
+      setLocalNotes(placeBeingEdited?.notes || '');
+    } else {
+      setLocalNotes('');
+    }
+  }
 
   const [hoveredScheduleItemIndex, setHoveredScheduleItemIndex] = useState<number | null>(null);
   const [editingNoteItemIndex, setEditingNoteItemIndex] = useState<number | null>(null);
@@ -1631,10 +1634,10 @@ function ItineraryPanel({
                                     <p className="place-desc-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
                                     {editingPlaceNotesId === place.id ? (
                                       <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                                        <textarea value={tempNotes} onChange={(e) => setTempNotes(e.target.value)} placeholder="Add notes..." rows={4} className="notes-textarea" />
+                                        <textarea value={localNotes} onChange={(e) => setLocalNotes(e.target.value)} placeholder="Add notes..." rows={4} className="notes-textarea" />
                                         <div className="notes-actions">
                                           <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
-                                          <button className="btn-primary flex-align place-notes-btn" onClick={() => savePlaceNotes(place!.id)} style={{ gap: '4px' }}><Check size={10} /> Save</button>
+                                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place!.id, localNotes); setEditingPlaceNotesId(null); }} style={{ gap: '4px' }}><Check size={10} /> Save</button>
                                         </div>
                                       </div>
                                     ) : (

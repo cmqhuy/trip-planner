@@ -47,12 +47,7 @@ interface LeftPanelAccordionProps {
   setEditingPlace: (place: Place | null) => void;
   setShowCustomPlaceModal: (show: boolean) => void;
   setAutoScheduleOnActiveDay: (auto: boolean) => void;
-  editingPlaceNotesId: string | null;
-  setEditingPlaceNotesId: (id: string | null) => void;
-  tempNotes: string;
-  setTempNotes: (notes: string) => void;
-  startEditingNotes: (place: Place) => void;
-  savePlaceNotes: (placeId: string) => void;
+  savePlaceNotes: (placeId: string, notes: string) => void;
   activeGroupDropdownId: string | null;
   setActiveGroupDropdownId: (id: string | null) => void;
   aiSuggestedPlaces: Place[];
@@ -77,10 +72,6 @@ interface LeftPanelAccordionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
-  editingHotelNoteId: string | null;
-  setEditingHotelNoteId: (id: string | null) => void;
-  editingTransitNoteId: string | null;
-  setEditingTransitNoteId: (id: string | null) => void;
 }
 
 export default function LeftPanelAccordion({
@@ -125,11 +116,6 @@ export default function LeftPanelAccordion({
   setEditingPlace,
   setShowCustomPlaceModal,
   setAutoScheduleOnActiveDay,
-  editingPlaceNotesId,
-  setEditingPlaceNotesId,
-  tempNotes,
-  setTempNotes,
-  startEditingNotes,
   savePlaceNotes,
   activeGroupDropdownId,
   setActiveGroupDropdownId,
@@ -155,10 +141,6 @@ export default function LeftPanelAccordion({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
-  editingHotelNoteId,
-  setEditingHotelNoteId,
-  editingTransitNoteId,
-  setEditingTransitNoteId,
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
@@ -218,11 +200,6 @@ export default function LeftPanelAccordion({
             setEditingPlace={setEditingPlace}
             setShowCustomPlaceModal={setShowCustomPlaceModal}
             setAutoScheduleOnActiveDay={setAutoScheduleOnActiveDay}
-            editingPlaceNotesId={editingPlaceNotesId}
-            setEditingPlaceNotesId={setEditingPlaceNotesId}
-            tempNotes={tempNotes}
-            setTempNotes={setTempNotes}
-            startEditingNotes={startEditingNotes}
             savePlaceNotes={savePlaceNotes}
             activeGroupDropdownId={activeGroupDropdownId}
             setActiveGroupDropdownId={setActiveGroupDropdownId}
@@ -315,10 +292,6 @@ export default function LeftPanelAccordion({
             setExpandedHotelId={setExpandedHotelId}
             expandedTransitId={expandedTransitId}
             setExpandedTransitId={setExpandedTransitId}
-            editingHotelNoteId={editingHotelNoteId}
-            setEditingHotelNoteId={setEditingHotelNoteId}
-            editingTransitNoteId={editingTransitNoteId}
-            setEditingTransitNoteId={setEditingTransitNoteId}
           />
         )}
       </div>

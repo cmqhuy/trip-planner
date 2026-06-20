@@ -568,10 +568,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
+  width: 100%;
 }
 .form-group label span.label-text {
   flex: 1;
@@ -725,13 +723,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* Groups and Places List */
 .catalog-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: visible;
   overflow-x: hidden;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .place-group-section {
   margin-bottom: 24px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  padding: 4px;
+  margin-left: -6px;
+  margin-right: -6px;
+  transition: all 0.15s ease;
 }
 
 .place-group-header {
@@ -1098,7 +1103,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .timeline-dot {
   position: absolute;
   left: -15px;
-  top: 28px;
+  top: 26px;
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -1120,10 +1125,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .timeline-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.1);
 }
 
 /* Day Transports */
@@ -1135,6 +1142,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.transport-card:hover {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1);
 }
 
 .transport-card-body {
@@ -1196,6 +1209,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hotel-card:hover {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1);
 }
 
 .hotel-card-body {
@@ -1426,9 +1445,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     padding: 12px 16px !important;
   }
 
-  .catalog-content {
-    padding: 12px 16px !important;
-  }
+
 
   .itinerary-header {
     padding: 12px 16px !important;
@@ -2117,7 +2134,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 /* PlaceFormFields component classes */
 .undo-btn { background: none; border: none; cursor: pointer; padding: 0 2px; color: var(--text-muted); display: inline-flex; align-items: center; line-height: 1; }
-.label-icon-row { display: flex; align-items: center; gap: 6px; }
+.label-icon-row { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
 .ai-fill-btn-wrapper { display: inline-block; }
 .ai-fill-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; gap: 6px; }
 .btn-secondary.ai-fill-btn { border-color: rgba(99,102,241,0.2); background: rgba(99,102,241,0.05); }
@@ -2801,11 +2818,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 /* CatalogSection classes */
 .panel-header--catalog { border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; padding: 12px 12px 12px !important; }
-.catalog-content--no-padding { padding: 0; display: flex; flex-direction: column; }
-.catalog-content--no-padding::before,
-.catalog-content--no-padding::after { content: ''; display: block; height: 12px; flex-shrink: 0; }
-.accordion-content--catalog::before,
-.accordion-content--catalog::after { height: 0; }
+
+
 .catalog-header-row { display: flex; gap: 6px; align-items: center; width: 100%; }
 .catalog-ai-suggest-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #a78bfa; }
 .catalog-header-icon-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -3227,9 +3241,7 @@ div.google-auth-avatar-desktop {
   }
 
   /* Catalog details: spacings and margins */
-  .left-panel-accordion .catalog-content {
-    padding: 0 !important;
-  }
+
   .place-group-section {
     margin-bottom: 16px !important;
   }
@@ -3364,6 +3376,10 @@ div.google-auth-avatar-desktop {
   }
   .hotel-card,
   .transport-card {
+    padding: 8px !important;
+  }
+  .reservation-card-expand,
+  .reservation-card-expanded-content {
     padding: 8px !important;
   }
   .transport-card .timeline-place-map-link {
@@ -3731,6 +3747,8 @@ div.google-auth-avatar-desktop {
 }
 
 @media (min-width: 1081px) {
+
+
   .planner-view.left-collapsed .catalog-panel {
     width: 0 !important;
     min-width: 0 !important;
@@ -3805,7 +3823,7 @@ div.google-auth-avatar-desktop {
   .modal-content.scrollable .modal-header {
     margin-bottom: 20px !important;
   }
-  .accordion-content .mini-icon-btn,
+  .accordion-content .mini-icon-btn:not(.ai-markdown-edit-btn):not(.ai-md-save-btn):not(.ai-md-cancel-btn),
   .accordion-content .add-location-btn {
     min-height: 36px !important;
     min-width: 36px !important;
@@ -3816,7 +3834,7 @@ div.google-auth-avatar-desktop {
     justify-content: center !important;
     padding: 0 !important;
   }
-  .accordion-content .mini-icon-btn.flex-align {
+  .accordion-content .mini-icon-btn.flex-align:not(.ai-markdown-edit-btn) {
     width: auto !important;
     min-width: auto !important;
     padding: 0 10px !important;

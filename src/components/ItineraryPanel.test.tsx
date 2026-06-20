@@ -100,10 +100,6 @@ describe('ItineraryPanel Component', () => {
         activePlaceId={undefined}
         setActivePlaceId={vi.fn()}
         placeGeneratingIds={new Set()}
-        editingPlaceNotesId={null}
-        setEditingPlaceNotesId={vi.fn()}
-        tempNotes=""
-        setTempNotes={vi.fn()}
         placeQuery=""
         setPlaceQuery={vi.fn()}
         placeSuggestions={[]}
@@ -167,7 +163,6 @@ describe('ItineraryPanel Component', () => {
         handleAddAiSuggestionToCatalog={vi.fn()}
         handleOpenEditPlace={vi.fn()}
         handleGenerateSinglePlaceAiDetails={vi.fn()}
-        startEditingNotes={vi.fn()}
         savePlaceNotes={vi.fn()}
         activeTimelinePlaceDropdownKey={null}
         setActiveTimelinePlaceDropdownKey={vi.fn()}
@@ -179,10 +174,6 @@ describe('ItineraryPanel Component', () => {
         setExpandedHotelId={vi.fn()}
         expandedTransitId={null}
         setExpandedTransitId={vi.fn()}
-        editingHotelNoteId={null}
-        setEditingHotelNoteId={vi.fn()}
-        editingTransitNoteId={null}
-        setEditingTransitNoteId={vi.fn()}
       />
     );
 

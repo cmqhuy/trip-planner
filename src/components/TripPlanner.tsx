@@ -339,17 +339,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [deleteHotelData, setDeleteHotelData] = useState<Hotel | null>(null);
   const [expandedHotelId, setExpandedHotelId] = useState<string | null>(null);
   const [expandedTransitId, setExpandedTransitId] = useState<string | null>(null);
-  const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
-  const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
-
   // Day timeline search state
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeSuggestions, setPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
   const [isSearchingPlace, setIsSearchingPlace] = useState(false);
-
-  // Note editing state for catalog places
-  const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
-  const [tempNotes, setTempNotes] = useState('');
 
   // PlaceGroup Edit Modal
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -1447,17 +1440,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   // ----------------------------------------------------
   // Notes Editing (Shared at Trip / Location level)
   // ----------------------------------------------------
-  const startEditingNotes = useCallback((place: Place) => {
-    setEditingPlaceNotesId(place.id);
-    setTempNotes(place.notes || '');
-  }, []);
-
-  const savePlaceNotes = useCallback((placeId: string) => {
+  const savePlaceNotes = useCallback((placeId: string, notes: string) => {
     const updatedLocations = trip.locations.map(l => {
       if (l.places.some(p => p.id === placeId)) {
         const updatedPlaces = l.places.map(p => {
           if (p.id === placeId) {
-            return { ...p, notes: tempNotes };
+            return { ...p, notes };
           }
           return p;
         });
@@ -1470,9 +1458,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       ...trip,
       locations: updatedLocations
     });
-
-    setEditingPlaceNotesId(null);
-  }, [trip, tempNotes, onUpdateTrip]);
+  }, [trip, onUpdateTrip]);
 
   const handleAddScheduleNote = useCallback((insertAtIndex: number, text: string) => {
     onUpdateTrip(prevTrip => {
@@ -2241,11 +2227,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setEditingPlace={setEditingPlace}
         setShowCustomPlaceModal={setShowCustomPlaceModal}
         setAutoScheduleOnActiveDay={setAutoScheduleOnActiveDay}
-        editingPlaceNotesId={editingPlaceNotesId}
-        setEditingPlaceNotesId={setEditingPlaceNotesId}
-        tempNotes={tempNotes}
-        setTempNotes={setTempNotes}
-        startEditingNotes={startEditingNotes}
         savePlaceNotes={savePlaceNotes}
         activeGroupDropdownId={activeGroupDropdownId}
         setActiveGroupDropdownId={setActiveGroupDropdownId}
@@ -2271,10 +2252,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setExpandedHotelId={setExpandedHotelId}
         expandedTransitId={expandedTransitId}
         setExpandedTransitId={setExpandedTransitId}
-        editingHotelNoteId={editingHotelNoteId}
-        setEditingHotelNoteId={setEditingHotelNoteId}
-        editingTransitNoteId={editingTransitNoteId}
-        setEditingTransitNoteId={setEditingTransitNoteId}
       />
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}
@@ -2300,10 +2277,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         activePlaceId={activePlaceId}
         setActivePlaceId={setActivePlaceId}
         placeGeneratingIds={placeGeneratingIds}
-        editingPlaceNotesId={editingPlaceNotesId}
-        setEditingPlaceNotesId={setEditingPlaceNotesId}
-        tempNotes={tempNotes}
-        setTempNotes={setTempNotes}
+
         placeQuery={placeQuery}
         setPlaceQuery={setPlaceQuery}
         placeSuggestions={placeSuggestions}
@@ -2367,7 +2341,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleAddAiSuggestionToCatalog={handleAddAiSuggestionToCatalog}
         handleOpenEditPlace={handleOpenEditPlace}
         handleGenerateSinglePlaceAiDetails={handleGenerateSinglePlaceAiDetails}
-        startEditingNotes={startEditingNotes}
         savePlaceNotes={savePlaceNotes}
         activeTimelinePlaceDropdownKey={activeTimelinePlaceDropdownKey}
         setActiveTimelinePlaceDropdownKey={setActiveTimelinePlaceDropdownKey}
@@ -2383,10 +2356,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setExpandedHotelId={setExpandedHotelId}
         expandedTransitId={expandedTransitId}
         setExpandedTransitId={setExpandedTransitId}
-        editingHotelNoteId={editingHotelNoteId}
-        setEditingHotelNoteId={setEditingHotelNoteId}
-        editingTransitNoteId={editingTransitNoteId}
-        setEditingTransitNoteId={setEditingTransitNoteId}
       />
       
       {/* RIGHT PANEL: Interactive Leaflet Map */}

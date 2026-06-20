@@ -91,11 +91,6 @@ describe('CatalogSection Component', () => {
         setEditingPlace={vi.fn()}
         setShowCustomPlaceModal={vi.fn()}
         setAutoScheduleOnActiveDay={vi.fn()}
-        editingPlaceNotesId={null}
-        setEditingPlaceNotesId={vi.fn()}
-        tempNotes=""
-        setTempNotes={vi.fn()}
-        startEditingNotes={vi.fn()}
         savePlaceNotes={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
@@ -116,7 +111,6 @@ describe('CatalogSection Component', () => {
 
   it('triggers callbacks when interacting with details', () => {
     const handleSetActivePlaceId = vi.fn();
-    const handleStartEditingNotes = vi.fn();
 
     render(
       <CatalogSection
@@ -158,11 +152,6 @@ describe('CatalogSection Component', () => {
         setEditingPlace={vi.fn()}
         setShowCustomPlaceModal={vi.fn()}
         setAutoScheduleOnActiveDay={vi.fn()}
-        editingPlaceNotesId={null}
-        setEditingPlaceNotesId={vi.fn()}
-        tempNotes=""
-        setTempNotes={vi.fn()}
-        startEditingNotes={handleStartEditingNotes}
         savePlaceNotes={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
@@ -178,9 +167,9 @@ describe('CatalogSection Component', () => {
     expect(screen.getByText('Historical temple')).toBeInTheDocument();
     expect(screen.getByText('Visit early morning')).toBeInTheDocument();
 
-    // Click edit note triggers startEditingNotes callback
+    // Click edit note switches to local edit mode, showing the textarea
     const editNotesBtn = screen.getByRole('button', { name: /edit note/i });
     fireEvent.click(editNotesBtn);
-    expect(handleStartEditingNotes).toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Add notes...')).toBeInTheDocument();
   });
 });

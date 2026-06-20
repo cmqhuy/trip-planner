@@ -82,11 +82,6 @@ describe('LeftPanelAccordion Component', () => {
         setEditingPlace={vi.fn()}
         setShowCustomPlaceModal={vi.fn()}
         setAutoScheduleOnActiveDay={vi.fn()}
-        editingPlaceNotesId={null}
-        setEditingPlaceNotesId={vi.fn()}
-        tempNotes=""
-        setTempNotes={vi.fn()}
-        startEditingNotes={vi.fn()}
         savePlaceNotes={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
@@ -112,10 +107,6 @@ describe('LeftPanelAccordion Component', () => {
         setExpandedHotelId={vi.fn()}
         expandedTransitId={null}
         setExpandedTransitId={vi.fn()}
-        editingHotelNoteId={null}
-        setEditingHotelNoteId={vi.fn()}
-        editingTransitNoteId={null}
-        setEditingTransitNoteId={vi.fn()}
       />
     );
 

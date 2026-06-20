@@ -30,9 +30,10 @@ export function useDriveAttachments({
   const [uploadingCount, setUploadingCount] = useState(0);
   const [removePrompt, setRemovePrompt] = useState<Attachment | null>(null);
 
+  const initialAttachmentsStr = JSON.stringify(initialAttachments || []);
   useEffect(() => {
     setAttachments(initialAttachments);
-  }, [initialAttachments]);
+  }, [initialAttachmentsStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resolveFilesFolderId = async (): Promise<string | null> => {
     if (tripFilesFolderId) return tripFilesFolderId;

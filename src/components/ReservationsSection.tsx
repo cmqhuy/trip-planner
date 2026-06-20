@@ -22,10 +22,6 @@ interface ReservationsSectionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
-  editingHotelNoteId: string | null;
-  setEditingHotelNoteId: (id: string | null) => void;
-  editingTransitNoteId: string | null;
-  setEditingTransitNoteId: (id: string | null) => void;
 }
 
 function TransportTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
@@ -88,11 +84,9 @@ export default function ReservationsSection({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
-  editingHotelNoteId,
-  setEditingHotelNoteId,
-  editingTransitNoteId,
-  setEditingTransitNoteId,
 }: ReservationsSectionProps) {
+  const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
+  const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
   const [editingHotelNotesText, setEditingHotelNotesText] = useState('');
   const [editingTransitNotesText, setEditingTransitNotesText] = useState('');
   const [openTransitMapId, setOpenTransitMapId] = useState<string | null>(null);

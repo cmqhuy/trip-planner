@@ -47,12 +47,7 @@ interface CatalogSectionProps {
   setEditingPlace: (place: Place | null) => void;
   setShowCustomPlaceModal: (show: boolean) => void;
   setAutoScheduleOnActiveDay: (auto: boolean) => void;
-  editingPlaceNotesId: string | null;
-  setEditingPlaceNotesId: (id: string | null) => void;
-  tempNotes: string;
-  setTempNotes: (notes: string) => void;
-  startEditingNotes: (place: Place) => void;
-  savePlaceNotes: (placeId: string) => void;
+  savePlaceNotes: (placeId: string, notes: string) => void;
   activeGroupDropdownId: string | null;
   setActiveGroupDropdownId: (id: string | null) => void;
   aiSuggestedPlaces: Place[];
@@ -101,11 +96,6 @@ function CatalogSection({
   setEditingPlace,
   setShowCustomPlaceModal,
   setAutoScheduleOnActiveDay,
-  editingPlaceNotesId,
-  setEditingPlaceNotesId,
-  tempNotes,
-  setTempNotes,
-  startEditingNotes,
   savePlaceNotes,
   activeGroupDropdownId,
   setActiveGroupDropdownId,
@@ -116,6 +106,14 @@ function CatalogSection({
   onAiSuggestPlaces
 }: CatalogSectionProps) {
   const [activePlaceDropdownId, setActivePlaceDropdownId] = useState<string | null>(null);
+  const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
+  const [localNotes, setLocalNotes] = useState('');
+
+  const startEditingNotes = (place: Place) => {
+    setEditingPlaceNotesId(place.id);
+    setLocalNotes(place.notes || '');
+  };
+
   const aiSuggestionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -185,9 +183,9 @@ function CatalogSection({
       </div>
 
       {/* Scrollable catalog content */}
-      <div className="accordion-content accordion-content--catalog">
+      <div className="accordion-content">
       {catalogLocation ? (
-        <div className="catalog-content catalog-content--no-padding">
+        <div className="catalog-content">
           {/* Catalog Group Management */}
           <div className="subsection-header catalog-groups-header">
             <h4 className="subsection-title catalog-groups-label">Groups</h4>
@@ -253,10 +251,7 @@ function CatalogSection({
                   setDragOverGroupId(null);
                 }}
                 style={{
-                  border: (dragOverGroupId === group.id && draggedPlaceId) ? '2px dashed var(--accent-primary)' : '2px dashed transparent',
-                  borderRadius: '8px',
-                  padding: '4px',
-                  transition: 'all 0.15s ease'
+                  borderColor: (dragOverGroupId === group.id && draggedPlaceId) ? 'var(--accent-primary)' : 'transparent',
                 }}
               >
                 <div className="place-group-header">
@@ -591,8 +586,8 @@ function CatalogSection({
                               {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
                                 <div className="notes-edit-wrapper">
                                   <textarea
-                                    value={tempNotes}
-                                    onChange={(e) => setTempNotes(e.target.value)}
+                                    value={localNotes}
+                                    onChange={(e) => setLocalNotes(e.target.value)}
                                     placeholder="Add notes..."
                                     rows={3}
                                     className="notes-textarea"
@@ -606,7 +601,10 @@ function CatalogSection({
                                     </button>
                                     <button
                                       className="btn-primary flex-align catalog-place-action-btn"
-                                      onClick={() => savePlaceNotes(place.id)}
+                                      onClick={() => {
+                                        savePlaceNotes(place.id, localNotes);
+                                        setEditingPlaceNotesId(null);
+                                      }}
                                     >
                                       <Check size={12} /> Save Notes
                                     </button>

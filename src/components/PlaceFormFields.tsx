@@ -291,7 +291,7 @@ export default function PlaceFormFields({
                 <label className="modal-field-title">
                   <span className="label-icon-row">
                     {getFieldIcon(field.key, field.icon || '')}
-                    {field.title}
+                    <span className="label-text">{field.title}</span>
                     {undoBtn(
                       aiDetails[field.key] || '',
                       savedValues?.aiDetails !== undefined ? (savedValues.aiDetails[field.key] ?? '') : undefined,
