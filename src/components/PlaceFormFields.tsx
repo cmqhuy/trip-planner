@@ -117,7 +117,7 @@ export default function PlaceFormFields({
       <div className="place-form-left-col">
         <div className="form-group">
           <label className="place-form-label">
-            Place Title
+            <span className="label-text">Place Title</span>
             {undoBtn(title, savedValues?.title, () => setTitle(savedValues!.title!))}
           </label>
           <input
@@ -131,7 +131,7 @@ export default function PlaceFormFields({
 
         <div className="form-group">
           <label className="place-form-label">
-            Description
+            <span className="label-text">Description</span>
             {undoBtn(description, savedValues?.description, () => setDescription(savedValues!.description!))}
           </label>
           <textarea
@@ -145,7 +145,7 @@ export default function PlaceFormFields({
         <div className="form-row form-row--top">
           <div className="form-group flex-1">
             <label className="place-form-label">
-              Opening Hours
+              <span className="label-text">Opening Hours</span>
               {undoBtn(openingHours, savedValues?.openingHours, () => setOpeningHours(savedValues!.openingHours!))}
             </label>
             <input
@@ -156,7 +156,7 @@ export default function PlaceFormFields({
             />
           </div>
           <div className="form-group flex-1">
-            <label className="category-select-label">Category Group</label>
+            <label className="category-select-label"><span className="label-text">Category Group</span></label>
             <CategoryGroupSelect 
               value={groupId} 
               onChange={setGroupId} 
@@ -167,7 +167,7 @@ export default function PlaceFormFields({
 
         <div className="form-group">
           <label className="place-form-label">
-            Google Maps Link (Optional)
+            <span className="label-text">Google Maps Link (Optional)</span>
             {undoBtn(mapsLink, savedValues?.mapsLink, () => setMapsLink(savedValues!.mapsLink!))}
           </label>
           <input
@@ -180,7 +180,7 @@ export default function PlaceFormFields({
 
         <div className="form-group">
           <label className="place-form-label">
-            Hero Image Photo URL (Optional)
+            <span className="label-text">Hero Image Photo URL (Optional)</span>
             {undoBtn(photoUrl, savedValues?.photoUrl, () => setPhotoUrl(savedValues!.photoUrl!))}
           </label>
           <input
@@ -194,7 +194,7 @@ export default function PlaceFormFields({
 
         <div className="form-group">
           <label className="place-form-label">
-            Notes
+            <span className="label-text">Notes</span>
             {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes!))}
           </label>
           <textarea
@@ -210,7 +210,7 @@ export default function PlaceFormFields({
         <div className="form-row">
           <div className="form-group">
             <label className="place-form-label">
-              Latitude (Optional)
+              <span className="label-text">Latitude (Optional)</span>
               {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat!))}
             </label>
             <input
@@ -222,7 +222,7 @@ export default function PlaceFormFields({
           </div>
           <div className="form-group">
             <label className="place-form-label">
-              Longitude (Optional)
+              <span className="label-text">Longitude (Optional)</span>
               {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng!))}
             </label>
             <input
@@ -235,7 +235,7 @@ export default function PlaceFormFields({
         </div>
 
         <div className="form-group form-group--mb16">
-          <label className="place-form-label"><MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} /> Click on the map to set coordinates</label>
+          <label className="place-form-label"><MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} /> <span className="label-text">Click on the map to set coordinates</span></label>
           <MapPicker
             lat={parseFloat(lat)}
             lng={parseFloat(lng)}

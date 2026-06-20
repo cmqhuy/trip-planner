@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2 } from 'lucide-react';
-import type { Hotel, Attachment } from '../types';
+import type { Hotel } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
@@ -240,7 +240,7 @@ export default function HotelModal({
                 {/* Hotel Name */}
                 <div className="form-group">
                   <label htmlFor="hotel-name" className="place-form-label">
-                    Hotel Name
+                    <span className="label-text">Hotel Name</span>
                     {undoBtn(name, savedValues?.name, () => setName(savedValues!.name))}
                   </label>
                   <input
@@ -255,7 +255,7 @@ export default function HotelModal({
                 {/* Address */}
                 <div className="form-group">
                   <label htmlFor="hotel-address" className="place-form-label">
-                    Address (Optional)
+                    <span className="label-text">Address (Optional)</span>
                     {undoBtn(address, savedValues?.address, () => setAddress(savedValues!.address))}
                   </label>
                   <input
@@ -270,7 +270,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-checkin" className="place-form-label">
-                      Check-In Date
+                      <span className="label-text">Check-In Date</span>
                       {undoBtn(checkInDate, savedValues?.checkInDate, () => setCheckInDate(savedValues!.checkInDate))}
                     </label>
                     <input
@@ -283,7 +283,7 @@ export default function HotelModal({
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-checkin-time" className="place-form-label">
-                      Check-In Time
+                      <span className="label-text">Check-In Time</span>
                       {undoBtn(checkInTime, savedValues?.checkInTime, () => setCheckInTime(savedValues!.checkInTime))}
                     </label>
                     <input
@@ -299,7 +299,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-checkout" className="place-form-label">
-                      Check-Out Date
+                      <span className="label-text">Check-Out Date</span>
                       {undoBtn(checkOutDate, savedValues?.checkOutDate, () => setCheckOutDate(savedValues!.checkOutDate))}
                     </label>
                     <input
@@ -312,7 +312,7 @@ export default function HotelModal({
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-checkout-time" className="place-form-label">
-                      Check-Out Time
+                      <span className="label-text">Check-Out Time</span>
                       {undoBtn(checkOutTime, savedValues?.checkOutTime, () => setCheckOutTime(savedValues!.checkOutTime))}
                     </label>
                     <input
@@ -328,7 +328,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-conf" className="place-form-label">
-                      Confirmation No (Optional)
+                      <span className="label-text">Confirmation No (Optional)</span>
                       {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
                     </label>
                     <input
@@ -340,7 +340,7 @@ export default function HotelModal({
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-booked" className="place-form-label">
-                      Booked via (Optional)
+                      <span className="label-text">Booked via (Optional)</span>
                       {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
                     </label>
                     <input
@@ -357,7 +357,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-price" className="place-form-label">
-                      Price (Optional)
+                      <span className="label-text">Price (Optional)</span>
                       {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
                     </label>
                     <input
@@ -372,7 +372,7 @@ export default function HotelModal({
                   </div>
                   <div className="form-group">
                     <label className="place-form-label">
-                      Currency
+                      <span className="label-text">Currency</span>
                       {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
                     </label>
                     <div className="combo-wrapper">
@@ -420,7 +420,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-lat" className="place-form-label">
-                      Latitude (Optional)
+                      <span className="label-text">Latitude (Optional)</span>
                       {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat))}
                     </label>
                     <input
@@ -432,7 +432,7 @@ export default function HotelModal({
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-lng" className="place-form-label">
-                      Longitude (Optional)
+                      <span className="label-text">Longitude (Optional)</span>
                       {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng))}
                     </label>
                     <input
@@ -446,7 +446,7 @@ export default function HotelModal({
                 <div className="form-group form-group--mb16">
                   <label className="place-form-label">
                     <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                    Click on the map to set coordinates
+                    <span className="label-text">Click on the map to set coordinates</span>
                   </label>
                   <MapPicker
                     lat={parseFloat(lat)}
@@ -461,7 +461,7 @@ export default function HotelModal({
                 {/* Notes */}
                 <div className="form-group">
                   <label htmlFor="hotel-notes" className="place-form-label">
-                    Notes (Optional)
+                    <span className="label-text">Notes (Optional)</span>
                     {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
                   </label>
                   <textarea
@@ -564,7 +564,7 @@ export default function HotelModal({
               )}
               <div className="modal-actions-right">
                 <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Hotel</button>
+                <button type="submit" className="btn-primary">{editingHotel ? 'Save Hotel' : 'Add Hotel'}</button>
               </div>
             </div>
           </form>

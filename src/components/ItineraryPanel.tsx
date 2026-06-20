@@ -254,6 +254,20 @@ function ItineraryPanel({
   const [openMapMenuId, setOpenMapMenuId] = useState<string | null>(null);
   const [editingHotelNoteText, setEditingHotelNoteText] = useState('');
   const [editingTransitNoteText, setEditingTransitNoteText] = useState('');
+
+  useEffect(() => {
+    if (editingHotelNoteId) {
+      const h = activePlan?.hotels.find(h => h.id === editingHotelNoteId);
+      setEditingHotelNoteText(h?.notes ?? '');
+    }
+  }, [editingHotelNoteId, activePlan?.hotels]);
+
+  useEffect(() => {
+    if (editingTransitNoteId) {
+      const t = activePlan?.transports.find(t => t.id === editingTransitNoteId);
+      setEditingTransitNoteText(t?.notes ?? '');
+    }
+  }, [editingTransitNoteId, activePlan?.transports]);
   const planPickerRef = useRef<HTMLDivElement>(null);
   const hideItemTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -399,18 +413,15 @@ function ItineraryPanel({
           setDragOverDayPlaceIndex(null);
         }}
       >
+        <div className="timeline-dot" style={{ backgroundColor: 'var(--accent-primary)' }}>
+          <FileText size={12} className="text-white" />
+        </div>
         <div className="card-header-row">
           <div
             className="timeline-card-content"
             style={{ cursor: canEdit && !isEditingThis ? 'pointer' : 'default' }}
             onClick={canEdit && !isEditingThis ? () => { setEditingNoteItemIndex(idx); setEditingNoteText(note.text); } : undefined}
           >
-            <div className="schedule-thumb-col">
-              <div className="place-card-thumb-container">
-                <FileText size={16} className="text-accent" style={{ display: 'block' }} />
-              </div>
-            </div>
-
             <div className="flex-1 min-w-0" style={{ paddingTop: '2px' }}>
               {isEditingThis ? (
                 <div onClick={e => e.stopPropagation()}>
@@ -932,7 +943,12 @@ function ItineraryPanel({
                       <div
                         className="notes-text-wrapper"
                         style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
-                        onClick={trip.canEdit !== false ? (e) => { e.stopPropagation(); setEditingHotelNoteId(h.id); setEditingHotelNoteText(h.notes || ''); } : undefined}
+                        onClick={trip.canEdit !== false ? (e) => {
+                          e.stopPropagation();
+                          setEditingHotelNoteId(h.id);
+                          setEditingTransitNoteId(null);
+                          setEditingHotelNoteText(h.notes || '');
+                        } : undefined}
                       >
                         <div className={`notes-text ${h.notes ? 'has-content' : 'no-content'}`}>
                           <FileText size={13} style={{ marginTop: '2px', color: h.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
@@ -1133,7 +1149,12 @@ function ItineraryPanel({
                       <div
                         className="notes-text-wrapper"
                         style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
-                        onClick={trip.canEdit !== false ? (e) => { e.stopPropagation(); setEditingTransitNoteId(t.id); setEditingTransitNoteText(t.notes || ''); } : undefined}
+                        onClick={trip.canEdit !== false ? (e) => {
+                          e.stopPropagation();
+                          setEditingTransitNoteId(t.id);
+                          setEditingHotelNoteId(null);
+                          setEditingTransitNoteText(t.notes || '');
+                        } : undefined}
                       >
                         <div className={`notes-text ${t.notes ? 'has-content' : 'no-content'}`}>
                           <FileText size={13} style={{ marginTop: '2px', color: t.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
@@ -1466,11 +1487,11 @@ function ItineraryPanel({
                         <div className="day-place-actions-temporary" onClick={e => e.stopPropagation()}>
                           {isAiSuggestion ? (
                             <>
-                              <button className="mini-icon-btn preview-add-to-catalog" onClick={() => handleAddAiSuggestionToCatalog(previewPlace)} data-tooltip="Add to Catalog"><BookmarkPlus size={15} /></button>
-                              <button className="mini-icon-btn preview-add-to-day" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day"><Plus size={16} /></button>
+                              <button className="mini-icon-btn preview-add-to-catalog" onClick={() => handleAddAiSuggestionToCatalog(previewPlace)} data-tooltip="Add to Catalog"><BookmarkPlus size={14} /></button>
+                              <button className="mini-icon-btn preview-add-to-day" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day"><Plus size={14} /></button>
                             </>
                           ) : (
-                            <button className="mini-icon-btn preview-add-to-day" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day"><Plus size={16} /></button>
+                            <button className="mini-icon-btn preview-add-to-day" onClick={() => handleAddPlaceToDay(previewPlace)} data-tooltip="Keep / Add to Day"><Plus size={14} /></button>
                           )}
                           <button className="mini-icon-btn preview-remove" onClick={() => setActivePlaceId(undefined)} data-tooltip="Remove Preview"><X size={14} /></button>
                         </div>

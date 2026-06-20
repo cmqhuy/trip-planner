@@ -36,7 +36,7 @@ export function useDriveAttachments({
 
   const resolveFilesFolderId = async (): Promise<string | null> => {
     if (tripFilesFolderId) return tripFilesFolderId;
-    if (!googleToken) return null;
+    if (!googleToken || !tripPlannerFolderId || !tripName) return null;
     try {
       const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
       onFileFolderCreated?.(folderId);

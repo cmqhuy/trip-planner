@@ -93,7 +93,8 @@ export default function ReservationsSection({
   editingTransitNoteId,
   setEditingTransitNoteId,
 }: ReservationsSectionProps) {
-  const [editingNotesText, setEditingNotesText] = useState('');
+  const [editingHotelNotesText, setEditingHotelNotesText] = useState('');
+  const [editingTransitNotesText, setEditingTransitNotesText] = useState('');
   const [openTransitMapId, setOpenTransitMapId] = useState<string | null>(null);
   const [openOptionsMenuId, setOpenOptionsMenuId] = useState<string | null>(null);
 
@@ -107,16 +108,16 @@ export default function ReservationsSection({
   useEffect(() => {
     if (editingHotelNoteId) {
       const h = activePlan.hotels.find(h => h.id === editingHotelNoteId);
-      setEditingNotesText(h?.notes ?? '');
+      setEditingHotelNotesText(h?.notes ?? '');
     }
-  }, [editingHotelNoteId]);
+  }, [editingHotelNoteId, activePlan.hotels]);
 
   useEffect(() => {
     if (editingTransitNoteId) {
       const t = activePlan.transports.find(t => t.id === editingTransitNoteId);
-      setEditingNotesText(t?.notes ?? '');
+      setEditingTransitNotesText(t?.notes ?? '');
     }
-  }, [editingTransitNoteId]);
+  }, [editingTransitNoteId, activePlan.transports]);
 
   const shortDate = (d: string) =>
     new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -338,7 +339,12 @@ export default function ReservationsSection({
                         {trip.canEdit !== false && editingHotelNoteId !== h.id && (
                           <button
                             className="mini-icon-btn notes-edit-btn"
-                            onClick={e => { e.stopPropagation(); setEditingHotelNoteId(h.id); setEditingNotesText(h.notes ?? ''); }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setEditingHotelNoteId(h.id);
+                              setEditingTransitNoteId(null);
+                              setEditingHotelNotesText(h.notes ?? '');
+                            }}
                             data-tooltip="Edit notes"
                           >
                             <Edit2 size={12} />
@@ -350,13 +356,13 @@ export default function ReservationsSection({
                            <textarea
                              className="notes-textarea"
                              rows={3}
-                             value={editingNotesText}
-                             onChange={e => setEditingNotesText(e.target.value)}
+                             value={editingHotelNotesText}
+                             onChange={e => setEditingHotelNotesText(e.target.value)}
                              placeholder="Add notes..."
                            />
                            <div className="notes-actions">
                              <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
-                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingNotesText); setEditingHotelNoteId(null); }}>
+                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingHotelNotesText); setEditingHotelNoteId(null); }}>
                                <Check size={12} /> Save Notes
                              </button>
                            </div>
@@ -541,7 +547,12 @@ export default function ReservationsSection({
                         {trip.canEdit !== false && editingTransitNoteId !== t.id && (
                           <button
                             className="mini-icon-btn notes-edit-btn"
-                            onClick={e => { e.stopPropagation(); setEditingTransitNoteId(t.id); setEditingNotesText(t.notes ?? ''); }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setEditingTransitNoteId(t.id);
+                              setEditingHotelNoteId(null);
+                              setEditingTransitNotesText(t.notes ?? '');
+                            }}
                             data-tooltip="Edit notes"
                           >
                             <Edit2 size={12} />
@@ -553,13 +564,13 @@ export default function ReservationsSection({
                            <textarea
                              className="notes-textarea"
                              rows={3}
-                             value={editingNotesText}
-                             onChange={e => setEditingNotesText(e.target.value)}
+                             value={editingTransitNotesText}
+                             onChange={e => setEditingTransitNotesText(e.target.value)}
                              placeholder="Add notes..."
                            />
                            <div className="notes-actions">
                              <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t, editingNotesText); setEditingTransitNoteId(null); }}>
+                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t, editingTransitNotesText); setEditingTransitNoteId(null); }}>
                                <Check size={12} /> Save Notes
                              </button>
                            </div>

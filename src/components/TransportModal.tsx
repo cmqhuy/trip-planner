@@ -4,7 +4,7 @@ import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
   Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2,
 } from 'lucide-react';
-import type { Transportation, Attachment } from '../types';
+import type { Transportation } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import { lookupTimezone } from '../utils/api';
@@ -363,7 +363,7 @@ export default function TransportModal({
                 {/* Transit Name */}
                 <div className="form-group">
                   <label htmlFor="transit-name" className="place-form-label">
-                    Transit Name (Optional)
+                    <span className="label-text">Transit Name (Optional)</span>
                     {undoBtn(transitName, savedValues?.transitName, () => setTransitName(savedValues!.transitName))}
                   </label>
                   <input type="text" id="transit-name" value={transitName} onChange={e => setTransitName(e.target.value)} placeholder="Flight to Seattle" />
@@ -371,7 +371,7 @@ export default function TransportModal({
 
                 {/* Type combo */}
                 <div className="form-group">
-                  <label>Type</label>
+                  <label><span className="label-text">Type</span></label>
                   <div className="combo-wrapper" ref={typeRef}>
                     <button type="button" className="combo-trigger" onClick={() => setTypeOpen(o => !o)}>
                       <span className="combo-trigger-content">
@@ -396,14 +396,14 @@ export default function TransportModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="transit-carrier" className="place-form-label">
-                      Carrier / Operator (Optional)
+                      <span className="label-text">Carrier / Operator (Optional)</span>
                       {undoBtn(carrier, savedValues?.carrier, () => setCarrier(savedValues!.carrier))}
                     </label>
                     <input type="text" id="transit-carrier" value={carrier} onChange={e => setCarrier(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="transit-code" className="place-form-label">
-                      Transit Code / Flight No (Optional)
+                      <span className="label-text">Transit Code / Flight No (Optional)</span>
                       {undoBtn(transitCode, savedValues?.transitCode, () => setTransitCode(savedValues!.transitCode))}
                     </label>
                     <input type="text" id="transit-code" value={transitCode} onChange={e => setTransitCode(e.target.value)} />
@@ -413,14 +413,14 @@ export default function TransportModal({
                 {/* Departure location + address */}
                 <div className="form-group">
                   <label htmlFor="dep-loc" className="place-form-label">
-                    Departure Location
+                    <span className="label-text">Departure Location</span>
                     {undoBtn(depLoc, savedValues?.depLoc, () => setDepLoc(savedValues!.depLoc))}
                   </label>
                   <input type="text" id="dep-loc" value={depLoc} onChange={e => setDepLoc(e.target.value)} placeholder="e.g. Seattle SEA Airport" required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="dep-address" className="place-form-label">
-                    Departure Address (Optional)
+                    <span className="label-text">Departure Address (Optional)</span>
                     {undoBtn(depAddress, savedValues?.depAddress, () => setDepAddress(savedValues!.depAddress))}
                   </label>
                   <input type="text" id="dep-address" value={depAddress} onChange={e => setDepAddress(e.target.value)} />
@@ -430,14 +430,14 @@ export default function TransportModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="dep-date" className="place-form-label">
-                      Departure Date
+                      <span className="label-text">Departure Date</span>
                       {undoBtn(depDate, savedValues?.depDate, () => setDepDate(savedValues!.depDate))}
                     </label>
                     <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} required />
                   </div>
                   <div className="form-group">
                     <label htmlFor="dep-time" className="place-form-label">
-                      Departure Time
+                      <span className="label-text">Departure Time</span>
                       {undoBtn(depTime, savedValues?.depTime, () => setDepTime(savedValues!.depTime))}
                     </label>
                     <input type="time" id="dep-time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
@@ -447,7 +447,7 @@ export default function TransportModal({
                 {/* Departure Timezone */}
                 <div className="form-group">
                     <label className="place-form-label">
-                      Departure Timezone
+                      <span className="label-text">Departure Timezone</span>
                       {undoBtn(depTz, savedValues?.depTz, () => setDepTz(savedValues!.depTz))}</label>
                     <div className="combo-wrapper">
                       <button
@@ -490,14 +490,14 @@ export default function TransportModal({
                 {/* Arrival location + address */}
                 <div className="form-group">
                   <label htmlFor="arr-loc" className="place-form-label">
-                    Arrival Location
+                    <span className="label-text">Arrival Location</span>
                     {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
                   </label>
                   <input type="text" id="arr-loc" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Seattle SEA Airport" required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="arr-address" className="place-form-label">
-                    Arrival Address (Optional)
+                    <span className="label-text">Arrival Address (Optional)</span>
                     {undoBtn(arrAddress, savedValues?.arrAddress, () => setArrAddress(savedValues!.arrAddress))}
                   </label>
                   <input type="text" id="arr-address" value={arrAddress} onChange={e => setArrAddress(e.target.value)} />
@@ -507,14 +507,14 @@ export default function TransportModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="arr-date" className="place-form-label">
-                      Arrival Date
+                      <span className="label-text">Arrival Date</span>
                       {undoBtn(arrDate, savedValues?.arrDate, () => setArrDate(savedValues!.arrDate))}
                     </label>
                     <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} required />
                   </div>
                   <div className="form-group">
                     <label htmlFor="arr-time" className="place-form-label">
-                      Arrival Time
+                      <span className="label-text">Arrival Time</span>
                       {undoBtn(arrTime, savedValues?.arrTime, () => setArrTime(savedValues!.arrTime))}
                     </label>
                     <input type="time" id="arr-time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
@@ -524,7 +524,7 @@ export default function TransportModal({
                 {/* Arrival Timezone */}
                 <div className="form-group">
                     <label className="place-form-label">
-                      Arrival Timezone
+                      <span className="label-text">Arrival Timezone</span>
                       {undoBtn(arrTz, savedValues?.arrTz, () => setArrTz(savedValues!.arrTz))}</label>
                     <div className="combo-wrapper">
                       <button
@@ -568,14 +568,14 @@ export default function TransportModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="transit-conf" className="place-form-label">
-                      Confirmation No (Optional)
+                      <span className="label-text">Confirmation No (Optional)</span>
                       {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
                     </label>
                     <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="transit-booked" className="place-form-label">
-                      Booked via (Optional)
+                      <span className="label-text">Booked via (Optional)</span>
                       {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
                     </label>
                     <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
@@ -586,14 +586,14 @@ export default function TransportModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="transit-price" className="place-form-label">
-                      Price (Optional)
+                      <span className="label-text">Price (Optional)</span>
                       {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
                     </label>
                     <input type="number" id="transit-price" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" />
                   </div>
                   <div className="form-group">
                     <label className="place-form-label">
-                      Currency
+                      <span className="label-text">Currency</span>
                       {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
                     </label>
                     <div className="combo-wrapper">
@@ -635,14 +635,14 @@ export default function TransportModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="dep-lat" className="place-form-label">
-                      Departure Latitude (Optional)
+                      <span className="label-text">Departure Latitude (Optional)</span>
                       {undoBtn(depLat, savedValues?.depLat, () => setDepLat(savedValues!.depLat))}
                     </label>
                     <input type="text" id="dep-lat" value={depLat} onChange={e => setDepLat(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="dep-lng" className="place-form-label">
-                      Departure Longitude (Optional)
+                      <span className="label-text">Departure Longitude (Optional)</span>
                       {undoBtn(depLng, savedValues?.depLng, () => setDepLng(savedValues!.depLng))}
                     </label>
                     <input type="text" id="dep-lng" value={depLng} onChange={e => setDepLng(e.target.value)} />
@@ -651,14 +651,14 @@ export default function TransportModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="arr-lat" className="place-form-label">
-                      Arrival Latitude (Optional)
+                      <span className="label-text">Arrival Latitude (Optional)</span>
                       {undoBtn(arrLat, savedValues?.arrLat, () => setArrLat(savedValues!.arrLat))}
                     </label>
                     <input type="text" id="arr-lat" value={arrLat} onChange={e => setArrLat(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label htmlFor="arr-lng" className="place-form-label">
-                      Arrival Longitude (Optional)
+                      <span className="label-text">Arrival Longitude (Optional)</span>
                       {undoBtn(arrLng, savedValues?.arrLng, () => setArrLng(savedValues!.arrLng))}
                     </label>
                     <input type="text" id="arr-lng" value={arrLng} onChange={e => setArrLng(e.target.value)} />
@@ -667,7 +667,7 @@ export default function TransportModal({
                 <div className="form-group form-group--mb16">
                   <label className="place-form-label">
                     <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                    Click on the map to set coordinates
+                    <span className="label-text">Click on the map to set coordinates</span>
                   </label>
                   <DualMapPicker
                     depLat={parseFloat(depLat)}
@@ -682,7 +682,7 @@ export default function TransportModal({
                 {/* Notes */}
                 <div className="form-group">
                   <label htmlFor="transit-notes" className="place-form-label">
-                    Notes (Optional)
+                    <span className="label-text">Notes (Optional)</span>
                     {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
                   </label>
                   <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
@@ -763,7 +763,7 @@ export default function TransportModal({
               )}
               <div className="modal-actions-right">
                 <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Transit</button>
+                <button type="submit" className="btn-primary">{editingTransport ? 'Save Transit' : 'Add Transit'}</button>
               </div>
             </div>
           </form>

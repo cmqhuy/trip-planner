@@ -677,7 +677,7 @@ function CatalogSection({
                 </span>
                 <div className="flex-align flex-align--gap4">
                   <button
-                    className="mini-icon-btn catalog-ai-refresh-btn"
+                    className="mini-icon-btn catalog-group-action-btn catalog-ai-refresh-btn"
                     onClick={onAiSuggestPlaces}
                     disabled={isLoadingAiSuggestions}
                     data-tooltip="Refresh AI Suggestions"
@@ -698,7 +698,7 @@ function CatalogSection({
               )}
               <div className="catalog-places-list">
                 {aiSuggestedPlaces.map(place => (
-                  <div key={place.id}>
+                  <div key={place.id} className="catalog-place-wrapper">
                     <div
                       className={`catalog-place-card catalog-ai-card ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                       onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
