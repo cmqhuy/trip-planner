@@ -781,6 +781,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: rgba(30, 41, 59, 0.35);
 }
 
+/* Dragging preview/ghost isolation styles to prevent sibling/overflow content bleed */
+.is-dragging-ghost {
+  contain: paint !important;
+  overflow: hidden !important;
+  background: #111827 !important; /* Fully opaque background to prevent transparency bleed */
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
 /* Expand/collapse animation wrapper — use grid-template-rows trick to avoid max-height bounce */
 .card-expandable-wrapper {
   display: grid;
@@ -3511,7 +3520,7 @@ div.google-auth-avatar-desktop {
     z-index: 2000 !important;
   }
   .timeline-dot {
-    top: 20px !important;
+    top: 26px !important;
   }
   /* Round location-picker button: override global min-height touch rule */
   .day-location-picker button {

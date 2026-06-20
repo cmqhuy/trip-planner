@@ -381,7 +381,16 @@ function CatalogSection({
                       <div
                         className={`catalog-place-card ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                         draggable={trip.canEdit !== false}
-                        onDragStart={() => handlePlaceDragStart(place.id)}
+                        onDragStart={(e) => {
+                          handlePlaceDragStart(place.id);
+                          if (e.currentTarget) {
+                            const card = e.currentTarget;
+                            card.classList.add('is-dragging-ghost');
+                            setTimeout(() => {
+                              card.classList.remove('is-dragging-ghost');
+                            }, 0);
+                          }
+                        }}
                         onDragEnd={() => {
                           setDraggedPlaceId(null);
                           setDragOverPlaceId(null);

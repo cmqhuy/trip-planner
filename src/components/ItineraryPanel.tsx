@@ -396,7 +396,16 @@ function ItineraryPanel({
         className={`timeline-card glass-panel schedule-note-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         onClick={e => e.stopPropagation()}
         draggable={canEdit}
-        onDragStart={() => handleDayPlaceDragStart(idx)}
+        onDragStart={(e) => {
+          handleDayPlaceDragStart(idx);
+          if (e.currentTarget) {
+            const card = e.currentTarget;
+            card.classList.add('is-dragging-ghost');
+            setTimeout(() => {
+              card.classList.remove('is-dragging-ghost');
+            }, 0);
+          }
+        }}
         onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
         onDragOver={(e) => {
           if (draggedDayPlaceIndex === idx) return;
@@ -1362,6 +1371,17 @@ function ItineraryPanel({
                         <button 
                           className="dropdown-item"
                           onClick={() => {
+                            handleAddScheduleNote(scheduleItems.length, '');
+                            setEditingNoteItemIndex(scheduleItems.length);
+                            setEditingNoteText('');
+                            setShowDayOptionsMenu(false);
+                          }}
+                        >
+                          <FileText size={12} /> Add Note
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
                             setShowMoveDayModal(true);
                             setShowDayOptionsMenu(false);
                           }}
@@ -1586,7 +1606,16 @@ function ItineraryPanel({
                               className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
                               data-place-id={place.id}
                               draggable={canEdit}
-                              onDragStart={() => handleDayPlaceDragStart(idx)}
+                              onDragStart={(e) => {
+                                handleDayPlaceDragStart(idx);
+                                if (e.currentTarget) {
+                                  const card = e.currentTarget;
+                                  card.classList.add('is-dragging-ghost');
+                                  setTimeout(() => {
+                                    card.classList.remove('is-dragging-ghost');
+                                  }, 0);
+                                }
+                              }}
                               onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
                               onDragOver={(e) => {
                                 if (draggedDayPlaceIndex === idx) return;
