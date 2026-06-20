@@ -3356,8 +3356,18 @@ div.google-auth-avatar-desktop {
     align-items: flex-start !important;
     gap: 8px !important;
   }
-  .ai-markdown-edit-btn {
+  .ai-markdown-edit-btn,
+  .ai-md-save-btn,
+  .ai-md-cancel-btn {
+    min-height: 22px !important;
     height: 22px !important;
+    min-width: auto !important;
+    width: auto !important;
+    padding: 2px 8px !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+  }
+  .ai-markdown-edit-btn {
     padding: 2px 6px !important;
   }
   .ai-markdown-edit-btn .btn-text {
