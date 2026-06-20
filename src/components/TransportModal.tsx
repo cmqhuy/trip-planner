@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
-  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2,
+  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check,
 } from 'lucide-react';
 import type { Transportation } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
@@ -12,6 +12,8 @@ import DualMapPicker from './DualMapPicker';
 import { fetchFileContentFromDrive } from '../utils/googleDrive';
 import { useDriveAttachments } from '../utils/useDriveAttachments';
 import { ALL_TIMEZONES, getBrowserTimezone, formatTimezoneLabel } from '../utils/timezones';
+import ConfirmationModal from './ConfirmationModal';
+import ShareTripModal from './ShareTripModal';
 
 interface TransportModalProps {
   isOpen: boolean;
@@ -28,7 +30,6 @@ interface TransportModalProps {
   onFileFolderCreated?: (folderId: string) => void;
   isOwner?: boolean;
   tripDriveFileId?: string;
-  onShareTrip?: () => void;
 }
 
 const TRANSPORT_TYPES: { value: Transportation['type']; label: string; Icon: React.ElementType }[] = [
@@ -77,7 +78,6 @@ export default function TransportModal({
   onFileFolderCreated,
   isOwner = true,
   tripDriveFileId,
-  onShareTrip,
 }: TransportModalProps) {
   const browserTz = getBrowserTimezone();
 
@@ -107,6 +107,9 @@ export default function TransportModal({
   const [isAiFilling, setIsAiFilling] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
+  const [showAccessError, setShowAccessError] = useState(false);
+  const [showShareFolder, setShowShareFolder] = useState(false);
+  const [editingChip, setEditingChip] = useState<{ fileId: string; value: string } | null>(null);
 
   const [typeOpen, setTypeOpen] = useState(false);
   const [depTzOpen, setDepTzOpen] = useState(false);
@@ -133,6 +136,7 @@ export default function TransportModal({
     handleFileSelect,
     handleRemoveChip,
     confirmRemoveChip,
+    renameAttachment,
   } = useDriveAttachments({
     googleToken,
     tripPlannerFolderId,
@@ -141,6 +145,7 @@ export default function TransportModal({
     onFileFolderCreated,
     initialAttachments: editingTransport?.attachments ?? [],
     onSetAiError: setAiError,
+    onAccessError: () => setShowAccessError(true),
   });
 
   useEffect(() => {
@@ -202,6 +207,9 @@ export default function TransportModal({
       setDepTzOpen(false);
       setArrTzOpen(false);
       setCurrencyOpen(false);
+      setShowAccessError(false);
+      setShowShareFolder(false);
+      setEditingChip(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -693,16 +701,35 @@ export default function TransportModal({
                   <div className="attachment-section">
                     <div className="attachment-header-row">
                       <span className="attachment-section-label">Attachments</span>
-                      <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
-                        <Paperclip size={13} />
-                        {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
-                      </button>
+                      <div className="attachment-header-actions">
+                        {attachedFiles.length > 0 && (
+                          <button
+                            type="button"
+                            className="modal-ai-fill-btn modal-ai-fill-btn--inline"
+                            onClick={handleAiFill}
+                            disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+                            data-tooltip={
+                              !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                              GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                              undefined
+                            }
+                            data-tooltip-position="bottom"
+                          >
+                            {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+                            {isAiFilling ? 'Generating…' : 'Fill Details with AI'}
+                          </button>
+                        )}
+                        <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
+                          <Paperclip size={13} />
+                          {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
+                        </button>
+                      </div>
                     </div>
                     {isOwner && tripDriveFileId && (
                       <p className="attachment-share-notice">
                         For shared users to access attachments, share the trip folder with them.
-                        {onShareTrip && (
-                          <button type="button" className="attachment-share-btn" onClick={onShareTrip}>
+                        {tripFilesFolderId && (
+                          <button type="button" className="attachment-share-btn" onClick={() => setShowShareFolder(true)}>
                             <Share2 size={11} /> Share Folder
                           </button>
                         )}
@@ -710,39 +737,55 @@ export default function TransportModal({
                     )}
                     <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
                     {attachedFiles.length > 0 && (
-                      <button
-                        type="button"
-                        className="modal-ai-fill-btn"
-                        onClick={handleAiFill}
-                        disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
-                        data-tooltip={
-                          !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
-                          GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
-                          undefined
-                        }
-                        data-tooltip-position="bottom"
-                      >
-                        {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
-                        {isAiFilling ? 'Generating…' : 'Fill Reservation Details with AI'}
-                      </button>
-                    )}
-                    {attachedFiles.length > 0 && (
                       <div className="attachment-chip-list">
                         {attachedFiles.map(f => (
                           <span key={f.fileId} className="attachment-chip">
-                            <a
-                              href={`https://drive.google.com/file/d/${f.fileId}/view`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="attachment-chip-name"
-                              data-tooltip="Open file"
-                            >
-                              <ExternalLink size={10} />
-                              <span className="attachment-chip-filename">{f.name}</span>
-                            </a>
-                            <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
-                              <X size={10} />
-                            </button>
+                            {editingChip?.fileId === f.fileId ? (
+                              <>
+                                <input
+                                  className="attachment-chip-edit-input"
+                                  value={editingChip.value}
+                                  onChange={e => setEditingChip({ fileId: f.fileId, value: e.target.value })}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }
+                                    if (e.key === 'Escape') setEditingChip(null);
+                                  }}
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  className="attachment-chip-action"
+                                  onClick={() => { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }}
+                                  data-tooltip="Save name"
+                                >
+                                  <Check size={10} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <a
+                                  href={`https://drive.google.com/file/d/${f.fileId}/view`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="attachment-chip-name"
+                                  data-tooltip={f.filename && f.filename !== f.name ? f.filename : 'Open file'}
+                                >
+                                  <ExternalLink size={10} />
+                                  <span className="attachment-chip-filename">{f.name}</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  className="attachment-chip-action"
+                                  onClick={() => setEditingChip({ fileId: f.fileId, value: f.name })}
+                                  data-tooltip="Rename file"
+                                >
+                                  <Pencil size={10} />
+                                </button>
+                                <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
+                                  <X size={10} />
+                                </button>
+                              </>
+                            )}
                           </span>
                         ))}
                       </div>
@@ -769,6 +812,26 @@ export default function TransportModal({
           </form>
         </div>
       </div>
+
+      {showShareFolder && googleToken && tripFilesFolderId && (
+        <ShareTripModal
+          accessToken={googleToken}
+          folderId={tripFilesFolderId}
+          folderDisplayName={tripName ? `${tripName}_files` : tripFilesFolderId}
+          onClose={() => setShowShareFolder(false)}
+        />
+      )}
+
+      {showAccessError && (
+        <ConfirmationModal
+          isOpen={true}
+          isAlert={true}
+          title="Cannot Upload File"
+          message="You don't have write access to this trip's folder. Ask the trip owner to share the trip folder with you."
+          onConfirm={() => setShowAccessError(false)}
+          onCancel={() => setShowAccessError(false)}
+        />
+      )}
 
       {removePrompt && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setRemovePrompt(null)}>

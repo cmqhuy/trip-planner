@@ -9,13 +9,16 @@ import {
 } from '../utils/googleDrive';
 
 export interface ShareTripModalProps {
-  trip: Trip;
+  trip?: Trip;
   accessToken: string;
   onClose: () => void;
   onUpdateTrip?: (updatedTrip: Trip) => void;
+  // Folder sharing mode — when provided, shares the folder instead of the trip file
+  folderId?: string;
+  folderDisplayName?: string;
 }
 
-export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTrip }: ShareTripModalProps) {
+export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTrip, folderId, folderDisplayName }: ShareTripModalProps) {
   const [permissions, setPermissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [emailInput, setEmailInput] = useState('');
@@ -26,7 +29,9 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
   const [successData, setSuccessData] = useState<{ email: string; role: 'reader' | 'writer' } | null>(null);
   const [successCopied, setSuccessCopied] = useState(false);
 
-  const fileId = trip.driveFileId;
+  const isFolder = !!folderId;
+  const fileId = folderId ?? trip?.driveFileId;
+  const displayName = folderDisplayName ?? trip?.name ?? '';
 
   // Fetch permissions list
   const loadPermissions = async () => {
@@ -44,11 +49,8 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
       setPermissions(sorted);
 
       const hasCollaborators = sorted.some(p => p.role !== 'owner');
-      if (trip.shared !== hasCollaborators && onUpdateTrip) {
-        onUpdateTrip({
-          ...trip,
-          shared: hasCollaborators
-        });
+      if (!isFolder && trip && trip.shared !== hasCollaborators && onUpdateTrip) {
+        onUpdateTrip({ ...trip, shared: hasCollaborators });
       }
     } catch (e: any) {
       console.error(e);
@@ -118,7 +120,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
     }
   };
 
-  const filename = trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`;
+  const filename = trip ? (trip.id.startsWith('trip-') ? `${trip.id}.json` : `trip-${trip.id}.json`) : '';
 
   return (
     <div className="modal-overlay modal-overlay--1100" onClick={onClose}>
@@ -128,7 +130,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
         <div className="modal-header modal-header--mb16">
           <h3 className="modal-header-title share-modal-title">
             <Share2 size={20} className="text-accent" />
-            Share Itinerary
+            {isFolder ? 'Share Folder' : 'Share Itinerary'}
           </h3>
           <button className="modal-close" onClick={onClose}>
             <X size={18} />
@@ -137,8 +139,8 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
 
         {/* Trip Title Subheading */}
         <div className="share-itinerary-label">
-          <span className="share-file-type-label">ITINERARY FILE</span>
-          <h4 className="share-trip-name-h4">{trip.name}</h4>
+          <span className="share-file-type-label">{isFolder ? 'TRIP FOLDER' : 'ITINERARY FILE'}</span>
+          <h4 className="share-trip-name-h4">{displayName}</h4>
         </div>
 
         {/* Error Notification */}
@@ -179,8 +181,8 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
           </button>
         </form>
 
-        {/* File Name Section */}
-        {fileId && (
+        {/* File Name Section — only for trip file sharing */}
+        {fileId && !isFolder && (
           <div className="share-filename-box">
             <div className="share-filename-header">
               <Share2 size={13} className="text-muted" />
@@ -222,41 +224,47 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
 
               <div>
                 <h4 className="share-success-title">
-                  Trip Shared Successfully!
+                  {isFolder ? 'Folder Shared Successfully!' : 'Trip Shared Successfully!'}
                 </h4>
                 <p className="share-success-desc">
-                  You have shared the trip with <strong className="text-primary">{successData.email}</strong> as {successData.role === 'writer' ? 'an Editor' : 'a Viewer'}.
-                  <br />
-                  <span className="share-warning-span">
-                    ⚠️ Action Required:
-                  </span>
-                  Please copy the file name below, send it to them, and ask them to import the trip in their app.
+                  You have shared {isFolder ? 'the folder' : 'the trip'} with <strong className="text-primary">{successData.email}</strong> as {successData.role === 'writer' ? 'an Editor' : 'a Viewer'}.
+                  {!isFolder && (
+                    <>
+                      <br />
+                      <span className="share-warning-span">
+                        ⚠️ Action Required:
+                      </span>
+                      Please copy the file name below, send it to them, and ask them to import the trip in their app.
+                    </>
+                  )}
                 </p>
               </div>
 
-              {/* Copy Filename Box */}
-              <div className="share-filename-box-in-success">
-                <div className="share-filename-row">
-                  <input
-                    type="text"
-                    readOnly
-                    value={filename}
-                    onClick={e => (e.target as HTMLInputElement).select()}
-                    className="share-filename-input"
-                  />
-                  <button
-                    type="button"
-                    className="btn-secondary share-copy-btn"
-                    onClick={() => {
-                      navigator.clipboard.writeText(filename);
-                      setSuccessCopied(true);
-                      setTimeout(() => setSuccessCopied(false), 2000);
-                    }}
-                  >
-                    {successCopied ? 'Copied!' : 'Copy'}
-                  </button>
+              {/* Copy Filename Box — only for trip file sharing */}
+              {!isFolder && (
+                <div className="share-filename-box-in-success">
+                  <div className="share-filename-row">
+                    <input
+                      type="text"
+                      readOnly
+                      value={filename}
+                      onClick={e => (e.target as HTMLInputElement).select()}
+                      className="share-filename-input"
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary share-copy-btn"
+                      onClick={() => {
+                        navigator.clipboard.writeText(filename);
+                        setSuccessCopied(true);
+                        setTimeout(() => setSuccessCopied(false), 2000);
+                      }}
+                    >
+                      {successCopied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <button
                 type="button"

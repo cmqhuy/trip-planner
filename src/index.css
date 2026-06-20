@@ -4127,13 +4127,19 @@ div.google-auth-avatar-desktop {
 /* Attachment section */
 .attachment-section { border-top: 1px solid var(--border-glass); margin-top: 8px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .attachment-header-row { display: flex; align-items: center; justify-content: space-between; }
+.attachment-header-actions { display: flex; align-items: center; gap: 6px; }
 .attachment-section-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-.attachment-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.attachment-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); border-radius: 4px; font-size: 11px; color: var(--text-secondary); max-width: 200px; }
-.attachment-chip-name { display: inline-flex; align-items: center; gap: 4px; overflow: hidden; min-width: 0; }
-.attachment-chip-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-chip-list { display: flex; flex-direction: column; gap: 4px; }
+.attachment-chip { display: flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); border-radius: 4px; font-size: 11px; color: var(--text-secondary); width: 100%; box-sizing: border-box; position: relative; z-index: 0; }
+.attachment-chip:has([data-tooltip]:hover) { z-index: 10; }
+.attachment-chip-name { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
+.attachment-chip-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .attachment-chip-remove { display: flex; align-items: center; background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0; flex-shrink: 0; }
 .attachment-chip-remove:hover { color: var(--color-danger); }
+.attachment-chip-action { display: flex; align-items: center; background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0; flex-shrink: 0; }
+.attachment-chip-action:hover { color: #a5b4fc; }
+.attachment-chip-action + .attachment-chip-remove { margin-left: 4px; }
+.attachment-chip-edit-input { background: none; border: none; border-bottom: 1px solid var(--accent-primary); color: var(--text-primary); font-size: 11px; padding: 0 2px; min-width: 0; flex: 1; outline: none; }
 
 /* Attachment sharing notice */
 .attachment-share-notice { font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
@@ -4144,6 +4150,7 @@ div.google-auth-avatar-desktop {
 .modal-ai-fill-btn { display: flex; align-items: center; gap: 6px; padding: 5px 12px; font-size: 11px; font-weight: 500; background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); border-radius: 6px; cursor: pointer; transition: var(--transition-fast); width: fit-content; }
 .modal-ai-fill-btn:hover:not(:disabled) { background: rgba(99,102,241,0.2); }
 .modal-ai-fill-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.modal-ai-fill-btn--inline { padding: 2px 8px; border-radius: 4px; }
 
 /* Undo button hover accent */
 .undo-btn:hover { color: var(--accent-primary); }

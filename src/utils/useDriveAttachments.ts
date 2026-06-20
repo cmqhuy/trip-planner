@@ -15,6 +15,7 @@ interface UseDriveAttachmentsProps {
   onFileFolderCreated?: (folderId: string) => void;
   initialAttachments: Attachment[];
   onSetAiError: (error: string | null) => void;
+  onAccessError?: () => void;
 }
 
 export function useDriveAttachments({
@@ -25,6 +26,7 @@ export function useDriveAttachments({
   onFileFolderCreated,
   initialAttachments,
   onSetAiError,
+  onAccessError,
 }: UseDriveAttachmentsProps) {
   const [attachedFiles, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -63,10 +65,14 @@ export function useDriveAttachments({
     for (const file of files) {
       try {
         const fileId = await uploadFile(googleToken, folderId, file);
-        setAttachments(prev => [...prev, { name: file.name, fileId }]);
+        setAttachments(prev => [...prev, { name: file.name, filename: file.name, fileId }]);
       } catch (err: any) {
         if (err?.status === 403) {
-          onSetAiError(`No write access to the trip folder. Ask the trip owner to share the folder with you.`);
+          if (onAccessError) {
+            onAccessError();
+          } else {
+            onSetAiError(`No write access to the trip folder. Ask the trip owner to share the folder with you.`);
+          }
         } else {
           onSetAiError(`Failed to upload "${file.name}".`);
         }
@@ -94,6 +100,10 @@ export function useDriveAttachments({
     setAttachments(prev => prev.filter(f => f.fileId !== file.fileId));
   };
 
+  const renameAttachment = (fileId: string, name: string) => {
+    setAttachments(prev => prev.map(f => f.fileId === fileId ? { ...f, name } : f));
+  };
+
   return {
     attachedFiles,
     setAttachments,
@@ -103,5 +113,6 @@ export function useDriveAttachments({
     handleFileSelect,
     handleRemoveChip,
     confirmRemoveChip,
+    renameAttachment,
   };
 }

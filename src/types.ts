@@ -1,6 +1,7 @@
 export interface Attachment {
   fileId: string;
-  name: string;
+  filename?: string; // original Drive filename
+  name: string;      // user-customizable display name
 }
 
 export interface SuggestedMarker {

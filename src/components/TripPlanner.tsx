@@ -2557,7 +2557,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
         isOwner={trip.isOwner !== false}
         tripDriveFileId={trip.driveFileId}
-        onShareTrip={onShareTrip ? () => onShareTrip(trip) : undefined}
       />
 
       {/* 9. Hotel Modal */}
@@ -2579,7 +2578,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
         isOwner={trip.isOwner !== false}
         tripDriveFileId={trip.driveFileId}
-        onShareTrip={onShareTrip ? () => onShareTrip(trip) : undefined}
       />
 
       {/* 9b. Delete Reservation Modal */}
