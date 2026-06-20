@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
-  Calendar, Layers, Check, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  Calendar, Layers, Check, Clock, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building, Hash,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
   ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy
@@ -13,6 +13,13 @@ import FunGeneratingLoader from './FunGeneratingLoader';
 import AiMarkdownSection from './AiMarkdownSection';
 import AiDetailsView from './AiDetailsView';
 import LocationSelect from './LocationSelect';
+
+const renderStatusIcon = (status?: string) => {
+  const s = status || 'Planning';
+  if (s === 'Confirmed') return <Check size={10} />;
+  if (s === 'Canceled') return <X size={10} />;
+  return <Clock size={10} />;
+};
 
 const hexToRgba = (hex: string, alpha: number) => {
   if (!hex || !hex.startsWith('#') || hex.length !== 7) return `rgba(99, 102, 241, ${alpha})`;
@@ -123,7 +130,15 @@ interface ItineraryPanelProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
+  onToggleNoHotel?: (dateStr: string, checked: boolean) => void;
 }
+
+const getReservationStatusPriority = (status?: string) => {
+  if (status === 'Confirmed') return 1;
+  if (status === 'Planning') return 2;
+  if (status === 'Canceled') return 3;
+  return 2; // Default to Planning/pending if missing/empty
+};
 
 function ItineraryPanel({
   trip,
@@ -226,6 +241,7 @@ function ItineraryPanel({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
+  onToggleNoHotel,
 }: ItineraryPanelProps) {
 
   const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
@@ -729,6 +745,7 @@ function ItineraryPanel({
             const isActive = activeDayStr === dateStr;
             const dayLoc = trip.locations.find(l => l.id === activePlan.days[dateStr]?.locationId);
             const locColor = dayLoc?.color || 'var(--accent-primary)';
+
             return (
               <button 
                 key={dateStr} 
@@ -750,7 +767,9 @@ function ItineraryPanel({
                 <span className="day-tab-num">
                   {formatDisplayDate(dateStr).split(',')[0]} • {formatDisplayDate(dateStr).split(',')[1]?.trim()}
                 </span>
-                <span className="day-tab-date">Day {index + 1}</span>
+                <span className="day-tab-date" style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                  Day {index + 1}
+                </span>
                 {dayLoc && (
                   <span 
                     style={{ 
@@ -828,19 +847,71 @@ function ItineraryPanel({
               <div className="timeline-section-title-row">
                 <h4 className="timeline-section-title"><Building size={16} /> Hotels</h4>
               </div>
-              <div className="timeline-section-actions">
+              <div className="timeline-section-actions" style={{ gap: '12px' }}>
                 {trip.canEdit !== false && (
-                  <button className="mini-icon-btn flex-align timeline-add-btn--success" onClick={() => setShowHotelModal(true)}>
-                    <Plus size={14} /> Add Hotel
-                  </button>
+                  <>
+                    <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', gap: '5px', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!activePlan.days[activeDayStr]?.noHotel}
+                        onChange={(e) => onToggleNoHotel?.(activeDayStr, e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      No Hotel Needed
+                    </label>
+                    <button className="mini-icon-btn flex-align timeline-add-btn--success" onClick={() => setShowHotelModal(true)}>
+                      <Plus size={14} /> Add Hotel
+                    </button>
+                  </>
                 )}
               </div>
             </div>
 
+            {(() => {
+              const dayHotels = getHotelsForDay(activeDayStr).filter(h => h.status !== 'Canceled');
+              const confirmedHotels = dayHotels.filter(h => h.status === 'Confirmed');
+              const pendingHotels = dayHotels.filter(h => !h.status || h.status === 'Planning');
+              const isNoHotel = activePlan.days[activeDayStr]?.noHotel;
+
+              if (confirmedHotels.length === 0) {
+                if (isNoHotel) return null;
+                if (pendingHotels.length > 0) {
+                  return (
+                    <p className="no-transport-text no-transport-text--warning" style={{ margin: '0 0 10px 0' }}>
+                      <AlertTriangle size={12} /> No confirmed hotels booked for this day. Please mark the pending hotel to confirmed.
+                    </p>
+                  );
+                }
+                return (
+                  <p className="no-transport-text no-transport-text--warning" style={{ margin: '0 0 10px 0' }}>
+                    <AlertTriangle size={12} /> No hotels booked for this day.
+                  </p>
+                );
+              } else {
+                if (pendingHotels.length > 0) {
+                  return (
+                    <p className="no-transport-text no-transport-text--warning" style={{ margin: '0 0 10px 0' }}>
+                      <AlertTriangle size={12} /> There are pending hotels for this day. Please confirm or cancel them.
+                    </p>
+                  );
+                }
+              }
+              return null;
+            })()}
+
             <div className="section-item-list">
-              {getHotelsForDay(activeDayStr).map(h => {
-                const isExpanded = expandedHotelId === h.id;
-                const isEditingNote = editingHotelNoteId === h.id;
+              {getHotelsForDay(activeDayStr)
+                .sort((a, b) => {
+                  const pA = getReservationStatusPriority(a.status);
+                  const pB = getReservationStatusPriority(b.status);
+                  if (pA !== pB) return pA - pB;
+                  const timeA = a.checkInTime || '';
+                  const timeB = b.checkInTime || '';
+                  return timeA.localeCompare(timeB);
+                })
+                .map(h => {
+                  const isExpanded = expandedHotelId === h.id;
+                  const isEditingNote = editingHotelNoteId === h.id;
                 return (
                   <div key={h.id} className={`hotel-card${isExpanded ? ' reservation-card--expanded' : ''}${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
@@ -859,7 +930,15 @@ function ItineraryPanel({
                         )}
                       </div>
                       <div className="hotel-text-col" style={{ flex: 1, minWidth: 0 }}>
-                        <h4 className="place-title-text">{h.name}</h4>
+                        <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <h4 className="place-title-text">{h.name}</h4>
+                          <span
+                            className={`reservation-status-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}
+                            data-tooltip={h.status || 'Planning'}
+                          >
+                            {renderStatusIcon(h.status)}
+                          </span>
+                        </div>
                         <p className="place-desc-text"><Calendar size={11} /> Check-in: {formatCardDate(h.checkInDate, h.checkInTime)}</p>
                         <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
                       </div>
@@ -958,12 +1037,6 @@ function ItineraryPanel({
                   </div>
                 );
               })}
-
-              {getHotelsForDay(activeDayStr).length === 0 && (
-                <p className="no-transport-text no-transport-text--warning">
-                  <AlertTriangle size={12} /> No hotels booked for this day.
-                </p>
-              )}
             </div>
           </div>
 
@@ -982,12 +1055,79 @@ function ItineraryPanel({
               </div>
             </div>
 
+            {(() => {
+              const activeIndex = daysList.indexOf(activeDayStr);
+              const prevDayStr = activeIndex > 0 ? daysList[activeIndex - 1] : null;
+              const prevLocId = prevDayStr ? activePlan.days[prevDayStr]?.locationId : null;
+              const currLocId = activePlan.days[activeDayStr]?.locationId;
+              const isLocationChange = prevLocId && currLocId && prevLocId !== currLocId;
+
+              const prevLoc = prevLocId ? trip.locations.find(l => l.id === prevLocId) : null;
+              const currLoc = currLocId ? trip.locations.find(l => l.id === currLocId) : null;
+              const prevCity = prevLoc?.city ?? 'previous location';
+              const currCity = currLoc?.city ?? 'next location';
+
+              const allTransports = getTransportsForDay(activeDayStr).filter(t => t.status !== 'Canceled');
+
+              if (allTransports.length === 0) {
+                if (isLocationChange) {
+                  return (
+                    <p className="no-transport-text no-transport-text--warning" style={{ margin: '0 0 10px 0' }}>
+                      <AlertTriangle size={12} /> No transit from {prevCity} to {currCity}.
+                    </p>
+                  );
+                }
+                return <p className="no-transport-text" style={{ margin: '0 0 10px 0' }}>No transit booked.</p>;
+              }
+
+              if (isLocationChange) {
+                const transits = allTransports.filter(
+                  t => t.departureDate === prevDayStr || t.arrivalDate === activeDayStr
+                );
+                const confirmedTransports = transits.filter(t => t.status === 'Confirmed');
+                const pendingTransports = transits.filter(t => !t.status || t.status === 'Planning');
+
+                if (confirmedTransports.length === 0) {
+                  if (pendingTransports.length > 0) {
+                    return (
+                      <p className="no-transport-text no-transport-text--warning" style={{ margin: '0 0 10px 0' }}>
+                        <AlertTriangle size={12} /> No confirmed transit from {prevCity} to {currCity}. Please mark the pending transit to confirmed.
+                      </p>
+                    );
+                  }
+                  return (
+                    <p className="no-transport-text no-transport-text--warning" style={{ margin: '0 0 10px 0' }}>
+                      <AlertTriangle size={12} /> No transit from {prevCity} to {currCity}.
+                    </p>
+                  );
+                } else {
+                  if (pendingTransports.length > 0) {
+                    return (
+                      <p className="no-transport-text no-transport-text--warning" style={{ margin: '0 0 10px 0' }}>
+                        <AlertTriangle size={12} /> There are pending transits from {prevCity} to {currCity}. Please confirm or cancel them.
+                      </p>
+                    );
+                  }
+                }
+              }
+              return null;
+            })()}
+
             <div className="section-item-list">
-              {getTransportsForDay(activeDayStr).map(t => {
-                const isDeparture = t.departureDate === activeDayStr;
-                const isArrival = t.arrivalDate === activeDayStr;
-                const isExpanded = expandedTransitId === t.id;
-                const isEditingNote = editingTransitNoteId === t.id;
+              {getTransportsForDay(activeDayStr)
+                .sort((a, b) => {
+                  const pA = getReservationStatusPriority(a.status);
+                  const pB = getReservationStatusPriority(b.status);
+                  if (pA !== pB) return pA - pB;
+                  const timeA = a.departureTime || '';
+                  const timeB = b.departureTime || '';
+                  return timeA.localeCompare(timeB);
+                })
+                .map(t => {
+                  const isDeparture = t.departureDate === activeDayStr;
+                  const isArrival = t.arrivalDate === activeDayStr;
+                  const isExpanded = expandedTransitId === t.id;
+                  const isEditingNote = editingTransitNoteId === t.id;
                 const transitName = t.name || `${t.departureLocationName} → ${t.arrivalLocationName}`;
                 const carrierLine = [t.carrier, t.transitCode].filter(Boolean).join(' · ');
                 const depTzLabel = t.departureTimezone ? ` (${formatTzOffset(t.departureTimezone)})` : '';
@@ -1025,7 +1165,15 @@ function ItineraryPanel({
                         </div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <h4 className="place-title-text">{transitName}</h4>
+                        <div className="place-title-row">
+                          <h4 className="place-title-text">{transitName}</h4>
+                          <span
+                            className={`reservation-status-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}
+                            data-tooltip={t.status || 'Planning'}
+                          >
+                            {renderStatusIcon(t.status)}
+                          </span>
+                        </div>
                         {carrierLine && <p className="place-desc-text">{carrierLine}</p>}
                         <div className="transport-details-grid" style={{ marginTop: '2px' }}>
                           <div className="transport-flow" style={{ opacity: isDeparture ? 1 : 0.5 }}>
@@ -1163,22 +1311,6 @@ function ItineraryPanel({
                   </div>
                 );
               })}
-
-              {getTransportsForDay(activeDayStr).length === 0 && (() => {
-                const prevDayStr = daysList[daysList.indexOf(activeDayStr) - 1] ?? null;
-                const prevLocId = prevDayStr ? activePlan.days[prevDayStr]?.locationId : null;
-                const currLocId = activePlan.days[activeDayStr]?.locationId;
-                const prevLoc = prevLocId ? trip.locations.find(l => l.id === prevLocId) : null;
-                const currLoc = currLocId ? trip.locations.find(l => l.id === currLocId) : null;
-                if (prevLocId && currLocId && prevLocId !== currLocId) {
-                  return (
-                    <p className="no-transport-text no-transport-text--warning">
-                      <AlertTriangle size={12} /> No transit from {prevLoc?.city ?? 'previous location'} to {currLoc?.city ?? 'this location'}.
-                    </p>
-                  );
-                }
-                return <p className="no-transport-text">No transit booked.</p>;
-              })()}
             </div>
           </div>
 

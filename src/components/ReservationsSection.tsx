@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Plane, Building, Ticket, AlertTriangle, MapPin, Hash,
-  Edit2, Trash2, Check, Calendar,
+  Edit2, Trash2, Check, Clock, X, Calendar,
   Train, Bus, Car, Anchor, Navigation, FileText,
   MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
+  Plus, Sparkles
 } from 'lucide-react';
 import type { Trip, Plan, Hotel, Transportation } from '../types';
+import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 
 interface ReservationsSectionProps {
   trip: Trip;
@@ -22,7 +24,17 @@ interface ReservationsSectionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
+  onAddHotel: () => void;
+  onAddTransit: () => void;
+  onImportReservationFile: (type: 'hotel' | 'transit', file: File) => void;
 }
+
+const renderStatusIcon = (status?: string) => {
+  const s = status || 'Planning';
+  if (s === 'Confirmed') return <Check size={10} />;
+  if (s === 'Canceled') return <X size={10} />;
+  return <Clock size={10} />;
+};
 
 function TransportTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
   switch (type) {
@@ -84,6 +96,9 @@ export default function ReservationsSection({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
+  onAddHotel,
+  onAddTransit,
+  onImportReservationFile,
 }: ReservationsSectionProps) {
   const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
   const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
@@ -91,6 +106,9 @@ export default function ReservationsSection({
   const [editingTransitNotesText, setEditingTransitNotesText] = useState('');
   const [openTransitMapId, setOpenTransitMapId] = useState<string | null>(null);
   const [openOptionsMenuId, setOpenOptionsMenuId] = useState<string | null>(null);
+
+  const hotelFileInputRef = useRef<HTMLInputElement>(null);
+  const transitFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!openTransitMapId && !openOptionsMenuId) return;
@@ -141,66 +159,89 @@ export default function ReservationsSection({
     return depCity === arrCity ? depCity : `${depCity} → ${arrCity}`;
   };
 
-  const computeHotelWarnings = (): { locationName: string; start: string; end: string }[] => {
-    const warnings: { locationName: string; start: string; end: string }[] = [];
-    let groupStart: string | null = null;
-    let groupLocId: string | null = null;
+  const getDailyHotelWarnings = (): { dateStr: string; message: string }[] => {
+    const warnings: { dateStr: string; message: string }[] = [];
+    for (const d of daysList) {
+      const isNoHotel = activePlan.days[d]?.noHotel;
+      const hotelsForDay = activePlan.hotels.filter(
+        h => h.status !== 'Canceled' && h.checkInDate <= d && d < h.checkOutDate
+      );
+      const confirmedHotels = hotelsForDay.filter(h => h.status === 'Confirmed');
+      const pendingHotels = hotelsForDay.filter(h => !h.status || h.status === 'Planning');
 
-    for (let i = 0; i < daysList.length; i++) {
-      const dayStr = daysList[i];
-      const locId = activePlan.days[dayStr]?.locationId;
-      const covered = activePlan.hotels.some(h => h.checkInDate <= dayStr && dayStr < h.checkOutDate);
-
-      if (!covered && locId) {
-        if (groupStart === null || groupLocId !== locId) {
-          if (groupStart !== null) {
-            const loc = trip.locations.find(l => l.id === groupLocId);
-            if (loc) warnings.push({ locationName: loc.city, start: groupStart, end: daysList[i - 1] });
+      if (confirmedHotels.length === 0) {
+        if (isNoHotel) continue;
+        if (pendingHotels.length > 0) {
+          warnings.push({
+            dateStr: d,
+            message: `No confirmed hotels booked for ${formatDisplayDate(d)}. Please mark the pending hotel to confirmed.`
+          });
+        } else {
+          const locId = activePlan.days[d]?.locationId;
+          if (locId) {
+            warnings.push({
+              dateStr: d,
+              message: `No hotels booked for ${formatDisplayDate(d)}.`
+            });
           }
-          groupStart = dayStr;
-          groupLocId = locId;
         }
       } else {
-        if (groupStart !== null) {
-          const loc = trip.locations.find(l => l.id === groupLocId);
-          if (loc) warnings.push({ locationName: loc.city, start: groupStart, end: daysList[i - 1] });
-          groupStart = null;
-          groupLocId = null;
+        if (pendingHotels.length > 0) {
+          warnings.push({
+            dateStr: d,
+            message: `There are pending hotels for ${formatDisplayDate(d)}. Please confirm or cancel them.`
+          });
         }
       }
-    }
-    if (groupStart !== null) {
-      const loc = trip.locations.find(l => l.id === groupLocId);
-      if (loc) warnings.push({ locationName: loc.city, start: groupStart, end: daysList[daysList.length - 1] });
     }
     return warnings;
   };
 
   // --- Transit helpers ---
 
-  const computeTransitWarnings = (): { from: string; to: string }[] => {
-    const warnings: { from: string; to: string }[] = [];
+  const getDailyTransitWarnings = (): { message: string }[] => {
+    const warnings: { message: string }[] = [];
     for (let i = 1; i < daysList.length; i++) {
       const prevDayStr = daysList[i - 1];
       const dayStr = daysList[i];
       const prevLocId = activePlan.days[prevDayStr]?.locationId;
       const currLocId = activePlan.days[dayStr]?.locationId;
       if (prevLocId && currLocId && prevLocId !== currLocId) {
-        const hasTransit = activePlan.transports.some(
-          t => t.departureDate === prevDayStr || t.arrivalDate === dayStr
+        const prevLoc = trip.locations.find(l => l.id === prevLocId);
+        const currLoc = trip.locations.find(l => l.id === currLocId);
+        const prevCity = prevLoc?.city ?? 'previous location';
+        const currCity = currLoc?.city ?? 'next location';
+
+        const transits = activePlan.transports.filter(
+          t => t.status !== 'Canceled' && (t.departureDate === prevDayStr || t.arrivalDate === dayStr)
         );
-        if (!hasTransit) {
-          const prevLoc = trip.locations.find(l => l.id === prevLocId);
-          const currLoc = trip.locations.find(l => l.id === currLocId);
-          warnings.push({ from: prevLoc?.city ?? 'previous location', to: currLoc?.city ?? 'next location' });
+        const confirmedTransports = transits.filter(t => t.status === 'Confirmed');
+        const pendingTransports = transits.filter(t => !t.status || t.status === 'Planning');
+
+        if (confirmedTransports.length === 0) {
+          if (pendingTransports.length > 0) {
+            warnings.push({
+              message: `No confirmed transit from ${prevCity} to ${currCity}. Please mark the pending transit to confirmed.`
+            });
+          } else {
+            warnings.push({
+              message: `No transit from ${prevCity} to ${currCity}.`
+            });
+          }
+        } else {
+          if (pendingTransports.length > 0) {
+            warnings.push({
+              message: `There are pending transits from ${prevCity} to ${currCity}. Please confirm or cancel them.`
+            });
+          }
         }
       }
     }
     return warnings;
   };
 
-  const hotelWarnings = computeHotelWarnings();
-  const transitWarnings = computeTransitWarnings();
+  const hotelWarnings = getDailyHotelWarnings();
+  const transitWarnings = getDailyTransitWarnings();
 
   return (
     <div className="accordion-content">
@@ -212,14 +253,52 @@ export default function ReservationsSection({
             <h4 className="subsection-title">
               <Building size={12} /> Hotels ({activePlan.hotels.length})
             </h4>
+            <div className="subsection-actions">
+              {trip.canEdit !== false && (
+                <>
+                  <button
+                    type="button"
+                    className="panel-ai-action-btn"
+                    onClick={onAddHotel}
+                  >
+                    <Plus size={10} /> Add
+                  </button>
+                  <button
+                    type="button"
+                    className="panel-ai-action-btn"
+                    onClick={() => hotelFileInputRef.current?.click()}
+                    disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+                    data-tooltip={
+                      !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                      GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                      'Import hotel booking confirmation or receipt using AI'
+                    }
+                    data-tooltip-position="bottom"
+                  >
+                    <Sparkles size={10} /> Import
+                  </button>
+                  <input
+                    ref={hotelFileInputRef}
+                    type="file"
+                    style={{ display: 'none' }}
+                    accept="image/*,application/pdf,.eml,.txt"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        onImportReservationFile('hotel', file);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </>
+              )}
+            </div>
           </div>
           <div className="subsection-content">
             {hotelWarnings.map((w, i) => (
               <div key={i} className="reservation-warning">
                 <AlertTriangle size={11} style={{ flexShrink: 0 }} />
-                {w.start === w.end
-                  ? `No hotels for ${w.locationName} on ${shortDate(w.start)}.`
-                  : `No hotels for ${w.locationName} from ${shortDate(w.start)} to ${shortDate(w.end)}.`}
+                {w.message}
               </div>
             ))}
 
@@ -293,7 +372,15 @@ export default function ReservationsSection({
                         </div>
                       </div>
                     </div>
-                    <h4 className="catalog-place-title catalog-place-title--no-margin">{h.name}</h4>
+                    <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, marginTop: '4px' }}>
+                      <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ flex: 1, minWidth: 0 }}>{h.name}</h4>
+                      <span
+                        className={`reservation-status-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}
+                        data-tooltip={h.status || 'Planning'}
+                      >
+                        {renderStatusIcon(h.status)}
+                      </span>
+                    </div>
                     <p className="place-desc-text"><Calendar size={11} /> Check-in: {formatCardDate(h.checkInDate, h.checkInTime)}</p>
                     <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
                   </div>
@@ -384,12 +471,52 @@ export default function ReservationsSection({
             <h4 className="subsection-title">
               <Plane size={12} /> Transits & Flights ({activePlan.transports.length})
             </h4>
+            <div className="subsection-actions">
+              {trip.canEdit !== false && (
+                <>
+                  <button
+                    type="button"
+                    className="panel-ai-action-btn"
+                    onClick={onAddTransit}
+                  >
+                    <Plus size={10} /> Add
+                  </button>
+                  <button
+                    type="button"
+                    className="panel-ai-action-btn"
+                    onClick={() => transitFileInputRef.current?.click()}
+                    disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+                    data-tooltip={
+                      !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                      GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                      'Import transit ticket or booking confirmation using AI'
+                    }
+                    data-tooltip-position="bottom"
+                  >
+                    <Sparkles size={10} /> Import
+                  </button>
+                  <input
+                    ref={transitFileInputRef}
+                    type="file"
+                    style={{ display: 'none' }}
+                    accept="image/*,application/pdf,.eml,.txt"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        onImportReservationFile('transit', file);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </>
+              )}
+            </div>
           </div>
           <div className="subsection-content">
             {transitWarnings.map((w, i) => (
               <div key={i} className="reservation-warning">
                 <AlertTriangle size={11} style={{ flexShrink: 0 }} />
-                No transit from {w.from} to {w.to}.
+                {w.message}
               </div>
             ))}
 
@@ -483,7 +610,15 @@ export default function ReservationsSection({
                         </div>
                       </div>
                     </div>
-                    <h4 className="catalog-place-title catalog-place-title--no-margin">{transitName}</h4>
+                    <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, marginTop: '4px' }}>
+                      <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ flex: 1, minWidth: 0 }}>{transitName}</h4>
+                      <span
+                        className={`reservation-status-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}
+                        data-tooltip={t.status || 'Planning'}
+                      >
+                        {renderStatusIcon(t.status)}
+                      </span>
+                    </div>
                     {t.carrier && (
                       <p className="place-desc-text">
                         {t.carrier}{t.transitCode ? ` · ${t.transitCode}` : ''}

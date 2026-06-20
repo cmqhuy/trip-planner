@@ -72,6 +72,9 @@ interface LeftPanelAccordionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
+  onAddHotel: () => void;
+  onAddTransit: () => void;
+  onImportReservationFile: (type: 'hotel' | 'transit', file: File) => void;
 }
 
 export default function LeftPanelAccordion({
@@ -141,6 +144,9 @@ export default function LeftPanelAccordion({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
+  onAddHotel,
+  onAddTransit,
+  onImportReservationFile,
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
@@ -256,7 +262,9 @@ export default function LeftPanelAccordion({
           {(() => {
             const hasHotelWarning = daysList.some(d => {
               const locId = activePlan.days[d]?.locationId;
-              return !!locId && !activePlan.hotels.some(h => h.checkInDate <= d && d < h.checkOutDate);
+              const isNoHotel = activePlan.days[d]?.noHotel;
+              if (isNoHotel) return false;
+              return !!locId && !activePlan.hotels.some(h => h.status !== 'Canceled' && h.checkInDate <= d && d < h.checkOutDate);
             });
             const hasTransitWarning = daysList.some((d, i) => {
               if (i === 0) return false;
@@ -264,10 +272,11 @@ export default function LeftPanelAccordion({
               const currLoc = activePlan.days[d]?.locationId;
               if (!prevLoc || !currLoc || prevLoc === currLoc) return false;
               return !activePlan.transports.some(
-                t => t.departureDate === daysList[i - 1] || t.arrivalDate === d
+                t => t.status !== 'Canceled' && (t.departureDate === daysList[i - 1] || t.arrivalDate === d)
               );
             });
-            return (hasHotelWarning || hasTransitWarning)
+            const hasPendingWarning = activePlan.hotels.some(h => h.status === 'Planning') || activePlan.transports.some(t => t.status === 'Planning');
+            return (hasHotelWarning || hasTransitWarning || hasPendingWarning)
               ? <AlertTriangle size={12} className="accordion-warning-icon" />
               : null;
           })()}
@@ -292,6 +301,9 @@ export default function LeftPanelAccordion({
             setExpandedHotelId={setExpandedHotelId}
             expandedTransitId={expandedTransitId}
             setExpandedTransitId={setExpandedTransitId}
+            onAddHotel={onAddHotel}
+            onAddTransit={onAddTransit}
+            onImportReservationFile={onImportReservationFile}
           />
         )}
       </div>

@@ -7,14 +7,13 @@ import type { Hotel } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
-import { fetchFileContentFromDrive } from '../utils/googleDrive';
+import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
 import { useDriveAttachments } from '../utils/useDriveAttachments';
 
 interface HotelModalProps {
   isOpen: boolean;
   onClose: () => void;
   tripStartDate: string;
-  tripEndDate: string;
   onSave: (hotelData: Omit<Hotel, 'id'>) => void;
   onDelete?: () => void;
   editingHotel?: Hotel | null;
@@ -25,12 +24,14 @@ interface HotelModalProps {
   onFileFolderCreated?: (folderId: string) => void;
   isOwner?: boolean;
   tripDriveFileId?: string;
+  defaultDate?: string;
 }
 
 type SavedValues = {
   name: string; address: string; checkInDate: string; checkInTime: string;
   checkOutDate: string; checkOutTime: string; confirmationNo: string; notes: string;
   bookedThrough: string; price: string; currency: string; lat: string; lng: string;
+  status: 'Confirmed' | 'Planning' | 'Canceled';
 };
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
@@ -60,6 +61,7 @@ export default function HotelModal({
   onFileFolderCreated,
   isOwner = true,
   tripDriveFileId,
+  defaultDate,
 }: HotelModalProps) {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -83,8 +85,14 @@ export default function HotelModal({
   const [showShareFolder, setShowShareFolder] = useState(false);
   const [editingChip, setEditingChip] = useState<{ fileId: string; value: string } | null>(null);
 
+  const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusPos, setStatusPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autofillInputRef = useRef<HTMLInputElement>(null);
   const currencyTriggerRef = useRef<HTMLButtonElement>(null);
+  const statusTriggerRef = useRef<HTMLButtonElement>(null);
 
   const {
     attachedFiles,
@@ -113,9 +121,9 @@ export default function HotelModal({
       const initial: SavedValues = {
         name: h?.name ?? '',
         address: h?.address ?? '',
-        checkInDate: h?.checkInDate ?? tripStartDate,
+        checkInDate: h?.checkInDate ?? defaultDate ?? tripStartDate,
         checkInTime: h?.checkInTime ?? '',
-        checkOutDate: h?.checkOutDate ?? tripStartDate,
+        checkOutDate: h?.checkOutDate ?? defaultDate ?? tripStartDate,
         checkOutTime: h?.checkOutTime ?? '',
         confirmationNo: h?.confirmationNo ?? '',
         bookedThrough: h?.bookedThrough ?? '',
@@ -124,6 +132,7 @@ export default function HotelModal({
         lat: h?.lat != null ? String(h.lat) : '',
         lng: h?.lng != null ? String(h.lng) : '',
         notes: h?.notes ?? '',
+        status: h ? (h.status || 'Planning') : 'Confirmed',
       };
       setName(initial.name);
       setAddress(initial.address);
@@ -138,11 +147,13 @@ export default function HotelModal({
       setLat(initial.lat);
       setLng(initial.lng);
       setNotes(initial.notes);
+      setStatus(initial.status);
       setAttachments(h?.attachments ?? []);
       setSavedValues(initial);
       setAiError(null);
       setRemovePrompt(null);
       setCurrencyOpen(false);
+      setStatusOpen(false);
       setShowAccessError(false);
       setShowShareFolder(false);
       setEditingChip(null);
@@ -176,6 +187,7 @@ export default function HotelModal({
       lng: parsedLng,
       notes: notes.trim() || undefined,
       attachments: attachedFiles,
+      status,
     });
     onClose();
   };
@@ -216,6 +228,72 @@ export default function HotelModal({
     }
   };
 
+  const handleAutofillFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    e.target.value = '';
+
+    const file = files[0];
+    setIsAiFilling(true);
+    setAiError(null);
+
+    try {
+      // 1. Read file locally as base64
+      const fileData = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const result = reader.result as string;
+          const commaIdx = result.indexOf(',');
+          const base64 = commaIdx > -1 ? result.substring(commaIdx + 1) : result;
+          resolve({ base64, mimeType: file.type || 'application/octet-stream' });
+        };
+        reader.onerror = () => reject(new Error('Failed to read file locally.'));
+      });
+
+      // 2. Upload file to Drive if googleToken is present
+      if (googleToken) {
+        let folderId = tripFilesFolderId;
+        if (!folderId && tripPlannerFolderId && tripName) {
+          folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
+          onFileFolderCreated?.(folderId);
+        }
+        if (folderId) {
+          const fileId = await uploadFile(googleToken, folderId, file);
+          const newAttachment = { name: file.name, filename: file.name, fileId };
+          setAttachments(prev => [...prev, newAttachment]);
+        }
+      }
+
+      // 3. Extract details using AI
+      const result = await GeminiService.generateHotelDetailsFromFilesWithRotation([fileData]);
+      if (result.name) setName(result.name);
+      if (result.address) setAddress(result.address);
+      if (result.checkInDate) setCheckInDate(result.checkInDate);
+      if (result.checkInTime) setCheckInTime(result.checkInTime);
+      if (result.checkOutDate) setCheckOutDate(result.checkOutDate);
+      if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
+      if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
+      if (result.bookedThrough) setBookedThrough(result.bookedThrough);
+      if (result.price != null) setPrice(String(result.price));
+      if (result.currency) setCurrency(result.currency);
+      if (result.notes) setNotes(result.notes);
+      
+      const fillAddress = result.address || address;
+      if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
+        const coords = await geocodeAddress(fillAddress);
+        if (coords) { setLat(coords.lat.toFixed(6)); setLng(coords.lng.toFixed(6)); }
+      } else {
+        if (result.lat != null) setLat(String(result.lat));
+        if (result.lng != null) setLng(String(result.lng));
+      }
+    } catch (err: any) {
+      setAiError(err.message || 'AI autofill failed.');
+    } finally {
+      setIsAiFilling(false);
+    }
+  };
+
   const undoBtn = (current: string, saved: string | undefined, onRestore: () => void) => {
     if (saved === undefined || current === saved) return null;
     return (
@@ -238,6 +316,49 @@ export default function HotelModal({
             <button className="modal-close" onClick={onClose}><X size={20} /></button>
           </div>
 
+          {/* Suggestions Search / Auto-Populate */}
+          <div className="modal-autofill-panel">
+            <div className="flex-between">
+              <label>Auto-Populate Details</label>
+              <div
+                data-tooltip={
+                  !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                  GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                  'Upload a receipt or confirmation to fill details using AI'
+                }
+                data-tooltip-position="bottom"
+                className="flex-align"
+              >
+                <button
+                  type="button"
+                  className="btn-secondary flex-align"
+                  style={{
+                    fontSize: '11px',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    gap: '5px',
+                    borderColor: 'rgba(139, 92, 246, 0.25)',
+                    background: 'rgba(139, 92, 246, 0.06)',
+                    cursor: (!GeminiService.isAiEnabled() || GeminiService.isManualMode() || uploadingCount > 0 || isAiFilling) ? 'not-allowed' : 'pointer'
+                  }}
+                  onClick={() => autofillInputRef.current?.click()}
+                  disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode() || uploadingCount > 0 || isAiFilling}
+                >
+                  {isAiFilling ? <RefreshCw size={11} className="spin" /> : <Sparkles size={11} />}
+                  {isAiFilling ? 'Generating...' : uploadingCount > 0 ? 'Uploading...' : 'Upload & Auto-Fill'}
+                </button>
+                <input
+                  ref={autofillInputRef}
+                  type="file"
+                  className="visually-hidden"
+                  accept="image/*,application/pdf,.eml,.txt"
+                  onChange={handleAutofillFileSelect}
+                  disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode() || uploadingCount > 0 || isAiFilling}
+                />
+              </div>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit}>
             <div className="modal-scroll-body">
             <div className="place-form-grid">
@@ -248,7 +369,7 @@ export default function HotelModal({
                 {/* Hotel Name */}
                 <div className="form-group">
                   <label htmlFor="hotel-name" className="place-form-label">
-                    <span className="label-text">Hotel Name</span>
+                    <span className="label-text">Hotel Name <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                     {undoBtn(name, savedValues?.name, () => setName(savedValues!.name))}
                   </label>
                   <input
@@ -263,7 +384,7 @@ export default function HotelModal({
                 {/* Address */}
                 <div className="form-group">
                   <label htmlFor="hotel-address" className="place-form-label">
-                    <span className="label-text">Address (Optional)</span>
+                    <span className="label-text">Address</span>
                     {undoBtn(address, savedValues?.address, () => setAddress(savedValues!.address))}
                   </label>
                   <input
@@ -278,7 +399,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-checkin" className="place-form-label">
-                      <span className="label-text">Check-In Date</span>
+                      <span className="label-text">Check-In Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                       {undoBtn(checkInDate, savedValues?.checkInDate, () => setCheckInDate(savedValues!.checkInDate))}
                     </label>
                     <input
@@ -307,7 +428,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-checkout" className="place-form-label">
-                      <span className="label-text">Check-Out Date</span>
+                      <span className="label-text">Check-Out Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                       {undoBtn(checkOutDate, savedValues?.checkOutDate, () => setCheckOutDate(savedValues!.checkOutDate))}
                     </label>
                     <input
@@ -336,7 +457,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-conf" className="place-form-label">
-                      <span className="label-text">Confirmation No (Optional)</span>
+                      <span className="label-text">Confirmation No</span>
                       {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
                     </label>
                     <input
@@ -348,7 +469,7 @@ export default function HotelModal({
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-booked" className="place-form-label">
-                      <span className="label-text">Booked via (Optional)</span>
+                      <span className="label-text">Booked via</span>
                       {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
                     </label>
                     <input
@@ -365,7 +486,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-price" className="place-form-label">
-                      <span className="label-text">Price (Optional)</span>
+                      <span className="label-text">Price</span>
                       {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
                     </label>
                     <input
@@ -421,6 +542,49 @@ export default function HotelModal({
                   </div>
                 </div>
 
+                {/* Status */}
+                <div className="form-group">
+                  <label className="place-form-label">
+                    <span className="label-text">Status</span>
+                    {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
+                  </label>
+                  <div className="combo-wrapper">
+                    <button
+                      ref={statusTriggerRef}
+                      type="button"
+                      className="combo-trigger"
+                      onClick={() => {
+                        if (!statusOpen && statusTriggerRef.current) {
+                          const r = statusTriggerRef.current.getBoundingClientRect();
+                          setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                        }
+                        setStatusOpen(o => !o);
+                      }}
+                    >
+                      <span className="combo-trigger-content">{status}</span>
+                      <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
+                    </button>
+                  </div>
+                  {statusOpen && statusPos && createPortal(
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
+                      <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
+                        {(['Confirmed', 'Planning', 'Canceled'] as const).map(s => (
+                          <button
+                            key={s}
+                            type="button"
+                            className={`combo-option${s === status ? ' selected' : ''}`}
+                            onClick={() => { setStatus(s); setStatusOpen(false); }}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+
               </div>
 
               {/* Right column — Coordinates, Map, Notes, Attachments */}
@@ -428,7 +592,7 @@ export default function HotelModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="hotel-lat" className="place-form-label">
-                      <span className="label-text">Latitude (Optional)</span>
+                      <span className="label-text">Latitude</span>
                       {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat))}
                     </label>
                     <input
@@ -440,7 +604,7 @@ export default function HotelModal({
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-lng" className="place-form-label">
-                      <span className="label-text">Longitude (Optional)</span>
+                      <span className="label-text">Longitude</span>
                       {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng))}
                     </label>
                     <input
@@ -469,7 +633,7 @@ export default function HotelModal({
                 {/* Notes */}
                 <div className="form-group">
                   <label htmlFor="hotel-notes" className="place-form-label">
-                    <span className="label-text">Notes (Optional)</span>
+                    <span className="label-text">Notes</span>
                     {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
                   </label>
                   <textarea

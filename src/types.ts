@@ -82,6 +82,7 @@ export interface Transportation {
   arrivalLat?: number;
   arrivalLng?: number;
   attachments?: Attachment[];
+  status?: 'Confirmed' | 'Planning' | 'Canceled';
 }
 
 export interface Hotel {
@@ -100,6 +101,7 @@ export interface Hotel {
   lat?: number;
   lng?: number;
   attachments?: Attachment[];
+  status?: 'Confirmed' | 'Planning' | 'Canceled';
 }
 
 export interface SchedulePlaceItem {
@@ -124,6 +126,7 @@ export interface PlanDay {
     [key: string]: string;
   };
   aiUpdatedAt?: number;
+  noHotel?: boolean;
 }
 
 export interface Plan {

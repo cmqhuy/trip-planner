@@ -6,13 +6,14 @@ const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
   scheduleItems: items,
   placeIds: items.filter((i): i is SchedulePlaceItem => i.type === 'place').map(i => i.placeId)
 });
-import { Navigation, BookOpen, Clock } from 'lucide-react';
+import { Navigation, BookOpen, Clock, Loader2 } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { aiRequestQueue } from '../utils/aiRequestQueue';
 import { runAiCall } from '../utils/runAiCall';
+import { getOrCreateTripFileFolder, uploadFile } from '../utils/googleDrive';
 import AiGenerateModal from './AiGenerateModal';
 import ManualAiPromptModal from './ManualAiPromptModal';
 
@@ -339,6 +340,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [deleteHotelData, setDeleteHotelData] = useState<Hotel | null>(null);
   const [expandedHotelId, setExpandedHotelId] = useState<string | null>(null);
   const [expandedTransitId, setExpandedTransitId] = useState<string | null>(null);
+
+  // Reservation Import States
+  const [isImportingReservationFile, setIsImportingReservationFile] = useState(false);
+  const [importingReservationMessage, setImportingReservationMessage] = useState('');
+
   // Day timeline search state
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeSuggestions, setPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
@@ -1819,6 +1825,184 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setEditingHotel(null);
   }, [trip, activePlan.id, onUpdateTrip]);
 
+  const handleToggleNoHotel = (dateStr: string, checked: boolean) => {
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id === activePlan.id) {
+        const day = p.days[dateStr];
+        if (day) {
+          return {
+            ...p,
+            days: {
+              ...p.days,
+              [dateStr]: {
+                ...day,
+                noHotel: checked
+              }
+            }
+          };
+        }
+      }
+      return p;
+    });
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+  };
+
+  const handleImportReservationFile = async (type: 'hotel' | 'transit', file: File) => {
+    setIsImportingReservationFile(true);
+    setImportingReservationMessage('Reading file...');
+    try {
+      const fileData = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const result = reader.result as string;
+          const commaIdx = result.indexOf(',');
+          const base64 = commaIdx > -1 ? result.substring(commaIdx + 1) : result;
+          resolve({ base64, mimeType: file.type || 'application/octet-stream' });
+        };
+        reader.onerror = () => reject(new Error('Failed to read file locally.'));
+      });
+
+      let attachment: any = null;
+
+      if (googleToken) {
+        setImportingReservationMessage('Uploading file to Google Drive...');
+        let folderId = trip.filesFolderId;
+        if (!folderId && googleFolderId) {
+          folderId = await getOrCreateTripFileFolder(googleToken, googleFolderId, trip.id);
+          onUpdateTrip(prev => ({ ...prev, filesFolderId: folderId }));
+        }
+        if (folderId) {
+          const fileId = await uploadFile(googleToken, folderId, file);
+          attachment = { name: file.name, filename: file.name, fileId };
+        }
+      }
+
+      setImportingReservationMessage('AI details extraction in progress...');
+
+      if (type === 'hotel') {
+        const result = await GeminiService.generateHotelDetailsFromFilesWithRotation([fileData]);
+        
+        let finalLat = result.lat;
+        let finalLng = result.lng;
+        if (result.address && finalLat === undefined && finalLng === undefined) {
+          try {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.address)}&format=json&limit=1`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+            clearTimeout(timeout);
+            const data = await res.json();
+            if (data[0]) {
+              finalLat = parseFloat(data[0].lat);
+              finalLng = parseFloat(data[0].lon);
+            }
+          } catch (e) {
+            console.error('Geocoding fallback failed:', e);
+          }
+        }
+
+        const draftHotel: Hotel = {
+          id: 'imported-draft',
+          name: result.name || file.name.substring(0, file.name.lastIndexOf('.')) || 'Imported Hotel',
+          address: result.address,
+          checkInDate: result.checkInDate || activeDayStr || daysList[0] || '',
+          checkInTime: result.checkInTime || '15:00',
+          checkOutDate: result.checkOutDate || activeDayStr || daysList[0] || '',
+          checkOutTime: result.checkOutTime || '11:00',
+          confirmationNo: result.confirmationNo,
+          bookedThrough: result.bookedThrough,
+          price: result.price,
+          currency: result.price ? (result.currency || 'USD') : undefined,
+          lat: finalLat,
+          lng: finalLng,
+          notes: result.notes,
+          status: 'Planning',
+          attachments: attachment ? [attachment] : []
+        };
+        setEditingHotel(draftHotel);
+        setShowHotelModal(true);
+      } else {
+        const result = await GeminiService.generateTransitDetailsFromFilesWithRotation([fileData]);
+
+        let finalDepLat = result.departureLat;
+        let finalDepLng = result.departureLng;
+        if (result.departureAddress && finalDepLat === undefined && finalDepLng === undefined) {
+          try {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.departureAddress)}&format=json&limit=1`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+            clearTimeout(timeout);
+            const data = await res.json();
+            if (data[0]) {
+              finalDepLat = parseFloat(data[0].lat);
+              finalDepLng = parseFloat(data[0].lon);
+            }
+          } catch (e) {
+            console.error('Departure geocoding fallback failed:', e);
+          }
+        }
+
+        let finalArrLat = result.arrivalLat;
+        let finalArrLng = result.arrivalLng;
+        if (result.arrivalAddress && finalArrLat === undefined && finalArrLng === undefined) {
+          try {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.arrivalAddress)}&format=json&limit=1`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+            clearTimeout(timeout);
+            const data = await res.json();
+            if (data[0]) {
+              finalArrLat = parseFloat(data[0].lat);
+              finalArrLng = parseFloat(data[0].lon);
+            }
+          } catch (e) {
+            console.error('Arrival geocoding fallback failed:', e);
+          }
+        }
+
+        const draftTransit: Transportation = {
+          id: 'imported-draft',
+          name: result.name || `Transit ${file.name.substring(0, file.name.lastIndexOf('.'))}`,
+          type: (result.type as any) || 'flight',
+          departureLocationName: result.departureLocationName || '',
+          arrivalLocationName: result.arrivalLocationName || '',
+          departureDate: result.departureDate || activeDayStr || daysList[0] || '',
+          departureTime: result.departureTime || '12:00',
+          departureTimezone: result.departureTimezone || 'UTC',
+          arrivalDate: result.arrivalDate || activeDayStr || daysList[0] || '',
+          arrivalTime: result.arrivalTime || '14:00',
+          arrivalTimezone: result.arrivalTimezone || 'UTC',
+          carrier: result.carrier,
+          transitCode: result.transitCode,
+          confirmationNo: result.confirmationNo,
+          bookedThrough: result.bookedThrough,
+          price: result.price,
+          currency: result.price ? (result.currency || 'USD') : undefined,
+          departureAddress: result.departureAddress,
+          departureLat: finalDepLat,
+          departureLng: finalDepLng,
+          arrivalAddress: result.arrivalAddress,
+          arrivalLat: finalArrLat,
+          arrivalLng: finalArrLng,
+          notes: result.notes,
+          status: 'Planning',
+          attachments: attachment ? [attachment] : []
+        };
+        setEditingTransport(draftTransit);
+        setShowTransportModal(true);
+      }
+    } catch (err: any) {
+      console.error(err);
+      showAlert('Import Failed', err.message || 'An error occurred during file import.');
+    } finally {
+      setIsImportingReservationFile(false);
+      setImportingReservationMessage('');
+    }
+  };
+
   // Get hotels overlapping with active day
   const getHotelsForDay = useCallback((dateStr: string) => {
     const d = new Date(dateStr);
@@ -1858,10 +2042,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       const p = location?.places.find(pl => pl.id === pid);
       return p ? { title: p.title, description: p.description, openingHours: p.openingHours, lat: p.lat, lng: p.lng, notes: p.notes } : null;
     }).filter(Boolean) as { title: string; description?: string; openingHours?: string; lat?: number; lng?: number; notes?: string }[];
-    const dayHotels = getHotelsForDay(dateStr).map(h =>
+    const dayHotels = getHotelsForDay(dateStr).filter(h => h.status !== 'Canceled').map(h =>
       `${h.name}${h.address ? ` at ${h.address}` : ''}, check-in: ${h.checkInDate}${h.checkInTime ? ` ${h.checkInTime}` : ''}, check-out: ${h.checkOutDate}${h.checkOutTime ? ` ${h.checkOutTime}` : ''}${h.confirmationNo ? `, conf#: ${h.confirmationNo}` : ''}`
     );
-    const dayTransports = getTransportsForDay(dateStr).map(t =>
+    const dayTransports = getTransportsForDay(dateStr).filter(t => t.status !== 'Canceled').map(t =>
       `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate} ${t.departureTime} (${t.departureTimezone})${t.carrier ? `, carrier: ${t.carrier}` : ''}${t.transitCode ? ` ${t.transitCode}` : ''}${t.confirmationNo ? `, conf#: ${t.confirmationNo}` : ''}`
     );
     const dayPayload = [{ dateStr, dayNumber: daysList.indexOf(dateStr) + 1, locationCity: location?.city || '', locationCountry: location?.country || '', places: dayPlaces, hotels: dayHotels, transports: dayTransports }];
@@ -1906,10 +2090,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         const p = location?.places.find(pl => pl.id === pid);
         return p ? { title: p.title, description: p.description, openingHours: p.openingHours, lat: p.lat, lng: p.lng, notes: p.notes } : null;
       }).filter(Boolean) as { title: string; description?: string; openingHours?: string; lat?: number; lng?: number; notes?: string }[] : [];
-      const dayHotels = getHotelsForDay(dateStr).map(h =>
+      const dayHotels = getHotelsForDay(dateStr).filter(h => h.status !== 'Canceled').map(h =>
         `${h.name}${h.address ? ` at ${h.address}` : ''}, check-in: ${h.checkInDate}${h.checkInTime ? ` ${h.checkInTime}` : ''}, check-out: ${h.checkOutDate}${h.checkOutTime ? ` ${h.checkOutTime}` : ''}${h.confirmationNo ? `, conf#: ${h.confirmationNo}` : ''}`
       );
-      const dayTransports = getTransportsForDay(dateStr).map(t =>
+      const dayTransports = getTransportsForDay(dateStr).filter(t => t.status !== 'Canceled').map(t =>
         `${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate} ${t.departureTime} (${t.departureTimezone})${t.carrier ? `, carrier: ${t.carrier}` : ''}${t.transitCode ? ` ${t.transitCode}` : ''}${t.confirmationNo ? `, conf#: ${t.confirmationNo}` : ''}`
       );
       return { dateStr, dayNumber: daysList.indexOf(dateStr) + 1, locationCity: location?.city || '', locationCountry: location?.country || '', places: dayPlaces, hotels: dayHotels, transports: dayTransports };
@@ -1964,8 +2148,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const tripInfo = {
       name: trip.name, startDate: trip.startDate, endDate: trip.endDate,
       locations: trip.locations.map(l => ({ city: l.city, country: l.country })),
-      hotels: activePlan.hotels.map(h => ({ name: h.name, checkInDate: h.checkInDate, checkOutDate: h.checkOutDate })),
-      transports: activePlan.transports.map(t => ({ type: t.type, departureLocationName: t.departureLocationName, arrivalLocationName: t.arrivalLocationName, departureDate: t.departureDate })),
+      hotels: activePlan.hotels.filter(h => h.status !== 'Canceled').map(h => ({ name: h.name, checkInDate: h.checkInDate, checkOutDate: h.checkOutDate })),
+      transports: activePlan.transports.filter(t => t.status !== 'Canceled').map(t => ({ type: t.type, departureLocationName: t.departureLocationName, arrivalLocationName: t.arrivalLocationName, departureDate: t.departureDate })),
       places: placesWithReservations
     };
     const enableBabyLogistics = !trip.disabledDayFields?.includes('baby_logistics');
@@ -2276,6 +2460,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setExpandedHotelId={setExpandedHotelId}
         expandedTransitId={expandedTransitId}
         setExpandedTransitId={setExpandedTransitId}
+        onAddHotel={() => { setEditingHotel(null); setShowHotelModal(true); }}
+        onAddTransit={() => { setEditingTransport(null); setShowTransportModal(true); }}
+        onImportReservationFile={handleImportReservationFile}
       />
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}
@@ -2381,6 +2568,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setExpandedHotelId={setExpandedHotelId}
         expandedTransitId={expandedTransitId}
         setExpandedTransitId={setExpandedTransitId}
+        onToggleNoHotel={handleToggleNoHotel}
       />
       
       {/* RIGHT PANEL: Interactive Leaflet Map */}
@@ -2393,6 +2581,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           previewMarker={previewMarker}
           onPlaceSelect={setActivePlaceId}
           activeMobileTab={activeMobileTab}
+          hotels={getHotelsForDay(activeDayStr).filter(h => h.status !== 'Canceled')}
+          transports={getTransportsForDay(activeDayStr).filter(t => t.status !== 'Canceled')}
         />
       </div>
 
@@ -2543,11 +2733,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         isOpen={showTransportModal}
         onClose={() => { setShowTransportModal(false); setEditingTransport(null); }}
         tripStartDate={trip.startDate}
-        tripEndDate={trip.endDate}
-        onSave={(data) => editingTransport
-          ? handleEditTransportation({ ...data, id: editingTransport.id })
-          : handleAddTransportation(data)
-        }
+        onSave={(data) => {
+          if (editingTransport && editingTransport.id !== 'imported-draft') {
+            handleEditTransportation({ ...data, id: editingTransport.id });
+          } else {
+            handleAddTransportation(data);
+          }
+        }}
         onDelete={editingTransport ? () => setDeleteTransportData(editingTransport) : undefined}
         editingTransport={editingTransport}
         googleToken={googleToken}
@@ -2557,6 +2749,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
         isOwner={trip.isOwner !== false}
         tripDriveFileId={trip.driveFileId}
+        defaultDate={activeDayStr}
       />
 
       {/* 9. Hotel Modal */}
@@ -2564,11 +2757,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         isOpen={showHotelModal}
         onClose={() => { setShowHotelModal(false); setEditingHotel(null); }}
         tripStartDate={trip.startDate}
-        tripEndDate={trip.endDate}
-        onSave={(data) => editingHotel
-          ? handleEditHotel({ ...data, id: editingHotel.id })
-          : handleAddHotel(data)
-        }
+        onSave={(data) => {
+          if (editingHotel && editingHotel.id !== 'imported-draft') {
+            handleEditHotel({ ...data, id: editingHotel.id });
+          } else {
+            handleAddHotel(data);
+          }
+        }}
         onDelete={editingHotel ? () => setDeleteHotelData(editingHotel) : undefined}
         editingHotel={editingHotel}
         googleToken={googleToken}
@@ -2578,6 +2773,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onFileFolderCreated={(folderId) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
         isOwner={trip.isOwner !== false}
         tripDriveFileId={trip.driveFileId}
+        defaultDate={activeDayStr}
       />
 
       {/* 9b. Delete Reservation Modal */}
@@ -2652,6 +2848,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           }))}
           onGenerate={handleGenerateDaysTips}
         />
+      )}
+      {isImportingReservationFile && (
+        <div className="modal-overlay" style={{ zIndex: 1300 }}>
+          <div className="modal-content glass-panel modal-content--sm import-loader-content">
+            <Loader2 size={24} className="animate-spin import-loader-spinner" />
+            <h3 className="import-loader-title">{importingReservationMessage}</h3>
+            <p className="modal-field-details import-loader-details">
+              Please wait while Gemini processes the document and extracts reservation details.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

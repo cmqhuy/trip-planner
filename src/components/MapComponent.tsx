@@ -1,7 +1,7 @@
 import { useEffect, useRef, memo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { Place, PlaceGroup } from '../types';
+import type { Place, PlaceGroup, Hotel, Transportation } from '../types';
 
 interface MapComponentProps {
   places: Place[];
@@ -11,6 +11,8 @@ interface MapComponentProps {
   previewMarker?: { lat: number; lng: number };
   onPlaceSelect?: (placeId: string | undefined) => void;
   activeMobileTab?: string;
+  hotels?: Hotel[];
+  transports?: Transportation[];
 }
 
 // Helpers for serializing to determine semantic value changes
@@ -38,6 +40,50 @@ const serializePlaceGroups = (groups: PlaceGroup[]) => {
   }));
 };
 
+const serializeHotels = (hotelsList: Hotel[]) => {
+  return hotelsList.map(h => ({
+    id: h.id,
+    lat: h.lat,
+    lng: h.lng,
+    name: h.name,
+    status: h.status
+  }));
+};
+
+const serializeTransports = (transportsList: Transportation[]) => {
+  return transportsList.map(t => ({
+    id: t.id,
+    departureLat: t.departureLat,
+    departureLng: t.departureLng,
+    arrivalLat: t.arrivalLat,
+    arrivalLng: t.arrivalLng,
+    name: t.name,
+    status: t.status
+  }));
+};
+
+const getStatusColor = (status?: string) => {
+  const s = status || 'Planning';
+  return s === 'Confirmed' ? '#4ade80' : '#facc15';
+};
+
+const getTransitSvgIcon = (type: string) => {
+  switch (type) {
+    case 'flight':
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3.5c-.5-.5-2.5 0-4 1.5L13.5 8.5 5.3 6.7c-.9-.2-1.7.5-1.5 1.4l1.3 3.9L2 15.3V17l5.3-.9 3.2 3.2c.4.4 1 .4 1.4 0l1.8-1.8H15l-.9 5.3 1.7-1.3 3.9 1.3c.9.2 1.6-.6 1.4-1.5z"/></svg>`;
+    case 'train':
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/></svg>`;
+    case 'bus':
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h8"/><path d="M6 10h12"/><path d="M4 14h16"/><rect width="16" height="16" x="4" y="3" rx="2"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/></svg>`;
+    case 'car':
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>`;
+    case 'ferry':
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2M2 17h20M12 3v10M12 3 7 8h10z"/></svg>`;
+    default:
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`;
+  }
+};
+
 function MapComponent({ 
   places, 
   activePlaceId, 
@@ -45,7 +91,9 @@ function MapComponent({
   onMapClick, 
   previewMarker,
   onPlaceSelect,
-  activeMobileTab
+  activeMobileTab,
+  hotels = [],
+  transports = []
 }: MapComponentProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -69,6 +117,8 @@ function MapComponent({
   const prevActivePlaceIdRef = useRef<string | undefined>(undefined);
   const prevPreviewMarkerSerializedRef = useRef<string>('');
   const prevActiveMobileTabRef = useRef<string>(activeMobileTab);
+  const prevHotelsSerializedRef = useRef<string>('');
+  const prevTransportsSerializedRef = useRef<string>('');
 
   // Initialize Map
   useEffect(() => {
@@ -141,14 +191,18 @@ function MapComponent({
     const placesSerialized = JSON.stringify(serializePlaces(places));
     const placeGroupsSerialized = JSON.stringify(serializePlaceGroups(placeGroups));
     const previewMarkerSerialized = JSON.stringify(previewMarker);
+    const hotelsSerialized = JSON.stringify(serializeHotels(hotels));
+    const transportsSerialized = JSON.stringify(serializeTransports(transports));
 
     // Determine what changed
     const placesChanged = placesSerialized !== prevPlacesSerializedRef.current;
     const groupsChanged = placeGroupsSerialized !== prevPlaceGroupsSerializedRef.current;
     const activePlaceChanged = activePlaceId !== prevActivePlaceIdRef.current;
     const previewMarkerChanged = previewMarkerSerialized !== prevPreviewMarkerSerializedRef.current;
+    const hotelsChanged = hotelsSerialized !== prevHotelsSerializedRef.current;
+    const transportsChanged = transportsSerialized !== prevTransportsSerializedRef.current;
 
-    const needsMarkerUpdate = placesChanged || groupsChanged || activePlaceChanged || previewMarkerChanged;
+    const needsMarkerUpdate = placesChanged || groupsChanged || activePlaceChanged || previewMarkerChanged || hotelsChanged || transportsChanged;
 
     if (!needsMarkerUpdate) {
       // Nothing affecting markers or view focus has changed, skip to avoid resetting zoom/pan and closing popups
@@ -232,7 +286,6 @@ function MapComponent({
       });
 
       const mapsLink = place.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.title)}`;
-      const directionsLink = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.title)}&destination_place_id=&travelmode=walking`;
 
       const marker = L.marker([place.lat, place.lng], { icon })
         .on('click', () => {
@@ -247,8 +300,6 @@ function MapComponent({
             ${place.openingHours ? `<p style="font-size:10px; color:#94a3b8; margin-bottom: 8px; display: flex; align-items: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; display: inline-block; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${place.openingHours}</p>` : ''}
             <div style="display: flex; gap: 8px; margin-top: 8px;">
               <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#818cf8; font-weight:600; display:inline-block;">Google Maps</a>
-              <span style="color:#64748b;">|</span>
-              <a href="${directionsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#34d399; font-weight:600; display:inline-block;">Directions</a>
             </div>
           </div>
         `);
@@ -320,7 +371,6 @@ function MapComponent({
         });
 
         const mapsLink = `https://www.google.com/maps/search/?api=1&query=${sm.lat},${sm.lng}`;
-        const directionsLink = `https://www.google.com/maps/dir/?api=1&destination=${sm.lat},${sm.lng}&travelmode=walking`;
 
         const marker = L.marker([sm.lat, sm.lng], { icon: aiIcon })
           .bindPopup(`
@@ -334,8 +384,6 @@ function MapComponent({
               <p style="margin-bottom: 6px; font-size:11px; color:#cbd5e1; line-height:1.3;">${sm.description || 'Suggested area highlight.'}</p>
               <div style="display: flex; gap: 8px; margin-top: 6px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
                 <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:9.5px; text-decoration:none; color:#c084fc; font-weight:600;">Google Maps</a>
-                <span style="color:#475569;">|</span>
-                <a href="${directionsLink}" target="_blank" rel="noopener noreferrer" style="font-size:9.5px; text-decoration:none; color:#34d399; font-weight:600;">Directions</a>
               </div>
             </div>
           `);
@@ -343,6 +391,226 @@ function MapComponent({
         markerGroup.addLayer(marker);
       });
     }
+
+    // Process hotels and transits
+    const boundsLatLngs: [number, number][] = [...latlngs];
+
+    hotels.forEach(h => {
+      if (h.lat === undefined || h.lng === undefined || isNaN(h.lat) || isNaN(h.lng)) return;
+      boundsLatLngs.push([h.lat, h.lng]);
+      const statusColor = getStatusColor(h.status);
+      const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address || `${h.lat},${h.lng}`)}`;
+
+      const icon = L.divIcon({
+        className: 'custom-map-marker-hotel',
+        html: `
+          <div style="
+            position: relative;
+            width: 32px;
+            height: 32px;
+            background: ${statusColor};
+            border: 2px solid #ffffff;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 12px ${statusColor};
+            color: #ffffff;
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="16"/><line x1="15" y1="22" x2="15" y2="16"/><line x1="9" y1="16" x2="15" y2="16"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/></svg>
+            <div style="
+              position: absolute;
+              bottom: -6px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: #ffffff;
+              color: #0b0f19;
+              border: 1px solid ${statusColor};
+              border-radius: 4px;
+              padding: 1px 4px;
+              font-size: 8px;
+              font-weight: 800;
+              text-transform: uppercase;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              white-space: nowrap;
+            ">
+              Hotel
+            </div>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16]
+      });
+
+      const marker = L.marker([h.lat, h.lng], { icon })
+        .bindPopup(`
+          <div class="map-popup-card">
+            <h4 style="color:${statusColor}; font-size:12.5px; font-weight:700; margin-top:0; display:flex; align-items:center; gap:6px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="16"/><line x1="15" y1="22" x2="15" y2="16"/><line x1="9" y1="16" x2="15" y2="16"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/></svg>
+              ${h.name}
+            </h4>
+            ${h.address ? `<p style="margin-bottom:6px; font-size:11px; color:#cbd5e1; line-height:1.3;">${h.address}</p>` : ''}
+            <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Check-in: ${h.checkInDate} ${h.checkInTime || ''}
+            </p>
+            <p style="font-size:10px; color:#94a3b8; margin-bottom:8px; display:flex; align-items:center;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Check-out: ${h.checkOutDate} ${h.checkOutTime || ''}
+            </p>
+            ${h.confirmationNo ? `<p style="font-size:10px; color:#a78bfa; font-weight:600; margin-bottom:8px;">Conf #: ${h.confirmationNo}</p>` : ''}
+            <div style="display: flex; gap: 8px; margin-top: 8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+              <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#818cf8; font-weight:600; display:inline-block;">Google Maps</a>
+            </div>
+          </div>
+        `);
+      markerGroup.addLayer(marker);
+    });
+
+    transports.forEach(t => {
+      // Departure point
+      if (t.departureLat !== undefined && t.departureLng !== undefined && !isNaN(t.departureLat) && !isNaN(t.departureLng)) {
+        boundsLatLngs.push([t.departureLat, t.departureLng]);
+        const statusColor = getStatusColor(t.status);
+        const transitSvg = getTransitSvgIcon(t.type);
+        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`;
+
+        const icon = L.divIcon({
+          className: 'custom-map-marker-transit-dep',
+          html: `
+            <div style="
+              position: relative;
+              width: 32px;
+              height: 32px;
+              background: ${statusColor};
+              border: 2px solid #ffffff;
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 12px ${statusColor};
+              color: #ffffff;
+            ">
+              ${transitSvg}
+              <div style="
+                position: absolute;
+                bottom: -6px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #ffffff;
+                color: #0b0f19;
+                border: 1px solid ${statusColor};
+                border-radius: 4px;
+                padding: 1px 4px;
+                font-size: 8px;
+                font-weight: 800;
+                text-transform: uppercase;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                white-space: nowrap;
+              ">
+                DEP
+              </div>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -16]
+        });
+
+        const marker = L.marker([t.departureLat, t.departureLng], { icon })
+          .bindPopup(`
+            <div class="map-popup-card">
+              <h4 style="color:${statusColor}; font-size:12.5px; font-weight:700; margin-top:0; display:flex; align-items:center; gap:6px;">
+                <span style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${transitSvg}</span>
+                ${t.name || 'Transit'}
+              </h4>
+              <p style="margin-bottom:6px; font-size:11px; color:#cbd5e1; line-height:1.3;">Departure: ${t.departureLocationName}${t.departureAddress ? ` (${t.departureAddress})` : ''}</p>
+              <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Time: ${t.departureDate} ${t.departureTime} (${t.departureTimezone || 'UTC'})
+              </p>
+              ${t.carrier || t.transitCode ? `<p style="font-size:10px; color:#94a3b8; margin-bottom:4px;">Carrier: ${[t.carrier, t.transitCode].filter(Boolean).join(' · ')}</p>` : ''}
+              ${t.confirmationNo ? `<p style="font-size:10px; color:#a78bfa; font-weight:600; margin-bottom:8px;">Conf #: ${t.confirmationNo}</p>` : ''}
+              <div style="display: flex; gap: 8px; margin-top: 8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+                <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#818cf8; font-weight:600; display:inline-block;">Google Maps</a>
+              </div>
+            </div>
+          `);
+        markerGroup.addLayer(marker);
+      }
+
+      // Arrival point
+      if (t.arrivalLat !== undefined && t.arrivalLng !== undefined && !isNaN(t.arrivalLat) && !isNaN(t.arrivalLng)) {
+        boundsLatLngs.push([t.arrivalLat, t.arrivalLng]);
+        const statusColor = getStatusColor(t.status);
+        const transitSvg = getTransitSvgIcon(t.type);
+        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress || t.arrivalLocationName)}`;
+
+        const icon = L.divIcon({
+          className: 'custom-map-marker-transit-arr',
+          html: `
+            <div style="
+              position: relative;
+              width: 32px;
+              height: 32px;
+              background: ${statusColor};
+              border: 2px solid #ffffff;
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 12px ${statusColor};
+              color: #ffffff;
+            ">
+              ${transitSvg}
+              <div style="
+                position: absolute;
+                bottom: -6px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #ffffff;
+                color: #0b0f19;
+                border: 1px solid ${statusColor};
+                border-radius: 4px;
+                padding: 1px 4px;
+                font-size: 8px;
+                font-weight: 800;
+                text-transform: uppercase;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                white-space: nowrap;
+              ">
+                ARR
+              </div>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -16]
+        });
+
+        const marker = L.marker([t.arrivalLat, t.arrivalLng], { icon })
+          .bindPopup(`
+            <div class="map-popup-card">
+              <h4 style="color:${statusColor}; font-size:12.5px; font-weight:700; margin-top:0; display:flex; align-items:center; gap:6px;">
+                <span style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${transitSvg}</span>
+                ${t.name || 'Transit'}
+              </h4>
+              <p style="margin-bottom:6px; font-size:11px; color:#cbd5e1; line-height:1.3;">Arrival: ${t.arrivalLocationName}${t.arrivalAddress ? ` (${t.arrivalAddress})` : ''}</p>
+              <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Time: ${t.arrivalDate} ${t.arrivalTime} (${t.arrivalTimezone || 'UTC'})
+              </p>
+              ${t.carrier || t.transitCode ? `<p style="font-size:10px; color:#94a3b8; margin-bottom:4px;">Carrier: ${[t.carrier, t.transitCode].filter(Boolean).join(' · ')}</p>` : ''}
+              ${t.confirmationNo ? `<p style="font-size:10px; color:#a78bfa; font-weight:600; margin-bottom:8px;">Conf #: ${t.confirmationNo}</p>` : ''}
+              <div style="display: flex; gap: 8px; margin-top: 8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+                <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#818cf8; font-weight:600; display:inline-block;">Google Maps</a>
+              </div>
+            </div>
+          `);
+        markerGroup.addLayer(marker);
+      }
+    });
 
     // Render preview/pin-drop marker if available
     if (previewMarker && !isNaN(previewMarker.lat) && !isNaN(previewMarker.lng)) {
@@ -408,10 +676,10 @@ function MapComponent({
         }
       }
       // Scenario B: Active place was cleared, or day changed with no active place
-      else if ((activePlaceChanged && !activePlaceId) || (placesChanged && !activePlaceId)) {
-        if (places.length > 0) {
+      else if ((activePlaceChanged && !activePlaceId) || (placesChanged && !activePlaceId) || hotelsChanged || transportsChanged) {
+        if (boundsLatLngs.length > 0) {
           // Fit map view to see all scheduled places
-          const bounds = L.latLngBounds(latlngs);
+          const bounds = L.latLngBounds(boundsLatLngs);
           map.fitBounds(bounds, {
             padding: [60, 60],
             maxZoom: 16
@@ -431,8 +699,10 @@ function MapComponent({
     prevPlaceGroupsSerializedRef.current = placeGroupsSerialized;
     prevActivePlaceIdRef.current = activePlaceId;
     prevPreviewMarkerSerializedRef.current = previewMarkerSerialized;
+    prevHotelsSerializedRef.current = hotelsSerialized;
+    prevTransportsSerializedRef.current = transportsSerialized;
 
-  }, [places, activePlaceId, placeGroups, previewMarker]);
+  }, [places, activePlaceId, placeGroups, previewMarker, hotels, transports]);
 
   return (
     <div 

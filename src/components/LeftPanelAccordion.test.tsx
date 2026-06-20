@@ -107,6 +107,9 @@ describe('LeftPanelAccordion Component', () => {
         setExpandedHotelId={vi.fn()}
         expandedTransitId={null}
         setExpandedTransitId={vi.fn()}
+        onAddHotel={vi.fn()}
+        onAddTransit={vi.fn()}
+        onImportReservationFile={vi.fn()}
       />
     );
 

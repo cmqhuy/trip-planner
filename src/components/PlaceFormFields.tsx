@@ -117,7 +117,7 @@ export default function PlaceFormFields({
       <div className="place-form-left-col">
         <div className="form-group">
           <label className="place-form-label">
-            <span className="label-text">Place Title</span>
+            <span className="label-text">Place Title <span style={{ color: 'var(--color-danger)' }}>*</span></span>
             {undoBtn(title, savedValues?.title, () => setTitle(savedValues!.title!))}
           </label>
           <input
@@ -167,7 +167,7 @@ export default function PlaceFormFields({
 
         <div className="form-group">
           <label className="place-form-label">
-            <span className="label-text">Google Maps Link (Optional)</span>
+            <span className="label-text">Google Maps Link</span>
             {undoBtn(mapsLink, savedValues?.mapsLink, () => setMapsLink(savedValues!.mapsLink!))}
           </label>
           <input
@@ -180,7 +180,7 @@ export default function PlaceFormFields({
 
         <div className="form-group">
           <label className="place-form-label">
-            <span className="label-text">Hero Image Photo URL (Optional)</span>
+            <span className="label-text">Hero Image Photo URL</span>
             {undoBtn(photoUrl, savedValues?.photoUrl, () => setPhotoUrl(savedValues!.photoUrl!))}
           </label>
           <input
@@ -210,7 +210,7 @@ export default function PlaceFormFields({
         <div className="form-row">
           <div className="form-group">
             <label className="place-form-label">
-              <span className="label-text">Latitude (Optional)</span>
+              <span className="label-text">Latitude <span style={{ color: 'var(--color-danger)' }}>*</span></span>
               {undoBtn(lat, savedValues?.lat, () => setLat(savedValues!.lat!))}
             </label>
             <input
@@ -222,7 +222,7 @@ export default function PlaceFormFields({
           </div>
           <div className="form-group">
             <label className="place-form-label">
-              <span className="label-text">Longitude (Optional)</span>
+              <span className="label-text">Longitude <span style={{ color: 'var(--color-danger)' }}>*</span></span>
               {undoBtn(lng, savedValues?.lng, () => setLng(savedValues!.lng!))}
             </label>
             <input
