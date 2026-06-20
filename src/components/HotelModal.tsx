@@ -628,7 +628,7 @@ export default function HotelModal({
           isOpen={true}
           isAlert={true}
           title="Cannot Upload File"
-          message="You don't have write access to this trip's folder. Ask the trip owner to share the trip folder with you."
+          message="You don't have write access to this trip's folder. Please ask the trip owner to share the trip folder with you."
           onConfirm={() => setShowAccessError(false)}
           onCancel={() => setShowAccessError(false)}
         />
