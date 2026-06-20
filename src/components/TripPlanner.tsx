@@ -397,6 +397,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   // Mobile UI States
   const [activeMobileTab, setActiveMobileTab] = useState<'catalog' | 'itinerary' | 'map'>('itinerary');
   const [autoScheduleOnActiveDay, setAutoScheduleOnActiveDay] = useState(false);
+  const [pendingPlaceInsertIndex, setPendingPlaceInsertIndex] = useState<number | null>(null);
 
   const MOBILE_TABS: Array<'catalog' | 'itinerary' | 'map'> = ['catalog', 'itinerary', 'map'];
   const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
@@ -1271,6 +1272,26 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setPlaceSuggestions([]);
   }, [activeDayLocation]);
 
+  const handleOpenAddPlaceAtIndex = useCallback((insertAtIndex: number) => {
+    if (!activeDayLocation) return;
+    setSelectedCatalogLocId(activeDayLocation.id);
+    setEditingPlace({
+      id: `new-temp-${Date.now()}`,
+      title: '',
+      description: '',
+      openingHours: '',
+      lat: activeDayLocation.lat,
+      lng: activeDayLocation.lng,
+      placeGroupId: 'new',
+      notes: '',
+      photoUrl: '',
+      mapsLink: ''
+    });
+    setPendingPlaceInsertIndex(insertAtIndex);
+    setAutoScheduleOnActiveDay(true);
+    setShowCustomPlaceModal(true);
+  }, [activeDayLocation]);
+
   const handleCreateCustomPlace = (placeData: Omit<Place, 'id'>) => {
     if (!catalogLocation) return;
 
@@ -1296,8 +1317,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         if (p.id === activePlan.id) {
           const daysCopy = { ...p.days };
           const dayData = daysCopy[activeDayStr] ?? { dateStr: activeDayStr, placeIds: [], scheduleItems: [] };
-          const newItems = [...(dayData.scheduleItems || []), { type: 'place' as const, placeId: customId }];
-          daysCopy[activeDayStr] = updateDayItems(dayData, newItems);
+          const existingItems = [...(dayData.scheduleItems || [])];
+          const insertIdx = pendingPlaceInsertIndex !== null ? pendingPlaceInsertIndex : existingItems.length;
+          existingItems.splice(insertIdx, 0, { type: 'place' as const, placeId: customId });
+          daysCopy[activeDayStr] = updateDayItems(dayData, existingItems);
           return { ...p, days: daysCopy };
         }
         return p;
@@ -1310,6 +1333,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       plans: updatedPlans
     });
 
+    setPendingPlaceInsertIndex(null);
     setShowCustomPlaceModal(false);
   };
 
@@ -2328,6 +2352,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleSaveBabyLogistics={handleSaveBabyLogistics}
         handleClearDay={handleClearDay}
         handleAddPlaceFromDayTimeline={handleAddPlaceFromDayTimeline}
+        handleOpenAddPlaceAtIndex={handleOpenAddPlaceAtIndex}
         handleDayPlaceDragStart={handleDayPlaceDragStart}
         handleDayPlaceDrop={handleDayPlaceDrop}
         handleCatalogPlaceDropOnTimeline={handleCatalogPlaceDropOnTimeline}
@@ -2481,6 +2506,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           setShowCustomPlaceModal(false);
           setShowEditPlaceModal(false);
           setEditingPlace(null);
+          setPendingPlaceInsertIndex(null);
         }}
         place={editingPlace}
         catalogLocation={catalogLocation}

@@ -94,6 +94,7 @@ interface ItineraryPanelProps {
   handleSaveBabyLogistics: (dateStr: string, content: string) => void;
   handleClearDay: () => void;
   handleAddPlaceFromDayTimeline: (place: Omit<Place, 'placeGroupId'>) => void;
+  handleOpenAddPlaceAtIndex: (insertAtIndex: number) => void;
   handleDayPlaceDragStart: (index: number) => void;
   handleDayPlaceDrop: (targetIndex: number, position: 'top' | 'bottom') => void;
   handleCatalogPlaceDropOnTimeline: (placeId: string, targetIndex: number, position: 'top' | 'bottom') => void;
@@ -196,6 +197,7 @@ function ItineraryPanel({
   handleSaveBabyLogistics,
   handleClearDay,
   handleAddPlaceFromDayTimeline,
+  handleOpenAddPlaceAtIndex,
   handleDayPlaceDragStart,
   handleDayPlaceDrop,
   handleCatalogPlaceDropOnTimeline,
@@ -368,6 +370,16 @@ function ItineraryPanel({
         </button>
         {activeAddDropdownIndex === insertAtIndex && (
           <div className="schedule-add-dropdown dropdown-menu">
+            <button
+              className="dropdown-item"
+              onClick={e => {
+                e.stopPropagation();
+                setActiveAddDropdownIndex(null);
+                handleOpenAddPlaceAtIndex(insertAtIndex);
+              }}
+            >
+              <MapPin size={12} /> Add Place
+            </button>
             <button
               className="dropdown-item"
               onClick={e => {

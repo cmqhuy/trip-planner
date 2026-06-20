@@ -150,6 +150,7 @@ describe('ItineraryPanel Component', () => {
         handleSaveBabyLogistics={vi.fn()}
         handleClearDay={vi.fn()}
         handleAddPlaceFromDayTimeline={vi.fn()}
+        handleOpenAddPlaceAtIndex={vi.fn()}
         handleDayPlaceDragStart={vi.fn()}
         handleDayPlaceDrop={vi.fn()}
         handleCatalogPlaceDropOnTimeline={vi.fn()}
