@@ -313,7 +313,7 @@ function ChecklistSection({
             <div className="subsection-actions">
               {trip.canEdit !== false && (
                 <button
-                  className="mini-icon-btn flex-align checklist-ai-btn"
+                  className="panel-ai-action-btn checklist-ai-btn"
                   onClick={onGenerateTripChecklist}
                   disabled={generatingChecklist}
                 >
@@ -337,7 +337,7 @@ function ChecklistSection({
             ) : (
               <div className="checklist-empty-state">
                 <span className="subsection-subtitle checklist-empty-subtitle">
-                  No AI checklist generated.
+                  No AI checklist generated yet.
                 </span>
                 {trip.canEdit !== false && (
                   <button

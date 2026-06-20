@@ -555,11 +555,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 .form-group label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .form-row {
@@ -2449,21 +2455,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: rgba(239, 68, 68, 0.15);
 }
 
-/* Schedule note card padding (note cards use less vertical padding than place cards) */
 .schedule-note-card {
-  padding-top: 10px;
-  padding-bottom: 10px;
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  border-color: var(--border-glass);
-  cursor: default;
+  cursor: pointer;
   width: 100%;
-}
-
-/* Note cards don't use the [number][thumb][info] column layout — reset to block so content fills width */
-.schedule-note-card .timeline-card-content {
-  display: block;
 }
 
 /* Schedule item note text */
@@ -2791,7 +2788,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-content--no-padding::after { content: ''; display: block; height: 12px; flex-shrink: 0; }
 .accordion-content--catalog::before,
 .accordion-content--catalog::after { height: 0; }
-.catalog-header-row { display: flex; gap: 6px; align-items: center; }
+.catalog-header-row { display: flex; gap: 6px; align-items: center; width: 100%; }
 .catalog-ai-suggest-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #a78bfa; }
 .catalog-header-icon-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .catalog-groups-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -2800,7 +2797,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-hide-allocated-label { font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none; gap: 4px; }
 .catalog-add-group-btn { color: var(--accent-secondary); padding: 2px; }
 .group-dropdown-container { position: relative; display: inline-block; }
-.catalog-group-action-btn { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; }
+.catalog-group-action-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 6px; flex-shrink: 0; }
 .catalog-group-ai-btn { color: #a5b4fc; }
 .badge--count { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
 .catalog-places-list--mh { min-height: 30px; }
@@ -4184,3 +4181,169 @@ input[type="number"] { -moz-appearance: textfield; }
 .dual-map-toggle-btn { font-size: 11px; padding: 3px 10px; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); color: var(--text-muted); cursor: pointer; transition: all 0.15s ease; }
 .dual-map-toggle-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 .dual-map-toggle-btn.active { background: rgba(99,102,241,0.2); color: var(--accent-primary); border-color: rgba(99,102,241,0.4); }
+
+/* --- Unified UI Styles and Centering overrides --- */
+
+/* 1. Accordion & Panel Headers */
+.left-panel-header {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-ai-action-btn {
+  font-size: 10px;
+  padding: 2px 8px;
+  gap: 4px;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.12);
+  flex-shrink: 0;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+.panel-ai-action-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.panel-ai-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 2. Sizing and Padding for Timeline & Reservation Cards */
+.timeline-card,
+.hotel-card,
+.transport-card {
+  padding: 14px 16px !important;
+  border-radius: 12px !important;
+}
+
+/* 3. Centering Options Triggers */
+.plan-dropdown-container,
+.day-options-dropdown-container {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 4. Timeline Card Badge & Photo Alignment */
+.timeline-card-content {
+  align-items: flex-start !important;
+}
+
+/* 5. Unified Notes Style System */
+.notes-box {
+  margin: 8px 0;
+  padding: 6px 8px;
+  background: rgba(99, 102, 241, 0.04);
+  border-left: 2px solid var(--accent-primary);
+  border-radius: 0 4px 4px 0;
+}
+
+.notes-label {
+  font-size: 11px;
+  color: var(--accent-primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.notes-edit-btn {
+  margin-left: auto !important;
+}
+
+.notes-text-wrapper {
+  margin-top: 4px;
+  position: relative;
+}
+
+.notes-text {
+  font-size: 12.5px;
+  font-style: italic;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  text-transform: none;
+}
+
+.notes-text.has-content {
+  color: var(--accent-primary);
+}
+
+.notes-text.no-content {
+  color: var(--text-muted);
+}
+
+.notes-textarea {
+  width: 100%;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 6px;
+  font-size: 12.5px;
+  resize: vertical;
+  text-transform: none;
+}
+
+.notes-edit-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.notes-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  justify-content: flex-end;
+}
+
+/* 6. Undo Button */
+.undo-btn {
+  background: none !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  padding: 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color 0.15s ease !important;
+  margin-left: 6px !important;
+  flex-shrink: 0 !important;
+}
+.undo-btn:hover {
+  color: var(--accent-primary) !important;
+}
+
+/* 7. AI Dialog Checklist Item Alignment */
+.ai-list-row-body {
+  margin-left: 10px !important;
+}
+
+.ai-checkbox-icon-btn {
+  background: none !important;
+  border: none !important;
+  padding: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: color 0.15s ease !important;
+}
+

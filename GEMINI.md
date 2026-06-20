@@ -520,3 +520,33 @@ The "Fill Reservation Details with AI" button sends raw file bytes to the Gemini
 ```
 
 The handler guards `!isAiEnabled() || isManualMode()` and returns silently (button is already disabled — defense-in-depth only).
+
+---
+
+## Outside Click Dismissals & Custom Control Consistency
+
+### Modal & Dialog Dismissal
+
+- **All modal dialogs must close when clicking outside their content container.** The overlay wrapper (`.modal-overlay`) must trigger the `onClose` or cancel callback:
+  ```tsx
+  <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
+      {/* modal content */}
+    </div>
+  </div>
+  ```
+
+### Custom Dropdowns & Combo Boxes
+
+- **All custom selection dropdowns, option lists, and combo boxes must dismiss when the user clicks outside their area.**
+- Implement a `useEffect` with a `mousedown` or `click` listener checking if `ref.current` contains `event.target` (as documented in the **Dropdowns** section).
+- Any new custom dropdowns, combo boxes, or select lists must inherit the established styling system:
+  - Option items must use `className="combo-option"` (with optional `selected` class).
+  - Triggers must use `<ChevronDown />` rotated 180 degrees using CSS transition classes (e.g. `.expand-chevron.is-open`).
+  - Modal portals must use `createPortal(..., document.body)` with `.combo-dropdown--portal` or `.combo-dropdown--tz-portal` style overrides.
+
+### Custom Tooltips
+
+- **All tooltips must use the `data-tooltip` attribute.** Never use the native browser `title` attribute.
+- Tooltips are rendered as styled dark glassmorphic bubbles via the global `[data-tooltip]` selector.
+- Use `data-tooltip-position="bottom"` where dropdowns or UI bounds require bottom alignment.

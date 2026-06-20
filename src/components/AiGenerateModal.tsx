@@ -209,13 +209,12 @@ export default function AiGenerateModal({
                     >
                       <button
                         type="button"
-                        className="ai-checkbox-icon-btn"
-                        style={{ color: isChecked ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                        className={`ai-checkbox-icon-btn${isChecked ? ' selected' : ''}`}
                       >
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
 
-                      <div className="ai-list-row-body--no-margin">
+                      <div className="ai-list-row-body">
                         <span className="ai-list-item-title">
                           {p.title}
                         </span>

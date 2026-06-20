@@ -76,7 +76,7 @@ describe('TipsSection Component', () => {
       />
     );
 
-    expect(screen.getByText('No Local Essentials Reference guide generated yet.')).toBeInTheDocument();
+    expect(screen.getByText('No guide generated yet.')).toBeInTheDocument();
 
     const generateBtn = screen.getByRole('button', { name: 'Generate Tips' });
     expect(generateBtn).toBeInTheDocument();

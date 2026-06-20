@@ -5,13 +5,8 @@ import type { Hotel, Attachment } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
-import {
-  getOrCreateTripFileFolder,
-  uploadFile,
-  fetchFileContentFromDrive,
-  deleteFileFromDrive,
-  renameFolderInDrive,
-} from '../utils/googleDrive';
+import { fetchFileContentFromDrive } from '../utils/googleDrive';
+import { useDriveAttachments } from '../utils/useDriveAttachments';
 
 interface HotelModalProps {
   isOpen: boolean;
@@ -79,17 +74,33 @@ export default function HotelModal({
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [notes, setNotes] = useState('');
-  const [attachedFiles, setAttachments] = useState<Attachment[]>([]);
-  const [uploadingCount, setUploadingCount] = useState(0);
   const [isAiFilling, setIsAiFilling] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
-  const [removePrompt, setRemovePrompt] = useState<Attachment | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currencyTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const {
+    attachedFiles,
+    setAttachments,
+    uploadingCount,
+    removePrompt,
+    setRemovePrompt,
+    handleFileSelect,
+    handleRemoveChip,
+    confirmRemoveChip,
+  } = useDriveAttachments({
+    googleToken,
+    tripPlannerFolderId,
+    tripName,
+    tripFilesFolderId,
+    onFileFolderCreated,
+    initialAttachments: editingHotel?.attachments ?? [],
+    onSetAiError: setAiError,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -159,67 +170,6 @@ export default function HotelModal({
       attachments: attachedFiles,
     });
     onClose();
-  };
-
-  const resolveFilesFolderId = async (): Promise<string | null> => {
-    if (!googleToken) return null;
-    // If owner already has a files folder, use it directly (shared users upload there too)
-    if (tripFilesFolderId) return tripFilesFolderId;
-    if (!tripPlannerFolderId || !tripName) return null;
-    try {
-      const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-      onFileFolderCreated?.(folderId);
-      return folderId;
-    } catch {
-      return null;
-    }
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length || !googleToken) return;
-    e.target.value = '';
-
-    setUploadingCount(prev => prev + files.length);
-    const folderId = await resolveFilesFolderId();
-    if (!folderId) {
-      setUploadingCount(prev => prev - files.length);
-      setAiError('Could not create Drive folder. Make sure you are signed into Google.');
-      return;
-    }
-
-    for (const file of files) {
-      try {
-        const fileId = await uploadFile(googleToken, folderId, file);
-        setAttachments(prev => [...prev, { name: file.name, fileId }]);
-      } catch (err: any) {
-        if (err?.status === 403) {
-          setAiError(`No write access to the trip folder. Ask the trip owner to share the folder with you.`);
-        } else {
-          setAiError(`Failed to upload "${file.name}".`);
-        }
-      } finally {
-        setUploadingCount(prev => prev - 1);
-      }
-    }
-  };
-
-  const handleRemoveChip = (file: Attachment) => {
-    setRemovePrompt(file);
-  };
-
-  const confirmRemoveChip = async (action: 'delete' | 'archive' | 'keep') => {
-    if (!removePrompt) return;
-    const file = removePrompt;
-    setRemovePrompt(null);
-    if (action === 'delete' && googleToken) {
-      try { await deleteFileFromDrive(googleToken, file.fileId); } catch { /* ignore */ }
-    } else if (action === 'archive' && googleToken) {
-      try {
-        await renameFolderInDrive(googleToken, file.fileId, `[Archived] ${file.name}`);
-      } catch { /* ignore */ }
-    }
-    setAttachments(prev => prev.filter(f => f.fileId !== file.fileId));
   };
 
   const handleAiFill = async () => {
@@ -606,12 +556,16 @@ export default function HotelModal({
             </div>
             </div>
 
-            <div className="modal-actions">
-              {onDelete && editingHotel && (
-                <button type="button" className="btn-danger" style={{ marginRight: 'auto' }} onClick={onDelete}>Delete</button>
+            <div className="modal-actions modal-actions--between">
+              {editingHotel && onDelete && (
+                <button type="button" className="btn-danger flex-align" onClick={onDelete}>
+                  <Trash2 size={14} /> Delete Hotel
+                </button>
               )}
-              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-primary">Save</button>
+              <div className="modal-actions-right">
+                <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Hotel</button>
+              </div>
             </div>
           </form>
         </div>

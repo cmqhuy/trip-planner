@@ -26,7 +26,7 @@ export default function TipsSection({
   return (
     <>
       {/* Location Select — fixed above the scroll area, does not scroll */}
-      <div className="tips-location-header">
+      <div className="left-panel-header tips-location-header">
         <LocationSelect
           value={selectedCatalogLocId}
           onChange={setSelectedCatalogLocId}
@@ -42,7 +42,7 @@ export default function TipsSection({
           <div className="subsection-actions">
             {catalogLocation && trip.canEdit !== false && (
               <button
-                className="mini-icon-btn flex-align tips-regen-btn"
+                className="panel-ai-action-btn tips-regen-btn"
                 onClick={onGenerateLocalEssentials}
                 disabled={generatingLocalEssentials}
               >
@@ -70,7 +70,7 @@ export default function TipsSection({
           ) : (
             <div className="tips-empty-state">
               <span className="subsection-subtitle tips-empty-subtitle">
-                No Local Essentials Reference guide generated yet.
+                No guide generated yet.
               </span>
               {catalogLocation && trip.canEdit !== false && (
                 <button

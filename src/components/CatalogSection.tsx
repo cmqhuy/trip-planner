@@ -141,7 +141,7 @@ function CatalogSection({
   return (
     <>
       {/* Location picker — fixed above the scroll area, does not scroll */}
-      <div className="panel-header panel-header--catalog">
+      <div className="left-panel-header panel-header--catalog">
         <div className="catalog-header-row">
           <LocationSelect
             value={selectedCatalogLocId}
@@ -189,9 +189,9 @@ function CatalogSection({
       {catalogLocation ? (
         <div className="catalog-content catalog-content--no-padding">
           {/* Catalog Group Management */}
-          <div className="catalog-groups-header">
-            <span className="catalog-groups-label">Groups</span>
-            <div className="catalog-groups-right">
+          <div className="subsection-header catalog-groups-header">
+            <h4 className="subsection-title catalog-groups-label">Groups</h4>
+            <div className="subsection-actions catalog-groups-right">
               <label className="flex-align catalog-hide-allocated-label">
                 <input
                   type="checkbox"
@@ -279,7 +279,7 @@ function CatalogSection({
                           }}
                           data-tooltip={`AI Travel Guide for ${group.name}`}
                         >
-                          <Sparkles size={14} />
+                          <Sparkles size={12} />
                         </button>
 
                         <button
@@ -302,7 +302,7 @@ function CatalogSection({
                           }}
                           data-tooltip={`Add Place to ${group.name}`}
                         >
-                          <Plus size={14} />
+                          <Plus size={12} />
                         </button>
                       </>
                     )}
@@ -316,7 +316,7 @@ function CatalogSection({
                           }}
                           data-tooltip="Group Options"
                         >
-                          <MoreVertical size={14} />
+                          <MoreVertical size={12} />
                         </button>
                         {activeGroupDropdownId === group.id && (
                           <div className="dropdown-menu">
@@ -573,12 +573,12 @@ function CatalogSection({
                             {place.description && <p className="catalog-place-desc">{place.description}</p>}
 
                             {/* Notes Field (Shared at Trip level) */}
-                            <div className="catalog-notes-box">
-                              <label className="catalog-notes-label">
+                            <div className="notes-box">
+                              <label className="notes-label">
                                 <FileText size={11} /> Notes
                                 {trip.canEdit !== false && editingPlaceNotesId !== place.id && (
                                   <button
-                                    className="mini-icon-btn catalog-notes-edit-btn"
+                                    className="mini-icon-btn notes-edit-btn"
                                     onClick={() => startEditingNotes(place)}
                                     data-tooltip="Edit Note"
                                     aria-label="Edit Note"
@@ -589,15 +589,15 @@ function CatalogSection({
                               </label>
 
                               {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
-                                <div className="catalog-notes-edit-container">
+                                <div className="notes-edit-wrapper">
                                   <textarea
                                     value={tempNotes}
                                     onChange={(e) => setTempNotes(e.target.value)}
                                     placeholder="Add notes..."
                                     rows={3}
-                                    className="catalog-notes-textarea"
+                                    className="notes-textarea"
                                   />
-                                  <div className="catalog-notes-actions">
+                                  <div className="notes-actions">
                                     <button
                                       className="btn-secondary catalog-place-action-btn"
                                       onClick={() => setEditingPlaceNotesId(null)}
@@ -613,14 +613,7 @@ function CatalogSection({
                                   </div>
                                 </div>
                               ) : (
-                                <span style={{
-                                  fontStyle: 'italic',
-                                  color: place.notes ? 'var(--text-primary)' : 'var(--text-muted)',
-                                  whiteSpace: 'pre-wrap',
-                                  display: 'block',
-                                  lineHeight: 1.4,
-                                  fontSize: '12.5px'
-                                }}>
+                                <span className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
                                   {place.notes || 'No notes added yet.'}
                                 </span>
                               )}

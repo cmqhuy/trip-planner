@@ -9,13 +9,9 @@ import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABL
 import { CURRENCY_LIST } from '../utils/currencies';
 import { lookupTimezone } from '../utils/api';
 import DualMapPicker from './DualMapPicker';
-import {
-  getOrCreateTripFileFolder,
-  uploadFile,
-  fetchFileContentFromDrive,
-  deleteFileFromDrive,
-  renameFolderInDrive,
-} from '../utils/googleDrive';
+import { fetchFileContentFromDrive } from '../utils/googleDrive';
+import { useDriveAttachments } from '../utils/useDriveAttachments';
+import { ALL_TIMEZONES, getBrowserTimezone, formatTimezoneLabel } from '../utils/timezones';
 
 interface TransportModalProps {
   isOpen: boolean;
@@ -43,42 +39,6 @@ const TRANSPORT_TYPES: { value: Transportation['type']; label: string; Icon: Rea
   { value: 'ferry', label: 'Ferry', Icon: Anchor },
   { value: 'other', label: 'Other', Icon: Navigation },
 ];
-
-function getBrowserTimezone(): string {
-  try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return 'UTC'; }
-}
-
-function getUtcOffsetMinutes(tz: string): number {
-  try {
-    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' });
-    const offsetStr = fmt.formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value ?? '';
-    const m = offsetStr.match(/GMT([+-])(\d+)(?::(\d+))?/);
-    if (!m) return 0;
-    return (m[1] === '+' ? 1 : -1) * (parseInt(m[2]) * 60 + parseInt(m[3] ?? '0'));
-  } catch { return 0; }
-}
-
-function formatTimezoneLabel(tz: string): string {
-  const mins = getUtcOffsetMinutes(tz);
-  const sign = mins >= 0 ? '+' : '-';
-  const absMins = Math.abs(mins);
-  const h = String(Math.floor(absMins / 60)).padStart(2, '0');
-  const m = String(absMins % 60).padStart(2, '0');
-  return `(GMT${sign}${h}:${m}) ${tz}`;
-}
-
-const ALL_TIMEZONES: string[] = (() => {
-  try {
-    return [...(Intl as any).supportedValuesOf('timeZone') as string[]].sort(
-      (a, b) => getUtcOffsetMinutes(a) - getUtcOffsetMinutes(b)
-    );
-  } catch {
-    return [
-      'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-      'Europe/London', 'Europe/Paris', 'Asia/Kolkata', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney',
-    ];
-  }
-})();
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
@@ -144,12 +104,9 @@ export default function TransportModal({
   const [arrLat, setArrLat] = useState('');
   const [arrLng, setArrLng] = useState('');
   const [notes, setNotes] = useState('');
-  const [attachedFiles, setAttachments] = useState<Attachment[]>([]);
-  const [uploadingCount, setUploadingCount] = useState(0);
   const [isAiFilling, setIsAiFilling] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
-  const [removePrompt, setRemovePrompt] = useState<Attachment | null>(null);
 
   const [typeOpen, setTypeOpen] = useState(false);
   const [depTzOpen, setDepTzOpen] = useState(false);
@@ -166,6 +123,25 @@ export default function TransportModal({
   const [depTzPos, setDepTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [arrTzPos, setArrTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const {
+    attachedFiles,
+    setAttachments,
+    uploadingCount,
+    removePrompt,
+    setRemovePrompt,
+    handleFileSelect,
+    handleRemoveChip,
+    confirmRemoveChip,
+  } = useDriveAttachments({
+    googleToken,
+    tripPlannerFolderId,
+    tripName,
+    tripFilesFolderId,
+    onFileFolderCreated,
+    initialAttachments: editingTransport?.attachments ?? [],
+    onSetAiError: setAiError,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -275,59 +251,6 @@ export default function TransportModal({
       attachments: attachedFiles,
     });
     onClose();
-  };
-
-  const resolveFilesFolderId = async (): Promise<string | null> => {
-    if (!googleToken) return null;
-    // If owner already has a files folder, use it directly (shared users upload there too)
-    if (tripFilesFolderId) return tripFilesFolderId;
-    if (!tripPlannerFolderId || !tripName) return null;
-    try {
-      const folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-      onFileFolderCreated?.(folderId);
-      return folderId;
-    } catch { return null; }
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length || !googleToken) return;
-    e.target.value = '';
-    setUploadingCount(prev => prev + files.length);
-    const folderId = await resolveFilesFolderId();
-    if (!folderId) {
-      setUploadingCount(prev => prev - files.length);
-      setAiError('Could not create Drive folder. Make sure you are signed into Google.');
-      return;
-    }
-    for (const file of files) {
-      try {
-        const fileId = await uploadFile(googleToken, folderId, file);
-        setAttachments(prev => [...prev, { name: file.name, fileId }]);
-      } catch (err: any) {
-        if (err?.status === 403) {
-          setAiError(`No write access to the trip folder. Ask the trip owner to share the folder with you.`);
-        } else {
-          setAiError(`Failed to upload "${file.name}".`);
-        }
-      } finally {
-        setUploadingCount(prev => prev - 1);
-      }
-    }
-  };
-
-  const handleRemoveChip = (file: Attachment) => setRemovePrompt(file);
-
-  const confirmRemoveChip = async (action: 'delete' | 'archive' | 'keep') => {
-    if (!removePrompt) return;
-    const file = removePrompt;
-    setRemovePrompt(null);
-    if (action === 'delete' && googleToken) {
-      try { await deleteFileFromDrive(googleToken, file.fileId); } catch { /* ignore */ }
-    } else if (action === 'archive' && googleToken) {
-      try { await renameFolderInDrive(googleToken, file.fileId, `[Archived] ${file.name}`); } catch { /* ignore */ }
-    }
-    setAttachments(prev => prev.filter(f => f.fileId !== file.fileId));
   };
 
   const handleAiFill = async () => {
@@ -832,12 +755,16 @@ export default function TransportModal({
             </div>
             </div>
 
-            <div className="modal-actions">
+            <div className="modal-actions modal-actions--between">
               {onDelete && editingTransport && (
-                <button type="button" className="btn-danger" style={{ marginRight: 'auto' }} onClick={onDelete}>Delete</button>
+                <button type="button" className="btn-danger flex-align" onClick={onDelete}>
+                  <Trash2 size={14} /> Delete Transit
+                </button>
               )}
-              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-primary">Save</button>
+              <div className="modal-actions-right">
+                <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Transit</button>
+              </div>
             </div>
           </form>
         </div>

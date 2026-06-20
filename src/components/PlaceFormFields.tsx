@@ -104,8 +104,6 @@ export default function PlaceFormFields({
         onClick={onRestore}
         data-tooltip="Restore saved value"
         className="undo-btn"
-        onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-primary)')}
-        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
       >
         <RotateCcw size={11} />
       </button>

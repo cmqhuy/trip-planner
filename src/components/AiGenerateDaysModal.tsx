@@ -167,8 +167,7 @@ export default function AiGenerateDaysModal({
                     >
                       <button
                         type="button"
-                        className="ai-checkbox-icon-btn"
-                        style={{ color: isChecked ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                        className={`ai-checkbox-icon-btn${isChecked ? ' selected' : ''}`}
                       >
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>

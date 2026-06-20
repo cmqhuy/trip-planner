@@ -332,12 +332,12 @@ export default function ReservationsSection({
 
                   {/* Notes — always visible outside expandable */}
                   <div className="reservation-card-notes-wrap">
-                    <div className="catalog-notes-box">
-                      <label className="catalog-notes-label">
+                    <div className="notes-box">
+                      <label className="notes-label">
                         <FileText size={11} /> Notes
                         {trip.canEdit !== false && editingHotelNoteId !== h.id && (
                           <button
-                            className="mini-icon-btn catalog-notes-edit-btn"
+                            className="mini-icon-btn notes-edit-btn"
                             onClick={e => { e.stopPropagation(); setEditingHotelNoteId(h.id); setEditingNotesText(h.notes ?? ''); }}
                             data-tooltip="Edit notes"
                           >
@@ -346,23 +346,23 @@ export default function ReservationsSection({
                         )}
                       </label>
                       {editingHotelNoteId === h.id ? (
-                        <div className="catalog-notes-edit-container">
-                          <textarea
-                            className="catalog-notes-textarea"
-                            rows={3}
-                            value={editingNotesText}
-                            onChange={e => setEditingNotesText(e.target.value)}
-                            placeholder="Add notes..."
-                          />
-                          <div className="catalog-notes-actions">
-                            <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
-                            <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingNotesText); setEditingHotelNoteId(null); }}>
-                              <Check size={12} /> Save Notes
-                            </button>
-                          </div>
+                        <div className="notes-edit-wrapper">
+                           <textarea
+                             className="notes-textarea"
+                             rows={3}
+                             value={editingNotesText}
+                             onChange={e => setEditingNotesText(e.target.value)}
+                             placeholder="Add notes..."
+                           />
+                           <div className="notes-actions">
+                             <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
+                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingNotesText); setEditingHotelNoteId(null); }}>
+                               <Check size={12} /> Save Notes
+                             </button>
+                           </div>
                         </div>
                       ) : (
-                        <span style={{ fontStyle: 'italic', color: h.notes ? 'var(--text-primary)' : 'var(--text-muted)', whiteSpace: 'pre-wrap', display: 'block', lineHeight: 1.4, fontSize: '12.5px' }}>
+                        <span className={`notes-text ${h.notes ? 'has-content' : 'no-content'}`}>
                           {h.notes || 'No notes added yet.'}
                         </span>
                       )}
@@ -535,12 +535,12 @@ export default function ReservationsSection({
 
                   {/* Notes — always visible outside expandable */}
                   <div className="reservation-card-notes-wrap">
-                    <div className="catalog-notes-box">
-                      <label className="catalog-notes-label">
+                    <div className="notes-box">
+                      <label className="notes-label">
                         <FileText size={11} /> Notes
                         {trip.canEdit !== false && editingTransitNoteId !== t.id && (
                           <button
-                            className="mini-icon-btn catalog-notes-edit-btn"
+                            className="mini-icon-btn notes-edit-btn"
                             onClick={e => { e.stopPropagation(); setEditingTransitNoteId(t.id); setEditingNotesText(t.notes ?? ''); }}
                             data-tooltip="Edit notes"
                           >
@@ -549,23 +549,23 @@ export default function ReservationsSection({
                         )}
                       </label>
                       {editingTransitNoteId === t.id ? (
-                        <div className="catalog-notes-edit-container">
-                          <textarea
-                            className="catalog-notes-textarea"
-                            rows={3}
-                            value={editingNotesText}
-                            onChange={e => setEditingNotesText(e.target.value)}
-                            placeholder="Add notes..."
-                          />
-                          <div className="catalog-notes-actions">
-                            <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                            <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t, editingNotesText); setEditingTransitNoteId(null); }}>
-                              <Check size={12} /> Save Notes
-                            </button>
-                          </div>
+                        <div className="notes-edit-wrapper">
+                           <textarea
+                             className="notes-textarea"
+                             rows={3}
+                             value={editingNotesText}
+                             onChange={e => setEditingNotesText(e.target.value)}
+                             placeholder="Add notes..."
+                           />
+                           <div className="notes-actions">
+                             <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
+                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t, editingNotesText); setEditingTransitNoteId(null); }}>
+                               <Check size={12} /> Save Notes
+                             </button>
+                           </div>
                         </div>
                       ) : (
-                        <span style={{ fontStyle: 'italic', color: t.notes ? 'var(--text-primary)' : 'var(--text-muted)', whiteSpace: 'pre-wrap', display: 'block', lineHeight: 1.4, fontSize: '12.5px' }}>
+                        <span className={`notes-text ${t.notes ? 'has-content' : 'no-content'}`}>
                           {t.notes || 'No notes added yet.'}
                         </span>
                       )}
