@@ -724,7 +724,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-content {
   flex: 1;
   overflow: visible;
-  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -3538,8 +3537,7 @@ div.google-auth-avatar-desktop {
 
 /* Prevent horizontal scrollbars inside Left Panel */
 .left-panel-accordion,
-.accordion-content,
-.catalog-content {
+.accordion-content {
   overflow-x: hidden !important;
 }
 
