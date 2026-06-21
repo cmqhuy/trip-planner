@@ -1940,56 +1940,107 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       } else {
         const result = await GeminiService.generateTransitDetailsFromFilesWithRotation([fileData]);
 
-        let finalDepLat = result.departureLat;
-        let finalDepLng = result.departureLng;
-        if (result.departureAddress && finalDepLat === undefined && finalDepLng === undefined) {
-          try {
-            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.departureAddress)}&format=json&limit=1`;
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
-            const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
-            clearTimeout(timeout);
-            const data = await res.json();
-            if (data[0]) {
-              finalDepLat = parseFloat(data[0].lat);
-              finalDepLng = parseFloat(data[0].lon);
+        let segmentsList = [];
+        if (result.segments && result.segments.length > 0) {
+          segmentsList = await Promise.all(result.segments.map(async (seg: any, idx: number) => {
+            let finalDepLat = seg.departureLat;
+            let finalDepLng = seg.departureLng;
+            if (seg.departureAddress && finalDepLat === undefined && finalDepLng === undefined) {
+              try {
+                const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(seg.departureAddress)}&format=json&limit=1`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+                clearTimeout(timeout);
+                const data = await res.json();
+                if (data[0]) {
+                  finalDepLat = parseFloat(data[0].lat);
+                  finalDepLng = parseFloat(data[0].lon);
+                }
+              } catch (e) {
+                console.error('Departure geocoding fallback failed:', e);
+              }
             }
-          } catch (e) {
-            console.error('Departure geocoding fallback failed:', e);
-          }
-        }
 
-        let finalArrLat = result.arrivalLat;
-        let finalArrLng = result.arrivalLng;
-        if (result.arrivalAddress && finalArrLat === undefined && finalArrLng === undefined) {
-          try {
-            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.arrivalAddress)}&format=json&limit=1`;
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
-            const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
-            clearTimeout(timeout);
-            const data = await res.json();
-            if (data[0]) {
-              finalArrLat = parseFloat(data[0].lat);
-              finalArrLng = parseFloat(data[0].lon);
+            let finalArrLat = seg.arrivalLat;
+            let finalArrLng = seg.arrivalLng;
+            if (seg.arrivalAddress && finalArrLat === undefined && finalArrLng === undefined) {
+              try {
+                const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(seg.arrivalAddress)}&format=json&limit=1`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+                clearTimeout(timeout);
+                const data = await res.json();
+                if (data[0]) {
+                  finalArrLat = parseFloat(data[0].lat);
+                  finalArrLng = parseFloat(data[0].lon);
+                }
+              } catch (e) {
+                console.error('Arrival geocoding fallback failed:', e);
+              }
             }
-          } catch (e) {
-            console.error('Arrival geocoding fallback failed:', e);
-          }
-        }
 
-        const draftTransit: TransportationReservation = {
-          id: 'imported-draft',
-          name: result.name || `Transit ${file.name.substring(0, file.name.lastIndexOf('.'))}`,
-          type: (result.type as any) || 'flight',
-          confirmationNo: result.confirmationNo,
-          bookedThrough: result.bookedThrough,
-          price: result.price,
-          currency: result.price ? (result.currency || 'USD') : undefined,
-          notes: result.notes,
-          status: 'Planning',
-          attachments: attachment ? [attachment] : [],
-          segments: [{
+            return {
+              id: `imported-draft-seg-${idx}`,
+              carrier: seg.carrier,
+              transitCode: seg.transitCode,
+              departureLocationName: seg.departureLocationName || '',
+              departureAddress: seg.departureAddress,
+              departureDate: seg.departureDate || activeDayStr || daysList[0] || '',
+              departureTime: seg.departureTime || '12:00',
+              departureTimezone: seg.departureTimezone || 'UTC',
+              departureLat: finalDepLat,
+              departureLng: finalDepLng,
+              arrivalLocationName: seg.arrivalLocationName || '',
+              arrivalAddress: seg.arrivalAddress,
+              arrivalDate: seg.arrivalDate || activeDayStr || daysList[0] || '',
+              arrivalTime: seg.arrivalTime || '14:00',
+              arrivalTimezone: seg.arrivalTimezone || 'UTC',
+              arrivalLat: finalArrLat,
+              arrivalLng: finalArrLng,
+            };
+          }));
+        } else {
+          let finalDepLat = result.departureLat;
+          let finalDepLng = result.departureLng;
+          if (result.departureAddress && finalDepLat === undefined && finalDepLng === undefined) {
+            try {
+              const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.departureAddress)}&format=json&limit=1`;
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 5000);
+              const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+              clearTimeout(timeout);
+              const data = await res.json();
+              if (data[0]) {
+                finalDepLat = parseFloat(data[0].lat);
+                finalDepLng = parseFloat(data[0].lon);
+              }
+            } catch (e) {
+              console.error('Departure geocoding fallback failed:', e);
+            }
+          }
+
+          let finalArrLat = result.arrivalLat;
+          let finalArrLng = result.arrivalLng;
+          if (result.arrivalAddress && finalArrLat === undefined && finalArrLng === undefined) {
+            try {
+              const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.arrivalAddress)}&format=json&limit=1`;
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 5000);
+              const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+              clearTimeout(timeout);
+              const data = await res.json();
+              if (data[0]) {
+                finalArrLat = parseFloat(data[0].lat);
+                finalArrLng = parseFloat(data[0].lon);
+              }
+            } catch (e) {
+              console.error('Arrival geocoding fallback failed:', e);
+            }
+          }
+
+          segmentsList = [{
             id: `imported-draft-seg-0`,
             carrier: result.carrier,
             transitCode: result.transitCode,
@@ -2007,7 +2058,21 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
             arrivalTimezone: result.arrivalTimezone || 'UTC',
             arrivalLat: finalArrLat,
             arrivalLng: finalArrLng,
-          }]
+          }];
+        }
+
+        const draftTransit: TransportationReservation = {
+          id: 'imported-draft',
+          name: result.name || `Transit ${file.name.substring(0, file.name.lastIndexOf('.'))}`,
+          type: (result.type as any) || 'flight',
+          confirmationNo: result.confirmationNo,
+          bookedThrough: result.bookedThrough,
+          price: result.price,
+          currency: result.price ? (result.currency || 'USD') : undefined,
+          notes: result.notes,
+          status: 'Planning',
+          attachments: attachment ? [attachment] : [],
+          segments: segmentsList
         };
         setEditingTransport(draftTransit);
         setShowTransportModal(true);

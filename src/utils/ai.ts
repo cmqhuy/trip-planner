@@ -1270,11 +1270,21 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   // ── File-based reservation auto-fill ─────────────────────────────────────
 
   static buildHotelDetailsFromFilesPrompt(): string {
-    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a hotel reservation or booking confirmation. Extract the hotel details from these files and return them as JSON. Return only the fields you can confidently identify — leave any uncertain fields as empty strings. Do not guess or invent information that is not clearly visible in the provided files.`;
+    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a hotel reservation or booking confirmation. Extract the hotel details from these files and return them as JSON. For fields other than address, lat, and lng, return only the fields you can confidently identify from the files (leave uncertain fields as empty strings; do not guess or invent information not clearly visible). For address, lat, and lng: if they are not explicitly mentioned or clear in the files, you must search your knowledge base or infer the hotel's correct street address, latitude, and longitude based on the hotel name and city/region, and fill them in.`;
   }
 
   static buildTransitDetailsFromFilesPrompt(): string {
-    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a flight ticket, train booking, or other transit reservation. Extract the transit details from these files and return them as JSON. Return only the fields you can confidently identify — leave any uncertain fields as empty strings. Do not guess or invent information that is not clearly visible in the provided files. For departure and arrival times, use HH:MM (24-hour) format. For dates, use YYYY-MM-DD format. For timezone, use IANA timezone names (e.g. America/New_York) or offset strings (e.g. UTC+9). IMPORTANT: For the "name" field, use a route-based description derived from the departure and arrival locations (e.g. "Flight to Tokyo", "SFO → CDG", "Train to Paris") — do NOT use the passenger name printed on the ticket.`;
+    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a flight ticket, train booking, or other transit reservation. Extract the transit details from these files and return them as JSON matching the schema.
+
+IMPORTANT INSTRUCTIONS:
+1. MULTIPLE SEGMENTS: If the reservation contains multiple segments/legs (e.g. connecting flights, multi-stop train journeys, or round trips), extract ALL segments and list them in order under the "segments" array. If there is only one segment, place it in the "segments" array as a single element. Also fill in the top-level departure/arrival fields using the details of the first segment (or overall summary) for compatibility.
+2. MISSING DETAILS & HUB LOOKUP: For details like departure/arrival location names, addresses, coordinates (latitude/longitude), and timezones, if they are not explicitly present in the files, you MUST search your knowledge base or infer them:
+   - For airports (e.g., "SFO", "JFK", "HND") or major train stations, lookup and fill in the official location name, standard street address/location, precise latitude and longitude, and the correct local IANA timezone name (e.g., "America/New_York", "Asia/Tokyo") or offset (e.g., "UTC+9").
+   - Do not leave address, coordinates, or timezones empty if they can be determined/inferred from the airport codes, station names, or cities.
+3. FORMATS:
+   - Departure and arrival times must use HH:MM (24-hour) format.
+   - Dates must use YYYY-MM-DD format.
+4. NAME FIELD: For the "name" field at the top-level, use a route-based description derived from the departure and arrival locations of the trip (e.g. "Flight to Tokyo", "SFO → CDG", "Train to Paris") — do NOT use the passenger name printed on the ticket.`;
   }
 
   static async generateHotelDetailsFromFiles(
@@ -1372,6 +1382,24 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     name?: string; bookedThrough?: string; price?: number; currency?: string;
     departureAddress?: string; departureLat?: number; departureLng?: number;
     arrivalAddress?: string; arrivalLat?: number; arrivalLng?: number;
+    segments?: {
+      carrier?: string;
+      transitCode?: string;
+      departureLocationName?: string;
+      departureAddress?: string;
+      departureDate?: string;
+      departureTime?: string;
+      departureTimezone?: string;
+      departureLat?: number;
+      departureLng?: number;
+      arrivalLocationName?: string;
+      arrivalAddress?: string;
+      arrivalDate?: string;
+      arrivalTime?: string;
+      arrivalTimezone?: string;
+      arrivalLat?: number;
+      arrivalLng?: number;
+    }[];
   }> {
     const totalBase64Size = fileContents.reduce((sum, f) => sum + f.base64.length, 0);
     if (totalBase64Size > 10 * 1024 * 1024) {
@@ -1396,6 +1424,12 @@ Ensure coordinates are accurate and the places span a variety of types.`;
               type: 'OBJECT',
               properties: {
                 type: { type: 'STRING' },
+                name: { type: 'STRING' },
+                confirmationNo: { type: 'STRING' },
+                bookedThrough: { type: 'STRING' },
+                price: { type: 'NUMBER' },
+                currency: { type: 'STRING' },
+                notes: { type: 'STRING' },
                 departureLocationName: { type: 'STRING' },
                 arrivalLocationName: { type: 'STRING' },
                 departureDate: { type: 'STRING' },
@@ -1406,18 +1440,36 @@ Ensure coordinates are accurate and the places span a variety of types.`;
                 arrivalTimezone: { type: 'STRING' },
                 carrier: { type: 'STRING' },
                 transitCode: { type: 'STRING' },
-                confirmationNo: { type: 'STRING' },
-                notes: { type: 'STRING' },
-                name: { type: 'STRING' },
-                bookedThrough: { type: 'STRING' },
-                price: { type: 'NUMBER' },
-                currency: { type: 'STRING' },
                 departureAddress: { type: 'STRING' },
                 departureLat: { type: 'NUMBER' },
                 departureLng: { type: 'NUMBER' },
                 arrivalAddress: { type: 'STRING' },
                 arrivalLat: { type: 'NUMBER' },
                 arrivalLng: { type: 'NUMBER' },
+                segments: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      carrier: { type: 'STRING' },
+                      transitCode: { type: 'STRING' },
+                      departureLocationName: { type: 'STRING' },
+                      departureAddress: { type: 'STRING' },
+                      departureDate: { type: 'STRING' },
+                      departureTime: { type: 'STRING' },
+                      departureTimezone: { type: 'STRING' },
+                      departureLat: { type: 'NUMBER' },
+                      departureLng: { type: 'NUMBER' },
+                      arrivalLocationName: { type: 'STRING' },
+                      arrivalAddress: { type: 'STRING' },
+                      arrivalDate: { type: 'STRING' },
+                      arrivalTime: { type: 'STRING' },
+                      arrivalTimezone: { type: 'STRING' },
+                      arrivalLat: { type: 'NUMBER' },
+                      arrivalLng: { type: 'NUMBER' },
+                    }
+                  }
+                }
               },
             }
           }
@@ -1446,6 +1498,24 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     name?: string; bookedThrough?: string; price?: number; currency?: string;
     departureAddress?: string; departureLat?: number; departureLng?: number;
     arrivalAddress?: string; arrivalLat?: number; arrivalLng?: number;
+    segments?: {
+      carrier?: string;
+      transitCode?: string;
+      departureLocationName?: string;
+      departureAddress?: string;
+      departureDate?: string;
+      departureTime?: string;
+      departureTimezone?: string;
+      departureLat?: number;
+      departureLng?: number;
+      arrivalLocationName?: string;
+      arrivalAddress?: string;
+      arrivalDate?: string;
+      arrivalTime?: string;
+      arrivalTimezone?: string;
+      arrivalLat?: number;
+      arrivalLng?: number;
+    }[];
   }> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
@@ -1461,4 +1531,3 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     throw lastError || new Error('All configured API keys failed to execute.');
   }
 }
-
