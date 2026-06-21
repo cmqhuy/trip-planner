@@ -9,6 +9,7 @@ import {
 import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { getOptimizedImageUrl } from '../utils/image';
+import { sortHotels, sortTransports } from '../utils/dateUtils';
 import FunGeneratingLoader from './FunGeneratingLoader';
 import AiMarkdownSection from './AiMarkdownSection';
 import AiDetailsView from './AiDetailsView';
@@ -133,12 +134,6 @@ interface ItineraryPanelProps {
   onToggleNoHotel?: (dateStr: string, checked: boolean) => void;
 }
 
-const getReservationStatusPriority = (status?: string) => {
-  if (status === 'Confirmed') return 1;
-  if (status === 'Planning') return 2;
-  if (status === 'Canceled') return 3;
-  return 2; // Default to Planning/pending if missing/empty
-};
 
 function ItineraryPanel({
   trip,
@@ -900,15 +895,7 @@ function ItineraryPanel({
             })()}
 
             <div className="section-item-list">
-              {getHotelsForDay(activeDayStr)
-                .sort((a, b) => {
-                  const pA = getReservationStatusPriority(a.status);
-                  const pB = getReservationStatusPriority(b.status);
-                  if (pA !== pB) return pA - pB;
-                  const timeA = a.checkInTime || '';
-                  const timeB = b.checkInTime || '';
-                  return timeA.localeCompare(timeB);
-                })
+              {sortHotels(getHotelsForDay(activeDayStr))
                 .map(h => {
                   const isExpanded = expandedHotelId === h.id;
                   const isEditingNote = editingHotelNoteId === h.id;
@@ -1116,15 +1103,7 @@ function ItineraryPanel({
             })()}
 
             <div className="section-item-list">
-              {getTransportsForDay(activeDayStr)
-                .sort((a, b) => {
-                  const pA = getReservationStatusPriority(a.status);
-                  const pB = getReservationStatusPriority(b.status);
-                  if (pA !== pB) return pA - pB;
-                  const timeA = a.departureTime || '';
-                  const timeB = b.departureTime || '';
-                  return timeA.localeCompare(timeB);
-                })
+              {sortTransports(getTransportsForDay(activeDayStr))
                 .map(t => {
                   const isDeparture = t.departureDate === activeDayStr;
                   const isArrival = t.arrivalDate === activeDayStr;

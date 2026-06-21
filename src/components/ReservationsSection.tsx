@@ -9,6 +9,7 @@ import {
 import type { Trip, Plan, Hotel, Transportation } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
+import { sortHotels, sortTransports } from '../utils/dateUtils';
 
 interface ReservationsSectionProps {
   trip: Trip;
@@ -303,7 +304,7 @@ export default function ReservationsSection({
               </div>
             ))}
 
-            {activePlan.hotels.map(h => {
+            {sortHotels(activePlan.hotels).map(h => {
               const isExpanded = expandedHotelId === h.id;
               const locationName = getHotelLocationName(h);
               const isInRange = !!selectedDateStr && selectedDateStr >= h.checkInDate && selectedDateStr <= h.checkOutDate;
@@ -522,7 +523,7 @@ export default function ReservationsSection({
               </div>
             ))}
 
-            {activePlan.transports.map(t => {
+            {sortTransports(activePlan.transports).map(t => {
               const isExpanded = expandedTransitId === t.id;
               const transitName = t.name || `${t.departureLocationName} → ${t.arrivalLocationName}`;
               const hasOpenDropdown = openTransitMapId === t.id || openOptionsMenuId === t.id;

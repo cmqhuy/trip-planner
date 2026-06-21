@@ -1,4 +1,34 @@
-import type { Trip, PlanDay } from '../types';
+import type { Trip, PlanDay, Hotel, Transportation } from '../types';
+
+const RESERVATION_STATUS_PRIORITY: Record<string, number> = {
+  Confirmed: 1,
+  Planning: 2,
+  Canceled: 3,
+};
+
+function reservationStatusPriority(status?: string): number {
+  return RESERVATION_STATUS_PRIORITY[status ?? ''] ?? 2;
+}
+
+export function sortHotels(hotels: Hotel[]): Hotel[] {
+  return [...hotels].sort((a, b) => {
+    const sp = reservationStatusPriority(a.status) - reservationStatusPriority(b.status);
+    if (sp !== 0) return sp;
+    const dateA = `${a.checkInDate} ${a.checkInTime ?? ''}`;
+    const dateB = `${b.checkInDate} ${b.checkInTime ?? ''}`;
+    return dateA.localeCompare(dateB);
+  });
+}
+
+export function sortTransports(transports: Transportation[]): Transportation[] {
+  return [...transports].sort((a, b) => {
+    const sp = reservationStatusPriority(a.status) - reservationStatusPriority(b.status);
+    if (sp !== 0) return sp;
+    const dateA = `${a.departureDate} ${a.departureTime ?? ''}`;
+    const dateB = `${b.departureDate} ${b.departureTime ?? ''}`;
+    return dateA.localeCompare(dateB);
+  });
+}
 
 /**
  * Calculates the difference between two date strings (endStr - startStr) in full days.
