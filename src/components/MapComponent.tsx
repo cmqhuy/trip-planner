@@ -295,10 +295,10 @@ function MapComponent({
         })
         .bindPopup(`
           <div class="map-popup-card">
-            <h4>${place.title}</h4>
-            <p style="margin-bottom: 6px;">${place.description || 'No description available.'}</p>
-            ${place.openingHours ? `<p style="font-size:10px; color:#94a3b8; margin-bottom: 8px; display: flex; align-items: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; display: inline-block; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${place.openingHours}</p>` : ''}
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <h4 style="margin-top:0;">${place.title}</h4>
+            <p style="margin-bottom: 6px; font-size:11px; color:#94a3b8; line-height:1.3;">${place.description || 'No description available.'}</p>
+            ${place.openingHours ? `<p style="font-size:10px; color:#94a3b8; margin-bottom: 8px; display: flex; align-items: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; display: inline-block; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${place.openingHours}</p>` : ''}
+            <div style="display: flex; gap: 8px; margin-top: 8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
               <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#818cf8; font-weight:600; display:inline-block;">Google Maps</a>
             </div>
           </div>
@@ -446,11 +446,11 @@ function MapComponent({
       const marker = L.marker([h.lat, h.lng], { icon })
         .bindPopup(`
           <div class="map-popup-card">
-            <h4 style="color:${statusColor}; font-size:12.5px; font-weight:700; margin-top:0; display:flex; align-items:center; gap:6px;">
+            <h4 style="color:${statusColor}; margin-top:0; display:flex; align-items:center; gap:6px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="16"/><line x1="15" y1="22" x2="15" y2="16"/><line x1="9" y1="16" x2="15" y2="16"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/></svg>
               ${h.name}
             </h4>
-            ${h.address ? `<p style="margin-bottom:6px; font-size:11px; color:#cbd5e1; line-height:1.3;">${h.address}</p>` : ''}
+            ${h.address ? `<p style="margin-bottom:6px; font-size:11px; color:#94a3b8; line-height:1.3;">${h.address}</p>` : ''}
             <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               Check-in: ${h.checkInDate} ${h.checkInTime || ''}
@@ -521,11 +521,11 @@ function MapComponent({
         const marker = L.marker([t.departureLat, t.departureLng], { icon })
           .bindPopup(`
             <div class="map-popup-card">
-              <h4 style="color:${statusColor}; font-size:12.5px; font-weight:700; margin-top:0; display:flex; align-items:center; gap:6px;">
+              <h4 style="color:${statusColor}; margin-top:0; display:flex; align-items:center; gap:6px;">
                 <span style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${transitSvg}</span>
                 ${t.name || 'Transit'}
               </h4>
-              <p style="margin-bottom:6px; font-size:11px; color:#cbd5e1; line-height:1.3;">Departure: ${t.departureLocationName}${t.departureAddress ? ` (${t.departureAddress})` : ''}</p>
+              <p style="margin-bottom:6px; font-size:11px; color:#94a3b8; line-height:1.3;">Departure: ${t.departureLocationName}${t.departureAddress ? ` (${t.departureAddress})` : ''}</p>
               <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Time: ${t.departureDate} ${t.departureTime} (${t.departureTimezone || 'UTC'})
@@ -592,11 +592,11 @@ function MapComponent({
         const marker = L.marker([t.arrivalLat, t.arrivalLng], { icon })
           .bindPopup(`
             <div class="map-popup-card">
-              <h4 style="color:${statusColor}; font-size:12.5px; font-weight:700; margin-top:0; display:flex; align-items:center; gap:6px;">
+              <h4 style="color:${statusColor}; margin-top:0; display:flex; align-items:center; gap:6px;">
                 <span style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${transitSvg}</span>
                 ${t.name || 'Transit'}
               </h4>
-              <p style="margin-bottom:6px; font-size:11px; color:#cbd5e1; line-height:1.3;">Arrival: ${t.arrivalLocationName}${t.arrivalAddress ? ` (${t.arrivalAddress})` : ''}</p>
+              <p style="margin-bottom:6px; font-size:11px; color:#94a3b8; line-height:1.3;">Arrival: ${t.arrivalLocationName}${t.arrivalAddress ? ` (${t.arrivalAddress})` : ''}</p>
               <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Time: ${t.arrivalDate} ${t.arrivalTime} (${t.arrivalTimezone || 'UTC'})

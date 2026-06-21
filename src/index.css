@@ -1331,6 +1331,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .map-popup-card h4 {
   font-size: 14px;
   font-weight: 600;
+  margin-top: 0;
   margin-bottom: 4px;
 }
 
@@ -4424,6 +4425,7 @@ input[type="number"] { -moz-appearance: textfield; }
   height: 16px;
   border-radius: 50%;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -4447,6 +4449,36 @@ input[type="number"] { -moz-appearance: textfield; }
   background: rgba(156, 163, 175, 0.12);
   border: 1px solid rgba(156, 163, 175, 0.25);
   color: #9ca3af;
+}
+
+.reservation-status-text-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  width: fit-content;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+.reservation-status-text-badge.reservation-status-badge--confirmed {
+  background: rgba(34, 197, 94, 0.35);
+  border-color: #4ade80;
+}
+.reservation-status-text-badge.reservation-status-badge--planning {
+  background: rgba(234, 179, 8, 0.35);
+  border-color: #facc15;
+}
+.reservation-status-text-badge.reservation-status-badge--canceled {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+.place-title-row .reservation-status-badge {
+  margin-right: 4px;
 }
 
 /* Reservation Import Loader overlay */

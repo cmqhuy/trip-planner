@@ -373,7 +373,7 @@ export default function ReservationsSection({
                       </div>
                     </div>
                     <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, marginTop: '4px' }}>
-                      <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ flex: 1, minWidth: 0 }}>{h.name}</h4>
+                      <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ minWidth: 0 }}>{h.name}</h4>
                       <span
                         className={`reservation-status-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}
                         data-tooltip={h.status || 'Planning'}
@@ -408,6 +408,9 @@ export default function ReservationsSection({
                             <span className="place-desc-text">{h.confirmationNo}</span>
                           </div>
                         )}
+                        <span className={`reservation-status-text-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}>
+                          {h.status || 'Planning'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -611,7 +614,7 @@ export default function ReservationsSection({
                       </div>
                     </div>
                     <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, marginTop: '4px' }}>
-                      <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ flex: 1, minWidth: 0 }}>{transitName}</h4>
+                      <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ minWidth: 0 }}>{transitName}</h4>
                       <span
                         className={`reservation-status-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}
                         data-tooltip={t.status || 'Planning'}
@@ -664,6 +667,9 @@ export default function ReservationsSection({
                             <span className="place-desc-text">Arrival: {t.arrivalAddress}</span>
                           </a>
                         )}
+                        <span className={`reservation-status-text-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}>
+                          {t.status || 'Planning'}
+                        </span>
                       </div>
                     </div>
                   </div>

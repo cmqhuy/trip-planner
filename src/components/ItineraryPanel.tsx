@@ -997,6 +997,9 @@ function ItineraryPanel({
                               <Hash size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.confirmationNo}
                             </p>
                           )}
+                          <span className={`reservation-status-text-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}>
+                            {h.status || 'Planning'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1271,6 +1274,9 @@ function ItineraryPanel({
                               <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arrival: {t.arrivalAddress}
                             </a>
                           )}
+                          <span className={`reservation-status-text-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}>
+                            {t.status || 'Planning'}
+                          </span>
                         </div>
                       </div>
                     </div>
