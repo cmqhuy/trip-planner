@@ -850,7 +850,7 @@ function ItineraryPanel({
               <div className="timeline-section-actions" style={{ gap: '12px' }}>
                 {trip.canEdit !== false && (
                   <>
-                    <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', gap: '5px', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                    <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', gap: '5px', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <input
                         type="checkbox"
                         checked={!!activePlan.days[activeDayStr]?.noHotel}

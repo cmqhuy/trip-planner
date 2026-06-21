@@ -784,15 +784,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-place-card {
   padding: 12px;
   border-radius: 8px;
-  background: rgba(30, 41, 59, 0.2);
+  background: rgba(30, 41, 59, 0.45);
   border: 1px solid var(--border-glass);
   transition: border-color 0.25s ease, background-color 0.25s ease;
   cursor: grab;
 }
 
 .catalog-place-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(30, 41, 59, 0.35);
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(30, 41, 59, 0.60);
 }
 
 /* Dragging preview/ghost isolation styles to prevent sibling/overflow content bleed */
@@ -1147,29 +1147,36 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 
 .timeline-card:hover {
   border-color: rgba(99, 102, 241, 0.35) !important;
   box-shadow: 0 6px 16px rgba(99, 102, 241, 0.1);
+  background: rgba(30, 41, 59, 0.60);
 }
 
 /* Day Transports */
 .transport-card {
   padding: 14px 18px;
   border-radius: 10px;
-  background: rgba(245, 158, 11, 0.05);
-  border: 1px solid rgba(245, 158, 11, 0.15);
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid var(--border-glass);
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 
 .transport-card:hover {
   border-color: rgba(245, 158, 11, 0.35) !important;
   box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1);
+  background: rgba(30, 41, 59, 0.60);
+}
+.transport-card.reservation-card--expanded:hover {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1);
+  background: rgba(30, 41, 59, 0.60);
 }
 
 .transport-card-body {
@@ -1226,17 +1233,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .hotel-card {
   padding: 14px 18px;
   border-radius: 10px;
-  background: rgba(16, 185, 129, 0.05);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid var(--border-glass);
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 
 .hotel-card:hover {
   border-color: rgba(16, 185, 129, 0.35) !important;
   box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1);
+  background: rgba(30, 41, 59, 0.60);
 }
 
 .hotel-card-body {
@@ -2685,16 +2693,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .ai-day-assistant-card {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-radius: 12px;
-  transition: var(--transition-smooth);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
   padding: 12px 14px;
   margin: 0;
-  border-color: rgba(99, 102, 241, 0.15);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(139, 92, 246, 0.02) 100%);
+  background: rgba(30, 41, 59, 0.45);
 }
 
 .ai-day-assistant-card:hover {
   border-color: rgba(99, 102, 241, 0.35) !important;
   box-shadow: 0 6px 16px rgba(99, 102, 241, 0.1);
+  background: rgba(30, 41, 59, 0.60);
 }
 
 .ai-checklist-markdown { text-transform: none; display: flex; flex-direction: column; }
@@ -2849,7 +2857,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .catalog-groups-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .catalog-groups-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
 .catalog-groups-right { display: flex; align-items: center; gap: 12px; }
-.catalog-hide-allocated-label { font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none; gap: 4px; }
+.catalog-hide-allocated-label { font-size: 11px; color: var(--text-secondary); cursor: pointer; user-select: none; gap: 4px; }
 .catalog-add-group-btn { color: var(--accent-secondary); padding: 2px; }
 .group-dropdown-container { position: relative; display: inline-block; }
 .catalog-group-action-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 6px; flex-shrink: 0; }
@@ -2918,7 +2926,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .timeline-place-number { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.08); color: var(--text-primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 .timeline-place-number--ai { background: rgba(167,139,250,0.2); color: #c4b5fd; }
 .place-title-text { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
-.place-desc-text { font-size: 13px; color: var(--text-muted); }
+.place-desc-text { font-size: 13px; color: var(--text-secondary); }
 .place-notes-btn-wrapper { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .place-notes-textarea { padding: 6px; font-size: 12.5px; width: 100%; background: var(--bg-dark); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; text-transform: none; }
 .place-notes-actions { display: flex; gap: 6px; align-self: flex-end; }
@@ -4054,7 +4062,17 @@ div.google-auth-avatar-desktop {
 .reservations-inner { display: flex; flex-direction: column; }
 .reservation-card { padding: 8px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: border-color 0.25s ease, background-color 0.25s ease; position: relative; z-index: 0; }
 .reservation-card:hover { border-color: rgba(255, 255, 255, 0.15); background: rgba(30, 41, 59, 0.35); z-index: 10; }
-.reservation-card--expanded { box-shadow: 0 0 0 1px var(--accent-primary), 0 0 10px rgba(99, 102, 241, 0.25); }
+.reservation-card--hotel { background: rgba(30, 41, 59, 0.45); }
+.reservation-card--hotel:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(16, 185, 129, 0.35); }
+.reservation-card--transit { background: rgba(30, 41, 59, 0.45); }
+.reservation-card--transit:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(245, 158, 11, 0.35); }
+.reservation-card--hotel.reservation-card--expanded,
+.hotel-card.reservation-card--expanded { box-shadow: 0 0 0 1px #4ade80, 0 0 10px rgba(34, 197, 94, 0.2); }
+.reservation-card--transit.reservation-card--expanded,
+.transport-card.reservation-card--expanded { box-shadow: 0 0 0 1px #fb923c, 0 0 10px rgba(249, 115, 22, 0.2); }
+.reservation-card--hotel.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 0 0 1px #4ade80, 0 0 10px rgba(34, 197, 94, 0.2); }
+.reservation-card--transit.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(245, 158, 11, 0.35); box-shadow: 0 0 0 1px #fb923c, 0 0 10px rgba(249, 115, 22, 0.2); }
+.hotel-card.reservation-card--expanded:hover { border-color: rgba(16, 185, 129, 0.35) !important; background: rgba(30, 41, 59, 0.60); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1); }
 .reservation-card--clickable { cursor: pointer; }
 .reservation-card-title { font-size: 12px; color: var(--text-primary); }
 .reservation-card-meta { font-size: 10px; color: var(--text-secondary); display: block; margin-top: 2px; }

@@ -309,7 +309,7 @@ export default function ReservationsSection({
               return (
                 <div
                   key={h.id}
-                  className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${openOptionsMenuId === h.id ? ' dropdown-active' : ''}`}
+                  className={`glass-panel reservation-card reservation-card--hotel reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${openOptionsMenuId === h.id ? ' dropdown-active' : ''}`}
                 >
                   {/* Always-visible header */}
                   <div
@@ -532,7 +532,7 @@ export default function ReservationsSection({
               return (
                 <div
                   key={t.id}
-                  className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${hasOpenDropdown ? ' dropdown-active' : ''}`}
+                  className={`glass-panel reservation-card reservation-card--transit reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${hasOpenDropdown ? ' dropdown-active' : ''}`}
                 >
                   {/* Always-visible header */}
                   <div
