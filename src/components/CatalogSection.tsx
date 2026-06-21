@@ -379,7 +379,7 @@ function CatalogSection({
                         }} />
                       )}
                       <div
-                        className={`catalog-place-card ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
+                        className={`catalog-place-card ${activePlaceId === place.id ? 'catalog-place-card--active' : ''} ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                         draggable={trip.canEdit !== false}
                         onDragStart={(e) => {
                           handlePlaceDragStart(place.id);

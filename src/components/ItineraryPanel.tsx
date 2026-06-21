@@ -1726,7 +1726,7 @@ function ItineraryPanel({
                               <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
                             )}
                             <div
-                              className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+                              className={`timeline-card glass-panel timeline-place-card ${activePlaceId === place.id ? 'timeline-place-card--active' : ''} ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
                               data-place-id={place.id}
                               draggable={canEdit}
                               onDragStart={(e) => {
@@ -1758,7 +1758,6 @@ function ItineraryPanel({
                                 setDragOverDayPlaceIndex(null);
                               }}
                               onClick={() => setActivePlaceId(activePlaceId === place!.id ? undefined : place!.id)}
-                              style={{ borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)' }}
                             >
                               <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.color || '#6b7280' }}>
                                 {getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
