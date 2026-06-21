@@ -7,7 +7,7 @@ import {
   ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
-import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink } from '../utils/api';
+import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { getOptimizedImageUrl } from '../utils/image';
 import FunGeneratingLoader from './FunGeneratingLoader';
 import AiMarkdownSection from './AiMarkdownSection';
@@ -920,14 +920,12 @@ function ItineraryPanel({
                         <div className="hotel-icon-wrapper">
                           <Building size={16} />
                         </div>
-                        {h.address && (
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn-secondary timeline-place-map-link"
-                          >Map</a>
-                        )}
+                        <a
+                          href={buildHotelMapsLink(h)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-secondary timeline-place-map-link"
+                        >Map</a>
                       </div>
                       <div className="hotel-text-col" style={{ flex: 1, minWidth: 0 }}>
                         <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -980,18 +978,16 @@ function ItineraryPanel({
                     <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                       <div>
                         <div className="card-expanded-inner">
-                          {h.address && (
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="place-desc-text"
-                              style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.address}
-                            </a>
-                          )}
+                          <a
+                            href={buildHotelMapsLink(h)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="place-desc-text"
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.address || h.name}
+                          </a>
                           <div className="reservation-card-field-row">
                             {h.confirmationNo && (
                               <>
@@ -1160,10 +1156,10 @@ function ItineraryPanel({
                           >Map</button>
                           {openMapMenuId === t.id && (
                             <div className="dropdown-menu dropdown-menu--left">
-                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
+                              <button className="dropdown-item" onClick={() => { window.open(buildTransitMapsLink(t.departureLocationName, t.departureAddress), '_blank'); setOpenMapMenuId(null); }}>
                                 <ArrowUpRight size={12} /> {t.departureLocationName}
                               </button>
-                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress || t.arrivalLocationName)}`, '_blank'); setOpenMapMenuId(null); }}>
+                              <button className="dropdown-item" onClick={() => { window.open(buildTransitMapsLink(t.arrivalLocationName, t.arrivalAddress), '_blank'); setOpenMapMenuId(null); }}>
                                 <ArrowDownLeft size={12} /> {t.arrivalLocationName}
                               </button>
                             </div>
@@ -1259,30 +1255,26 @@ function ItineraryPanel({
                               {t.status || 'Planning'}
                             </span>
                           </div>
-                          {t.departureAddress && (
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="place-desc-text"
-                              style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <ArrowUpRight size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Departure: {t.departureAddress}
-                            </a>
-                          )}
-                          {t.arrivalAddress && (
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="place-desc-text"
-                              style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arrival: {t.arrivalAddress}
-                            </a>
-                          )}
+                          <a
+                            href={buildTransitMapsLink(t.departureLocationName, t.departureAddress)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="place-desc-text"
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <ArrowUpRight size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Departure: {t.departureAddress || t.departureLocationName}
+                          </a>
+                          <a
+                            href={buildTransitMapsLink(t.arrivalLocationName, t.arrivalAddress)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="place-desc-text"
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arrival: {t.arrivalAddress || t.arrivalLocationName}
+                          </a>
                         </div>
                       </div>
                     </div>

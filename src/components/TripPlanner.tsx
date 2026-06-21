@@ -2583,6 +2583,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           activeMobileTab={activeMobileTab}
           hotels={getHotelsForDay(activeDayStr).filter(h => h.status !== 'Canceled')}
           transports={getTransportsForDay(activeDayStr).filter(t => t.status !== 'Canceled')}
+          locations={trip.locations}
         />
       </div>
 

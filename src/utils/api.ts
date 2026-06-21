@@ -491,6 +491,20 @@ export const buildMapsLink = (title: string, _lat: number, _lng: number, city?: 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 };
 
+export const buildHotelMapsLink = (hotel: { name: string; address?: string; lat?: number; lng?: number }): string => {
+  const query = hotel.address
+    ? `${hotel.name} ${hotel.address}`
+    : hotel.lat != null && hotel.lng != null
+      ? `${hotel.name} ${hotel.lat},${hotel.lng}`
+      : hotel.name;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+};
+
+export const buildTransitMapsLink = (locationName: string, address?: string): string => {
+  const query = address ? `${locationName} ${address}`.trim() : locationName;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+};
+
 export const getFormattedLocationName = (loc: Location, allLocations: Location[]) => {
   const countries = new Set(allLocations.map(l => l.country.toLowerCase()));
   const isMultiCountry = countries.size > 1;

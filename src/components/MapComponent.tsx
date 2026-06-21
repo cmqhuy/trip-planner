@@ -1,7 +1,8 @@
 import { useEffect, useRef, memo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { Place, PlaceGroup, Hotel, Transportation } from '../types';
+import type { Place, PlaceGroup, Hotel, Transportation, Location } from '../types';
+import { buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 
 interface MapComponentProps {
   places: Place[];
@@ -13,6 +14,7 @@ interface MapComponentProps {
   activeMobileTab?: string;
   hotels?: Hotel[];
   transports?: Transportation[];
+  locations?: Location[];
 }
 
 // Helpers for serializing to determine semantic value changes
@@ -93,7 +95,8 @@ function MapComponent({
   onPlaceSelect,
   activeMobileTab,
   hotels = [],
-  transports = []
+  transports = [],
+  locations = []
 }: MapComponentProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -220,7 +223,14 @@ function MapComponent({
 
     // Process places marker positioning
     const latlngs: [number, number][] = [];
-    
+
+    const placeCity: Record<string, string> = {};
+    for (const loc of locations) {
+      for (const p of loc.places) {
+        placeCity[p.id] = loc.city;
+      }
+    }
+
     places.forEach((place, index) => {
       latlngs.push([place.lat, place.lng]);
 
@@ -285,7 +295,7 @@ function MapComponent({
         popupAnchor: [0, -16]
       });
 
-      const mapsLink = place.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.title)}`;
+      const mapsLink = place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, placeCity[place.id]);
 
       const marker = L.marker([place.lat, place.lng], { icon })
         .on('click', () => {
@@ -399,7 +409,7 @@ function MapComponent({
       if (h.lat === undefined || h.lng === undefined || isNaN(h.lat) || isNaN(h.lng)) return;
       boundsLatLngs.push([h.lat, h.lng]);
       const statusColor = getStatusColor(h.status);
-      const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address || `${h.lat},${h.lng}`)}`;
+      const mapsLink = buildHotelMapsLink(h);
 
       const icon = L.divIcon({
         className: 'custom-map-marker-hotel',
@@ -474,7 +484,7 @@ function MapComponent({
         boundsLatLngs.push([t.departureLat, t.departureLng]);
         const statusColor = getStatusColor(t.status);
         const transitSvg = getTransitSvgIcon(t.type);
-        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`;
+        const mapsLink = buildTransitMapsLink(t.departureLocationName, t.departureAddress);
 
         const icon = L.divIcon({
           className: 'custom-map-marker-transit-dep',
@@ -545,7 +555,7 @@ function MapComponent({
         boundsLatLngs.push([t.arrivalLat, t.arrivalLng]);
         const statusColor = getStatusColor(t.status);
         const transitSvg = getTransitSvgIcon(t.type);
-        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress || t.arrivalLocationName)}`;
+        const mapsLink = buildTransitMapsLink(t.arrivalLocationName, t.arrivalAddress);
 
         const icon = L.divIcon({
           className: 'custom-map-marker-transit-arr',

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { Trip, Plan, Hotel, Transportation } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
+import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 
 interface ReservationsSectionProps {
   trip: Trip;
@@ -330,17 +331,15 @@ export default function ReservationsSection({
                             {shortDate(h.checkOutDate)}
                           </span>
                         </div>
-                        {(h.address || (h.lat != null && h.lng != null)) && (
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address || `${h.lat},${h.lng}`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mini-icon-btn"
-                            data-tooltip="Open in Maps"
+                        <a
+                          href={buildHotelMapsLink(h)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mini-icon-btn"
+                          data-tooltip="Open in Maps"
                           >
                             <MapPin size={14} />
                           </a>
-                        )}
                         <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
@@ -389,19 +388,17 @@ export default function ReservationsSection({
                   <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                     <div>
                       <div className="reservation-card-expanded-content">
-                        {h.address && (
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="reservation-card-field-row"
-                            style={{ color: 'inherit', textDecoration: 'none' }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <MapPin size={11} />
-                            <span className="place-desc-text">{h.address}</span>
-                          </a>
-                        )}
+                        <a
+                          href={buildHotelMapsLink(h)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="reservation-card-field-row"
+                          style={{ color: 'inherit', textDecoration: 'none' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <MapPin size={11} />
+                          <span className="place-desc-text">{h.address || h.name}</span>
+                        </a>
                         <div className="reservation-card-field-row">
                           {h.confirmationNo && (
                             <>
@@ -567,10 +564,10 @@ export default function ReservationsSection({
                           </button>
                           {openTransitMapId === t.id && (
                             <div className="dropdown-menu dropdown-menu--right">
-                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress || t.departureLocationName)}`, '_blank'); setOpenTransitMapId(null); }}>
+                              <button className="dropdown-item" onClick={() => { window.open(buildTransitMapsLink(t.departureLocationName, t.departureAddress), '_blank'); setOpenTransitMapId(null); }}>
                                 <ArrowUpRight size={12} /> {t.departureLocationName}
                               </button>
-                              <button className="dropdown-item" onClick={() => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress || t.arrivalLocationName)}`, '_blank'); setOpenTransitMapId(null); }}>
+                              <button className="dropdown-item" onClick={() => { window.open(buildTransitMapsLink(t.arrivalLocationName, t.arrivalAddress), '_blank'); setOpenTransitMapId(null); }}>
                                 <ArrowDownLeft size={12} /> {t.arrivalLocationName}
                               </button>
                             </div>
@@ -648,32 +645,28 @@ export default function ReservationsSection({
                             {t.status || 'Planning'}
                           </span>
                         </div>
-                        {t.departureAddress && (
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="reservation-card-field-row"
-                            style={{ color: 'inherit', textDecoration: 'none' }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <ArrowUpRight size={11} />
-                            <span className="place-desc-text">Departure: {t.departureAddress}</span>
-                          </a>
-                        )}
-                        {t.arrivalAddress && (
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.arrivalAddress)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="reservation-card-field-row"
-                            style={{ color: 'inherit', textDecoration: 'none' }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <ArrowDownLeft size={11} />
-                            <span className="place-desc-text">Arrival: {t.arrivalAddress}</span>
-                          </a>
-                        )}
+                        <a
+                          href={buildTransitMapsLink(t.departureLocationName, t.departureAddress)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="reservation-card-field-row"
+                          style={{ color: 'inherit', textDecoration: 'none' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <ArrowUpRight size={11} />
+                          <span className="place-desc-text">Departure: {t.departureAddress || t.departureLocationName}</span>
+                        </a>
+                        <a
+                          href={buildTransitMapsLink(t.arrivalLocationName, t.arrivalAddress)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="reservation-card-field-row"
+                          style={{ color: 'inherit', textDecoration: 'none' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <ArrowDownLeft size={11} />
+                          <span className="place-desc-text">Arrival: {t.arrivalAddress || t.arrivalLocationName}</span>
+                        </a>
                       </div>
                     </div>
                   </div>
