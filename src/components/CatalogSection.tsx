@@ -414,10 +414,6 @@ function CatalogSection({
                           setDragOverPlaceId(null);
                         }}
                         onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
-                        style={{
-                          borderColor: activePlaceId === place.id ? 'var(--accent-primary)' : 'var(--border-glass)',
-                          cursor: 'grab'
-                        }}
                       >
                         <div className="place-card-header">
                           {place.photoUrl ? (

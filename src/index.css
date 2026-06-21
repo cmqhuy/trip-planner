@@ -798,6 +798,8 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-color: rgba(99, 102, 241, 0.35);
   background: rgba(30, 41, 59, 0.60);
   box-shadow: 0 6px 16px rgba(99, 102, 241, 0.1);
+  position: relative;
+  z-index: 2;
 }
 
 /* Dragging preview/ghost isolation styles to prevent sibling/overflow content bleed */
