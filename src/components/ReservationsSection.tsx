@@ -6,7 +6,8 @@ import {
   MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
   Plus, Sparkles
 } from 'lucide-react';
-import type { Trip, Plan, Hotel, Transportation } from '../types';
+import type { Trip, Plan, Hotel, TransportationReservation, FlatTransportationSegment } from '../types';
+import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
@@ -20,8 +21,9 @@ interface ReservationsSectionProps {
   formatDisplayDate: (dateStr: string) => string;
   onEditHotel: (hotel: Hotel) => void;
   onDeleteHotel: (id: string) => void;
-  onEditTransport: (transport: Transportation) => void;
-  onDeleteTransport: (id: string) => void;
+  onEditTransport: (reservation: TransportationReservation, segmentIndex: number) => void;
+  onDeleteTransport: (reservationId: string, segmentIndex: number) => void;
+  onSaveTransportNotes: (reservationId: string, notes: string) => void;
   expandedHotelId: string | null;
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
@@ -94,6 +96,7 @@ export default function ReservationsSection({
   onDeleteHotel,
   onEditTransport,
   onDeleteTransport,
+  onSaveTransportNotes,
   expandedHotelId,
   setExpandedHotelId,
   expandedTransitId,
@@ -128,8 +131,8 @@ export default function ReservationsSection({
 
   useEffect(() => {
     if (editingTransitNoteId) {
-      const t = activePlan.transports.find(t => t.id === editingTransitNoteId);
-      setEditingTransitNotesText(t?.notes ?? '');
+      const reservation = activePlan.transports.find(r => r.id === editingTransitNoteId);
+      setEditingTransitNotesText(reservation?.notes ?? '');
     }
   }, [editingTransitNoteId, activePlan.transports]);
 
@@ -138,8 +141,8 @@ export default function ReservationsSection({
 
   const saveHotelNotes = (hotel: Hotel, text: string) =>
     onEditHotel({ ...hotel, notes: text.trim() || undefined });
-  const saveTransportNotes = (transport: Transportation, text: string) =>
-    onEditTransport({ ...transport, notes: text.trim() || undefined });
+  const saveTransportNotes = (reservationId: string, text: string) =>
+    onSaveTransportNotes(reservationId, text.trim());
 
   // --- Hotel helpers ---
 
@@ -150,7 +153,7 @@ export default function ReservationsSection({
     return locId ? trip.locations.find(l => l.id === locId)?.city : undefined;
   };
 
-  const getTransitLocationText = (t: Transportation): string | undefined => {
+  const getTransitLocationText = (t: FlatTransportationSegment): string | undefined => {
     const depLocId = activePlan.days[t.departureDate]?.locationId;
     const arrLocId = activePlan.days[t.arrivalDate]?.locationId;
     const depCity = depLocId ? trip.locations.find(l => l.id === depLocId)?.city : undefined;
@@ -215,7 +218,7 @@ export default function ReservationsSection({
         const currCity = currLoc?.city ?? 'next location';
 
         const transits = activePlan.transports.filter(
-          t => t.status !== 'Canceled' && (t.departureDate === prevDayStr || t.arrivalDate === dayStr)
+          t => t.status !== 'Canceled' && t.segments.some(s => s.departureDate === prevDayStr || s.arrivalDate === dayStr)
         );
         const confirmedTransports = transits.filter(t => t.status === 'Confirmed');
         const pendingTransports = transits.filter(t => !t.status || t.status === 'Planning');
@@ -523,25 +526,29 @@ export default function ReservationsSection({
               </div>
             ))}
 
-            {sortTransports(activePlan.transports).map(t => {
-              const isExpanded = expandedTransitId === t.id;
-              const transitName = t.name || `${t.departureLocationName} → ${t.arrivalLocationName}`;
-              const hasOpenDropdown = openTransitMapId === t.id || openOptionsMenuId === t.id;
+            {sortTransports(flattenReservations(activePlan.transports)).map(t => {
+              const cardKey = `${t.reservationId}-${t.segmentIndex}`;
+              const isExpanded = expandedTransitId === cardKey;
+              const transitName = t.reservationName || `${t.departureLocationName} → ${t.arrivalLocationName}`;
+              const hasOpenDropdown = openTransitMapId === cardKey || openOptionsMenuId === cardKey;
               const isInRange = !!selectedDateStr && selectedDateStr >= t.departureDate && selectedDateStr <= t.arrivalDate;
 
               return (
                 <div
-                  key={t.id}
+                  key={cardKey}
                   className={`glass-panel reservation-card reservation-card--transit reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${hasOpenDropdown ? ' dropdown-active' : ''}`}
                 >
                   {/* Always-visible header */}
                   <div
                     className="reservation-card-expand"
-                    onClick={() => { setExpandedTransitId(expandedTransitId === t.id ? null : t.id); }}
+                    onClick={() => { setExpandedTransitId(expandedTransitId === cardKey ? null : cardKey); }}
                   >
                     <div className="reservation-card-first-row">
                       <div className="reservation-card-icon-row">
                         <TransportTypeIcon type={t.type} size={13} />
+                        {t.totalSegments > 1 && (
+                          <span className="catalog-day-tag">Segment {t.segmentIndex + 1} of {t.totalSegments}</span>
+                        )}
                         {(() => { const loc = getTransitLocationText(t); return loc ? <span className="reservation-card-location">{loc}</span> : null; })()}
                       </div>
                       <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
@@ -558,12 +565,12 @@ export default function ReservationsSection({
                         <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
-                            onClick={() => setOpenTransitMapId(prev => prev === t.id ? null : t.id)}
+                            onClick={() => setOpenTransitMapId(prev => prev === cardKey ? null : cardKey)}
                             data-tooltip="Map"
                           >
                             <MapPin size={14} />
                           </button>
-                          {openTransitMapId === t.id && (
+                          {openTransitMapId === cardKey && (
                             <div className="dropdown-menu dropdown-menu--right">
                               <button className="dropdown-item" onClick={() => { window.open(buildTransitMapsLink(t.departureLocationName, t.departureAddress), '_blank'); setOpenTransitMapId(null); }}>
                                 <ArrowUpRight size={12} /> {t.departureLocationName}
@@ -577,12 +584,12 @@ export default function ReservationsSection({
                         <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
-                            onClick={() => setOpenOptionsMenuId(prev => prev === t.id ? null : t.id)}
+                            onClick={() => setOpenOptionsMenuId(prev => prev === cardKey ? null : cardKey)}
                             data-tooltip="Options"
                           >
                             <MoreVertical size={14} />
                           </button>
-                          {openOptionsMenuId === t.id && (
+                          {openOptionsMenuId === cardKey && (
                             <div className="dropdown-menu dropdown-menu--right">
                               <button className="dropdown-item" onClick={() => { navigator.clipboard.writeText(t.departureLocationName); setOpenOptionsMenuId(null); }}>
                                 <Copy size={12} /> Copy Departure Location
@@ -601,10 +608,14 @@ export default function ReservationsSection({
                                 </button>
                               )}
                               {trip.canEdit !== false && <>
-                                <button className="dropdown-item" onClick={() => { onEditTransport(t); setOpenOptionsMenuId(null); }}>
+                                <button className="dropdown-item" onClick={() => {
+                                  const reservation = activePlan.transports.find(r => r.id === t.reservationId);
+                                  if (reservation) onEditTransport(reservation, t.segmentIndex);
+                                  setOpenOptionsMenuId(null);
+                                }}>
                                   <Edit2 size={12} /> Edit
                                 </button>
-                                <button className="dropdown-item danger" onClick={() => { onDeleteTransport(t.id); setOpenOptionsMenuId(null); }}>
+                                <button className="dropdown-item danger" onClick={() => { onDeleteTransport(t.reservationId, t.segmentIndex); setOpenOptionsMenuId(null); }}>
                                   <Trash2 size={12} /> Delete
                                 </button>
                               </>}
@@ -677,12 +688,12 @@ export default function ReservationsSection({
                     <div className="notes-box">
                       <label className="notes-label">
                         <FileText size={11} /> Notes
-                        {trip.canEdit !== false && editingTransitNoteId !== t.id && (
+                        {trip.canEdit !== false && editingTransitNoteId !== t.reservationId && (
                           <button
                             className="mini-icon-btn notes-edit-btn"
                             onClick={e => {
                               e.stopPropagation();
-                              setEditingTransitNoteId(t.id);
+                              setEditingTransitNoteId(t.reservationId);
                               setEditingHotelNoteId(null);
                               setEditingTransitNotesText(t.notes ?? '');
                             }}
@@ -692,7 +703,7 @@ export default function ReservationsSection({
                           </button>
                         )}
                       </label>
-                      {editingTransitNoteId === t.id ? (
+                      {editingTransitNoteId === t.reservationId ? (
                         <div className="notes-edit-wrapper">
                            <textarea
                              className="notes-textarea"
@@ -703,7 +714,7 @@ export default function ReservationsSection({
                            />
                            <div className="notes-actions">
                              <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t, editingTransitNotesText); setEditingTransitNoteId(null); }}>
+                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t.reservationId, editingTransitNotesText); setEditingTransitNoteId(null); }}>
                                <Check size={12} /> Save Notes
                              </button>
                            </div>

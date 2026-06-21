@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
-  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check,
+  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check, Plus,
 } from 'lucide-react';
-import type { Transportation } from '../types';
+import type { TransportationReservation } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import { lookupTimezone } from '../utils/api';
@@ -15,13 +15,34 @@ import { ALL_TIMEZONES, getBrowserTimezone, formatTimezoneLabel } from '../utils
 import ConfirmationModal from './ConfirmationModal';
 import ShareTripModal from './ShareTripModal';
 
+interface SegmentFormState {
+  id: string;
+  carrier: string;
+  transitCode: string;
+  depLoc: string;
+  depAddress: string;
+  depDate: string;
+  depTime: string;
+  depTz: string;
+  depLat: string;
+  depLng: string;
+  arrLoc: string;
+  arrAddress: string;
+  arrDate: string;
+  arrTime: string;
+  arrTz: string;
+  arrLat: string;
+  arrLng: string;
+}
+
 interface TransportModalProps {
   isOpen: boolean;
   onClose: () => void;
   tripStartDate: string;
-  onSave: (transportData: Omit<Transportation, 'id'>) => void;
+  onSave: (transportData: Omit<TransportationReservation, 'id'>) => void;
   onDelete?: () => void;
-  editingTransport?: Transportation | null;
+  editingTransport?: TransportationReservation | null;
+  initialSegmentIndex?: number;
   googleToken?: string;
   tripPlannerFolderId?: string;
   tripName?: string;
@@ -32,7 +53,7 @@ interface TransportModalProps {
   defaultDate?: string;
 }
 
-const TRANSPORT_TYPES: { value: Transportation['type']; label: string; Icon: React.ElementType }[] = [
+const TRANSPORT_TYPES: { value: TransportationReservation['type']; label: string; Icon: React.ElementType }[] = [
   { value: 'flight', label: 'Flight', Icon: Plane },
   { value: 'train', label: 'Train', Icon: Train },
   { value: 'bus', label: 'Bus', Icon: Bus },
@@ -54,75 +75,84 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
   } catch { return null; }
 }
 
-type SavedValues = {
-  transitName: string; type: Transportation['type']; depLoc: string; arrLoc: string;
-  depDate: string; arrDate: string; depTime: string; arrTime: string;
-  depTz: string; arrTz: string; carrier: string; transitCode: string;
-  confirmationNo: string; bookedThrough: string; price: string; currency: string;
-  depAddress: string; depLat: string; depLng: string;
-  arrAddress: string; arrLat: string; arrLng: string;
+type ReservationSavedValues = {
+  transitName: string;
+  type: TransportationReservation['type'];
+  confirmationNo: string;
+  bookedThrough: string;
+  price: string;
+  currency: string;
   notes: string;
   status: 'Confirmed' | 'Planning' | 'Canceled';
 };
 
+function makeEmptySegment(defaultDate: string, browserTz: string, prevSeg?: SegmentFormState): SegmentFormState {
+  return {
+    id: `seg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    carrier: '',
+    transitCode: '',
+    depLoc: prevSeg?.arrLoc ?? '',
+    depAddress: '',
+    depDate: prevSeg?.arrDate ?? defaultDate,
+    depTime: '12:00',
+    depTz: prevSeg?.arrTz ?? browserTz,
+    depLat: '',
+    depLng: '',
+    arrLoc: '',
+    arrAddress: '',
+    arrDate: prevSeg?.arrDate ?? defaultDate,
+    arrTime: '14:00',
+    arrTz: browserTz,
+    arrLat: '',
+    arrLng: '',
+  };
+}
+
 export default function TransportModal({
-  isOpen,
-  onClose,
-  tripStartDate,
-  onSave,
-  onDelete,
-  editingTransport,
-  googleToken,
-  tripPlannerFolderId,
-  tripName,
-  tripFilesFolderId,
-  onFileFolderCreated,
-  isOwner = true,
-  tripDriveFileId,
-  defaultDate,
+  isOpen, onClose, tripStartDate, onSave, onDelete, editingTransport, initialSegmentIndex,
+  googleToken, tripPlannerFolderId, tripName, tripFilesFolderId, onFileFolderCreated,
+  isOwner = true, tripDriveFileId, defaultDate,
 }: TransportModalProps) {
   const browserTz = getBrowserTimezone();
+  const effectiveDefaultDate = defaultDate ?? tripStartDate;
 
+  // Reservation-level state
   const [transitName, setTransitName] = useState('');
-  const [type, setType] = useState<Transportation['type']>('flight');
-  const [depLoc, setDepLoc] = useState('');
-  const [arrLoc, setArrLoc] = useState('');
-  const [depDate, setDepDate] = useState('');
-  const [arrDate, setArrDate] = useState('');
-  const [depTime, setDepTime] = useState('');
-  const [arrTime, setArrTime] = useState('');
-  const [depTz, setDepTz] = useState(browserTz);
-  const [arrTz, setArrTz] = useState(browserTz);
-  const [carrier, setCarrier] = useState('');
-  const [transitCode, setTransitCode] = useState('');
+  const [type, setType] = useState<TransportationReservation['type']>('flight');
   const [confirmationNo, setConfirmationNo] = useState('');
   const [bookedThrough, setBookedThrough] = useState('');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState('USD');
-  const [depAddress, setDepAddress] = useState('');
-  const [depLat, setDepLat] = useState('');
-  const [depLng, setDepLng] = useState('');
-  const [arrAddress, setArrAddress] = useState('');
-  const [arrLat, setArrLat] = useState('');
-  const [arrLng, setArrLng] = useState('');
   const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
+
+  // Segment-level state
+  const [segments, setSegments] = useState<SegmentFormState[]>([makeEmptySegment(effectiveDefaultDate, browserTz)]);
+  const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
+
+  // Undo state
+  const [savedValues, setSavedValues] = useState<ReservationSavedValues | null>(null);
+  const [savedSegments, setSavedSegments] = useState<SegmentFormState[] | null>(null);
+
+  // UI state
   const [isAiFilling, setIsAiFilling] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
   const [showAccessError, setShowAccessError] = useState(false);
   const [showShareFolder, setShowShareFolder] = useState(false);
   const [editingChip, setEditingChip] = useState<{ fileId: string; value: string } | null>(null);
 
-  const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
+  // Dropdown state
+  const [typeOpen, setTypeOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [statusPos, setStatusPos] = useState<{ top: number; left: number; width: number } | null>(null);
-
-  const [typeOpen, setTypeOpen] = useState(false);
   const [depTzOpen, setDepTzOpen] = useState(false);
   const [depTzSearch, setDepTzSearch] = useState('');
+  const [depTzPos, setDepTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [arrTzOpen, setArrTzOpen] = useState(false);
   const [arrTzSearch, setArrTzSearch] = useState('');
+  const [arrTzPos, setArrTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autofillInputRef = useRef<HTMLInputElement>(null);
@@ -131,97 +161,81 @@ export default function TransportModal({
   const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
   const currencyTriggerRef = useRef<HTMLButtonElement>(null);
   const statusTriggerRef = useRef<HTMLButtonElement>(null);
-  const [depTzPos, setDepTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [arrTzPos, setArrTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const {
-    attachedFiles,
-    setAttachments,
-    uploadingCount,
-    removePrompt,
-    setRemovePrompt,
-    handleFileSelect,
-    handleRemoveChip,
-    confirmRemoveChip,
-    renameAttachment,
+    attachedFiles, setAttachments, uploadingCount, removePrompt, setRemovePrompt,
+    handleFileSelect, handleRemoveChip, confirmRemoveChip, renameAttachment,
   } = useDriveAttachments({
-    googleToken,
-    tripPlannerFolderId,
-    tripName,
-    tripFilesFolderId,
-    onFileFolderCreated,
+    googleToken, tripPlannerFolderId, tripName, tripFilesFolderId, onFileFolderCreated,
     initialAttachments: editingTransport?.attachments ?? [],
     onSetAiError: setAiError,
     onAccessError: () => setShowAccessError(true),
   });
 
+  // Active segment shortcut
+  const seg = segments[activeSegmentIndex] ?? segments[0];
+  const updateSegment = (idx: number, patch: Partial<SegmentFormState>) =>
+    setSegments(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
+
   useEffect(() => {
-    if (isOpen) {
-      const t = editingTransport;
-      const initial: SavedValues = {
-        transitName: t?.name ?? '',
-        type: t?.type ?? 'flight',
-        depLoc: t?.departureLocationName ?? '',
-        arrLoc: t?.arrivalLocationName ?? '',
-        depDate: t?.departureDate ?? defaultDate ?? tripStartDate,
-        arrDate: t?.arrivalDate ?? defaultDate ?? tripStartDate,
-        depTime: t?.departureTime ?? '12:00',
-        arrTime: t?.arrivalTime ?? '14:00',
-        depTz: t?.departureTimezone ?? browserTz,
-        arrTz: t?.arrivalTimezone ?? browserTz,
-        carrier: t?.carrier ?? '',
-        transitCode: t?.transitCode ?? '',
-        confirmationNo: t?.confirmationNo ?? '',
-        bookedThrough: t?.bookedThrough ?? '',
-        price: t?.price != null ? String(t.price) : '',
-        currency: t?.currency ?? 'USD',
-        depAddress: t?.departureAddress ?? '',
-        depLat: t?.departureLat != null ? String(t.departureLat) : '',
-        depLng: t?.departureLng != null ? String(t.departureLng) : '',
-        arrAddress: t?.arrivalAddress ?? '',
-        arrLat: t?.arrivalLat != null ? String(t.arrivalLat) : '',
-        arrLng: t?.arrivalLng != null ? String(t.arrivalLng) : '',
-        notes: t?.notes ?? '',
-        status: t ? (t.status || 'Planning') : 'Confirmed',
-      };
-      setTransitName(initial.transitName);
-      setType(initial.type);
-      setDepLoc(initial.depLoc);
-      setArrLoc(initial.arrLoc);
-      setDepDate(initial.depDate);
-      setArrDate(initial.arrDate);
-      setDepTime(initial.depTime);
-      setArrTime(initial.arrTime);
-      setDepTz(initial.depTz);
-      setArrTz(initial.arrTz);
-      setCarrier(initial.carrier);
-      setTransitCode(initial.transitCode);
-      setConfirmationNo(initial.confirmationNo);
-      setBookedThrough(initial.bookedThrough);
-      setPrice(initial.price);
-      setCurrency(initial.currency);
-      setDepAddress(initial.depAddress);
-      setDepLat(initial.depLat);
-      setDepLng(initial.depLng);
-      setArrAddress(initial.arrAddress);
-      setArrLat(initial.arrLat);
-      setArrLng(initial.arrLng);
-      setNotes(initial.notes);
-      setStatus(initial.status);
-      setAttachments(t?.attachments ?? []);
-      setSavedValues(initial);
-      setAiError(null);
-      setRemovePrompt(null);
-      setTypeOpen(false);
-      setDepTzOpen(false);
-      setArrTzOpen(false);
-      setCurrencyOpen(false);
-      setStatusOpen(false);
-      setShowAccessError(false);
-      setShowShareFolder(false);
-      setEditingChip(null);
-    }
+    if (!isOpen) return;
+    const t = editingTransport;
+    const initSegs: SegmentFormState[] = t?.segments?.length
+      ? t.segments.map(s => ({
+          id: s.id,
+          carrier: s.carrier ?? '',
+          transitCode: s.transitCode ?? '',
+          depLoc: s.departureLocationName,
+          depAddress: s.departureAddress ?? '',
+          depDate: s.departureDate,
+          depTime: s.departureTime,
+          depTz: s.departureTimezone,
+          depLat: s.departureLat != null ? String(s.departureLat) : '',
+          depLng: s.departureLng != null ? String(s.departureLng) : '',
+          arrLoc: s.arrivalLocationName,
+          arrAddress: s.arrivalAddress ?? '',
+          arrDate: s.arrivalDate,
+          arrTime: s.arrivalTime,
+          arrTz: s.arrivalTimezone,
+          arrLat: s.arrivalLat != null ? String(s.arrivalLat) : '',
+          arrLng: s.arrivalLng != null ? String(s.arrivalLng) : '',
+        }))
+      : [makeEmptySegment(effectiveDefaultDate, browserTz)];
+
+    const initValues: ReservationSavedValues = {
+      transitName: t?.name ?? '',
+      type: t?.type ?? 'flight',
+      confirmationNo: t?.confirmationNo ?? '',
+      bookedThrough: t?.bookedThrough ?? '',
+      price: t?.price != null ? String(t.price) : '',
+      currency: t?.currency ?? 'USD',
+      notes: t?.notes ?? '',
+      status: t ? (t.status ?? 'Planning') : 'Confirmed',
+    };
+
+    setTransitName(initValues.transitName);
+    setType(initValues.type);
+    setConfirmationNo(initValues.confirmationNo);
+    setBookedThrough(initValues.bookedThrough);
+    setPrice(initValues.price);
+    setCurrency(initValues.currency);
+    setNotes(initValues.notes);
+    setStatus(initValues.status);
+    setSegments(initSegs);
+    setActiveSegmentIndex(Math.min(initialSegmentIndex ?? 0, initSegs.length - 1));
+    setAttachments(t?.attachments ?? []);
+    setSavedValues(initValues);
+    setSavedSegments(null);
+    setAiError(null);
+    setRemovePrompt(null);
+    setTypeOpen(false);
+    setDepTzOpen(false);
+    setArrTzOpen(false);
+    setCurrencyOpen(false);
+    setStatusOpen(false);
+    setShowAccessError(false);
+    setShowShareFolder(false);
+    setEditingChip(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -234,43 +248,163 @@ export default function TransportModal({
     return () => document.removeEventListener('mousedown', handler);
   }, [typeOpen]);
 
-  const handleDepDateChange = (val: string) => {
-    setDepDate(val);
-    if (arrDate < val) setArrDate(val);
+  const addSegment = () => {
+    const prev = segments[segments.length - 1];
+    const newSeg = makeEmptySegment(effectiveDefaultDate, browserTz, prev);
+    setSegments(s => [...s, newSeg]);
+    setActiveSegmentIndex(segments.length);
+  };
+
+  const deleteSegment = (idx: number) => {
+    if (segments.length <= 1) return;
+    setSegments(prev => prev.filter((_, i) => i !== idx));
+    setActiveSegmentIndex(prev => Math.min(prev, segments.length - 2));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!depLoc.trim() || !arrLoc.trim() || !depDate || !arrDate || !depTime || !arrTime || !depTz || !arrTz) return;
+    for (const s of segments) {
+      if (!s.depLoc.trim() || !s.arrLoc.trim() || !s.depDate || !s.arrDate || !s.depTime || !s.arrTime || !s.depTz || !s.arrTz) return;
+    }
     const parsedPrice = price.trim() ? parseFloat(price) : undefined;
     onSave({
-      name: transitName.trim() || undefined,
       type,
-      departureLocationName: depLoc.trim(),
-      arrivalLocationName: arrLoc.trim(),
-      departureDate: depDate,
-      departureTime: depTime,
-      departureTimezone: depTz,
-      arrivalDate: arrDate,
-      arrivalTime: arrTime,
-      arrivalTimezone: arrTz,
-      carrier: carrier.trim() || undefined,
-      transitCode: transitCode.trim() || undefined,
+      name: transitName.trim() || undefined,
       confirmationNo: confirmationNo.trim() || undefined,
       bookedThrough: bookedThrough.trim() || undefined,
       price: parsedPrice,
       currency: parsedPrice != null ? currency : undefined,
-      departureAddress: depAddress.trim() || undefined,
-      departureLat: depLat.trim() ? parseFloat(depLat) : undefined,
-      departureLng: depLng.trim() ? parseFloat(depLng) : undefined,
-      arrivalAddress: arrAddress.trim() || undefined,
-      arrivalLat: arrLat.trim() ? parseFloat(arrLat) : undefined,
-      arrivalLng: arrLng.trim() ? parseFloat(arrLng) : undefined,
       notes: notes.trim() || undefined,
-      attachments: attachedFiles,
       status,
+      attachments: attachedFiles,
+      segments: segments.map(s => ({
+        id: s.id,
+        carrier: s.carrier.trim() || undefined,
+        transitCode: s.transitCode.trim() || undefined,
+        departureLocationName: s.depLoc.trim(),
+        departureAddress: s.depAddress.trim() || undefined,
+        departureDate: s.depDate,
+        departureTime: s.depTime,
+        departureTimezone: s.depTz,
+        departureLat: s.depLat.trim() ? parseFloat(s.depLat) : undefined,
+        departureLng: s.depLng.trim() ? parseFloat(s.depLng) : undefined,
+        arrivalLocationName: s.arrLoc.trim(),
+        arrivalAddress: s.arrAddress.trim() || undefined,
+        arrivalDate: s.arrDate,
+        arrivalTime: s.arrTime,
+        arrivalTimezone: s.arrTz,
+        arrivalLat: s.arrLat.trim() ? parseFloat(s.arrLat) : undefined,
+        arrivalLng: s.arrLng.trim() ? parseFloat(s.arrLng) : undefined,
+      })),
     });
     onClose();
+  };
+
+  const applyAiResult = async (result: any) => {
+    setSavedSegments(segments.map(s => ({ ...s })));
+
+    if (result.name !== undefined) setTransitName(result.name ?? '');
+    if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) setType(result.type);
+    if (result.confirmationNo !== undefined) setConfirmationNo(result.confirmationNo ?? '');
+    if (result.bookedThrough !== undefined) setBookedThrough(result.bookedThrough ?? '');
+    if (result.price != null) setPrice(String(result.price));
+    if (result.currency) setCurrency(result.currency);
+    if (result.notes !== undefined) setNotes(result.notes ?? '');
+    if (result.status && ['Confirmed', 'Planning', 'Canceled'].includes(result.status)) setStatus(result.status);
+
+    const aiSegs: any[] | undefined = Array.isArray(result.segments) && result.segments.length > 0 ? result.segments : undefined;
+
+    if (aiSegs) {
+      const newSegs: SegmentFormState[] = await Promise.all(aiSegs.map(async (aiSeg: any, idx: number) => {
+        let dLat = aiSeg.departureLat ?? null;
+        let dLng = aiSeg.departureLng ?? null;
+        let aLat = aiSeg.arrivalLat ?? null;
+        let aLng = aiSeg.arrivalLng ?? null;
+
+        if (dLat == null && dLng == null && aiSeg.departureAddress) {
+          const c = await geocodeAddress(aiSeg.departureAddress);
+          if (c) { dLat = c.lat; dLng = c.lng; }
+        }
+        if (aLat == null && aLng == null && aiSeg.arrivalAddress) {
+          const c = await geocodeAddress(aiSeg.arrivalAddress);
+          if (c) { aLat = c.lat; aLng = c.lng; }
+        }
+
+        let depTz = aiSeg.departureTimezone ?? null;
+        let arrTz = aiSeg.arrivalTimezone ?? null;
+        if (!depTz && dLat != null && dLng != null) depTz = await lookupTimezone(dLat, dLng) ?? browserTz;
+        if (!arrTz && aLat != null && aLng != null) arrTz = await lookupTimezone(aLat, aLng) ?? browserTz;
+
+        return {
+          id: segments[idx]?.id ?? `seg-${Date.now()}-${idx}`,
+          carrier: aiSeg.carrier ?? '',
+          transitCode: aiSeg.transitCode ?? '',
+          depLoc: aiSeg.departureLocationName ?? '',
+          depAddress: aiSeg.departureAddress ?? '',
+          depDate: aiSeg.departureDate ?? effectiveDefaultDate,
+          depTime: aiSeg.departureTime ?? '12:00',
+          depTz: depTz ?? browserTz,
+          depLat: dLat != null ? String(dLat) : '',
+          depLng: dLng != null ? String(dLng) : '',
+          arrLoc: aiSeg.arrivalLocationName ?? '',
+          arrAddress: aiSeg.arrivalAddress ?? '',
+          arrDate: aiSeg.arrivalDate ?? effectiveDefaultDate,
+          arrTime: aiSeg.arrivalTime ?? '14:00',
+          arrTz: arrTz ?? browserTz,
+          arrLat: aLat != null ? String(aLat) : '',
+          arrLng: aLng != null ? String(aLng) : '',
+        };
+      }));
+      setSegments(newSegs);
+      setActiveSegmentIndex(0);
+    } else {
+      // Flat single-segment result — apply to active segment
+      const currentIdx = activeSegmentIndex;
+      const currentSeg = segments[currentIdx] ?? segments[0];
+      const patch: Partial<SegmentFormState> = {};
+
+      if (result.carrier !== undefined) patch.carrier = result.carrier ?? '';
+      if (result.transitCode !== undefined) patch.transitCode = result.transitCode ?? '';
+      if (result.departureLocationName) patch.depLoc = result.departureLocationName;
+      if (result.departureAddress) patch.depAddress = result.departureAddress;
+      if (result.departureDate) patch.depDate = result.departureDate;
+      if (result.departureTime) patch.depTime = result.departureTime;
+      if (result.arrivalLocationName) patch.arrLoc = result.arrivalLocationName;
+      if (result.arrivalAddress) patch.arrAddress = result.arrivalAddress;
+      if (result.arrivalDate) patch.arrDate = result.arrivalDate;
+      if (result.arrivalTime) patch.arrTime = result.arrivalTime;
+
+      let dLat = result.departureLat ?? null;
+      let dLng = result.departureLng ?? null;
+      let aLat = result.arrivalLat ?? null;
+      let aLng = result.arrivalLng ?? null;
+
+      if (dLat == null && dLng == null && result.departureAddress && !currentSeg.depLat) {
+        const c = await geocodeAddress(result.departureAddress);
+        if (c) { dLat = c.lat; dLng = c.lng; }
+      }
+      if (aLat == null && aLng == null && result.arrivalAddress && !currentSeg.arrLat) {
+        const c = await geocodeAddress(result.arrivalAddress);
+        if (c) { aLat = c.lat; aLng = c.lng; }
+      }
+      if (dLat != null && dLng != null) { patch.depLat = String(dLat); patch.depLng = String(dLng); }
+      if (aLat != null && aLng != null) { patch.arrLat = String(aLat); patch.arrLng = String(aLng); }
+
+      if (result.departureTimezone) {
+        patch.depTz = result.departureTimezone;
+      } else if (dLat != null && dLng != null) {
+        const tz = await lookupTimezone(dLat, dLng);
+        if (tz) patch.depTz = tz;
+      }
+      if (result.arrivalTimezone) {
+        patch.arrTz = result.arrivalTimezone;
+      } else if (aLat != null && aLng != null) {
+        const tz = await lookupTimezone(aLat, aLng);
+        if (tz) patch.arrTz = tz;
+      }
+
+      updateSegment(currentIdx, patch);
+    }
   };
 
   const handleAiFill = async () => {
@@ -283,59 +417,7 @@ export default function TransportModal({
         attachedFiles.map(f => fetchFileContentFromDrive(googleToken!, f.fileId))
       );
       const result = await GeminiService.generateTransitDetailsFromFilesWithRotation(fileContents);
-      if (result.name) setTransitName(result.name);
-      if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) {
-        setType(result.type as Transportation['type']);
-      }
-      if (result.departureLocationName) setDepLoc(result.departureLocationName);
-      if (result.arrivalLocationName) setArrLoc(result.arrivalLocationName);
-      if (result.departureDate) setDepDate(result.departureDate);
-      if (result.departureTime) setDepTime(result.departureTime);
-      if (result.arrivalDate) setArrDate(result.arrivalDate);
-      if (result.arrivalTime) setArrTime(result.arrivalTime);
-      if (result.carrier) setCarrier(result.carrier);
-      if (result.transitCode) setTransitCode(result.transitCode);
-      if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
-      if (result.bookedThrough) setBookedThrough(result.bookedThrough);
-      if (result.price != null) setPrice(String(result.price));
-      if (result.currency) setCurrency(result.currency);
-      if (result.notes) setNotes(result.notes);
-
-      // Handle departure address + coords + timezone
-      let dLat = result.departureLat;
-      let dLng = result.departureLng;
-      if (result.departureAddress) { setDepAddress(result.departureAddress); }
-      if (dLat != null && dLng != null) {
-        setDepLat(String(dLat));
-        setDepLng(String(dLng));
-      } else if (result.departureAddress && !depLat && !depLng) {
-        const coords = await geocodeAddress(result.departureAddress);
-        if (coords) { dLat = coords.lat; dLng = coords.lng; setDepLat(coords.lat.toFixed(6)); setDepLng(coords.lng.toFixed(6)); }
-      }
-      if (result.departureTimezone) {
-        setDepTz(result.departureTimezone);
-      } else if (dLat != null && dLng != null) {
-        const tz = await lookupTimezone(dLat, dLng);
-        if (tz) setDepTz(tz);
-      }
-
-      // Handle arrival address + coords + timezone
-      let aLat = result.arrivalLat;
-      let aLng = result.arrivalLng;
-      if (result.arrivalAddress) { setArrAddress(result.arrivalAddress); }
-      if (aLat != null && aLng != null) {
-        setArrLat(String(aLat));
-        setArrLng(String(aLng));
-      } else if (result.arrivalAddress && !arrLat && !arrLng) {
-        const coords = await geocodeAddress(result.arrivalAddress);
-        if (coords) { aLat = coords.lat; aLng = coords.lng; setArrLat(coords.lat.toFixed(6)); setArrLng(coords.lng.toFixed(6)); }
-      }
-      if (result.arrivalTimezone) {
-        setArrTz(result.arrivalTimezone);
-      } else if (aLat != null && aLng != null) {
-        const tz = await lookupTimezone(aLat, aLng);
-        if (tz) setArrTz(tz);
-      }
+      await applyAiResult(result);
     } catch (err: any) {
       setAiError(err.message || 'AI fill failed.');
     } finally {
@@ -347,26 +429,21 @@ export default function TransportModal({
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     e.target.value = '';
-
     const file = files[0];
     setIsAiFilling(true);
     setAiError(null);
-
     try {
-      // 1. Read file locally as base64
       const fileData = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = () => {
           const result = reader.result as string;
           const commaIdx = result.indexOf(',');
-          const base64 = commaIdx > -1 ? result.substring(commaIdx + 1) : result;
-          resolve({ base64, mimeType: file.type || 'application/octet-stream' });
+          resolve({ base64: commaIdx > -1 ? result.substring(commaIdx + 1) : result, mimeType: file.type || 'application/octet-stream' });
         };
         reader.onerror = () => reject(new Error('Failed to read file locally.'));
       });
 
-      // 2. Upload file to Drive if googleToken is present
       if (googleToken) {
         let folderId = tripFilesFolderId;
         if (!folderId && tripPlannerFolderId && tripName) {
@@ -375,42 +452,31 @@ export default function TransportModal({
         }
         if (folderId) {
           const fileId = await uploadFile(googleToken, folderId, file);
-          const newAttachment = { name: file.name, filename: file.name, fileId };
-          setAttachments(prev => [...prev, newAttachment]);
+          setAttachments(prev => [...prev, { name: file.name, filename: file.name, fileId }]);
         }
       }
 
-      // 3. Extract details using AI
       const result = await GeminiService.generateTransitDetailsFromFilesWithRotation([fileData]);
-      if (result.name) setTransitName(result.name);
-      if (result.type && TRANSPORT_TYPES.some(t => t.value === result.type)) setType(result.type as Transportation['type']);
-      if (result.departureLocationName) setDepLoc(result.departureLocationName);
-      if (result.arrivalLocationName) setArrLoc(result.arrivalLocationName);
-      if (result.departureDate) setDepDate(result.departureDate);
-      if (result.departureTime) setDepTime(result.departureTime);
-      if (result.departureTimezone) setDepTz(result.departureTimezone);
-      if (result.arrivalDate) setArrDate(result.arrivalDate);
-      if (result.arrivalTime) setArrTime(result.arrivalTime);
-      if (result.arrivalTimezone) setArrTz(result.arrivalTimezone);
-      if (result.carrier) setCarrier(result.carrier);
-      if (result.transitCode) setTransitCode(result.transitCode);
-      if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
-      if (result.bookedThrough) setBookedThrough(result.bookedThrough);
-      if (result.price != null) setPrice(String(result.price));
-      if (result.currency) setCurrency(result.currency);
-      if (result.notes) setNotes(result.notes);
-      
-      if (result.departureAddress) setDepAddress(result.departureAddress);
-      if (result.departureLat != null) setDepLat(String(result.departureLat));
-      if (result.departureLng != null) setDepLng(String(result.departureLng));
-      if (result.arrivalAddress) setArrAddress(result.arrivalAddress);
-      if (result.arrivalLat != null) setArrLat(String(result.arrivalLat));
-      if (result.arrivalLng != null) setArrLng(String(result.arrivalLng));
+      await applyAiResult(result);
     } catch (err: any) {
       setAiError(err.message || 'AI autofill failed.');
     } finally {
       setIsAiFilling(false);
     }
+  };
+
+  const undoAiFill = () => {
+    if (!savedSegments || !savedValues) return;
+    setTransitName(savedValues.transitName);
+    setType(savedValues.type);
+    setConfirmationNo(savedValues.confirmationNo);
+    setBookedThrough(savedValues.bookedThrough);
+    setPrice(savedValues.price);
+    setCurrency(savedValues.currency);
+    setNotes(savedValues.notes);
+    setStatus(savedValues.status);
+    setSegments(savedSegments);
+    setSavedSegments(null);
   };
 
   const undoBtn = (current: string, saved: string | undefined, onRestore: () => void) => {
@@ -424,7 +490,6 @@ export default function TransportModal({
 
   const filteredDepTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(depTzSearch.toLowerCase()));
   const filteredArrTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(arrTzSearch.toLowerCase()));
-
   const selectedTypeObj = TRANSPORT_TYPES.find(t => t.value === type) ?? TRANSPORT_TYPES[0];
   const selectedCurrency = CURRENCY_LIST.find(c => c.code === currency) ?? { code: currency, name: currency };
 
@@ -443,7 +508,6 @@ export default function TransportModal({
             <button className="modal-close" onClick={onClose}><X size={20} /></button>
           </div>
 
-          {/* Suggestions Search / Auto-Populate */}
           <div className="modal-autofill-panel">
             <div className="flex-between">
               <label>Auto-Populate Details</label>
@@ -460,13 +524,9 @@ export default function TransportModal({
                   type="button"
                   className="btn-secondary flex-align"
                   style={{
-                    fontSize: '11px',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    gap: '5px',
-                    borderColor: 'rgba(139, 92, 246, 0.25)',
-                    background: 'rgba(139, 92, 246, 0.06)',
-                    cursor: (!GeminiService.isAiEnabled() || GeminiService.isManualMode() || uploadingCount > 0 || isAiFilling) ? 'not-allowed' : 'pointer'
+                    fontSize: '11px', padding: '4px 10px', borderRadius: '6px', gap: '5px',
+                    borderColor: 'rgba(139, 92, 246, 0.25)', background: 'rgba(139, 92, 246, 0.06)',
+                    cursor: (!GeminiService.isAiEnabled() || GeminiService.isManualMode() || uploadingCount > 0 || isAiFilling) ? 'not-allowed' : 'pointer',
                   }}
                   onClick={() => autofillInputRef.current?.click()}
                   disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode() || uploadingCount > 0 || isAiFilling}
@@ -488,100 +548,222 @@ export default function TransportModal({
 
           <form onSubmit={handleSubmit}>
             <div className="modal-scroll-body">
-            <div className="place-form-grid">
 
-              {/* Left column */}
-              <div className="place-form-left-col">
+              {/* Reservation-level header: 2-col grid */}
+              <div className="place-form-grid">
+                <div className="place-form-left-col">
+                  <div className="form-group">
+                    <label htmlFor="transit-name" className="place-form-label">
+                      <span className="label-text">Transit Name</span>
+                      {undoBtn(transitName, savedValues?.transitName, () => setTransitName(savedValues!.transitName))}
+                    </label>
+                    <input type="text" id="transit-name" value={transitName} onChange={e => setTransitName(e.target.value)} placeholder="Flight to Seattle" />
+                  </div>
 
-                {/* Transit Name */}
-                <div className="form-group">
-                  <label htmlFor="transit-name" className="place-form-label">
-                    <span className="label-text">Transit Name</span>
-                    {undoBtn(transitName, savedValues?.transitName, () => setTransitName(savedValues!.transitName))}
-                  </label>
-                  <input type="text" id="transit-name" value={transitName} onChange={e => setTransitName(e.target.value)} placeholder="Flight to Seattle" />
+                  <div className="form-group">
+                    <label><span className="label-text">Type</span></label>
+                    <div className="combo-wrapper" ref={typeRef}>
+                      <button type="button" className="combo-trigger" onClick={() => setTypeOpen(o => !o)}>
+                        <span className="combo-trigger-content">
+                          <selectedTypeObj.Icon size={14} />
+                          {selectedTypeObj.label}
+                        </span>
+                        <ChevronDown size={14} className={`expand-chevron${typeOpen ? ' is-open' : ''}`} />
+                      </button>
+                      {typeOpen && (
+                        <div className="combo-dropdown">
+                          {TRANSPORT_TYPES.map(opt => (
+                            <button key={opt.value} type="button" className={`combo-option${type === opt.value ? ' selected' : ''}`} onClick={() => { setType(opt.value); setTypeOpen(false); }}>
+                              <opt.Icon size={14} />{opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="transit-price" className="place-form-label">
+                        <span className="label-text">Price</span>
+                        {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
+                      </label>
+                      <input type="number" id="transit-price" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                    </div>
+                    <div className="form-group">
+                      <label className="place-form-label">
+                        <span className="label-text">Currency</span>
+                        {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
+                      </label>
+                      <div className="combo-wrapper">
+                        <button
+                          ref={currencyTriggerRef}
+                          type="button"
+                          className="combo-trigger"
+                          onClick={() => {
+                            if (!currencyOpen && currencyTriggerRef.current) {
+                              const r = currencyTriggerRef.current.getBoundingClientRect();
+                              setCurrencyPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                            }
+                            setCurrencyOpen(o => !o);
+                          }}
+                        >
+                          <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
+                          <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
+                        </button>
+                      </div>
+                      {currencyOpen && currencyPos && createPortal(
+                        <>
+                          <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setCurrencyOpen(false)} />
+                          <div className="combo-dropdown--portal" style={{ top: currencyPos.top, left: currencyPos.left, width: Math.max(currencyPos.width, 220) }} onClick={e => e.stopPropagation()}>
+                            {CURRENCY_LIST.map(c => (
+                              <button key={c.code} type="button" className={`combo-option${c.code === currency ? ' selected' : ''}`} onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}>
+                                {c.code} — {c.name}
+                              </button>
+                            ))}
+                          </div>
+                        </>,
+                        document.body
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Type combo */}
-                <div className="form-group">
-                  <label><span className="label-text">Type</span></label>
-                  <div className="combo-wrapper" ref={typeRef}>
-                    <button type="button" className="combo-trigger" onClick={() => setTypeOpen(o => !o)}>
-                      <span className="combo-trigger-content">
-                        <selectedTypeObj.Icon size={14} />
-                        {selectedTypeObj.label}
-                      </span>
-                      <ChevronDown size={14} className={`expand-chevron${typeOpen ? ' is-open' : ''}`} />
-                    </button>
-                    {typeOpen && (
-                      <div className="combo-dropdown">
-                        {TRANSPORT_TYPES.map(opt => (
-                          <button key={opt.value} type="button" className={`combo-option${type === opt.value ? ' selected' : ''}`} onClick={() => { setType(opt.value); setTypeOpen(false); }}>
-                            <opt.Icon size={14} />{opt.label}
-                          </button>
-                        ))}
-                      </div>
+                <div className="place-form-right-col">
+                  <div className="form-group">
+                    <label htmlFor="transit-conf" className="place-form-label">
+                      <span className="label-text">Confirmation No</span>
+                      {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
+                    </label>
+                    <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="transit-booked" className="place-form-label">
+                      <span className="label-text">Booked via</span>
+                      {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
+                    </label>
+                    <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="place-form-label">
+                      <span className="label-text">Status</span>
+                      {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
+                    </label>
+                    <div className="combo-wrapper">
+                      <button
+                        ref={statusTriggerRef}
+                        type="button"
+                        className="combo-trigger"
+                        onClick={() => {
+                          if (!statusOpen && statusTriggerRef.current) {
+                            const r = statusTriggerRef.current.getBoundingClientRect();
+                            setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                          }
+                          setStatusOpen(o => !o);
+                        }}
+                      >
+                        <span className="combo-trigger-content">{status}</span>
+                        <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
+                      </button>
+                    </div>
+                    {statusOpen && statusPos && createPortal(
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
+                        <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
+                          {(['Confirmed', 'Planning', 'Canceled'] as const).map(s => (
+                            <button key={s} type="button" className={`combo-option${s === status ? ' selected' : ''}`} onClick={() => { setStatus(s); setStatusOpen(false); }}>
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </>,
+                      document.body
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Carrier / Transit Code */}
-                <div className="form-row">
+              {/* Segment tab bar — only shown when >1 segment */}
+              {segments.length > 1 && (
+                <div className="transport-segment-tabs">
+                  {segments.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`day-tab${activeSegmentIndex === idx ? ' active' : ''}`}
+                      onClick={() => setActiveSegmentIndex(idx)}
+                    >
+                      Segment {idx + 1}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn-danger transport-segment-delete-btn"
+                    onClick={() => deleteSegment(activeSegmentIndex)}
+                  >
+                    <Trash2 size={12} /> Delete Segment
+                  </button>
+                </div>
+              )}
+
+              {/* Per-segment fields: 2-col grid */}
+              <div className="place-form-grid transport-segment-fields">
+                <div className="place-form-left-col">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="transit-carrier" className="place-form-label">
+                        <span className="label-text">Carrier / Operator</span>
+                      </label>
+                      <input type="text" id="transit-carrier" value={seg.carrier} onChange={e => updateSegment(activeSegmentIndex, { carrier: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="transit-code" className="place-form-label">
+                        <span className="label-text">Transit Code / Flight No</span>
+                      </label>
+                      <input type="text" id="transit-code" value={seg.transitCode} onChange={e => updateSegment(activeSegmentIndex, { transitCode: e.target.value })} />
+                    </div>
+                  </div>
+
                   <div className="form-group">
-                    <label htmlFor="transit-carrier" className="place-form-label">
-                      <span className="label-text">Carrier / Operator</span>
-                      {undoBtn(carrier, savedValues?.carrier, () => setCarrier(savedValues!.carrier))}
+                    <label htmlFor="dep-loc" className="place-form-label">
+                      <span className="label-text">Departure Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                     </label>
-                    <input type="text" id="transit-carrier" value={carrier} onChange={e => setCarrier(e.target.value)} />
+                    <input type="text" id="dep-loc" value={seg.depLoc} onChange={e => updateSegment(activeSegmentIndex, { depLoc: e.target.value })} placeholder="e.g. Seattle SEA Airport" required />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="transit-code" className="place-form-label">
-                      <span className="label-text">Transit Code / Flight No</span>
-                      {undoBtn(transitCode, savedValues?.transitCode, () => setTransitCode(savedValues!.transitCode))}
+                    <label htmlFor="dep-address" className="place-form-label">
+                      <span className="label-text">Departure Address</span>
                     </label>
-                    <input type="text" id="transit-code" value={transitCode} onChange={e => setTransitCode(e.target.value)} />
+                    <input type="text" id="dep-address" value={seg.depAddress} onChange={e => updateSegment(activeSegmentIndex, { depAddress: e.target.value })} />
                   </div>
-                </div>
 
-                {/* Departure location + address */}
-                <div className="form-group">
-                  <label htmlFor="dep-loc" className="place-form-label">
-                    <span className="label-text">Departure Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
-                    {undoBtn(depLoc, savedValues?.depLoc, () => setDepLoc(savedValues!.depLoc))}
-                  </label>
-                  <input type="text" id="dep-loc" value={depLoc} onChange={e => setDepLoc(e.target.value)} placeholder="e.g. Seattle SEA Airport" required />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="dep-address" className="place-form-label">
-                    <span className="label-text">Departure Address</span>
-                    {undoBtn(depAddress, savedValues?.depAddress, () => setDepAddress(savedValues!.depAddress))}
-                  </label>
-                  <input type="text" id="dep-address" value={depAddress} onChange={e => setDepAddress(e.target.value)} />
-                </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="dep-date" className="place-form-label">
+                        <span className="label-text">Departure Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                      </label>
+                      <input
+                        type="date" id="dep-date" value={seg.depDate} required
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateSegment(activeSegmentIndex, { depDate: val, arrDate: seg.arrDate < val ? val : seg.arrDate });
+                        }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="dep-time" className="place-form-label">
+                        <span className="label-text">Departure Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                      </label>
+                      <input type="time" id="dep-time" value={seg.depTime} onChange={e => updateSegment(activeSegmentIndex, { depTime: e.target.value })} required />
+                    </div>
+                  </div>
 
-                {/* Departure Date + Time */}
-                <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="dep-date" className="place-form-label">
-                      <span className="label-text">Departure Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
-                      {undoBtn(depDate, savedValues?.depDate, () => setDepDate(savedValues!.depDate))}
-                    </label>
-                    <input type="date" id="dep-date" value={depDate} onChange={e => handleDepDateChange(e.target.value)} required />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="dep-time" className="place-form-label">
-                      <span className="label-text">Departure Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
-                      {undoBtn(depTime, savedValues?.depTime, () => setDepTime(savedValues!.depTime))}
-                    </label>
-                    <input type="time" id="dep-time" value={depTime} onChange={e => setDepTime(e.target.value)} required />
-                  </div>
-                </div>
-
-                {/* Departure Timezone */}
-                <div className="form-group">
                     <label className="place-form-label">
                       <span className="label-text">Departure Timezone</span>
-                      {undoBtn(depTz, savedValues?.depTz, () => setDepTz(savedValues!.depTz))}</label>
+                    </label>
                     <div className="combo-wrapper">
                       <button
                         ref={depTzTriggerRef}
@@ -596,7 +778,7 @@ export default function TransportModal({
                           setDepTzSearch('');
                         }}
                       >
-                        <span className="combo-trigger-content">{formatTimezoneLabel(depTz)}</span>
+                        <span className="combo-trigger-content">{formatTimezoneLabel(seg.depTz)}</span>
                         <ChevronDown size={14} className={`expand-chevron${depTzOpen ? ' is-open' : ''}`} />
                       </button>
                     </div>
@@ -609,7 +791,7 @@ export default function TransportModal({
                           </div>
                           <div className="tz-option-list">
                             {filteredDepTz.map(tz => (
-                              <button key={tz} type="button" className={`combo-option${depTz === tz ? ' selected' : ''}`} onClick={() => { setDepTz(tz); setDepTzOpen(false); }}>
+                              <button key={tz} type="button" className={`combo-option${seg.depTz === tz ? ' selected' : ''}`} onClick={() => { updateSegment(activeSegmentIndex, { depTz: tz }); setDepTzOpen(false); }}>
                                 {formatTimezoneLabel(tz)}
                               </button>
                             ))}
@@ -618,47 +800,40 @@ export default function TransportModal({
                       </>,
                       document.body
                     )}
-                </div>
+                  </div>
 
-                {/* Arrival location + address */}
-                <div className="form-group">
-                  <label htmlFor="arr-loc" className="place-form-label">
-                    <span className="label-text">Arrival Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
-                    {undoBtn(arrLoc, savedValues?.arrLoc, () => setArrLoc(savedValues!.arrLoc))}
-                  </label>
-                  <input type="text" id="arr-loc" value={arrLoc} onChange={e => setArrLoc(e.target.value)} placeholder="e.g. Seattle SEA Airport" required />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="arr-address" className="place-form-label">
-                    <span className="label-text">Arrival Address</span>
-                    {undoBtn(arrAddress, savedValues?.arrAddress, () => setArrAddress(savedValues!.arrAddress))}
-                  </label>
-                  <input type="text" id="arr-address" value={arrAddress} onChange={e => setArrAddress(e.target.value)} />
-                </div>
-
-                {/* Arrival Date + Time */}
-                <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="arr-date" className="place-form-label">
-                      <span className="label-text">Arrival Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
-                      {undoBtn(arrDate, savedValues?.arrDate, () => setArrDate(savedValues!.arrDate))}
+                    <label htmlFor="arr-loc" className="place-form-label">
+                      <span className="label-text">Arrival Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                     </label>
-                    <input type="date" id="arr-date" value={arrDate} onChange={e => setArrDate(e.target.value)} required />
+                    <input type="text" id="arr-loc" value={seg.arrLoc} onChange={e => updateSegment(activeSegmentIndex, { arrLoc: e.target.value })} placeholder="e.g. Los Angeles LAX Airport" required />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="arr-time" className="place-form-label">
-                      <span className="label-text">Arrival Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
-                      {undoBtn(arrTime, savedValues?.arrTime, () => setArrTime(savedValues!.arrTime))}
+                    <label htmlFor="arr-address" className="place-form-label">
+                      <span className="label-text">Arrival Address</span>
                     </label>
-                    <input type="time" id="arr-time" value={arrTime} onChange={e => setArrTime(e.target.value)} required />
+                    <input type="text" id="arr-address" value={seg.arrAddress} onChange={e => updateSegment(activeSegmentIndex, { arrAddress: e.target.value })} />
                   </div>
-                </div>
 
-                {/* Arrival Timezone */}
-                <div className="form-group">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="arr-date" className="place-form-label">
+                        <span className="label-text">Arrival Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                      </label>
+                      <input type="date" id="arr-date" value={seg.arrDate} onChange={e => updateSegment(activeSegmentIndex, { arrDate: e.target.value })} required />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="arr-time" className="place-form-label">
+                        <span className="label-text">Arrival Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                      </label>
+                      <input type="time" id="arr-time" value={seg.arrTime} onChange={e => updateSegment(activeSegmentIndex, { arrTime: e.target.value })} required />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
                     <label className="place-form-label">
                       <span className="label-text">Arrival Timezone</span>
-                      {undoBtn(arrTz, savedValues?.arrTz, () => setArrTz(savedValues!.arrTz))}</label>
+                    </label>
                     <div className="combo-wrapper">
                       <button
                         ref={arrTzTriggerRef}
@@ -673,7 +848,7 @@ export default function TransportModal({
                           setArrTzSearch('');
                         }}
                       >
-                        <span className="combo-trigger-content">{formatTimezoneLabel(arrTz)}</span>
+                        <span className="combo-trigger-content">{formatTimezoneLabel(seg.arrTz)}</span>
                         <ChevronDown size={14} className={`expand-chevron${arrTzOpen ? ' is-open' : ''}`} />
                       </button>
                     </div>
@@ -686,7 +861,7 @@ export default function TransportModal({
                           </div>
                           <div className="tz-option-list">
                             {filteredArrTz.map(tz => (
-                              <button key={tz} type="button" className={`combo-option${arrTz === tz ? ' selected' : ''}`} onClick={() => { setArrTz(tz); setArrTzOpen(false); }}>
+                              <button key={tz} type="button" className={`combo-option${seg.arrTz === tz ? ' selected' : ''}`} onClick={() => { updateSegment(activeSegmentIndex, { arrTz: tz }); setArrTzOpen(false); }}>
                                 {formatTimezoneLabel(tz)}
                               </button>
                             ))}
@@ -695,277 +870,183 @@ export default function TransportModal({
                       </>,
                       document.body
                     )}
-                </div>
-
-                {/* Confirmation No + Booked via */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="transit-conf" className="place-form-label">
-                      <span className="label-text">Confirmation No</span>
-                      {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
-                    </label>
-                    <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="transit-booked" className="place-form-label">
-                      <span className="label-text">Booked via</span>
-                      {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
-                    </label>
-                    <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
                   </div>
                 </div>
 
-                {/* Status */}
-                <div className="form-group">
-                  <label className="place-form-label">
-                    <span className="label-text">Status</span>
-                    {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
-                  </label>
-                  <div className="combo-wrapper">
-                    <button
-                      ref={statusTriggerRef}
-                      type="button"
-                      className="combo-trigger"
-                      onClick={() => {
-                        if (!statusOpen && statusTriggerRef.current) {
-                          const r = statusTriggerRef.current.getBoundingClientRect();
-                          setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                        }
-                        setStatusOpen(o => !o);
-                      }}
-                    >
-                      <span className="combo-trigger-content">{status}</span>
-                      <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
-                    </button>
+                <div className="place-form-right-col">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="dep-lat" className="place-form-label">
+                        <span className="label-text">Departure Latitude</span>
+                      </label>
+                      <input type="text" id="dep-lat" value={seg.depLat} onChange={e => updateSegment(activeSegmentIndex, { depLat: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="dep-lng" className="place-form-label">
+                        <span className="label-text">Departure Longitude</span>
+                      </label>
+                      <input type="text" id="dep-lng" value={seg.depLng} onChange={e => updateSegment(activeSegmentIndex, { depLng: e.target.value })} />
+                    </div>
                   </div>
-                  {statusOpen && statusPos && createPortal(
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
-                      <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
-                        {(['Confirmed', 'Planning', 'Canceled'] as const).map(s => (
-                          <button
-                            key={s}
-                            type="button"
-                            className={`combo-option${s === status ? ' selected' : ''}`}
-                            onClick={() => { setStatus(s); setStatusOpen(false); }}
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </>,
-                    document.body
-                  )}
-                </div>
-
-                {/* Price + Currency */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="transit-price" className="place-form-label">
-                      <span className="label-text">Price</span>
-                      {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
-                    </label>
-                    <input type="number" id="transit-price" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="arr-lat" className="place-form-label">
+                        <span className="label-text">Arrival Latitude</span>
+                      </label>
+                      <input type="text" id="arr-lat" value={seg.arrLat} onChange={e => updateSegment(activeSegmentIndex, { arrLat: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="arr-lng" className="place-form-label">
+                        <span className="label-text">Arrival Longitude</span>
+                      </label>
+                      <input type="text" id="arr-lng" value={seg.arrLng} onChange={e => updateSegment(activeSegmentIndex, { arrLng: e.target.value })} />
+                    </div>
                   </div>
-                  <div className="form-group">
+                  <div className="form-group form-group--mb16">
                     <label className="place-form-label">
-                      <span className="label-text">Currency</span>
-                      {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
+                      <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                      <span className="label-text">Click on the map to set coordinates</span>
                     </label>
-                    <div className="combo-wrapper">
-                      <button
-                        ref={currencyTriggerRef}
-                        type="button"
-                        className="combo-trigger"
-                        onClick={() => {
-                          if (!currencyOpen && currencyTriggerRef.current) {
-                            const r = currencyTriggerRef.current.getBoundingClientRect();
-                            setCurrencyPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                          }
-                          setCurrencyOpen(o => !o);
-                        }}
-                      >
-                        <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
-                        <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
+                    <DualMapPicker
+                      depLat={parseFloat(seg.depLat)}
+                      depLng={parseFloat(seg.depLng)}
+                      arrLat={parseFloat(seg.arrLat)}
+                      arrLng={parseFloat(seg.arrLng)}
+                      onDepPick={(lat, lng) => updateSegment(activeSegmentIndex, { depLat: lat.toFixed(6), depLng: lng.toFixed(6) })}
+                      onArrPick={(lat, lng) => updateSegment(activeSegmentIndex, { arrLat: lat.toFixed(6), arrLng: lng.toFixed(6) })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Add Segment button — always visible */}
+              <div className="transport-add-segment-row">
+                <button type="button" className="btn-secondary flex-align transport-add-segment-btn" onClick={addSegment}>
+                  <Plus size={13} /> Add Segment
+                </button>
+              </div>
+
+              {/* Reservation-level: Notes + Attachments */}
+              <div className="place-form-grid">
+                <div className="place-form-left-col">
+                  <div className="form-group">
+                    <label htmlFor="transit-notes" className="place-form-label">
+                      <span className="label-text">Notes</span>
+                      {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
+                    </label>
+                    <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
+                  </div>
+                </div>
+
+                <div className="place-form-right-col">
+                  {savedSegments !== null && (
+                    <div className="form-group">
+                      <button type="button" className="btn-secondary flex-align transport-undo-ai-btn" onClick={undoAiFill}>
+                        <RotateCcw size={13} /> Undo AI Fill
                       </button>
                     </div>
-                    {currencyOpen && currencyPos && createPortal(
-                      <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setCurrencyOpen(false)} />
-                        <div className="combo-dropdown--portal" style={{ top: currencyPos.top, left: currencyPos.left, width: Math.max(currencyPos.width, 220) }} onClick={e => e.stopPropagation()}>
-                          {CURRENCY_LIST.map(c => (
-                            <button key={c.code} type="button" className={`combo-option${c.code === currency ? ' selected' : ''}`} onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}>
-                              {c.code} — {c.name}
+                  )}
+
+                  {googleToken && (
+                    <div className="attachment-section">
+                      <div className="attachment-header-row">
+                        <span className="attachment-section-label">Attachments</span>
+                        <div className="attachment-header-actions">
+                          {attachedFiles.length > 0 && (
+                            <button
+                              type="button"
+                              className="modal-ai-fill-btn modal-ai-fill-btn--inline"
+                              onClick={handleAiFill}
+                              disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+                              data-tooltip={
+                                !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                                GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                                undefined
+                              }
+                              data-tooltip-position="bottom"
+                            >
+                              {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+                              {isAiFilling ? 'Generating…' : 'Fill Details with AI'}
                             </button>
+                          )}
+                          <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
+                            <Paperclip size={13} />
+                            {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
+                          </button>
+                        </div>
+                      </div>
+                      {isOwner && tripDriveFileId && (
+                        <p className="attachment-share-notice">
+                          For shared users to access attachments, share the trip folder with them.
+                          {tripFilesFolderId && (
+                            <button type="button" className="attachment-share-btn" onClick={() => setShowShareFolder(true)}>
+                              <Share2 size={11} /> Share Folder
+                            </button>
+                          )}
+                        </p>
+                      )}
+                      <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
+                      {attachedFiles.length > 0 && (
+                        <div className="attachment-chip-list">
+                          {attachedFiles.map(f => (
+                            <span key={f.fileId} className="attachment-chip">
+                              {editingChip?.fileId === f.fileId ? (
+                                <>
+                                  <input
+                                    className="attachment-chip-edit-input"
+                                    value={editingChip.value}
+                                    onChange={e => setEditingChip({ fileId: f.fileId, value: e.target.value })}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }
+                                      if (e.key === 'Escape') setEditingChip(null);
+                                    }}
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="button"
+                                    className="attachment-chip-action"
+                                    onClick={() => { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }}
+                                    data-tooltip="Save name"
+                                  >
+                                    <Check size={10} />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <a
+                                    href={`https://drive.google.com/file/d/${f.fileId}/view`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="attachment-chip-name"
+                                    data-tooltip={f.filename && f.filename !== f.name ? f.filename : 'Open file'}
+                                  >
+                                    <ExternalLink size={10} />
+                                    <span className="attachment-chip-filename">{f.name}</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    className="attachment-chip-action"
+                                    onClick={() => setEditingChip({ fileId: f.fileId, value: f.name })}
+                                    data-tooltip="Rename file"
+                                  >
+                                    <Pencil size={10} />
+                                  </button>
+                                  <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
+                                    <X size={10} />
+                                  </button>
+                                </>
+                              )}
+                            </span>
                           ))}
                         </div>
-                      </>,
-                      document.body
-                    )}
-                  </div>
-                </div>
-
-
-              </div>
-
-              {/* Right column — Coordinates, DualMapPicker, Notes, Attachments */}
-              <div className="place-form-right-col">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="dep-lat" className="place-form-label">
-                      <span className="label-text">Departure Latitude</span>
-                      {undoBtn(depLat, savedValues?.depLat, () => setDepLat(savedValues!.depLat))}
-                    </label>
-                    <input type="text" id="dep-lat" value={depLat} onChange={e => setDepLat(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="dep-lng" className="place-form-label">
-                      <span className="label-text">Departure Longitude</span>
-                      {undoBtn(depLng, savedValues?.depLng, () => setDepLng(savedValues!.depLng))}
-                    </label>
-                    <input type="text" id="dep-lng" value={depLng} onChange={e => setDepLng(e.target.value)} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="arr-lat" className="place-form-label">
-                      <span className="label-text">Arrival Latitude</span>
-                      {undoBtn(arrLat, savedValues?.arrLat, () => setArrLat(savedValues!.arrLat))}
-                    </label>
-                    <input type="text" id="arr-lat" value={arrLat} onChange={e => setArrLat(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="arr-lng" className="place-form-label">
-                      <span className="label-text">Arrival Longitude</span>
-                      {undoBtn(arrLng, savedValues?.arrLng, () => setArrLng(savedValues!.arrLng))}
-                    </label>
-                    <input type="text" id="arr-lng" value={arrLng} onChange={e => setArrLng(e.target.value)} />
-                  </div>
-                </div>
-                <div className="form-group form-group--mb16">
-                  <label className="place-form-label">
-                    <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                    <span className="label-text">Click on the map to set coordinates</span>
-                  </label>
-                  <DualMapPicker
-                    depLat={parseFloat(depLat)}
-                    depLng={parseFloat(depLng)}
-                    arrLat={parseFloat(arrLat)}
-                    arrLng={parseFloat(arrLng)}
-                    onDepPick={(lat, lng) => { setDepLat(lat.toFixed(6)); setDepLng(lng.toFixed(6)); }}
-                    onArrPick={(lat, lng) => { setArrLat(lat.toFixed(6)); setArrLng(lng.toFixed(6)); }}
-                  />
-                </div>
-
-                {/* Notes */}
-                <div className="form-group">
-                  <label htmlFor="transit-notes" className="place-form-label">
-                    <span className="label-text">Notes</span>
-                    {undoBtn(notes, savedValues?.notes, () => setNotes(savedValues!.notes))}
-                  </label>
-                  <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
-                </div>
-
-                {/* File Attachments */}
-                {googleToken && (
-                  <div className="attachment-section">
-                    <div className="attachment-header-row">
-                      <span className="attachment-section-label">Attachments</span>
-                      <div className="attachment-header-actions">
-                        {attachedFiles.length > 0 && (
-                          <button
-                            type="button"
-                            className="modal-ai-fill-btn modal-ai-fill-btn--inline"
-                            onClick={handleAiFill}
-                            disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
-                            data-tooltip={
-                              !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
-                              GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
-                              undefined
-                            }
-                            data-tooltip-position="bottom"
-                          >
-                            {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
-                            {isAiFilling ? 'Generating…' : 'Fill Details with AI'}
-                          </button>
-                        )}
-                        <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
-                          <Paperclip size={13} />
-                          {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
-                        </button>
-                      </div>
+                      )}
+                      {aiError && <p className="form-error-text">{aiError}</p>}
                     </div>
-                    {isOwner && tripDriveFileId && (
-                      <p className="attachment-share-notice">
-                        For shared users to access attachments, share the trip folder with them.
-                        {tripFilesFolderId && (
-                          <button type="button" className="attachment-share-btn" onClick={() => setShowShareFolder(true)}>
-                            <Share2 size={11} /> Share Folder
-                          </button>
-                        )}
-                      </p>
-                    )}
-                    <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
-                    {attachedFiles.length > 0 && (
-                      <div className="attachment-chip-list">
-                        {attachedFiles.map(f => (
-                          <span key={f.fileId} className="attachment-chip">
-                            {editingChip?.fileId === f.fileId ? (
-                              <>
-                                <input
-                                  className="attachment-chip-edit-input"
-                                  value={editingChip.value}
-                                  onChange={e => setEditingChip({ fileId: f.fileId, value: e.target.value })}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }
-                                    if (e.key === 'Escape') setEditingChip(null);
-                                  }}
-                                  autoFocus
-                                />
-                                <button
-                                  type="button"
-                                  className="attachment-chip-action"
-                                  onClick={() => { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }}
-                                  data-tooltip="Save name"
-                                >
-                                  <Check size={10} />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <a
-                                  href={`https://drive.google.com/file/d/${f.fileId}/view`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="attachment-chip-name"
-                                  data-tooltip={f.filename && f.filename !== f.name ? f.filename : 'Open file'}
-                                >
-                                  <ExternalLink size={10} />
-                                  <span className="attachment-chip-filename">{f.name}</span>
-                                </a>
-                                <button
-                                  type="button"
-                                  className="attachment-chip-action"
-                                  onClick={() => setEditingChip({ fileId: f.fileId, value: f.name })}
-                                  data-tooltip="Rename file"
-                                >
-                                  <Pencil size={10} />
-                                </button>
-                                <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
-                                  <X size={10} />
-                                </button>
-                              </>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {aiError && <p className="form-error-text">{aiError}</p>}
-                  </div>
-                )}
+                  )}
+                  {!googleToken && aiError && <p className="form-error-text">{aiError}</p>}
+                </div>
               </div>
 
-            </div>
             </div>
 
             <div className="modal-actions modal-actions--between">

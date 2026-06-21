@@ -51,14 +51,19 @@ describe('dateUtils tests', () => {
           {
             id: 't1',
             type: 'flight',
-            departureLocationName: 'Paris',
-            arrivalLocationName: 'London',
-            departureDate: '2026-06-01',
-            departureTime: '10:00',
-            departureTimezone: 'GMT',
-            arrivalDate: '2026-06-01',
-            arrivalTime: '11:00',
-            arrivalTimezone: 'GMT'
+            segments: [
+              {
+                id: 't1-s0',
+                departureLocationName: 'Paris',
+                arrivalLocationName: 'London',
+                departureDate: '2026-06-01',
+                departureTime: '10:00',
+                departureTimezone: 'GMT',
+                arrivalDate: '2026-06-01',
+                arrivalTime: '11:00',
+                arrivalTimezone: 'GMT'
+              }
+            ]
           }
         ]
       }
@@ -82,13 +87,13 @@ describe('dateUtils tests', () => {
     expect(plan.days['2026-06-12']).toEqual({ dateStr: '2026-06-12', placeIds: ['p2'] });
     expect(plan.days['2026-06-13']).toEqual({ dateStr: '2026-06-13', locationId: 'loc-1', placeIds: ['p3'] });
 
-    // Hotels should be shifted
-    expect(plan.hotels[0].checkInDate).toBe('2026-06-11');
-    expect(plan.hotels[0].checkOutDate).toBe('2026-06-13');
+    // Hotels pass through unchanged (fixed real-world booking dates)
+    expect(plan.hotels[0].checkInDate).toBe('2026-06-01');
+    expect(plan.hotels[0].checkOutDate).toBe('2026-06-03');
 
-    // Transports should be shifted
-    expect(plan.transports[0].departureDate).toBe('2026-06-11');
-    expect(plan.transports[0].arrivalDate).toBe('2026-06-11');
+    // Transports pass through unchanged (fixed real-world booking dates)
+    expect(plan.transports[0].segments[0].departureDate).toBe('2026-06-01');
+    expect(plan.transports[0].segments[0].arrivalDate).toBe('2026-06-01');
   });
 
   test('shiftTripDates shifts and expands duration', () => {

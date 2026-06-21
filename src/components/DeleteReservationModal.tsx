@@ -1,19 +1,29 @@
 import { useState } from 'react';
 import { X, Trash2, Archive, Link } from 'lucide-react';
-import type { Hotel, Transportation } from '../types';
+import type { Hotel, TransportationReservation } from '../types';
 import { deleteFileFromDrive, renameFolderInDrive } from '../utils/googleDrive';
 
 interface Props {
   type: 'hotel' | 'transport';
-  item: Hotel | Transportation;
+  item: Hotel | TransportationReservation;
   googleToken?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  // For multi-segment transport deletion
+  segmentIndex?: number;
+  totalSegments?: number;
+  onConfirmSegmentOnly?: () => void;
 }
 
 type FileChoice = 'keep' | 'archive' | 'delete';
+type DeleteChoice = 'segment' | 'reservation';
 
-export default function DeleteReservationModal({ type, item, googleToken, onConfirm, onCancel }: Props) {
+export default function DeleteReservationModal({
+  type, item, googleToken, onConfirm, onCancel,
+  segmentIndex, totalSegments, onConfirmSegmentOnly,
+}: Props) {
+  const isMultiSegment = type === 'transport' && totalSegments !== undefined && totalSegments > 1;
+  const [deleteChoice, setDeleteChoice] = useState<DeleteChoice | null>(isMultiSegment ? null : 'reservation');
   const [fileChoice, setFileChoice] = useState<FileChoice>('keep');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -21,11 +31,8 @@ export default function DeleteReservationModal({ type, item, googleToken, onConf
   const hasAttachments = attachmentCount > 0 && !!googleToken;
 
   const title = type === 'hotel' ? 'Delete Hotel Reservation' : 'Delete Transit Reservation';
-  const message = type === 'hotel'
-    ? 'Are you sure you want to delete this hotel reservation?'
-    : 'Are you sure you want to delete this transit reservation?';
 
-  const handleConfirm = async () => {
+  const handleConfirmReservation = async () => {
     if (hasAttachments && fileChoice !== 'keep') {
       setIsProcessing(true);
       try {
@@ -43,6 +50,10 @@ export default function DeleteReservationModal({ type, item, googleToken, onConf
     onConfirm();
   };
 
+  const handleConfirmSegment = () => {
+    onConfirmSegmentOnly?.();
+  };
+
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content glass-panel" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
@@ -51,50 +62,93 @@ export default function DeleteReservationModal({ type, item, googleToken, onConf
           <button className="modal-close" onClick={onCancel}><X size={20} /></button>
         </div>
 
-        <p className="modal-body-text">{message}</p>
-
-        {hasAttachments && (
+        {isMultiSegment && deleteChoice === null ? (
           <>
-            <p className="modal-body-text" style={{ marginBottom: 6 }}>
-              This reservation has {attachmentCount} attached file{attachmentCount !== 1 ? 's' : ''} on Google Drive. What should happen to them?
+            <p className="modal-body-text">
+              This transit reservation has {totalSegments} segments. What would you like to delete?
             </p>
             <div className="modal-delete-file-opts">
               <button
-                className={`modal-delete-file-opt${fileChoice === 'keep' ? ' selected' : ''}`}
-                onClick={() => setFileChoice('keep')}
-              >
-                <Link size={14} />
-                Keep files on Drive (remove link only)
-              </button>
-              <button
-                className={`modal-delete-file-opt${fileChoice === 'archive' ? ' selected' : ''}`}
-                onClick={() => setFileChoice('archive')}
-              >
-                <Archive size={14} />
-                Archive files (rename with [Archived])
-              </button>
-              <button
-                className={`modal-delete-file-opt${fileChoice === 'delete' ? ' selected' : ''}`}
-                onClick={() => setFileChoice('delete')}
+                className="modal-delete-file-opt"
+                onClick={() => setDeleteChoice('segment')}
               >
                 <Trash2 size={14} />
-                Delete files from Drive
+                Delete transit segment {(segmentIndex ?? 0) + 1} only
+              </button>
+              <button
+                className="modal-delete-file-opt"
+                onClick={() => setDeleteChoice('reservation')}
+              >
+                <Trash2 size={14} />
+                Delete entire transit reservation
+              </button>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+            </div>
+          </>
+        ) : deleteChoice === 'segment' ? (
+          <>
+            <p className="modal-body-text">
+              Are you sure you want to delete segment {(segmentIndex ?? 0) + 1} from this transit reservation?
+            </p>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+              <button type="button" className="btn-danger" onClick={handleConfirmSegment}>Delete Segment</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="modal-body-text">
+              {type === 'hotel'
+                ? 'Are you sure you want to delete this hotel reservation?'
+                : 'Are you sure you want to delete this transit reservation?'}
+            </p>
+
+            {hasAttachments && (
+              <>
+                <p className="modal-body-text" style={{ marginBottom: 6 }}>
+                  This reservation has {attachmentCount} attached file{attachmentCount !== 1 ? 's' : ''} on Google Drive. What should happen to them?
+                </p>
+                <div className="modal-delete-file-opts">
+                  <button
+                    className={`modal-delete-file-opt${fileChoice === 'keep' ? ' selected' : ''}`}
+                    onClick={() => setFileChoice('keep')}
+                  >
+                    <Link size={14} />
+                    Keep files on Drive (remove link only)
+                  </button>
+                  <button
+                    className={`modal-delete-file-opt${fileChoice === 'archive' ? ' selected' : ''}`}
+                    onClick={() => setFileChoice('archive')}
+                  >
+                    <Archive size={14} />
+                    Archive files (rename with [Archived])
+                  </button>
+                  <button
+                    className={`modal-delete-file-opt${fileChoice === 'delete' ? ' selected' : ''}`}
+                    onClick={() => setFileChoice('delete')}
+                  >
+                    <Trash2 size={14} />
+                    Delete files from Drive
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={onCancel} disabled={isProcessing}>Cancel</button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={handleConfirmReservation}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Processing…' : 'Delete'}
               </button>
             </div>
           </>
         )}
-
-        <div className="modal-actions">
-          <button type="button" className="btn-secondary" onClick={onCancel} disabled={isProcessing}>Cancel</button>
-          <button
-            type="button"
-            className="btn-danger"
-            onClick={handleConfirm}
-            disabled={isProcessing}
-          >
-            {isProcessing ? 'Processing…' : 'Delete'}
-          </button>
-        </div>
       </div>
     </div>
   );

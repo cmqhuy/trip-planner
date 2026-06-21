@@ -6,7 +6,7 @@ import {
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
   ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy
 } from 'lucide-react';
-import type { Trip, Plan, Location, Place, Hotel, Transportation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
+import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { getOptimizedImageUrl } from '../utils/image';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
@@ -46,7 +46,7 @@ interface ItineraryPanelProps {
   onShareTrip: ((trip: Trip) => void) | undefined;
   formatDisplayDate: (dateStr: string) => string;
   getHotelsForDay: (dateStr: string) => Hotel[];
-  getTransportsForDay: (dateStr: string) => Transportation[];
+  getTransportsForDay: (dateStr: string) => FlatTransportationSegment[];
   scheduledPlaces: Place[];
   displayScheduledPlaces: Place[];
   activePlaceId: string | undefined;
@@ -92,9 +92,9 @@ interface ItineraryPanelProps {
   setShowNewPlanModal: (show: boolean) => void;
   handleSetDayLocation: (locId: string) => void;
   handleDeleteHotel: (hotelId: string) => void;
-  handleDeleteTransportation: (transportId: string) => void;
+  handleDeleteTransportation: (reservationId: string, segmentIndex: number) => void;
   handleOpenEditHotel: (hotel: Hotel) => void;
-  handleOpenEditTransport: (transport: Transportation) => void;
+  handleOpenEditTransport: (reservation: TransportationReservation, segmentIndex: number) => void;
   handleSaveHotelNotes: (hotelId: string, notes: string) => void;
   handleSaveTransportNotes: (transportId: string, notes: string) => void;
   handleGenerateSingleDayTips: (dateStr: string) => void;
@@ -1109,7 +1109,7 @@ function ItineraryPanel({
                   const isArrival = t.arrivalDate === activeDayStr;
                   const isExpanded = expandedTransitId === t.id;
                   const isEditingNote = editingTransitNoteId === t.id;
-                const transitName = t.name || `${t.departureLocationName} → ${t.arrivalLocationName}`;
+                const transitName = t.reservationName || `${t.departureLocationName} → ${t.arrivalLocationName}`;
                 const carrierLine = [t.carrier, t.transitCode].filter(Boolean).join(' · ');
                 const depTzLabel = t.departureTimezone ? ` (${formatTzOffset(t.departureTimezone)})` : '';
                 const arrTzLabel = t.arrivalTimezone ? ` (${formatTzOffset(t.arrivalTimezone)})` : '';
@@ -1206,10 +1206,14 @@ function ItineraryPanel({
                                 </button>
                               )}
                               {trip.canEdit !== false && <>
-                                <button className="dropdown-item" onClick={() => { handleOpenEditTransport(t); setOpenTransportMenuId(null); }}>
+                                <button className="dropdown-item" onClick={() => {
+                                  const reservation = activePlan.transports.find(r => r.id === t.reservationId);
+                                  if (reservation) handleOpenEditTransport(reservation, t.segmentIndex);
+                                  setOpenTransportMenuId(null);
+                                }}>
                                   <Edit2 size={13} /> Edit
                                 </button>
-                                <button className="dropdown-item danger" onClick={() => { handleDeleteTransportation(t.id); setOpenTransportMenuId(null); }}>
+                                <button className="dropdown-item danger" onClick={() => { handleDeleteTransportation(t.reservationId, t.segmentIndex); setOpenTransportMenuId(null); }}>
                                   <Trash2 size={13} /> Delete
                                 </button>
                               </>}
@@ -1270,7 +1274,7 @@ function ItineraryPanel({
                         />
                         <div className="notes-actions">
                           <button className="btn-secondary place-notes-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveTransportNotes(t.id, transitNoteTextareaRef.current?.value ?? ''); setEditingTransitNoteId(null); }}>
+                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveTransportNotes(t.reservationId, transitNoteTextareaRef.current?.value ?? ''); setEditingTransitNoteId(null); }}>
                             <Check size={10} /> Save
                           </button>
                         </div>

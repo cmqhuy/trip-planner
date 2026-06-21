@@ -1,5 +1,5 @@
 import { BookOpen, CheckSquare, Building, Sparkles, AlertTriangle } from 'lucide-react';
-import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, Transportation } from '../types';
+import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, TransportationReservation } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
 import ReservationsSection from './ReservationsSection';
@@ -66,8 +66,9 @@ interface LeftPanelAccordionProps {
   formatDisplayDate: (dateStr: string) => string;
   onEditHotel: (hotel: Hotel) => void;
   onDeleteHotel: (id: string) => void;
-  onEditTransport: (transport: Transportation) => void;
-  onDeleteTransport: (id: string) => void;
+  onEditTransport: (reservation: TransportationReservation, segmentIndex: number) => void;
+  onDeleteTransport: (reservationId: string, segmentIndex: number) => void;
+  onSaveTransportNotes: (reservationId: string, notes: string) => void;
   expandedHotelId: string | null;
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
@@ -140,6 +141,7 @@ export default function LeftPanelAccordion({
   onDeleteHotel,
   onEditTransport,
   onDeleteTransport,
+  onSaveTransportNotes,
   expandedHotelId,
   setExpandedHotelId,
   expandedTransitId,
@@ -272,7 +274,7 @@ export default function LeftPanelAccordion({
               const currLoc = activePlan.days[d]?.locationId;
               if (!prevLoc || !currLoc || prevLoc === currLoc) return false;
               return !activePlan.transports.some(
-                t => t.status !== 'Canceled' && (t.departureDate === daysList[i - 1] || t.arrivalDate === d)
+                t => t.status !== 'Canceled' && t.segments.some(s => s.departureDate === daysList[i - 1] || s.arrivalDate === d)
               );
             });
             const hasPendingWarning = activePlan.hotels.some(h => h.status === 'Planning') || activePlan.transports.some(t => t.status === 'Planning');
@@ -297,6 +299,7 @@ export default function LeftPanelAccordion({
             onDeleteHotel={onDeleteHotel}
             onEditTransport={onEditTransport}
             onDeleteTransport={onDeleteTransport}
+            onSaveTransportNotes={onSaveTransportNotes}
             expandedHotelId={expandedHotelId}
             setExpandedHotelId={setExpandedHotelId}
             expandedTransitId={expandedTransitId}

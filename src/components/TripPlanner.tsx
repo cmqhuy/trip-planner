@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Transportation, Hotel, ScheduleItem, SchedulePlaceItem } from '../types';
+import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, TransportationReservation, FlatTransportationSegment } from '../types';
+import { flattenReservations } from '../types';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
   ...day,
@@ -331,8 +332,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
   // Transportation Modal
   const [showTransportModal, setShowTransportModal] = useState(false);
-  const [editingTransport, setEditingTransport] = useState<Transportation | null>(null);
-  const [deleteTransportData, setDeleteTransportData] = useState<Transportation | null>(null);
+  const [editingTransport, setEditingTransport] = useState<TransportationReservation | null>(null);
+  const [editingTransportationSegmentIndex, setEditingTransportationSegmentIndex] = useState(0);
+  const [deleteTransportData, setDeleteTransportData] = useState<{ reservation: TransportationReservation; segmentIndex: number } | null>(null);
 
   // Hotel Modal
   const [showHotelModal, setShowHotelModal] = useState(false);
@@ -1686,31 +1688,24 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   // ----------------------------------------------------
   // Transportation Operations
   // ----------------------------------------------------
-  const handleAddTransportation = (transportData: Omit<Transportation, 'id'>) => {
-    const newTransport: Transportation = {
+  const handleAddTransportation = (transportData: Omit<TransportationReservation, 'id'>) => {
+    const newTransport: TransportationReservation = {
       id: `transport-${Date.now()}`,
       ...transportData
     };
 
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
-        return {
-          ...p,
-          transports: [...p.transports, newTransport]
-        };
+        return { ...p, transports: [...p.transports, newTransport] };
       }
       return p;
     });
 
-    onUpdateTrip({
-      ...trip,
-      plans: updatedPlans
-    });
-
+    onUpdateTrip({ ...trip, plans: updatedPlans });
     setShowTransportModal(false);
   };
 
-  const handleEditTransportation = useCallback((updatedTransport: Transportation) => {
+  const handleEditTransportation = useCallback((updatedTransport: TransportationReservation) => {
     const updatedPlans = trip.plans.map(p =>
       p.id === activePlan.id
         ? { ...p, transports: p.transports.map(t => t.id === updatedTransport.id ? updatedTransport : t) }
@@ -1721,8 +1716,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setEditingTransport(null);
   }, [trip, activePlan, onUpdateTrip]);
 
-  const handleOpenEditTransport = useCallback((transport: Transportation) => {
-    setEditingTransport(transport);
+  const handleOpenEditTransport = useCallback((reservation: TransportationReservation, segmentIndex: number) => {
+    setEditingTransport(reservation);
+    setEditingTransportationSegmentIndex(segmentIndex);
     setShowTransportModal(true);
   }, []);
 
@@ -1735,10 +1731,31 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     onUpdateTrip({ ...trip, plans: updatedPlans });
   }, [trip, activePlan, onUpdateTrip]);
 
-  const handleDeleteTransportation = useCallback((id: string) => {
-    const transport = activePlan.transports.find(t => t.id === id);
-    if (transport) setDeleteTransportData(transport);
+  const handleDeleteTransportation = useCallback((reservationId: string, segmentIndex: number) => {
+    const reservation = activePlan.transports.find(t => t.id === reservationId);
+    if (reservation) setDeleteTransportData({ reservation, segmentIndex });
   }, [activePlan.transports]);
+
+  const handleDeleteTransportationSegment = useCallback((reservationId: string, segmentIndex: number) => {
+    const reservation = activePlan.transports.find(t => t.id === reservationId);
+    if (!reservation) return;
+    const newSegments = reservation.segments.filter((_, i) => i !== segmentIndex);
+    if (newSegments.length === 0) {
+      // Last segment — delete the entire reservation
+      const updatedPlans = trip.plans.map(p =>
+        p.id === activePlan.id ? { ...p, transports: p.transports.filter(t => t.id !== reservationId) } : p
+      );
+      onUpdateTrip({ ...trip, plans: updatedPlans });
+    } else {
+      const updatedPlans = trip.plans.map(p =>
+        p.id === activePlan.id
+          ? { ...p, transports: p.transports.map(t => t.id === reservationId ? { ...t, segments: newSegments } : t) }
+          : p
+      );
+      onUpdateTrip({ ...trip, plans: updatedPlans });
+    }
+    setDeleteTransportData(null);
+  }, [trip, activePlan, onUpdateTrip]);
 
   const executeDeleteTransport = useCallback((id: string) => {
     const updatedPlans = trip.plans.map(p =>
@@ -1750,12 +1767,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setEditingTransport(null);
   }, [trip, activePlan.id, onUpdateTrip]);
 
-  // Get transport active on a day
-  const getTransportsForDay = useCallback((dateStr: string) => {
-    return activePlan.transports.filter(t => {
-      // Show on day if it departs or arrives on this day
-      return t.departureDate === dateStr || t.arrivalDate === dateStr;
-    });
+  // Get transport segments active on a day (returns flat view model)
+  const getTransportsForDay = useCallback((dateStr: string): FlatTransportationSegment[] => {
+    return flattenReservations(activePlan.transports)
+      .filter(seg => seg.departureDate === dateStr || seg.arrivalDate === dateStr);
   }, [activePlan]);
 
   // ----------------------------------------------------
@@ -1963,33 +1978,36 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           }
         }
 
-        const draftTransit: Transportation = {
+        const draftTransit: TransportationReservation = {
           id: 'imported-draft',
           name: result.name || `Transit ${file.name.substring(0, file.name.lastIndexOf('.'))}`,
           type: (result.type as any) || 'flight',
-          departureLocationName: result.departureLocationName || '',
-          arrivalLocationName: result.arrivalLocationName || '',
-          departureDate: result.departureDate || activeDayStr || daysList[0] || '',
-          departureTime: result.departureTime || '12:00',
-          departureTimezone: result.departureTimezone || 'UTC',
-          arrivalDate: result.arrivalDate || activeDayStr || daysList[0] || '',
-          arrivalTime: result.arrivalTime || '14:00',
-          arrivalTimezone: result.arrivalTimezone || 'UTC',
-          carrier: result.carrier,
-          transitCode: result.transitCode,
           confirmationNo: result.confirmationNo,
           bookedThrough: result.bookedThrough,
           price: result.price,
           currency: result.price ? (result.currency || 'USD') : undefined,
-          departureAddress: result.departureAddress,
-          departureLat: finalDepLat,
-          departureLng: finalDepLng,
-          arrivalAddress: result.arrivalAddress,
-          arrivalLat: finalArrLat,
-          arrivalLng: finalArrLng,
           notes: result.notes,
           status: 'Planning',
-          attachments: attachment ? [attachment] : []
+          attachments: attachment ? [attachment] : [],
+          segments: [{
+            id: `imported-draft-seg-0`,
+            carrier: result.carrier,
+            transitCode: result.transitCode,
+            departureLocationName: result.departureLocationName || '',
+            departureAddress: result.departureAddress,
+            departureDate: result.departureDate || activeDayStr || daysList[0] || '',
+            departureTime: result.departureTime || '12:00',
+            departureTimezone: result.departureTimezone || 'UTC',
+            departureLat: finalDepLat,
+            departureLng: finalDepLng,
+            arrivalLocationName: result.arrivalLocationName || '',
+            arrivalAddress: result.arrivalAddress,
+            arrivalDate: result.arrivalDate || activeDayStr || daysList[0] || '',
+            arrivalTime: result.arrivalTime || '14:00',
+            arrivalTimezone: result.arrivalTimezone || 'UTC',
+            arrivalLat: finalArrLat,
+            arrivalLng: finalArrLng,
+          }]
         };
         setEditingTransport(draftTransit);
         setShowTransportModal(true);
@@ -2149,7 +2167,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       name: trip.name, startDate: trip.startDate, endDate: trip.endDate,
       locations: trip.locations.map(l => ({ city: l.city, country: l.country })),
       hotels: activePlan.hotels.filter(h => h.status !== 'Canceled').map(h => ({ name: h.name, checkInDate: h.checkInDate, checkOutDate: h.checkOutDate })),
-      transports: activePlan.transports.filter(t => t.status !== 'Canceled').map(t => ({ type: t.type, departureLocationName: t.departureLocationName, arrivalLocationName: t.arrivalLocationName, departureDate: t.departureDate })),
+      transports: activePlan.transports.filter(t => t.status !== 'Canceled').flatMap(t =>
+        t.segments.map(s => ({ type: t.type, departureLocationName: s.departureLocationName, arrivalLocationName: s.arrivalLocationName, departureDate: s.departureDate }))
+      ),
       places: placesWithReservations
     };
     const enableBabyLogistics = !trip.disabledDayFields?.includes('baby_logistics');
@@ -2456,6 +2476,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onDeleteHotel={handleDeleteHotel}
         onEditTransport={handleOpenEditTransport}
         onDeleteTransport={handleDeleteTransportation}
+        onSaveTransportNotes={handleSaveTransportNotes}
         expandedHotelId={expandedHotelId}
         setExpandedHotelId={setExpandedHotelId}
         expandedTransitId={expandedTransitId}
@@ -2734,15 +2755,16 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         isOpen={showTransportModal}
         onClose={() => { setShowTransportModal(false); setEditingTransport(null); }}
         tripStartDate={trip.startDate}
-        onSave={(data) => {
+        onSave={(data: Omit<TransportationReservation, 'id'>) => {
           if (editingTransport && editingTransport.id !== 'imported-draft') {
             handleEditTransportation({ ...data, id: editingTransport.id });
           } else {
             handleAddTransportation(data);
           }
         }}
-        onDelete={editingTransport ? () => setDeleteTransportData(editingTransport) : undefined}
+        onDelete={editingTransport ? () => setDeleteTransportData({ reservation: editingTransport, segmentIndex: editingTransportationSegmentIndex }) : undefined}
         editingTransport={editingTransport}
+        initialSegmentIndex={editingTransportationSegmentIndex}
         googleToken={googleToken}
         tripPlannerFolderId={googleFolderId}
         tripName={trip.id}
@@ -2790,9 +2812,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       {deleteTransportData && (
         <DeleteReservationModal
           type="transport"
-          item={deleteTransportData}
+          item={deleteTransportData.reservation}
           googleToken={googleToken ?? undefined}
-          onConfirm={() => executeDeleteTransport(deleteTransportData.id)}
+          segmentIndex={deleteTransportData.segmentIndex}
+          totalSegments={deleteTransportData.reservation.segments.length}
+          onConfirmSegmentOnly={() => handleDeleteTransportationSegment(deleteTransportData.reservation.id, deleteTransportData.segmentIndex)}
+          onConfirm={() => executeDeleteTransport(deleteTransportData.reservation.id)}
           onCancel={() => setDeleteTransportData(null)}
         />
       )}

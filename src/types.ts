@@ -56,33 +56,77 @@ export interface Location {
   };
 }
 
+// Transportation — a single departure→arrival leg within a TransportationReservation
 export interface Transportation {
   id: string;
-  type: 'flight' | 'train' | 'bus' | 'car' | 'ferry' | 'other';
-  name?: string;
+  carrier?: string;
+  transitCode?: string;
   departureLocationName: string;
-  arrivalLocationName: string;
+  departureAddress?: string;
   departureDate: string;        // YYYY-MM-DD
   departureTime: string;        // HH:MM
   departureTimezone: string;    // e.g. "GMT+1" or "America/New_York"
+  departureLat?: number;
+  departureLng?: number;
+  arrivalLocationName: string;
+  arrivalAddress?: string;
   arrivalDate: string;          // YYYY-MM-DD
   arrivalTime: string;          // HH:MM
   arrivalTimezone: string;      // e.g. "GMT+9" or "Asia/Tokyo"
-  carrier?: string;
-  transitCode?: string;
-  notes?: string;
+  arrivalLat?: number;
+  arrivalLng?: number;
+}
+
+// TransportationReservation — booking-level container for one or more transit legs
+export interface TransportationReservation {
+  id: string;
+  type: 'flight' | 'train' | 'bus' | 'car' | 'ferry' | 'other';
+  name?: string;
   confirmationNo?: string;
   bookedThrough?: string;
   price?: number;
   currency?: string;
-  departureAddress?: string;
-  departureLat?: number;
-  departureLng?: number;
-  arrivalAddress?: string;
-  arrivalLat?: number;
-  arrivalLng?: number;
-  attachments?: Attachment[];
+  notes?: string;
   status?: 'Confirmed' | 'Planning' | 'Canceled';
+  attachments?: Attachment[];
+  segments: Transportation[];  // always length >= 1
+}
+
+// FlatTransportationSegment — view model for display components.
+// One Transportation merged with its parent TransportationReservation's shared fields.
+export interface FlatTransportationSegment extends Transportation {
+  reservationId: string;
+  segmentIndex: number;
+  totalSegments: number;
+  type: TransportationReservation['type'];
+  reservationName?: string;
+  confirmationNo?: string;
+  bookedThrough?: string;
+  price?: number;
+  currency?: string;
+  notes?: string;
+  status?: TransportationReservation['status'];
+  attachments?: Attachment[];
+}
+
+export function flattenReservations(reservations: TransportationReservation[]): FlatTransportationSegment[] {
+  return reservations.flatMap((r, _ri) =>
+    r.segments.map((seg, idx) => ({
+      ...seg,
+      reservationId: r.id,
+      segmentIndex: idx,
+      totalSegments: r.segments.length,
+      type: r.type,
+      reservationName: r.name,
+      confirmationNo: r.confirmationNo,
+      bookedThrough: r.bookedThrough,
+      price: r.price,
+      currency: r.currency,
+      notes: r.notes,
+      status: r.status,
+      attachments: r.attachments,
+    }))
+  );
 }
 
 export interface Hotel {
@@ -136,7 +180,7 @@ export interface Plan {
   endDate: string;   // YYYY-MM-DD
   days: { [dateStr: string]: PlanDay };
   hotels: Hotel[];
-  transports: Transportation[];
+  transports: TransportationReservation[];
   manualChecklist?: { id: string; text: string; completed: boolean; }[];
   aiDetails?: {
     [key: string]: string;

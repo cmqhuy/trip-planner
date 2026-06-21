@@ -56,14 +56,19 @@ const mockTrip: Trip = {
         {
           id: 't-1',
           type: 'flight',
-          departureLocationName: 'NYC',
-          arrivalLocationName: 'Paris',
-          departureDate: '2026-07-01',
-          departureTime: '10:00',
-          departureTimezone: 'EST',
-          arrivalDate: '2026-07-01',
-          arrivalTime: '22:00',
-          arrivalTimezone: 'GMT+1'
+          segments: [
+            {
+              id: 't-1-s0',
+              departureLocationName: 'NYC',
+              arrivalLocationName: 'Paris',
+              departureDate: '2026-07-01',
+              departureTime: '10:00',
+              departureTimezone: 'EST',
+              arrivalDate: '2026-07-01',
+              arrivalTime: '22:00',
+              arrivalTimezone: 'GMT+1'
+            }
+          ]
         }
       ]
     }
@@ -94,7 +99,13 @@ describe('ItineraryPanel Component', () => {
         onShareTrip={vi.fn()}
         formatDisplayDate={(d) => d}
         getHotelsForDay={() => mockTrip.plans[0].hotels}
-        getTransportsForDay={() => mockTrip.plans[0].transports}
+        getTransportsForDay={() => [{
+          id: 't-1-s0', reservationId: 't-1', segmentIndex: 0, totalSegments: 1,
+          type: 'flight', reservationName: undefined,
+          departureLocationName: 'NYC', arrivalLocationName: 'Paris',
+          departureDate: '2026-07-01', departureTime: '10:00', departureTimezone: 'EST',
+          arrivalDate: '2026-07-01', arrivalTime: '22:00', arrivalTimezone: 'GMT+1'
+        }]}
         scheduledPlaces={mockTrip.locations[0].places}
         displayScheduledPlaces={mockTrip.locations[0].places}
         activePlaceId={undefined}
@@ -185,7 +196,7 @@ describe('ItineraryPanel Component', () => {
     expect(screen.getByRole('heading', { name: 'Paris', level: 3 })).toBeInTheDocument();
 
     // Scheduled hotels list
-    expect(screen.getByText('Le Grand Hotel')).toBeInTheDocument();
+    expect(screen.getAllByText('Le Grand Hotel').length).toBeGreaterThan(0);
 
     // Scheduled transits list
     expect(screen.getByText('NYC')).toBeInTheDocument();

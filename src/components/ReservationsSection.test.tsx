@@ -53,16 +53,21 @@ const mockTrip: Trip = {
         {
           id: 'transport-1',
           type: 'flight',
-          departureLocationName: 'SFO',
-          arrivalLocationName: 'HND',
-          departureDate: '2026-07-01',
-          departureTime: '11:00 AM',
-          departureTimezone: 'PST',
-          arrivalDate: '2026-07-02',
-          arrivalTime: '3:00 PM',
-          arrivalTimezone: 'JST',
-          carrier: 'ANA',
-          transitCode: 'NH7'
+          segments: [
+            {
+              id: 'transport-1-s0',
+              departureLocationName: 'SFO',
+              arrivalLocationName: 'HND',
+              departureDate: '2026-07-01',
+              departureTime: '11:00 AM',
+              departureTimezone: 'PST',
+              arrivalDate: '2026-07-02',
+              arrivalTime: '3:00 PM',
+              arrivalTimezone: 'JST',
+              carrier: 'ANA',
+              transitCode: 'NH7'
+            }
+          ]
         }
       ],
       manualChecklist: [],
@@ -88,6 +93,7 @@ describe('ReservationsSection Component', () => {
         onDeleteHotel={vi.fn()}
         onEditTransport={vi.fn()}
         onDeleteTransport={vi.fn()}
+        onSaveTransportNotes={vi.fn()}
         expandedHotelId={null}
         setExpandedHotelId={vi.fn()}
         expandedTransitId={null}

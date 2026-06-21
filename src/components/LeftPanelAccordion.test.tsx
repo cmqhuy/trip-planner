@@ -103,6 +103,7 @@ describe('LeftPanelAccordion Component', () => {
         onDeleteHotel={vi.fn()}
         onEditTransport={vi.fn()}
         onDeleteTransport={vi.fn()}
+        onSaveTransportNotes={vi.fn()}
         expandedHotelId={null}
         setExpandedHotelId={vi.fn()}
         expandedTransitId={null}

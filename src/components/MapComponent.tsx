@@ -1,7 +1,7 @@
 import { useEffect, useRef, memo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { Place, PlaceGroup, Hotel, Transportation, Location } from '../types';
+import type { Place, PlaceGroup, Hotel, FlatTransportationSegment, Location } from '../types';
 import { buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 
 interface MapComponentProps {
@@ -13,7 +13,7 @@ interface MapComponentProps {
   onPlaceSelect?: (placeId: string | undefined) => void;
   activeMobileTab?: string;
   hotels?: Hotel[];
-  transports?: Transportation[];
+  transports?: FlatTransportationSegment[];
   locations?: Location[];
 }
 
@@ -52,14 +52,14 @@ const serializeHotels = (hotelsList: Hotel[]) => {
   }));
 };
 
-const serializeTransports = (transportsList: Transportation[]) => {
+const serializeTransports = (transportsList: FlatTransportationSegment[]) => {
   return transportsList.map(t => ({
     id: t.id,
     departureLat: t.departureLat,
     departureLng: t.departureLng,
     arrivalLat: t.arrivalLat,
     arrivalLng: t.arrivalLng,
-    name: t.name,
+    name: t.reservationName,
     status: t.status
   }));
 };
@@ -533,7 +533,7 @@ function MapComponent({
             <div class="map-popup-card">
               <h4 style="color:${statusColor}; margin-top:0; display:flex; align-items:center; gap:6px;">
                 <span style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${transitSvg}</span>
-                ${t.name || 'Transit'}
+                ${t.reservationName || 'Transit'}
               </h4>
               <p style="margin-bottom:6px; font-size:11px; color:#94a3b8; line-height:1.3;">Departure: ${t.departureLocationName}${t.departureAddress ? ` (${t.departureAddress})` : ''}</p>
               <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">
@@ -604,7 +604,7 @@ function MapComponent({
             <div class="map-popup-card">
               <h4 style="color:${statusColor}; margin-top:0; display:flex; align-items:center; gap:6px;">
                 <span style="display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${transitSvg}</span>
-                ${t.name || 'Transit'}
+                ${t.reservationName || 'Transit'}
               </h4>
               <p style="margin-bottom:6px; font-size:11px; color:#94a3b8; line-height:1.3;">Arrival: ${t.arrivalLocationName}${t.arrivalAddress ? ` (${t.arrivalAddress})` : ''}</p>
               <p style="font-size:10px; color:#94a3b8; margin-bottom:4px; display:flex; align-items:center;">

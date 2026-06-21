@@ -1,4 +1,4 @@
-import type { Trip, PlanDay, Hotel, Transportation } from '../types';
+import type { Trip, PlanDay, Hotel, FlatTransportationSegment } from '../types';
 
 const RESERVATION_STATUS_PRIORITY: Record<string, number> = {
   Confirmed: 1,
@@ -20,7 +20,7 @@ export function sortHotels(hotels: Hotel[]): Hotel[] {
   });
 }
 
-export function sortTransports(transports: Transportation[]): Transportation[] {
+export function sortTransports(transports: FlatTransportationSegment[]): FlatTransportationSegment[] {
   return [...transports].sort((a, b) => {
     const sp = reservationStatusPriority(a.status) - reservationStatusPriority(b.status);
     if (sp !== 0) return sp;
@@ -73,12 +73,12 @@ export function generateDatesRange(startStr: string, endStr: string): string[] {
 }
 
 /**
- * Shifts trip dates and all associated itineraries, plan days, hotels, and transportations.
+ * Shifts trip plan-day structure to a new date range.
+ * Hotel and transport reservation dates are NOT shifted — they are fixed real-world bookings.
  */
 export function shiftTripDates(trip: Trip, newStartDate: string, newEndDate: string): Trip {
   const origStart = trip.startDate;
   const origEnd = trip.endDate;
-  const offsetDays = getDaysDiff(origStart, newStartDate);
 
   const origDatesRange = generateDatesRange(origStart, origEnd);
   const newDatesRange = generateDatesRange(newStartDate, newEndDate);
@@ -110,25 +110,11 @@ export function shiftTripDates(trip: Trip, newStartDate: string, newEndDate: str
       }
     });
 
-    const updatedHotels = plan.hotels.map(h => ({
-      ...h,
-      checkInDate: shiftDateString(h.checkInDate, offsetDays),
-      checkOutDate: shiftDateString(h.checkOutDate, offsetDays)
-    }));
-
-    const updatedTransports = plan.transports.map(t => ({
-      ...t,
-      departureDate: shiftDateString(t.departureDate, offsetDays),
-      arrivalDate: shiftDateString(t.arrivalDate, offsetDays)
-    }));
-
     return {
       ...plan,
       startDate: newStartDate,
       endDate: newEndDate,
       days: newDays,
-      hotels: updatedHotels,
-      transports: updatedTransports
     };
   });
 
