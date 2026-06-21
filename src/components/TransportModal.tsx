@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
-  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check, Plus,
+  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check, Plus, Timer,
 } from 'lucide-react';
 import type { TransportationReservation } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
@@ -14,6 +14,12 @@ import { useDriveAttachments } from '../utils/useDriveAttachments';
 import { ALL_TIMEZONES, getBrowserTimezone, formatTimezoneLabel } from '../utils/timezones';
 import ConfirmationModal from './ConfirmationModal';
 import ShareTripModal from './ShareTripModal';
+
+const STATUS_OPTIONS = [
+  { value: 'Confirmed' as const, Icon: Check },
+  { value: 'Planning' as const, Icon: Timer },
+  { value: 'Canceled' as const, Icon: X },
+];
 
 interface SegmentFormState {
   id: string;
@@ -664,7 +670,10 @@ export default function TransportModal({
                           setStatusOpen(o => !o);
                         }}
                       >
-                        <span className="combo-trigger-content">{status}</span>
+                        <span className="combo-trigger-content">
+                          {(() => { const S = STATUS_OPTIONS.find(o => o.value === status); return S ? <S.Icon size={13} /> : null; })()}
+                          {status}
+                        </span>
                         <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
                       </button>
                     </div>
@@ -672,9 +681,9 @@ export default function TransportModal({
                       <>
                         <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
                         <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
-                          {(['Confirmed', 'Planning', 'Canceled'] as const).map(s => (
+                          {STATUS_OPTIONS.map(({ value: s, Icon: StatusIcon }) => (
                             <button key={s} type="button" className={`combo-option${s === status ? ' selected' : ''}`} onClick={() => { setStatus(s); setStatusOpen(false); }}>
-                              {s}
+                              <StatusIcon size={13} />{s}
                             </button>
                           ))}
                         </div>
@@ -698,20 +707,22 @@ export default function TransportModal({
                       Segment {idx + 1}
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    className="btn-secondary flex-align transport-segment-add-btn"
-                    onClick={addSegment}
-                  >
-                    <Plus size={12} /> Add Segment
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-danger transport-segment-delete-btn"
-                    onClick={() => deleteSegment(activeSegmentIndex)}
-                  >
-                    <Trash2 size={12} /> Delete Segment
-                  </button>
+                  <div className="transport-segment-tab-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary flex-align transport-segment-add-btn"
+                      onClick={addSegment}
+                    >
+                      <Plus size={12} /> Add Segment
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-danger transport-segment-delete-btn"
+                      onClick={() => deleteSegment(activeSegmentIndex)}
+                    >
+                      <Trash2 size={12} /> Delete Segment
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -827,16 +838,19 @@ export default function TransportModal({
 
                 <div className="place-form-right-col">
                   {/* Matches Carrier/Code form-row height; shows Add Segment when single segment */}
-                  <div className="form-group">
-                    <label className="place-form-label"><span className="label-text">&nbsp;</span></label>
-                    {segments.length === 1 ? (
+                  {segments.length === 1 ? (
+                    <div className="form-group transport-add-segment-desktop">
+                      <label className="place-form-label"><span className="label-text">&nbsp;</span></label>
                       <button type="button" className="btn-secondary flex-align transport-add-segment-btn transport-add-segment-btn--full" onClick={addSegment}>
                         <Plus size={13} /> Add Segment
                       </button>
-                    ) : (
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="place-form-label"><span className="label-text">&nbsp;</span></label>
                       <input type="text" className="transport-segment-spacer" tabIndex={-1} readOnly aria-hidden="true" />
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div className="form-group">
                     <label htmlFor="arr-loc" className="place-form-label">
@@ -925,9 +939,42 @@ export default function TransportModal({
                 </div>
               </div>
 
-              {/* Notes + Attachments (left) | Map + Undo AI Fill (right) */}
+              {/* Mobile-only: Add Segment below arrival info, before map/notes */}
+              {segments.length === 1 && (
+                <div className="transport-add-segment-mobile">
+                  <button type="button" className="btn-secondary flex-align transport-add-segment-btn" onClick={addSegment}>
+                    <Plus size={13} /> Add Segment
+                  </button>
+                </div>
+              )}
+
+              {/* Map + Undo AI Fill (left) | Notes + Attachments (right) */}
               <div className="place-form-grid">
                 <div className="place-form-left-col">
+                  <div className="form-group form-group--mb16">
+                    <label className="place-form-label">
+                      <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                      <span className="label-text">Click on the map to set coordinates</span>
+                    </label>
+                    <DualMapPicker
+                      depLat={parseFloat(seg.depLat)}
+                      depLng={parseFloat(seg.depLng)}
+                      arrLat={parseFloat(seg.arrLat)}
+                      arrLng={parseFloat(seg.arrLng)}
+                      onDepPick={(lat, lng) => updateSegment(activeSegmentIndex, { depLat: lat.toFixed(6), depLng: lng.toFixed(6) })}
+                      onArrPick={(lat, lng) => updateSegment(activeSegmentIndex, { arrLat: lat.toFixed(6), arrLng: lng.toFixed(6) })}
+                    />
+                  </div>
+                  {savedSegments !== null && (
+                    <div className="form-group">
+                      <button type="button" className="btn-secondary flex-align transport-undo-ai-btn" onClick={undoAiFill}>
+                        <RotateCcw size={13} /> Undo AI Fill
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="place-form-right-col">
                   <div className="form-group">
                     <label htmlFor="transit-notes" className="place-form-label">
                       <span className="label-text">Notes</span>
@@ -1034,30 +1081,6 @@ export default function TransportModal({
                   )}
                   {!googleToken && aiError && <p className="form-error-text">{aiError}</p>}
                 </div>
-
-                <div className="place-form-right-col">
-                  <div className="form-group form-group--mb16">
-                    <label className="place-form-label">
-                      <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                      <span className="label-text">Click on the map to set coordinates</span>
-                    </label>
-                    <DualMapPicker
-                      depLat={parseFloat(seg.depLat)}
-                      depLng={parseFloat(seg.depLng)}
-                      arrLat={parseFloat(seg.arrLat)}
-                      arrLng={parseFloat(seg.arrLng)}
-                      onDepPick={(lat, lng) => updateSegment(activeSegmentIndex, { depLat: lat.toFixed(6), depLng: lng.toFixed(6) })}
-                      onArrPick={(lat, lng) => updateSegment(activeSegmentIndex, { arrLat: lat.toFixed(6), arrLng: lng.toFixed(6) })}
-                    />
-                  </div>
-                  {savedSegments !== null && (
-                    <div className="form-group">
-                      <button type="button" className="btn-secondary flex-align transport-undo-ai-btn" onClick={undoAiFill}>
-                        <RotateCcw size={13} /> Undo AI Fill
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
 
             </div>
@@ -1065,12 +1088,12 @@ export default function TransportModal({
             <div className="modal-actions modal-actions--between">
               {onDelete && editingTransport && (
                 <button type="button" className="btn-danger flex-align" onClick={onDelete}>
-                  <Trash2 size={14} /> Delete Transit
+                  <Trash2 size={14} /> Delete<span className="desktop-only"> Transit</span>
                 </button>
               )}
               <div className="modal-actions-right">
                 <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-                <button type="submit" className="btn-primary">{editingTransport ? 'Save Transit' : 'Add Transit'}</button>
+                <button type="submit" className="btn-primary">{editingTransport ? <><span>Save</span><span className="desktop-only"> Transit</span></> : 'Add Transit'}</button>
               </div>
             </div>
           </form>

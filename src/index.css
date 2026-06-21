@@ -4219,16 +4219,23 @@ div.google-auth-avatar-desktop {
   border-top: 1px solid var(--border-glass);
   margin-top: 8px;
 }
-.transport-segment-tabs .day-tab { min-width: 80px; padding: 5px 14px; font-size: 12px; }
-.transport-segment-add-btn { margin-left: auto; font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
+.transport-segment-tabs .day-tab { min-width: 80px; padding: 5px 14px; font-size: 12px; justify-content: center; }
+.transport-segment-tab-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.transport-segment-add-btn { font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
 .transport-segment-delete-btn { font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
-.transport-segment-fields { margin-top: 12px; }
+.transport-segment-fields { margin-top: 0; }
 .transport-add-segment-row { display: flex; justify-content: flex-start; padding: 6px 0 8px; }
 .transport-add-segment-btn { font-size: 12px; gap: 5px; }
 .transport-add-segment-btn--full { width: 100%; justify-content: center; padding: 10px 14px; font-size: 14px; }
 .transport-undo-ai-btn { font-size: 12px; gap: 5px; margin-bottom: 8px; }
 .transport-segment-spacer { visibility: hidden; pointer-events: none; user-select: none; }
-@media (max-width: 640px) { .transport-segment-spacer { display: none; } }
+.transport-add-segment-mobile { display: none; }
+@media (max-width: 640px) {
+  .transport-segment-spacer { display: none; }
+  .transport-add-segment-desktop { display: none; }
+  .transport-add-segment-mobile { display: flex; padding: 12px 0 20px; }
+  .transport-segment-tab-actions { flex-basis: 100%; margin-left: 0; padding-top: 2px; }
+}
 
 /* ===== TransportModal timezone combo box ===== */
 .combo-dropdown--tz { min-width: 220px; max-height: 260px; overflow: hidden; display: flex; flex-direction: column; }

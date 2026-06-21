@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2, Pencil, Check } from 'lucide-react';
+import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2, Pencil, Check, Timer } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import ShareTripModal from './ShareTripModal';
 import type { Hotel } from '../types';
@@ -9,6 +9,12 @@ import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
 import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
 import { useDriveAttachments } from '../utils/useDriveAttachments';
+
+const STATUS_OPTIONS = [
+  { value: 'Confirmed' as const, Icon: Check },
+  { value: 'Planning' as const, Icon: Timer },
+  { value: 'Canceled' as const, Icon: X },
+];
 
 interface HotelModalProps {
   isOpen: boolean;
@@ -501,7 +507,10 @@ export default function HotelModal({
                         setStatusOpen(o => !o);
                       }}
                     >
-                      <span className="combo-trigger-content">{status}</span>
+                      <span className="combo-trigger-content">
+                        {(() => { const S = STATUS_OPTIONS.find(o => o.value === status); return S ? <S.Icon size={13} /> : null; })()}
+                        {status}
+                      </span>
                       <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
                     </button>
                   </div>
@@ -509,14 +518,14 @@ export default function HotelModal({
                     <>
                       <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
                       <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
-                        {(['Confirmed', 'Planning', 'Canceled'] as const).map(s => (
+                        {STATUS_OPTIONS.map(({ value: s, Icon: StatusIcon }) => (
                           <button
                             key={s}
                             type="button"
                             className={`combo-option${s === status ? ' selected' : ''}`}
                             onClick={() => { setStatus(s); setStatusOpen(false); }}
                           >
-                            {s}
+                            <StatusIcon size={13} />{s}
                           </button>
                         ))}
                       </div>
@@ -767,12 +776,12 @@ export default function HotelModal({
             <div className="modal-actions modal-actions--between">
               {editingHotel && onDelete && (
                 <button type="button" className="btn-danger flex-align" onClick={onDelete}>
-                  <Trash2 size={14} /> Delete Hotel
+                  <Trash2 size={14} /> Delete<span className="desktop-only"> Hotel</span>
                 </button>
               )}
               <div className="modal-actions-right">
                 <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-                <button type="submit" className="btn-primary">{editingHotel ? 'Save Hotel' : 'Add Hotel'}</button>
+                <button type="submit" className="btn-primary">{editingHotel ? <><span>Save</span><span className="desktop-only"> Hotel</span></> : 'Add Hotel'}</button>
               </div>
             </div>
           </form>
