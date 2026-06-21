@@ -2856,7 +2856,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
             <Loader2 size={24} className="animate-spin import-loader-spinner" />
             <h3 className="import-loader-title">{importingReservationMessage}</h3>
             <p className="modal-field-details import-loader-details">
-              Please wait while AI processes the document and extracts reservation details.
+              Please wait while Gemini processes the document and extracts reservation details.
             </p>
           </div>
         </div>
