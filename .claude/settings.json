@@ -4,7 +4,10 @@
       "PowerShell(claude --version)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "Bash(git -C \"d:/OneDrive/Documents/Projects/trip-planner\" diff)",
+      "Bash(git -C \"d:/OneDrive/Documents/Projects/trip-planner\" add src/index.css src/components/ItineraryPanel.tsx src/components/ReservationsSection.tsx)",
+      "Bash(git -C d:/OneDrive/Documents/Projects/trip-planner commit -m ' *)"
     ]
   }
 }
