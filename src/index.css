@@ -4073,9 +4073,9 @@ div.google-auth-avatar-desktop {
 .reservation-card { padding: 8px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease; position: relative; z-index: 0; }
 .reservation-card:hover { border-color: rgba(255, 255, 255, 0.15); background: rgba(30, 41, 59, 0.35); z-index: 10; }
 .reservation-card--hotel { background: rgba(30, 41, 59, 0.45); }
-.reservation-card--hotel:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(16, 185, 129, 0.35); }
+.reservation-card--hotel:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1); }
 .reservation-card--transit { background: rgba(30, 41, 59, 0.45); }
-.reservation-card--transit:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(245, 158, 11, 0.35); }
+.reservation-card--transit:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(245, 158, 11, 0.35); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1); }
 .reservation-card--hotel.reservation-card--expanded { border-color: #4ade80; box-shadow: none; }
 .reservation-card--transit.reservation-card--expanded { border-color: #fb923c; box-shadow: none; }
 .hotel-card.reservation-card--expanded { box-shadow: none; border-color: #4ade80; }
