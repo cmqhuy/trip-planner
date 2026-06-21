@@ -4062,6 +4062,8 @@ div.google-auth-avatar-desktop {
 .combo-add-new-label { font-weight: 600; }
 .combo-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; min-width: 100%; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5); }
 .combo-trigger { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); font-size: 12px; min-height: 32px; text-align: left; cursor: pointer; }
+/* Inside modal form bodies, combo triggers match input height */
+.modal-scroll-body .combo-trigger { padding: 10px 14px; font-size: 14px; min-height: unset; border-radius: 8px; }
 .combo-trigger:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
 .combo-trigger-round { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .combo-trigger-round:hover:not(:disabled) { background: rgba(15, 23, 42, 0.75); }
@@ -4218,11 +4220,15 @@ div.google-auth-avatar-desktop {
   margin-top: 8px;
 }
 .transport-segment-tabs .day-tab { min-width: 80px; padding: 5px 14px; font-size: 12px; }
-.transport-segment-delete-btn { margin-left: auto; font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
+.transport-segment-add-btn { margin-left: auto; font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
+.transport-segment-delete-btn { font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
 .transport-segment-fields { margin-top: 12px; }
-.transport-add-segment-row { display: flex; justify-content: flex-end; padding: 6px 0 8px; }
+.transport-add-segment-row { display: flex; justify-content: flex-start; padding: 6px 0 8px; }
 .transport-add-segment-btn { font-size: 12px; gap: 5px; }
+.transport-add-segment-btn--full { width: 100%; justify-content: center; padding: 10px 14px; font-size: 14px; }
 .transport-undo-ai-btn { font-size: 12px; gap: 5px; margin-bottom: 8px; }
+.transport-segment-spacer { visibility: hidden; pointer-events: none; user-select: none; }
+@media (max-width: 640px) { .transport-segment-spacer { display: none; } }
 
 /* ===== TransportModal timezone combo box ===== */
 .combo-dropdown--tz { min-width: 220px; max-height: 260px; overflow: hidden; display: flex; flex-direction: column; }

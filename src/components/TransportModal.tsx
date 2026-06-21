@@ -700,6 +700,13 @@ export default function TransportModal({
                   ))}
                   <button
                     type="button"
+                    className="btn-secondary flex-align transport-segment-add-btn"
+                    onClick={addSegment}
+                  >
+                    <Plus size={12} /> Add Segment
+                  </button>
+                  <button
+                    type="button"
                     className="btn-danger transport-segment-delete-btn"
                     onClick={() => deleteSegment(activeSegmentIndex)}
                   >
@@ -708,7 +715,7 @@ export default function TransportModal({
                 </div>
               )}
 
-              {/* Per-segment fields: 2-col grid */}
+              {/* Per-segment fields: dep left | arr right */}
               <div className="place-form-grid transport-segment-fields">
                 <div className="place-form-left-col">
                   <div className="form-row">
@@ -802,6 +809,35 @@ export default function TransportModal({
                     )}
                   </div>
 
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="dep-lat" className="place-form-label">
+                        <span className="label-text">Departure Latitude</span>
+                      </label>
+                      <input type="text" id="dep-lat" value={seg.depLat} onChange={e => updateSegment(activeSegmentIndex, { depLat: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="dep-lng" className="place-form-label">
+                        <span className="label-text">Departure Longitude</span>
+                      </label>
+                      <input type="text" id="dep-lng" value={seg.depLng} onChange={e => updateSegment(activeSegmentIndex, { depLng: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="place-form-right-col">
+                  {/* Matches Carrier/Code form-row height; shows Add Segment when single segment */}
+                  <div className="form-group">
+                    <label className="place-form-label"><span className="label-text">&nbsp;</span></label>
+                    {segments.length === 1 ? (
+                      <button type="button" className="btn-secondary flex-align transport-add-segment-btn transport-add-segment-btn--full" onClick={addSegment}>
+                        <Plus size={13} /> Add Segment
+                      </button>
+                    ) : (
+                      <input type="text" className="transport-segment-spacer" tabIndex={-1} readOnly aria-hidden="true" />
+                    )}
+                  </div>
+
                   <div className="form-group">
                     <label htmlFor="arr-loc" className="place-form-label">
                       <span className="label-text">Arrival Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
@@ -871,23 +907,7 @@ export default function TransportModal({
                       document.body
                     )}
                   </div>
-                </div>
 
-                <div className="place-form-right-col">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="dep-lat" className="place-form-label">
-                        <span className="label-text">Departure Latitude</span>
-                      </label>
-                      <input type="text" id="dep-lat" value={seg.depLat} onChange={e => updateSegment(activeSegmentIndex, { depLat: e.target.value })} />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="dep-lng" className="place-form-label">
-                        <span className="label-text">Departure Longitude</span>
-                      </label>
-                      <input type="text" id="dep-lng" value={seg.depLng} onChange={e => updateSegment(activeSegmentIndex, { depLng: e.target.value })} />
-                    </div>
-                  </div>
                   <div className="form-row">
                     <div className="form-group">
                       <label htmlFor="arr-lat" className="place-form-label">
@@ -902,31 +922,10 @@ export default function TransportModal({
                       <input type="text" id="arr-lng" value={seg.arrLng} onChange={e => updateSegment(activeSegmentIndex, { arrLng: e.target.value })} />
                     </div>
                   </div>
-                  <div className="form-group form-group--mb16">
-                    <label className="place-form-label">
-                      <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
-                      <span className="label-text">Click on the map to set coordinates</span>
-                    </label>
-                    <DualMapPicker
-                      depLat={parseFloat(seg.depLat)}
-                      depLng={parseFloat(seg.depLng)}
-                      arrLat={parseFloat(seg.arrLat)}
-                      arrLng={parseFloat(seg.arrLng)}
-                      onDepPick={(lat, lng) => updateSegment(activeSegmentIndex, { depLat: lat.toFixed(6), depLng: lng.toFixed(6) })}
-                      onArrPick={(lat, lng) => updateSegment(activeSegmentIndex, { arrLat: lat.toFixed(6), arrLng: lng.toFixed(6) })}
-                    />
-                  </div>
                 </div>
               </div>
 
-              {/* Add Segment button — always visible */}
-              <div className="transport-add-segment-row">
-                <button type="button" className="btn-secondary flex-align transport-add-segment-btn" onClick={addSegment}>
-                  <Plus size={13} /> Add Segment
-                </button>
-              </div>
-
-              {/* Reservation-level: Notes + Attachments */}
+              {/* Notes + Attachments (left) | Map + Undo AI Fill (right) */}
               <div className="place-form-grid">
                 <div className="place-form-left-col">
                   <div className="form-group">
@@ -936,16 +935,6 @@ export default function TransportModal({
                     </label>
                     <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
                   </div>
-                </div>
-
-                <div className="place-form-right-col">
-                  {savedSegments !== null && (
-                    <div className="form-group">
-                      <button type="button" className="btn-secondary flex-align transport-undo-ai-btn" onClick={undoAiFill}>
-                        <RotateCcw size={13} /> Undo AI Fill
-                      </button>
-                    </div>
-                  )}
 
                   {googleToken && (
                     <div className="attachment-section">
@@ -1044,6 +1033,30 @@ export default function TransportModal({
                     </div>
                   )}
                   {!googleToken && aiError && <p className="form-error-text">{aiError}</p>}
+                </div>
+
+                <div className="place-form-right-col">
+                  <div className="form-group form-group--mb16">
+                    <label className="place-form-label">
+                      <MapPin size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                      <span className="label-text">Click on the map to set coordinates</span>
+                    </label>
+                    <DualMapPicker
+                      depLat={parseFloat(seg.depLat)}
+                      depLng={parseFloat(seg.depLng)}
+                      arrLat={parseFloat(seg.arrLat)}
+                      arrLng={parseFloat(seg.arrLng)}
+                      onDepPick={(lat, lng) => updateSegment(activeSegmentIndex, { depLat: lat.toFixed(6), depLng: lng.toFixed(6) })}
+                      onArrPick={(lat, lng) => updateSegment(activeSegmentIndex, { arrLat: lat.toFixed(6), arrLng: lng.toFixed(6) })}
+                    />
+                  </div>
+                  {savedSegments !== null && (
+                    <div className="form-group">
+                      <button type="button" className="btn-secondary flex-align transport-undo-ai-btn" onClick={undoAiFill}>
+                        <RotateCcw size={13} /> Undo AI Fill
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

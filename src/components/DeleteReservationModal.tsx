@@ -16,7 +16,7 @@ interface Props {
 }
 
 type FileChoice = 'keep' | 'archive' | 'delete';
-type DeleteChoice = 'segment' | 'reservation';
+type DeleteChoice = 'transitSegment' | 'reservation';
 
 export default function DeleteReservationModal({
   type, item, googleToken, onConfirm, onCancel,
@@ -70,7 +70,7 @@ export default function DeleteReservationModal({
             <div className="modal-delete-file-opts">
               <button
                 className="modal-delete-file-opt"
-                onClick={() => setDeleteChoice('segment')}
+                onClick={() => setDeleteChoice('transitSegment')}
               >
                 <Trash2 size={14} />
                 Delete transit segment {(segmentIndex ?? 0) + 1} only
@@ -87,7 +87,7 @@ export default function DeleteReservationModal({
               <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
             </div>
           </>
-        ) : deleteChoice === 'segment' ? (
+        ) : deleteChoice === 'transitSegment' ? (
           <>
             <p className="modal-body-text">
               Are you sure you want to delete segment {(segmentIndex ?? 0) + 1} from this transit reservation?
