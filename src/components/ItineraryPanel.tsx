@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
-  Calendar, Layers, Check, Clock, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  Calendar, Layers, Check, Timer, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building, Hash,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
   ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy
@@ -18,7 +18,7 @@ const renderStatusIcon = (status?: string) => {
   const s = status || 'Planning';
   if (s === 'Confirmed') return <Check size={10} />;
   if (s === 'Canceled') return <X size={10} />;
-  return <Clock size={10} />;
+  return <Timer size={10} />;
 };
 
 const hexToRgba = (hex: string, alpha: number) => {
@@ -992,14 +992,17 @@ function ItineraryPanel({
                               <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.address}
                             </a>
                           )}
-                          {h.confirmationNo && (
-                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
-                              <Hash size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {h.confirmationNo}
-                            </p>
-                          )}
-                          <span className={`reservation-status-text-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}>
-                            {h.status || 'Planning'}
-                          </span>
+                          <div className="reservation-card-field-row">
+                            {h.confirmationNo && (
+                              <>
+                                <Hash size={12} />
+                                <span className="place-desc-text">{h.confirmationNo}</span>
+                              </>
+                            )}
+                            <span className={`reservation-status-text-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}>
+                              {h.status || 'Planning'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1245,11 +1248,17 @@ function ItineraryPanel({
                     <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                       <div>
                         <div className="card-expanded-inner">
-                          {t.confirmationNo && (
-                            <p className="place-desc-text" style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0 }}>
-                              <Hash size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {t.confirmationNo}
-                            </p>
-                          )}
+                          <div className="reservation-card-field-row">
+                            {t.confirmationNo && (
+                              <>
+                                <Hash size={12} />
+                                <span className="place-desc-text">{t.confirmationNo}</span>
+                              </>
+                            )}
+                            <span className={`reservation-status-text-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}>
+                              {t.status || 'Planning'}
+                            </span>
+                          </div>
                           {t.departureAddress && (
                             <a
                               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress)}`}
@@ -1274,9 +1283,6 @@ function ItineraryPanel({
                               <ArrowDownLeft size={12} className="transport-flag-icon" style={{ flexShrink: 0, marginTop: '2px' }} /> Arrival: {t.arrivalAddress}
                             </a>
                           )}
-                          <span className={`reservation-status-text-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}>
-                            {t.status || 'Planning'}
-                          </span>
                         </div>
                       </div>
                     </div>

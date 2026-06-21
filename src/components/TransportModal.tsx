@@ -715,6 +715,49 @@ export default function TransportModal({
                   </div>
                 </div>
 
+                {/* Status */}
+                <div className="form-group">
+                  <label className="place-form-label">
+                    <span className="label-text">Status</span>
+                    {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
+                  </label>
+                  <div className="combo-wrapper">
+                    <button
+                      ref={statusTriggerRef}
+                      type="button"
+                      className="combo-trigger"
+                      onClick={() => {
+                        if (!statusOpen && statusTriggerRef.current) {
+                          const r = statusTriggerRef.current.getBoundingClientRect();
+                          setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
+                        }
+                        setStatusOpen(o => !o);
+                      }}
+                    >
+                      <span className="combo-trigger-content">{status}</span>
+                      <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
+                    </button>
+                  </div>
+                  {statusOpen && statusPos && createPortal(
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
+                      <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
+                        {(['Confirmed', 'Planning', 'Canceled'] as const).map(s => (
+                          <button
+                            key={s}
+                            type="button"
+                            className={`combo-option${s === status ? ' selected' : ''}`}
+                            onClick={() => { setStatus(s); setStatusOpen(false); }}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+
                 {/* Price + Currency */}
                 <div className="form-row">
                   <div className="form-group">
@@ -762,48 +805,6 @@ export default function TransportModal({
                   </div>
                 </div>
 
-                {/* Status */}
-                <div className="form-group">
-                  <label className="place-form-label">
-                    <span className="label-text">Status</span>
-                    {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
-                  </label>
-                  <div className="combo-wrapper">
-                    <button
-                      ref={statusTriggerRef}
-                      type="button"
-                      className="combo-trigger"
-                      onClick={() => {
-                        if (!statusOpen && statusTriggerRef.current) {
-                          const r = statusTriggerRef.current.getBoundingClientRect();
-                          setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                        }
-                        setStatusOpen(o => !o);
-                      }}
-                    >
-                      <span className="combo-trigger-content">{status}</span>
-                      <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
-                    </button>
-                  </div>
-                  {statusOpen && statusPos && createPortal(
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
-                      <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
-                        {(['Confirmed', 'Planning', 'Canceled'] as const).map(s => (
-                          <button
-                            key={s}
-                            type="button"
-                            className={`combo-option${s === status ? ' selected' : ''}`}
-                            onClick={() => { setStatus(s); setStatusOpen(false); }}
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </>,
-                    document.body
-                  )}
-                </div>
 
               </div>
 

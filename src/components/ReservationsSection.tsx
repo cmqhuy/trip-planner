@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Plane, Building, Ticket, AlertTriangle, MapPin, Hash,
-  Edit2, Trash2, Check, Clock, X, Calendar,
+  Edit2, Trash2, Check, Timer, X, Calendar,
   Train, Bus, Car, Anchor, Navigation, FileText,
   MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
   Plus, Sparkles
@@ -33,7 +33,7 @@ const renderStatusIcon = (status?: string) => {
   const s = status || 'Planning';
   if (s === 'Confirmed') return <Check size={10} />;
   if (s === 'Canceled') return <X size={10} />;
-  return <Clock size={10} />;
+  return <Timer size={10} />;
 };
 
 function TransportTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
@@ -402,15 +402,17 @@ export default function ReservationsSection({
                             <span className="place-desc-text">{h.address}</span>
                           </a>
                         )}
-                        {h.confirmationNo && (
-                          <div className="reservation-card-field-row">
-                            <Hash size={11} />
-                            <span className="place-desc-text">{h.confirmationNo}</span>
-                          </div>
-                        )}
-                        <span className={`reservation-status-text-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}>
-                          {h.status || 'Planning'}
-                        </span>
+                        <div className="reservation-card-field-row">
+                          {h.confirmationNo && (
+                            <>
+                              <Hash size={11} />
+                              <span className="place-desc-text">{h.confirmationNo}</span>
+                            </>
+                          )}
+                          <span className={`reservation-status-text-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}>
+                            {h.status || 'Planning'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -635,12 +637,17 @@ export default function ReservationsSection({
                   <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                     <div>
                       <div className="reservation-card-expanded-content">
-                        {t.confirmationNo && (
-                          <div className="reservation-card-field-row">
-                            <Hash size={11} />
-                            <span className="place-desc-text">{t.confirmationNo}</span>
-                          </div>
-                        )}
+                        <div className="reservation-card-field-row">
+                          {t.confirmationNo && (
+                            <>
+                              <Hash size={11} />
+                              <span className="place-desc-text">{t.confirmationNo}</span>
+                            </>
+                          )}
+                          <span className={`reservation-status-text-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}>
+                            {t.status || 'Planning'}
+                          </span>
+                        </div>
                         {t.departureAddress && (
                           <a
                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.departureAddress)}`}
@@ -667,9 +674,6 @@ export default function ReservationsSection({
                             <span className="place-desc-text">Arrival: {t.arrivalAddress}</span>
                           </a>
                         )}
-                        <span className={`reservation-status-text-badge reservation-status-badge--${(t.status || 'Planning').toLowerCase()}`}>
-                          {t.status || 'Planning'}
-                        </span>
                       </div>
                     </div>
                   </div>
