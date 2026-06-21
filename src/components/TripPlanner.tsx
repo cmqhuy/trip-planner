@@ -1878,7 +1878,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         }
       }
 
-      setImportingReservationMessage('AI details extraction in progress...');
+      setImportingReservationMessage('AI working in progress...');
 
       if (type === 'hotel') {
         const result = await GeminiService.generateHotelDetailsFromFilesWithRotation([fileData]);
