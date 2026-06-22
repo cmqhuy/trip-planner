@@ -48,7 +48,7 @@ export default function PrivacyPolicyPage() {
           Privacy Policy
         </h1>
         <p style={{ color: 'rgba(148,163,184,0.8)', fontSize: '13px', marginBottom: '40px' }}>
-          Effective date: June 14, 2026
+          Effective date: June 22, 2026
         </p>
 
         <Section title="Overview">
@@ -68,13 +68,16 @@ export default function PrivacyPolicyPage() {
           <p>The following data is stored in <code>localStorage</code> in your browser only:</p>
           <ul>
             <li>Your trip itineraries (destinations, places, schedules, checklists, notes)</li>
+            <li>Reservation attachment metadata (file names and base64-encoded file contents stored as part of your trip data)</li>
             <li>Gemini AI API keys you enter (stored only on your device)</li>
             <li>Google OAuth access tokens (session-only, expire automatically)</li>
             <li>App preferences and settings</li>
           </ul>
           <p>
             This data never leaves your browser unless you explicitly use a feature that
-            connects to an external service (Google Drive sync or AI generation).
+            connects to an external service (Google Drive sync or AI generation). File
+            attachments are stored entirely in your browser and are only transmitted to the
+            Gemini API if you choose to use the AI extraction feature on that file.
           </p>
         </Section>
 
@@ -115,13 +118,25 @@ export default function PrivacyPolicyPage() {
         <Section title="Gemini AI Integration">
           <p>
             The AI features use Google's Gemini API directly from your browser. To use them
-            you must supply your own Gemini API key, which is stored only in your 
+            you must supply your own Gemini API key, which is stored only in your
             browser's <code>localStorage</code> and is never sent to any server operated by this app.
           </p>
           <p>
             When you trigger an AI generation (place details, day tips, etc.), the relevant
             trip data (place names, locations, dates) is sent directly from your browser to
-            Google's Gemini API. Google's data handling policies apply:&nbsp;
+            Google's Gemini API.
+          </p>
+          <p>
+            <strong>File attachments and AI extraction:</strong> When you use the "Fill with AI"
+            feature on a hotel stay or transport segment, the full binary contents of the selected
+            attachment (e.g. a PDF or image of a reservation confirmation) are sent directly from
+            your browser to the Gemini API for extraction. This may include personal information
+            present in the document such as your name, booking reference, payment details, or
+            travel dates. This transmission is initiated entirely by you; no file contents are
+            stored or forwarded by this app's developer.
+          </p>
+          <p>
+            Google's data handling policies apply to all Gemini API calls:&nbsp;
             <a
               href="https://ai.google.dev/gemini-api/terms"
               target="_blank"

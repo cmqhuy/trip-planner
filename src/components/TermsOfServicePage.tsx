@@ -23,7 +23,7 @@ export default function TermsOfServicePage() {
           Terms of Service
         </h1>
         <p className="tos-date">
-          Effective date: June 14, 2026
+          Effective date: June 22, 2026
         </p>
 
         <Section title="Acceptance of Terms">
@@ -40,6 +40,12 @@ export default function TermsOfServicePage() {
             you to create and manage trip itineraries, organize places, and optionally sync
             data to your Google Drive or generate AI-assisted travel content through the
             Gemini API using your own API key.
+          </p>
+          <p>
+            The App also allows you to attach reservation documents (PDFs, images, and other
+            files) to hotel stays and transport segments. You may optionally use AI to extract
+            reservation details from those attachments by sending the file contents directly
+            to the Gemini API from your browser.
           </p>
           <p>
             The App runs entirely in your browser. There is no paid subscription,
@@ -69,6 +75,12 @@ export default function TermsOfServicePage() {
             Terms of Service.
           </p>
           <p>
+            If you attach files to reservations, you are responsible for ensuring you have
+            the right to share those files with third-party services (e.g. the Gemini API)
+            when you choose to use the AI extraction feature. Do not attach files containing
+            other people's personal or sensitive information unless you have their consent.
+          </p>
+          <p>
             If you use Gemini AI features, you are responsible for ensuring your use of
             your Gemini API key complies with Google's Gemini API Terms of Service.
           </p>
@@ -79,6 +91,12 @@ export default function TermsOfServicePage() {
             Trip Planner can generate travel suggestions, place descriptions, tips, and
             itinerary content via the Gemini AI API. This content is generated automatically
             and may be inaccurate, incomplete, or outdated.
+          </p>
+          <p>
+            The App can also extract reservation details (dates, names, confirmation numbers,
+            etc.) from attached files using the Gemini API. Extracted data may be incorrect,
+            incomplete, or misinterpreted. Always review and verify any AI-extracted
+            reservation information before relying on it for travel.
           </p>
           <p>
             AI-generated content is provided for informational purposes only. Always verify
