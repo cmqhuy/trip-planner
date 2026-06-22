@@ -547,7 +547,7 @@ export default function ReservationsSection({
                       <div className="reservation-card-icon-row">
                         <TransportTypeIcon type={t.type} size={13} />
                         {t.totalSegments > 1 && (
-                          <span className="catalog-day-tag">Segment {t.segmentIndex + 1} of {t.totalSegments}</span>
+                          <span className="catalog-day-tag">{t.segmentIndex + 1}/{t.totalSegments}</span>
                         )}
                         {(() => { const loc = getTransitLocationText(t); return loc ? <span className="reservation-card-location">{loc}</span> : null; })()}
                       </div>

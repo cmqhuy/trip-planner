@@ -4138,8 +4138,9 @@ div.google-auth-avatar-desktop {
 .reservation-card-expand { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; cursor: pointer; }
 .reservation-card-expand:hover { background: rgba(255,255,255,0.03); }
 .reservation-card-expand-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
-.reservation-card-icon-row { display: flex; align-items: center; gap: 5px; }
-.reservation-card-location { font-size: 10px; color: var(--text-muted); font-style: italic; }
+.reservation-card-icon-row { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; }
+.reservation-card-icon-row .catalog-day-tag { flex-shrink: 0; }
+.reservation-card-location { font-size: 10px; color: var(--text-muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reservation-card-type-icon { color: var(--text-muted); flex-shrink: 0; }
 .reservation-card-chevron { color: var(--text-muted); flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; }
 .reservation-card-field-row { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-secondary); }
