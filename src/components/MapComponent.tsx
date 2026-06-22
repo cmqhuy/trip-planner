@@ -172,6 +172,15 @@ function MapComponent({
       mapInstance.current = null;
       markerGroupRef.current = null;
       polylinesRef.current = [];
+      // Reset serialization sentinels so the next mount's markers effect always re-adds all markers.
+      // Without this, Strict Mode's mount→cleanup→remount cycle retains stale prev* values and the
+      // second mount's markers effect sees no diff and skips adding markers to the fresh markerGroup.
+      prevPlacesSerializedRef.current = '';
+      prevPlaceGroupsSerializedRef.current = '';
+      prevActivePlaceIdRef.current = undefined;
+      prevPreviewMarkerSerializedRef.current = '';
+      prevHotelsSerializedRef.current = '';
+      prevTransportsSerializedRef.current = '';
     };
   }, []);
 
