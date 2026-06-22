@@ -42,10 +42,10 @@ export default function MapPicker({ lat, lng, onPick }: MapPickerProps) {
       const icon = L.divIcon({
         className: 'map-picker-pin',
         html: `<div style="
-          width:28px;height:28px;background:#f59e0b;border:2px dashed #fff;
+          width:28px;height:28px;background:#6366f1;border:2px solid #fff;
           border-radius:50%;display:flex;align-items:center;justify-content:center;
-          box-shadow:0 0 14px #f59e0b;font-size:14px;
-        ">📍</div>`,
+          box-shadow:0 0 14px rgba(99,102,241,0.8);color:#fff;
+        "><svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/><circle cx='12' cy='10' r='3'/></svg></div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14]
       });
@@ -61,11 +61,7 @@ export default function MapPicker({ lat, lng, onPick }: MapPickerProps) {
       } else {
         const icon = L.divIcon({
           className: 'map-picker-pin',
-          html: `<div style="
-            width:28px;height:28px;background:#f59e0b;border:2px dashed #fff;
-            border-radius:50%;display:flex;align-items:center;justify-content:center;
-            box-shadow:0 0 14px #f59e0b;font-size:14px;
-          ">📍</div>`,
+          html: `<div style='width:28px;height:28px;background:#6366f1;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(99,102,241,0.8);color:#fff;'><svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/><circle cx='12' cy='10' r='3'/></svg></div>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14]
         });
@@ -100,10 +96,10 @@ export default function MapPicker({ lat, lng, onPick }: MapPickerProps) {
       const icon = L.divIcon({
         className: 'map-picker-pin',
         html: `<div style="
-          width:28px;height:28px;background:#f59e0b;border:2px dashed #fff;
+          width:28px;height:28px;background:#6366f1;border:2px solid #fff;
           border-radius:50%;display:flex;align-items:center;justify-content:center;
-          box-shadow:0 0 14px #f59e0b;font-size:14px;
-        ">📍</div>`,
+          box-shadow:0 0 14px rgba(99,102,241,0.8);color:#fff;
+        "><svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/><circle cx='12' cy='10' r='3'/></svg></div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14]
       });

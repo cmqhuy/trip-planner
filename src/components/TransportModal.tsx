@@ -138,7 +138,11 @@ export default function TransportModal({
 
   // Undo state
   const [savedValues, setSavedValues] = useState<ReservationSavedValues | null>(null);
-  const [savedSegments, setSavedSegments] = useState<SegmentFormState[] | null>(null);
+  // initialSegments: snapshot at open time, used for per-field undo buttons
+  const [initialSegments, setInitialSegments] = useState<SegmentFormState[] | null>(null);
+
+  // Validation errors per segment: { [segIdx]: ['depLoc', 'arrDate', ...] }
+  const [segmentErrors, setSegmentErrors] = useState<Record<number, string[]>>({});
 
   // UI state
   const [isAiFilling, setIsAiFilling] = useState(false);
@@ -231,9 +235,10 @@ export default function TransportModal({
     setActiveSegmentIndex(Math.min(initialSegmentIndex ?? 0, initSegs.length - 1));
     setAttachments(t?.attachments ?? []);
     setSavedValues(initValues);
-    setSavedSegments(null);
+    setInitialSegments(initSegs.map(s => ({ ...s })));
     setAiError(null);
     setRemovePrompt(null);
+    setSegmentErrors({});
     setTypeOpen(false);
     setDepTzOpen(false);
     setArrTzOpen(false);
@@ -267,10 +272,35 @@ export default function TransportModal({
     setActiveSegmentIndex(prev => Math.min(prev, segments.length - 2));
   };
 
+  const clearSegmentError = (segIdx: number, field: string) => {
+    setSegmentErrors(prev => {
+      const errs = prev[segIdx];
+      if (!errs?.includes(field)) return prev;
+      const remaining = errs.filter(f => f !== field);
+      const next = { ...prev };
+      if (remaining.length === 0) { delete next[segIdx]; } else { next[segIdx] = remaining; }
+      return next;
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    for (const s of segments) {
-      if (!s.depLoc.trim() || !s.arrLoc.trim() || !s.depDate || !s.arrDate || !s.depTime || !s.arrTime || !s.depTz || !s.arrTz) return;
+    const errors: Record<number, string[]> = {};
+    segments.forEach((s, idx) => {
+      const errs: string[] = [];
+      if (!s.depLoc.trim()) errs.push('depLoc');
+      if (!s.arrLoc.trim()) errs.push('arrLoc');
+      if (!s.depDate) errs.push('depDate');
+      if (!s.arrDate) errs.push('arrDate');
+      if (!s.depTime) errs.push('depTime');
+      if (!s.arrTime) errs.push('arrTime');
+      if (errs.length > 0) errors[idx] = errs;
+    });
+    if (Object.keys(errors).length > 0) {
+      setSegmentErrors(errors);
+      const firstInvalid = segments.findIndex((_, idx) => (errors[idx]?.length ?? 0) > 0);
+      if (firstInvalid !== -1 && firstInvalid !== activeSegmentIndex) setActiveSegmentIndex(firstInvalid);
+      return;
     }
     const parsedPrice = price.trim() ? parseFloat(price) : undefined;
     onSave({
@@ -307,8 +337,6 @@ export default function TransportModal({
   };
 
   const applyAiResult = async (result: any) => {
-    setSavedSegments(segments.map(s => ({ ...s })));
-
     if (result.name !== undefined) setTransitName(result.name ?? '');
     if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) setType(result.type);
     if (result.confirmationNo !== undefined) setConfirmationNo(result.confirmationNo ?? '');
@@ -471,20 +499,6 @@ export default function TransportModal({
     }
   };
 
-  const undoAiFill = () => {
-    if (!savedSegments || !savedValues) return;
-    setTransitName(savedValues.transitName);
-    setType(savedValues.type);
-    setConfirmationNo(savedValues.confirmationNo);
-    setBookedThrough(savedValues.bookedThrough);
-    setPrice(savedValues.price);
-    setCurrency(savedValues.currency);
-    setNotes(savedValues.notes);
-    setStatus(savedValues.status);
-    setSegments(savedSegments);
-    setSavedSegments(null);
-  };
-
   const undoBtn = (current: string, saved: string | undefined, onRestore: () => void) => {
     if (saved === undefined || current === saved) return null;
     return (
@@ -552,7 +566,7 @@ export default function TransportModal({
             </div>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="modal-scroll-body">
 
               {/* Reservation-level header: 2-col grid */}
@@ -703,8 +717,11 @@ export default function TransportModal({
                       type="button"
                       className={`day-tab${activeSegmentIndex === idx ? ' active' : ''}`}
                       onClick={() => setActiveSegmentIndex(idx)}
+                      data-tooltip={(segmentErrors[idx]?.length ?? 0) > 0 ? 'Required fields missing' : undefined}
+                      data-tooltip-position="bottom"
                     >
                       Segment {idx + 1}
+                      {(segmentErrors[idx]?.length ?? 0) > 0 && <span className="segment-tab-error-dot" />}
                     </button>
                   ))}
                   <div className="transport-segment-tab-actions">
@@ -733,12 +750,14 @@ export default function TransportModal({
                     <div className="form-group">
                       <label htmlFor="transit-carrier" className="place-form-label">
                         <span className="label-text">Carrier / Operator</span>
+                        {undoBtn(seg.carrier, initialSegments?.[activeSegmentIndex]?.carrier, () => updateSegment(activeSegmentIndex, { carrier: initialSegments![activeSegmentIndex].carrier }))}
                       </label>
                       <input type="text" id="transit-carrier" value={seg.carrier} onChange={e => updateSegment(activeSegmentIndex, { carrier: e.target.value })} />
                     </div>
                     <div className="form-group">
                       <label htmlFor="transit-code" className="place-form-label">
                         <span className="label-text">Transit Code / Flight No</span>
+                        {undoBtn(seg.transitCode, initialSegments?.[activeSegmentIndex]?.transitCode, () => updateSegment(activeSegmentIndex, { transitCode: initialSegments![activeSegmentIndex].transitCode }))}
                       </label>
                       <input type="text" id="transit-code" value={seg.transitCode} onChange={e => updateSegment(activeSegmentIndex, { transitCode: e.target.value })} />
                     </div>
@@ -747,12 +766,19 @@ export default function TransportModal({
                   <div className="form-group">
                     <label htmlFor="dep-loc" className="place-form-label">
                       <span className="label-text">Departure Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                      {undoBtn(seg.depLoc, initialSegments?.[activeSegmentIndex]?.depLoc, () => updateSegment(activeSegmentIndex, { depLoc: initialSegments![activeSegmentIndex].depLoc }))}
                     </label>
-                    <input type="text" id="dep-loc" value={seg.depLoc} onChange={e => updateSegment(activeSegmentIndex, { depLoc: e.target.value })} placeholder="e.g. Seattle SEA Airport" required />
+                    <input
+                      type="text" id="dep-loc" value={seg.depLoc}
+                      className={segmentErrors[activeSegmentIndex]?.includes('depLoc') ? 'input-field-error' : undefined}
+                      onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { depLoc: v }); if (v.trim()) clearSegmentError(activeSegmentIndex, 'depLoc'); }}
+                      placeholder="e.g. Seattle SEA Airport"
+                    />
                   </div>
                   <div className="form-group">
                     <label htmlFor="dep-address" className="place-form-label">
                       <span className="label-text">Departure Address</span>
+                      {undoBtn(seg.depAddress, initialSegments?.[activeSegmentIndex]?.depAddress, () => updateSegment(activeSegmentIndex, { depAddress: initialSegments![activeSegmentIndex].depAddress }))}
                     </label>
                     <input type="text" id="dep-address" value={seg.depAddress} onChange={e => updateSegment(activeSegmentIndex, { depAddress: e.target.value })} />
                   </div>
@@ -761,26 +787,35 @@ export default function TransportModal({
                     <div className="form-group">
                       <label htmlFor="dep-date" className="place-form-label">
                         <span className="label-text">Departure Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                        {undoBtn(seg.depDate, initialSegments?.[activeSegmentIndex]?.depDate, () => updateSegment(activeSegmentIndex, { depDate: initialSegments![activeSegmentIndex].depDate }))}
                       </label>
                       <input
-                        type="date" id="dep-date" value={seg.depDate} required
+                        type="date" id="dep-date" value={seg.depDate}
+                        className={segmentErrors[activeSegmentIndex]?.includes('depDate') ? 'input-field-error' : undefined}
                         onChange={e => {
                           const val = e.target.value;
                           updateSegment(activeSegmentIndex, { depDate: val, arrDate: seg.arrDate < val ? val : seg.arrDate });
+                          if (val) clearSegmentError(activeSegmentIndex, 'depDate');
                         }}
                       />
                     </div>
                     <div className="form-group">
                       <label htmlFor="dep-time" className="place-form-label">
                         <span className="label-text">Departure Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                        {undoBtn(seg.depTime, initialSegments?.[activeSegmentIndex]?.depTime, () => updateSegment(activeSegmentIndex, { depTime: initialSegments![activeSegmentIndex].depTime }))}
                       </label>
-                      <input type="time" id="dep-time" value={seg.depTime} onChange={e => updateSegment(activeSegmentIndex, { depTime: e.target.value })} required />
+                      <input
+                        type="time" id="dep-time" value={seg.depTime}
+                        className={segmentErrors[activeSegmentIndex]?.includes('depTime') ? 'input-field-error' : undefined}
+                        onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { depTime: v }); if (v) clearSegmentError(activeSegmentIndex, 'depTime'); }}
+                      />
                     </div>
                   </div>
 
                   <div className="form-group">
                     <label className="place-form-label">
                       <span className="label-text">Departure Timezone</span>
+                      {undoBtn(seg.depTz, initialSegments?.[activeSegmentIndex]?.depTz, () => updateSegment(activeSegmentIndex, { depTz: initialSegments![activeSegmentIndex].depTz }))}
                     </label>
                     <div className="combo-wrapper">
                       <button
@@ -824,12 +859,14 @@ export default function TransportModal({
                     <div className="form-group">
                       <label htmlFor="dep-lat" className="place-form-label">
                         <span className="label-text">Departure Latitude</span>
+                        {undoBtn(seg.depLat, initialSegments?.[activeSegmentIndex]?.depLat, () => updateSegment(activeSegmentIndex, { depLat: initialSegments![activeSegmentIndex].depLat }))}
                       </label>
                       <input type="text" id="dep-lat" value={seg.depLat} onChange={e => updateSegment(activeSegmentIndex, { depLat: e.target.value })} />
                     </div>
                     <div className="form-group">
                       <label htmlFor="dep-lng" className="place-form-label">
                         <span className="label-text">Departure Longitude</span>
+                        {undoBtn(seg.depLng, initialSegments?.[activeSegmentIndex]?.depLng, () => updateSegment(activeSegmentIndex, { depLng: initialSegments![activeSegmentIndex].depLng }))}
                       </label>
                       <input type="text" id="dep-lng" value={seg.depLng} onChange={e => updateSegment(activeSegmentIndex, { depLng: e.target.value })} />
                     </div>
@@ -855,12 +892,19 @@ export default function TransportModal({
                   <div className="form-group">
                     <label htmlFor="arr-loc" className="place-form-label">
                       <span className="label-text">Arrival Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                      {undoBtn(seg.arrLoc, initialSegments?.[activeSegmentIndex]?.arrLoc, () => updateSegment(activeSegmentIndex, { arrLoc: initialSegments![activeSegmentIndex].arrLoc }))}
                     </label>
-                    <input type="text" id="arr-loc" value={seg.arrLoc} onChange={e => updateSegment(activeSegmentIndex, { arrLoc: e.target.value })} placeholder="e.g. Los Angeles LAX Airport" required />
+                    <input
+                      type="text" id="arr-loc" value={seg.arrLoc}
+                      className={segmentErrors[activeSegmentIndex]?.includes('arrLoc') ? 'input-field-error' : undefined}
+                      onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrLoc: v }); if (v.trim()) clearSegmentError(activeSegmentIndex, 'arrLoc'); }}
+                      placeholder="e.g. Los Angeles LAX Airport"
+                    />
                   </div>
                   <div className="form-group">
                     <label htmlFor="arr-address" className="place-form-label">
                       <span className="label-text">Arrival Address</span>
+                      {undoBtn(seg.arrAddress, initialSegments?.[activeSegmentIndex]?.arrAddress, () => updateSegment(activeSegmentIndex, { arrAddress: initialSegments![activeSegmentIndex].arrAddress }))}
                     </label>
                     <input type="text" id="arr-address" value={seg.arrAddress} onChange={e => updateSegment(activeSegmentIndex, { arrAddress: e.target.value })} />
                   </div>
@@ -869,20 +913,31 @@ export default function TransportModal({
                     <div className="form-group">
                       <label htmlFor="arr-date" className="place-form-label">
                         <span className="label-text">Arrival Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                        {undoBtn(seg.arrDate, initialSegments?.[activeSegmentIndex]?.arrDate, () => updateSegment(activeSegmentIndex, { arrDate: initialSegments![activeSegmentIndex].arrDate }))}
                       </label>
-                      <input type="date" id="arr-date" value={seg.arrDate} onChange={e => updateSegment(activeSegmentIndex, { arrDate: e.target.value })} required />
+                      <input
+                        type="date" id="arr-date" value={seg.arrDate}
+                        className={segmentErrors[activeSegmentIndex]?.includes('arrDate') ? 'input-field-error' : undefined}
+                        onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrDate: v }); if (v) clearSegmentError(activeSegmentIndex, 'arrDate'); }}
+                      />
                     </div>
                     <div className="form-group">
                       <label htmlFor="arr-time" className="place-form-label">
                         <span className="label-text">Arrival Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                        {undoBtn(seg.arrTime, initialSegments?.[activeSegmentIndex]?.arrTime, () => updateSegment(activeSegmentIndex, { arrTime: initialSegments![activeSegmentIndex].arrTime }))}
                       </label>
-                      <input type="time" id="arr-time" value={seg.arrTime} onChange={e => updateSegment(activeSegmentIndex, { arrTime: e.target.value })} required />
+                      <input
+                        type="time" id="arr-time" value={seg.arrTime}
+                        className={segmentErrors[activeSegmentIndex]?.includes('arrTime') ? 'input-field-error' : undefined}
+                        onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrTime: v }); if (v) clearSegmentError(activeSegmentIndex, 'arrTime'); }}
+                      />
                     </div>
                   </div>
 
                   <div className="form-group">
                     <label className="place-form-label">
                       <span className="label-text">Arrival Timezone</span>
+                      {undoBtn(seg.arrTz, initialSegments?.[activeSegmentIndex]?.arrTz, () => updateSegment(activeSegmentIndex, { arrTz: initialSegments![activeSegmentIndex].arrTz }))}
                     </label>
                     <div className="combo-wrapper">
                       <button
@@ -926,12 +981,14 @@ export default function TransportModal({
                     <div className="form-group">
                       <label htmlFor="arr-lat" className="place-form-label">
                         <span className="label-text">Arrival Latitude</span>
+                        {undoBtn(seg.arrLat, initialSegments?.[activeSegmentIndex]?.arrLat, () => updateSegment(activeSegmentIndex, { arrLat: initialSegments![activeSegmentIndex].arrLat }))}
                       </label>
                       <input type="text" id="arr-lat" value={seg.arrLat} onChange={e => updateSegment(activeSegmentIndex, { arrLat: e.target.value })} />
                     </div>
                     <div className="form-group">
                       <label htmlFor="arr-lng" className="place-form-label">
                         <span className="label-text">Arrival Longitude</span>
+                        {undoBtn(seg.arrLng, initialSegments?.[activeSegmentIndex]?.arrLng, () => updateSegment(activeSegmentIndex, { arrLng: initialSegments![activeSegmentIndex].arrLng }))}
                       </label>
                       <input type="text" id="arr-lng" value={seg.arrLng} onChange={e => updateSegment(activeSegmentIndex, { arrLng: e.target.value })} />
                     </div>
@@ -957,21 +1014,17 @@ export default function TransportModal({
                       <span className="label-text">Click on the map to set coordinates</span>
                     </label>
                     <DualMapPicker
-                      depLat={parseFloat(seg.depLat)}
-                      depLng={parseFloat(seg.depLng)}
-                      arrLat={parseFloat(seg.arrLat)}
-                      arrLng={parseFloat(seg.arrLng)}
+                      segments={segments.map(s => ({
+                        depLat: parseFloat(s.depLat),
+                        depLng: parseFloat(s.depLng),
+                        arrLat: parseFloat(s.arrLat),
+                        arrLng: parseFloat(s.arrLng),
+                      }))}
+                      activeIndex={activeSegmentIndex}
                       onDepPick={(lat, lng) => updateSegment(activeSegmentIndex, { depLat: lat.toFixed(6), depLng: lng.toFixed(6) })}
                       onArrPick={(lat, lng) => updateSegment(activeSegmentIndex, { arrLat: lat.toFixed(6), arrLng: lng.toFixed(6) })}
                     />
                   </div>
-                  {savedSegments !== null && (
-                    <div className="form-group">
-                      <button type="button" className="btn-secondary flex-align transport-undo-ai-btn" onClick={undoAiFill}>
-                        <RotateCcw size={13} /> Undo AI Fill
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <div className="place-form-right-col">
@@ -1088,7 +1141,7 @@ export default function TransportModal({
             <div className="modal-actions modal-actions--between">
               {onDelete && editingTransport && (
                 <button type="button" className="btn-danger flex-align" onClick={onDelete}>
-                  <Trash2 size={14} /> Delete<span className="desktop-only"> Transit</span>
+                  <Trash2 size={14} /><span>Delete<span className="desktop-only"> Transit</span></span>
                 </button>
               )}
               <div className="modal-actions-right">

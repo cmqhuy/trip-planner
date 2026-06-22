@@ -776,7 +776,7 @@ export default function HotelModal({
             <div className="modal-actions modal-actions--between">
               {editingHotel && onDelete && (
                 <button type="button" className="btn-danger flex-align" onClick={onDelete}>
-                  <Trash2 size={14} /> Delete<span className="desktop-only"> Hotel</span>
+                  <Trash2 size={14} /><span>Delete<span className="desktop-only"> Hotel</span></span>
                 </button>
               )}
               <div className="modal-actions-right">

@@ -101,7 +101,8 @@ function MapComponent({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markerGroupRef = useRef<L.FeatureGroup | null>(null);
-  const polylineRef = useRef<L.Polyline | null>(null);
+  const polylinesRef = useRef<L.Polyline[]>([]);
+  const hasInitialFitRef = useRef(false);
 
   // Store click callbacks in refs to prevent map re-initialization
   const onMapClickRef = useRef(onMapClick);
@@ -152,11 +153,25 @@ function MapComponent({
     mapInstance.current = map;
     markerGroupRef.current = L.featureGroup().addTo(map);
 
+    // After first render's marker effects have run, fit the map to whatever markers exist.
+    // Reading markerGroup.getBounds() here avoids stale-closure issues that come from
+    // scheduling this inside the data-change effect.
+    const initFitTimer = setTimeout(() => {
+      if (!mapInstance.current || !markerGroupRef.current) return;
+      map.invalidateSize({ animate: false });
+      const bounds = markerGroupRef.current.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+      }
+      hasInitialFitRef.current = true;
+    }, 300);
+
     return () => {
+      clearTimeout(initFitTimer);
       map.remove();
       mapInstance.current = null;
       markerGroupRef.current = null;
-      polylineRef.current = null;
+      polylinesRef.current = [];
     };
   }, []);
 
@@ -212,14 +227,10 @@ function MapComponent({
       return;
     }
 
-    // Clear previous markers
+    // Clear previous markers and polylines
     markerGroup.clearLayers();
-
-    // Clear previous polyline
-    if (polylineRef.current) {
-      polylineRef.current.remove();
-      polylineRef.current = null;
-    }
+    polylinesRef.current.forEach(l => l.remove());
+    polylinesRef.current = [];
 
     // Process places marker positioning
     const latlngs: [number, number][] = [];
@@ -628,18 +639,13 @@ function MapComponent({
         className: 'custom-map-marker-preview',
         html: `
           <div style="
-            width: 32px;
-            height: 32px;
-            background: #f59e0b;
-            border: 2px dashed #ffffff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 15px #f59e0b;
-            font-size: 16px;
+            width: 32px; height: 32px; background: #6366f1;
+            border: 2px dashed rgba(255,255,255,0.7); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 15px rgba(99,102,241,0.6), 0 4px 10px rgba(0,0,0,0.4);
+            color: #ffffff;
           ">
-            📍
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
         `,
         iconSize: [32, 32],
@@ -648,17 +654,33 @@ function MapComponent({
       L.marker([previewMarker.lat, previewMarker.lng], { icon: previewIcon }).addTo(markerGroup);
     }
 
-    // Draw route line
+    // Draw route line between scheduled places
     if (latlngs.length > 1) {
-      polylineRef.current = L.polyline(latlngs, {
+      polylinesRef.current.push(L.polyline(latlngs, {
         color: '#6366f1',
         weight: 3,
         opacity: 0.8,
         dashArray: '5, 8',
         lineCap: 'round',
         lineJoin: 'round'
-      }).addTo(map);
+      }).addTo(map));
     }
+
+    // Draw dep→arr lines for each transit segment
+    transports.forEach(t => {
+      if (
+        t.departureLat !== undefined && t.departureLng !== undefined &&
+        t.arrivalLat !== undefined && t.arrivalLng !== undefined &&
+        !isNaN(t.departureLat) && !isNaN(t.departureLng) &&
+        !isNaN(t.arrivalLat) && !isNaN(t.arrivalLng)
+      ) {
+        const statusColor = getStatusColor(t.status);
+        polylinesRef.current.push(L.polyline(
+          [[t.departureLat, t.departureLng], [t.arrivalLat, t.arrivalLng]],
+          { color: statusColor, weight: 2, opacity: 0.55, dashArray: '4, 6' }
+        ).addTo(map));
+      }
+    });
 
     // Smart Map View Adjustments (zoom/pan) - Only run when the focus/day changes to avoid map snapping
     if (!previewMarker) {
@@ -687,17 +709,19 @@ function MapComponent({
       }
       // Scenario B: Active place was cleared, or day changed with no active place
       else if ((activePlaceChanged && !activePlaceId) || (placesChanged && !activePlaceId) || hotelsChanged || transportsChanged) {
-        if (boundsLatLngs.length > 0) {
-          // Fit map view to see all scheduled places
-          const bounds = L.latLngBounds(boundsLatLngs);
-          map.fitBounds(bounds, {
-            padding: [60, 60],
-            maxZoom: 16
-          });
-        } else {
-          // Empty state: default global view
-          map.setView([20, 0], 2);
+        const fitAll = () => {
+          if (!mapInstance.current) return;
+          if (boundsLatLngs.length > 0) {
+            mapInstance.current.invalidateSize({ animate: false });
+            mapInstance.current.fitBounds(L.latLngBounds(boundsLatLngs), { padding: [60, 60], maxZoom: 16 });
+          } else {
+            mapInstance.current.setView([20, 0], 2);
+          }
+        };
+        if (hasInitialFitRef.current) {
+          fitAll();
         }
+        // else: the init effect's 300ms timer handles the first fit
       }
     } else if (previewMarkerChanged && !isNaN(previewMarker.lat) && !isNaN(previewMarker.lng)) {
       // Auto-pan map to the newly dropped pin location in dialog edit views

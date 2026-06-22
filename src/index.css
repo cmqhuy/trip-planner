@@ -4209,25 +4209,31 @@ div.google-auth-avatar-desktop {
 /* Form error text */
 .form-error-text { font-size: 11px; color: var(--color-danger); margin: 4px 0 0; }
 
+/* Field error highlight */
+.input-field-error { border-color: var(--color-danger) !important; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important; }
+
 /* TransportModal — segment tabs */
 .transport-segment-tabs {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  padding: 12px 0 4px;
-  border-top: 1px solid var(--border-glass);
-  margin-top: 8px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  margin-top: 16px;
+  margin-bottom: 16px;
 }
-.transport-segment-tabs .day-tab { min-width: 80px; padding: 5px 14px; font-size: 12px; justify-content: center; }
+.transport-segment-tabs .day-tab { min-width: 80px; padding: 5px 14px; font-size: 12px; justify-content: center; flex-direction: row; gap: 5px; align-items: center; }
 .transport-segment-tab-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .transport-segment-add-btn { font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
 .transport-segment-delete-btn { font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
+.segment-tab-error-dot { width: 6px; height: 6px; background: var(--color-danger); border-radius: 50%; flex-shrink: 0; }
 .transport-segment-fields { margin-top: 0; }
 .transport-add-segment-row { display: flex; justify-content: flex-start; padding: 6px 0 8px; }
 .transport-add-segment-btn { font-size: 12px; gap: 5px; }
 .transport-add-segment-btn--full { width: 100%; justify-content: center; padding: 10px 14px; font-size: 14px; }
-.transport-undo-ai-btn { font-size: 12px; gap: 5px; margin-bottom: 8px; }
 .transport-segment-spacer { visibility: hidden; pointer-events: none; user-select: none; }
 .transport-add-segment-mobile { display: none; }
 @media (max-width: 640px) {
