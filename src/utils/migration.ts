@@ -2,7 +2,7 @@ import type { Trip, ScheduleItem } from '../types';
 
 // Bump whenever a new migration step is added.
 // Trips already at this version are returned as-is (cheap no-op).
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 // v0 → v1: build scheduleItems from placeIds + scheduleNotes
 function applyV0toV1(trip: any): any {
@@ -69,6 +69,26 @@ function applyV1toV2(trip: any): any {
   return { ...trip, plans };
 }
 
+// v2 → v3: deduplicate segment IDs that collide across reservations in the same plan
+// (caused by AI import generating id: `imported-draft-seg-${idx}` which resets per reservation)
+function applyV2toV3(trip: any): any {
+  const plans = (trip.plans || []).map((plan: any) => {
+    const seenIds = new Set<string>();
+    const transports = (plan.transports || []).map((reservation: any) => ({
+      ...reservation,
+      segments: (reservation.segments || []).map((seg: any) => {
+        if (!seg.id || seenIds.has(seg.id)) {
+          return { ...seg, id: crypto.randomUUID() };
+        }
+        seenIds.add(seg.id);
+        return seg;
+      }),
+    }));
+    return { ...plan, transports };
+  });
+  return { ...trip, plans };
+}
+
 export function migrateTrips(rawTrips: any[]): Trip[] {
   return rawTrips.map((trip: any): Trip => {
     if (trip.schemaVersion === CURRENT_SCHEMA_VERSION) return trip as Trip;
@@ -76,6 +96,7 @@ export function migrateTrips(rawTrips: any[]): Trip[] {
     let t = trip;
     if ((t.schemaVersion ?? 0) < 1) t = applyV0toV1(t);
     if ((t.schemaVersion ?? 0) < 2) t = applyV1toV2(t);
+    if ((t.schemaVersion ?? 0) < 3) t = applyV2toV3(t);
 
     return { ...t, schemaVersion: CURRENT_SCHEMA_VERSION };
   });

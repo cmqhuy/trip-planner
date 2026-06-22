@@ -1982,7 +1982,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
             }
 
             return {
-              id: `imported-draft-seg-${idx}`,
+              id: `seg-${Date.now()}-${Math.random().toString(36).slice(2)}-${idx}`,
               carrier: seg.carrier,
               transitCode: seg.transitCode,
               departureLocationName: seg.departureLocationName || '',
@@ -2041,7 +2041,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           }
 
           segmentsList = [{
-            id: `imported-draft-seg-0`,
+            id: `seg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             carrier: result.carrier,
             transitCode: result.transitCode,
             departureLocationName: result.departureLocationName || '',
