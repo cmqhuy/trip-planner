@@ -527,7 +527,7 @@ export default function ReservationsSection({
             ))}
 
             {sortTransports(flattenReservations(activePlan.transports)).map(t => {
-              const cardKey = `${t.reservationId}-${t.segmentIndex}`;
+              const cardKey = t.id;
               const isExpanded = expandedTransitId === cardKey;
               const transitName = t.reservationName || `${t.departureLocationName} → ${t.arrivalLocationName}`;
               const hasOpenDropdown = openTransitMapId === cardKey || openOptionsMenuId === cardKey;
