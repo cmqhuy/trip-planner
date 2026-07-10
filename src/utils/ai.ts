@@ -504,7 +504,8 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     disabledDayFields?: string[]
   ): string {
     const tipsDisabled = disabledDayFields?.includes('daily_tips');
-    const daysPrompt = days.map(d => {
+    const sortedDays = [...days].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+    const daysPrompt = sortedDays.map(d => {
       const placesList = d.places.map(p => {
         const details: string[] = [];
         if (p.description) details.push(`description: ${p.description}`);
@@ -629,6 +630,9 @@ Please respond with JSON in this exact format:
   }[]> {
     if (days.length === 0) return [];
 
+    // Sort days chronologically to ensure consistent sequence and avoid LLM date-mapping confusion
+    const sortedDays = [...days].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+
     const aiDetailsProps: any = {};
     const aiDetailsRequired: string[] = [];
 
@@ -644,7 +648,10 @@ Please respond with JSON in this exact format:
     }
 
     const properties: any = {
-      dateStr: { type: 'STRING' }
+      dateStr: { 
+        type: 'STRING',
+        enum: sortedDays.map(d => d.dateStr)
+      }
     };
     const required = ['dateStr'];
 
@@ -657,7 +664,7 @@ Please respond with JSON in this exact format:
       required.push('aiDetails');
     }
 
-    const daysPrompt = days.map(d => {
+    const daysPrompt = sortedDays.map(d => {
       const placesList = d.places.map(p => {
         const details = [];
         if (p.description) details.push(`description: ${p.description}`);

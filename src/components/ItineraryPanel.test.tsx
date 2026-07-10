@@ -131,6 +131,7 @@ describe('ItineraryPanel Component', () => {
         setShowDayOptionsMenu={vi.fn()}
         showDayOptionsMenu={false}
         setShowMoveDayModal={vi.fn()}
+        setShowSwapDaysModal={vi.fn()}
         setShowAiGenerateDaysModal={vi.fn()}
         setShowCustomPlaceModal={vi.fn()}
         setAutoScheduleOnActiveDay={vi.fn()}

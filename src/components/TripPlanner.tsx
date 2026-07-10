@@ -2259,7 +2259,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     if (selectedDates.length === 0) return;
     if (!GeminiService.isAiEnabled()) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
 
-    const daysPayload = selectedDates.map(dateStr => {
+    // Sort dates chronologically to ensure consistent sequence and avoid LLM date-mapping confusion
+    const sortedDates = [...selectedDates].sort((a, b) => a.localeCompare(b));
+
+    const daysPayload = sortedDates.map(dateStr => {
       const day = activePlan.days[dateStr];
       const location = trip.locations.find(l => l.id === day?.locationId) || trip.locations[0];
       const dayPlaces = day ? day.placeIds.map(pid => {
@@ -2277,7 +2280,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const enableBaby = !trip.disabledDayFields?.includes('baby_logistics');
 
     await runAiCall({
-      label: `Daily Tips: ${selectedDates.length} Day(s)`,
+      label: `Daily Tips: ${sortedDates.length} Day(s)`,
       buildPrompt: () => GeminiService.buildDailyTipsPrompt(daysPayload, enableBaby, trip.disabledDayFields),
       parse: GeminiService.parseDailyTipsResponse,
       liveCall: () => GeminiService.generateDailyTipsWithRotation(daysPayload, enableBaby, undefined, trip.disabledDayFields),
@@ -2300,7 +2303,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       onError: (err) => showAlert('AI Error', `Failed to parse AI response: ${err.message}`),
       onLoadingChange: (loading) => setDaysGeneratingDates(prev => {
         const next = new Set(prev);
-        selectedDates.forEach(d => loading ? next.add(d) : next.delete(d));
+        sortedDates.forEach(d => loading ? next.add(d) : next.delete(d));
         return next;
       }),
       showManualPrompt: showManualAiPrompt,

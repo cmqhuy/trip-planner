@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { _testHelpers } from './ai';
+import { GeminiService, _testHelpers } from './ai';
 
 const { fixMarkdownHeaders, getDayOfWeek } = _testHelpers;
 
@@ -48,6 +48,41 @@ describe('ai helper functions', () => {
     it('leaves properly formatted headers untouched', () => {
       const input = '## Daily Route Sequence & Summary\nBegin your day...\n\n## Logistics & Alerts\nBe careful...';
       expect(fixMarkdownHeaders(input)).toBe(input);
+    });
+  });
+
+  describe('buildDailyTipsPrompt', () => {
+    it('sorts out-of-order days chronologically in prompt', () => {
+      const days = [
+        {
+          dateStr: '2026-07-11',
+          dayNumber: 2,
+          locationCity: 'Paris',
+          locationCountry: 'France',
+          places: [{ title: 'Eiffel Tower' }],
+          hotels: [],
+          transports: []
+        },
+        {
+          dateStr: '2026-07-10',
+          dayNumber: 1,
+          locationCity: 'Paris',
+          locationCountry: 'France',
+          places: [{ title: 'Louvre' }],
+          hotels: [],
+          transports: []
+        }
+      ];
+
+      const prompt = GeminiService.buildDailyTipsPrompt(days, false);
+      
+      // The prompt should render Day 1 (2026-07-10) before Day 2 (2026-07-11)
+      const day1Index = prompt.indexOf('Day 1 (2026-07-10');
+      const day2Index = prompt.indexOf('Day 2 (2026-07-11');
+      
+      expect(day1Index).not.toBe(-1);
+      expect(day2Index).not.toBe(-1);
+      expect(day1Index).toBeLessThan(day2Index);
     });
   });
 });

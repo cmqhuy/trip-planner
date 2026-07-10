@@ -213,7 +213,7 @@ describe('TripPlanner Component', () => {
     const handleBack = vi.fn();
 
     // Prepare a custom mock trip where Day 2 also has data to check that swap is bidirectional
-    const customMockTrip = {
+    const customMockTrip: Trip = {
       ...mockTrip,
       plans: [
         {
