@@ -149,35 +149,34 @@ export default function LocationModal({
             {isSearching && (
               <div className="modal-search-loader">Searching...</div>
             )}
-          </div>
-
-          {suggestions.length > 0 && (
-            <div className="modal-suggestions-panel">
-              {suggestions.map((sug) => (
-                <div
-                  key={sug.id}
-                  className="modal-suggestion-item"
-                  onClick={() => {
-                    setCity(sug.city);
-                    setStateVal(sug.state || '');
-                    setCountry(sug.country);
-                    setCountryCode(sug.countryCode || '');
-                    setLat(sug.lat.toString());
-                    setLng(sug.lng.toString());
-                    setHeroPhoto(sug.heroPhoto || '');
-                    setSearchQuery('');
-                    setSuggestions([]);
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div className="modal-suggestion-name">
-                    {getLocIcon(sug as Location)} {sug.city}, {sug.country}
+            {suggestions.length > 0 && (
+              <div className="modal-suggestions-panel">
+                {suggestions.map((sug) => (
+                  <div
+                    key={sug.id}
+                    className="modal-suggestion-item"
+                    onClick={() => {
+                      setCity(sug.city);
+                      setStateVal(sug.state || '');
+                      setCountry(sug.country);
+                      setCountryCode(sug.countryCode || '');
+                      setLat(sug.lat.toString());
+                      setLng(sug.lng.toString());
+                      setHeroPhoto(sug.heroPhoto || '');
+                      setSearchQuery('');
+                      setSuggestions([]);
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div className="modal-suggestion-name">
+                      {getLocIcon(sug as Location)} {sug.city}, {sug.country}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <form onSubmit={handleSubmit}>

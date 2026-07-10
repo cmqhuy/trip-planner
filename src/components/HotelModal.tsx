@@ -10,7 +10,6 @@ import MapPicker from './MapPicker';
 import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
 import { useDriveAttachments } from '../utils/useDriveAttachments';
 import { parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation } from '../utils/api';
-import { getBrowserTimezone } from '../utils/timezones';
 
 const STATUS_OPTIONS = [
   { value: 'Confirmed' as const, Icon: Check },
@@ -73,7 +72,6 @@ export default function HotelModal({
   defaultDate,
   catalogLocation,
 }: HotelModalProps) {
-  const browserTz = getBrowserTimezone();
   const effectiveDefaultDate = defaultDate ?? tripStartDate;
 
   const [name, setName] = useState('');
@@ -459,34 +457,34 @@ export default function HotelModal({
               {isSearching && (
                 <div className="modal-search-loader">Searching...</div>
               )}
+              {suggestions.length > 0 && (
+                <div className="modal-suggestions-panel">
+                  {suggestions.map((sug) => (
+                    <div
+                      key={sug.id}
+                      className="modal-suggestion-item"
+                      onClick={() => {
+                        setName(sug.title);
+                        setAddress(sug.address || sug.description || '');
+                        if (sug.lat != null) setLat(sug.lat.toString());
+                        if (sug.lng != null) setLng(sug.lng.toString());
+                        setSearchQuery('');
+                        setSuggestions([]);
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div className="modal-suggestion-name">{sug.title}</div>
+                      <div className="modal-suggestion-desc">
+                        {sug.address || sug.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {searchError && (
               <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{searchError}</div>
-            )}
-            {suggestions.length > 0 && (
-              <div className="modal-suggestions-panel">
-                {suggestions.map((sug) => (
-                  <div
-                    key={sug.id}
-                    className="modal-suggestion-item"
-                    onClick={() => {
-                      setName(sug.title);
-                      setAddress(sug.address || sug.description || '');
-                      if (sug.lat != null) setLat(sug.lat.toString());
-                      if (sug.lng != null) setLng(sug.lng.toString());
-                      setSearchQuery('');
-                      setSuggestions([]);
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <div className="modal-suggestion-name">{sug.title}</div>
-                    <div className="modal-suggestion-desc">
-                      {sug.address || sug.description}
-                    </div>
-                  </div>
-                ))}
-              </div>
             )}
           </div>
 

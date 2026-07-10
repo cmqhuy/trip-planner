@@ -336,39 +336,38 @@ export default function PlaceModal({
             {isSearching && (
               <div className="modal-search-loader">Searching...</div>
             )}
+            {suggestions.length > 0 && (
+              <div className="modal-suggestions-panel">
+                {suggestions.map((sug) => (
+                  <div
+                    key={sug.id}
+                    className="modal-suggestion-item"
+                    onClick={() => {
+                      setTitle(sug.title);
+                      setDescription(sug.description || '');
+                      setOpeningHours(sug.openingHours || '');
+                      setLat(sug.lat.toString());
+                      setLng(sug.lng.toString());
+                      setMapsLink(sug.mapsLink || buildMapsLink(sug.title, sug.lat, sug.lng, catalogLocation?.city));
+                      setPhotoUrl(sug.photoUrl || '');
+                      setNotes(sug.notes || '');
+                      setSearchQuery('');
+                      setSuggestions([]);
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div className="modal-suggestion-name">{sug.title}</div>
+                    <div className="modal-suggestion-desc">
+                      {sug.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           {searchError && (
             <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{searchError}</div>
-          )}
-
-          {suggestions.length > 0 && (
-            <div className="modal-suggestions-panel">
-              {suggestions.map((sug) => (
-                <div
-                  key={sug.id}
-                  className="modal-suggestion-item"
-                  onClick={() => {
-                    setTitle(sug.title);
-                    setDescription(sug.description || '');
-                    setOpeningHours(sug.openingHours || '');
-                    setLat(sug.lat.toString());
-                    setLng(sug.lng.toString());
-                    setMapsLink(sug.mapsLink || buildMapsLink(sug.title, sug.lat, sug.lng, catalogLocation?.city));
-                    setPhotoUrl(sug.photoUrl || '');
-                    setNotes(sug.notes || '');
-                    setSearchQuery('');
-                    setSuggestions([]);
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div className="modal-suggestion-name">{sug.title}</div>
-                  <div className="modal-suggestion-desc">
-                    {sug.description}
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
         </div>
 
