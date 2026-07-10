@@ -4236,13 +4236,13 @@ div.google-auth-avatar-desktop {
 }
 .transport-segment-tabs-scroll {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
   flex: 1;
   scrollbar-width: thin;
-  padding: 11px 12px 8px;
+  padding: 10px 12px;
 }
 .transport-segment-tabs-scroll::-webkit-scrollbar {
   height: 4px;
@@ -4367,8 +4367,6 @@ div.google-auth-avatar-desktop {
   }
   .transport-segment-tabs-scroll {
     width: 100%;
-    align-items: center;
-    padding: 10px 12px;
   }
   .transport-segment-tab-actions {
     justify-content: flex-end;
