@@ -7,8 +7,35 @@ const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
   scheduleItems: items,
   placeIds: items.filter((i): i is SchedulePlaceItem => i.type === 'place').map(i => i.placeId)
 });
+
+const transferDayFields = (source: PlanDay, target: PlanDay): PlanDay => {
+  const sourceItems = (source.scheduleItems || []).filter(
+    item => item.type === 'place' || item.type === 'note'
+  );
+  const updatedTarget = {
+    ...target,
+    locationId: source.locationId,
+    aiDetails: source.aiDetails,
+    aiUpdatedAt: source.aiUpdatedAt,
+    noHotel: source.noHotel,
+  };
+  return updateDayItems(updatedTarget, sourceItems);
+};
+
+const clearDayFields = (day: PlanDay): PlanDay => {
+  const remainingItems = (day.scheduleItems || []).filter(
+    item => item.type !== 'place' && item.type !== 'note'
+  );
+  const clearedDay = {
+    ...day,
+    aiDetails: undefined,
+    aiUpdatedAt: undefined,
+    noHotel: undefined
+  };
+  return updateDayItems(clearedDay, remainingItems);
+};
 import { Navigation, BookOpen, Clock, Loader2 } from 'lucide-react';
-import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from '../utils/api';
+import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, getLocIcon, getFormattedLocationName } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
@@ -23,6 +50,7 @@ import ManualAiPromptModal from './ManualAiPromptModal';
 import ConfirmationModal from './ConfirmationModal';
 import NewPlanModal from './NewPlanModal';
 import MoveDayModal from './MoveDayModal';
+import SwapDaysModal from './SwapDaysModal';
 import EditTripModal from './EditTripModal';
 import AddLocationModal from './AddLocationModal';
 import LocationModal from './LocationModal';
@@ -401,6 +429,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
   // Move Day Modal state
   const [showMoveDayModal, setShowMoveDayModal] = useState(false);
+
+  // Swap Days Modal state
+  const [showSwapDaysModal, setShowSwapDaysModal] = useState(false);
 
   // Mobile UI States
   const [activeMobileTab, setActiveMobileTab] = useState<'catalog' | 'itinerary' | 'map'>('itinerary');
@@ -953,16 +984,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       const updatedPlans = trip.plans.map(p => {
         if (p.id === activePlan.id) {
           const updatedDays = { ...p.days };
-          // Copy place and note items to destination day
-          const sourceItems = (currentDayData.scheduleItems || []).filter(
-            item => item.type === 'place' || item.type === 'note'
-          );
-          updatedDays[destDateStr] = updateDayItems({ ...updatedDays[destDateStr]!, locationId: sourceLocId }, sourceItems);
-          // Remove place and note items from source day; keep any future item types
-          const remainingItems = (currentDayData.scheduleItems || []).filter(
-            item => item.type !== 'place' && item.type !== 'note'
-          );
-          updatedDays[activeDayStr] = updateDayItems(updatedDays[activeDayStr]!, remainingItems);
+          const sourceDay = updatedDays[activeDayStr];
+          const destDay = updatedDays[destDateStr];
+          if (sourceDay && destDay) {
+            updatedDays[destDateStr] = transferDayFields(sourceDay, destDay);
+            updatedDays[activeDayStr] = clearDayFields(sourceDay);
+          }
           return { ...p, days: updatedDays };
         }
         return p;
@@ -996,6 +1023,72 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         message: `Are you sure you want to move ${getFormattedDayLabel(activeDayStr)} to ${getFormattedDayLabel(destDateStr)}? This will override all scheduled items on ${getFormattedDayLabel(destDateStr)}.`,
         confirmText: 'Move Day',
         onConfirm: executeMove
+      });
+    }
+  };
+
+  const handleSwapDaysContents = (destDateStr: string) => {
+    if (!activeDayStr || !destDateStr || activeDayStr === destDateStr) return;
+
+    const currentDayData = activePlan.days[activeDayStr];
+    if (!currentDayData) return;
+
+    const destDayData = activePlan.days[destDateStr];
+    if (!destDayData) return;
+
+    const getFormattedDayLabel = (dateStr: string) => {
+      const idx = daysList.indexOf(dateStr) + 1;
+      const formattedDate = formatDisplayDate(dateStr).split(',')[1]?.trim() || dateStr;
+      return `Day ${idx} (${formattedDate})`;
+    };
+
+    const executeSwap = () => {
+      const updatedPlans = trip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          const updatedDays = { ...p.days };
+          const sourceDay = updatedDays[activeDayStr];
+          const destDay = updatedDays[destDateStr];
+          if (sourceDay && destDay) {
+            // Swap everything using the shared transferDayFields helper
+            updatedDays[activeDayStr] = transferDayFields(destDay, sourceDay);
+            updatedDays[destDateStr] = transferDayFields(sourceDay, destDay);
+          }
+          return { ...p, days: updatedDays };
+        }
+        return p;
+      });
+
+      onUpdateTrip({
+        ...trip,
+        plans: updatedPlans
+      });
+
+      // Switch to the destination day
+      setActiveDayStr(destDateStr);
+      setShowSwapDaysModal(false);
+    };
+
+    const sourceLocId = currentDayData.locationId;
+    const destLocId = destDayData.locationId;
+
+    if (sourceLocId !== destLocId) {
+      const sourceLoc = trip.locations.find(l => l.id === sourceLocId);
+      const destLoc = trip.locations.find(l => l.id === destLocId);
+      const sourceName = sourceLoc ? `${sourceLoc.city}, ${sourceLoc.country}` : 'Not Selected';
+      const destName = destLoc ? `${destLoc.city}, ${destLoc.country}` : 'Not Selected';
+
+      setConfirmModal({
+        title: 'Swap Days',
+        message: `Are you sure you want to swap the contents of ${getFormattedDayLabel(activeDayStr)} and ${getFormattedDayLabel(destDateStr)}?\n\n⚠️ Warning: The location of ${getFormattedDayLabel(activeDayStr)} (${sourceName}) is different from ${getFormattedDayLabel(destDateStr)} (${destName}). Swapping will swap their locations too.`,
+        confirmText: 'Swap Days',
+        onConfirm: executeSwap
+      });
+    } else {
+      setConfirmModal({
+        title: 'Swap Days',
+        message: `Are you sure you want to swap the contents of ${getFormattedDayLabel(activeDayStr)} and ${getFormattedDayLabel(destDateStr)}?`,
+        confirmText: 'Swap Days',
+        onConfirm: executeSwap
       });
     }
   };
@@ -2595,6 +2688,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setShowDayOptionsMenu={setShowDayOptionsMenu}
         showDayOptionsMenu={showDayOptionsMenu}
         setShowMoveDayModal={setShowMoveDayModal}
+        setShowSwapDaysModal={setShowSwapDaysModal}
         setShowAiGenerateDaysModal={setShowAiGenerateDaysModal}
         setShowCustomPlaceModal={setShowCustomPlaceModal}
         setAutoScheduleOnActiveDay={setAutoScheduleOnActiveDay}
@@ -2726,13 +2820,63 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         isOpen={showMoveDayModal}
         onClose={() => setShowMoveDayModal(false)}
         activeDayLabel={`Day ${daysList.indexOf(activeDayStr) + 1} (${formatDisplayDate(activeDayStr).split(',')[1]?.trim() || activeDayStr})`}
+        initialTargetDate={(() => {
+          const activeDayIdx = daysList.indexOf(activeDayStr);
+          if (activeDayIdx !== -1) {
+            if (activeDayIdx < daysList.length - 1) {
+              return daysList[activeDayIdx + 1];
+            } else if (activeDayIdx > 0) {
+              return daysList[activeDayIdx - 1];
+            }
+          }
+          return '';
+        })()}
         daysOptions={daysList
           .filter(d => d !== activeDayStr)
-          .map(d => ({
-            value: d,
-            label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`
-          }))}
+          .map(d => {
+            const dayData = activePlan?.days[d];
+            const loc = dayData?.locationId ? trip.locations.find(l => l.id === dayData.locationId) : undefined;
+            return {
+              value: d,
+              label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`,
+              locationName: loc ? getFormattedLocationName(loc, trip.locations) : undefined,
+              locationColor: loc?.color,
+              locationIcon: loc ? getLocIcon(loc) : undefined
+            };
+          })}
         onConfirmMove={handleMoveDayContents}
+      />
+
+      {/* Swap Days Modal */}
+      <SwapDaysModal
+        isOpen={showSwapDaysModal}
+        onClose={() => setShowSwapDaysModal(false)}
+        activeDayLabel={`Day ${daysList.indexOf(activeDayStr) + 1} (${formatDisplayDate(activeDayStr).split(',')[1]?.trim() || activeDayStr})`}
+        initialTargetDate={(() => {
+          const activeDayIdx = daysList.indexOf(activeDayStr);
+          if (activeDayIdx !== -1) {
+            if (activeDayIdx < daysList.length - 1) {
+              return daysList[activeDayIdx + 1];
+            } else if (activeDayIdx > 0) {
+              return daysList[activeDayIdx - 1];
+            }
+          }
+          return '';
+        })()}
+        daysOptions={daysList
+          .filter(d => d !== activeDayStr)
+          .map(d => {
+            const dayData = activePlan?.days[d];
+            const loc = dayData?.locationId ? trip.locations.find(l => l.id === dayData.locationId) : undefined;
+            return {
+              value: d,
+              label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`,
+              locationName: loc ? getFormattedLocationName(loc, trip.locations) : undefined,
+              locationColor: loc?.color,
+              locationIcon: loc ? getLocIcon(loc) : undefined
+            };
+          })}
+        onConfirmSwap={handleSwapDaysContents}
       />
 
       {/* 3. Edit Trip Details Modal */}
@@ -2931,12 +3075,19 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         <AiGenerateDaysModal
           isOpen={showAiGenerateDaysModal}
           onClose={() => setShowAiGenerateDaysModal(false)}
-          days={daysList.map(d => ({
-            dateStr: d,
-            label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`,
-            hasTips: !!activePlan.days[d]?.aiDetails?.daily_tips,
-            tipsUpdatedAt: activePlan.days[d]?.aiUpdatedAt
-          }))}
+          days={daysList.map(d => {
+            const dayData = activePlan?.days[d];
+            const loc = dayData?.locationId ? trip.locations.find(l => l.id === dayData.locationId) : undefined;
+            return {
+              dateStr: d,
+              label: `Day ${daysList.indexOf(d) + 1} (${formatDisplayDate(d).split(',')[1]?.trim() || d})`,
+              hasTips: !!dayData?.aiDetails?.daily_tips,
+              tipsUpdatedAt: dayData?.aiUpdatedAt,
+              locationName: loc ? getFormattedLocationName(loc, trip.locations) : undefined,
+              locationColor: loc?.color,
+              locationIcon: loc ? getLocIcon(loc) : undefined
+            };
+          })}
           onGenerate={handleGenerateDaysTips}
         />
       )}

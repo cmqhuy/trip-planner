@@ -175,11 +175,15 @@ describe('TripPlanner Component', () => {
 
     expect(screen.getByRole('heading', { name: 'Move Day', level: 3 })).toBeInTheDocument();
 
-    // Get select element inside Move Day Modal
-    const modal = screen.getByRole('heading', { name: 'Move Day', level: 3 }).closest('.modal-content');
-    const select = modal?.querySelector('select');
-    expect(select).toBeDefined();
-    fireEvent.change(select!, { target: { value: '2026-07-02' } });
+    // Open the dropdown combo box and select Day 2
+    const trigger = screen.getByRole('button', { name: 'Select Destination Day' });
+    fireEvent.click(trigger);
+
+    // Find and click the option button for Day 2
+    const options = container.querySelectorAll('button.combo-option');
+    const option = Array.from(options).find(opt => opt.textContent?.includes('Day 2'));
+    expect(option).toBeDefined();
+    fireEvent.click(option!);
 
     // Click "Move Day" button
     const confirmBtn = screen.getByRole('button', { name: 'Move Day' });
@@ -202,6 +206,84 @@ describe('TripPlanner Component', () => {
       'place-eiffel',
       'place-louvre'
     ]);
+  });
+
+  it('allows swapping day contents between two days', () => {
+    const handleUpdateTrip = vi.fn();
+    const handleBack = vi.fn();
+
+    // Prepare a custom mock trip where Day 2 also has data to check that swap is bidirectional
+    const customMockTrip = {
+      ...mockTrip,
+      plans: [
+        {
+          ...mockTrip.plans[0],
+          days: {
+            ...mockTrip.plans[0].days,
+            '2026-07-02': {
+              dateStr: '2026-07-02',
+              locationId: 'loc-paris',
+              placeIds: ['place-louvre'],
+              scheduleItems: [
+                { type: 'place', placeId: 'place-louvre' }
+              ],
+              noHotel: true
+            }
+          }
+        }
+      ]
+    };
+
+    const { container } = render(
+      <TripPlanner
+        trip={customMockTrip}
+        onBack={handleBack}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    // Open Day Options dropdown
+    const dayOptionsBtn = container.querySelector('[data-tooltip="Day Options"]');
+    expect(dayOptionsBtn).toBeDefined();
+    fireEvent.click(dayOptionsBtn!);
+
+    // Click Swap Days button
+    const swapDaysBtn = screen.getByRole('button', { name: /Swap Days/i });
+    fireEvent.click(swapDaysBtn);
+
+    expect(screen.getByRole('heading', { name: 'Swap Days', level: 3 })).toBeInTheDocument();
+
+    // Open the dropdown combo box and select Day 2
+    const trigger = screen.getByRole('button', { name: 'Select Day to Swap With' });
+    fireEvent.click(trigger);
+
+    // Find and click the option button for Day 2
+    const options = container.querySelectorAll('button.combo-option');
+    const option = Array.from(options).find(opt => opt.textContent?.includes('Day 2'));
+    expect(option).toBeDefined();
+    fireEvent.click(option!);
+
+    // Click "Swap Days" button
+    const confirmBtn = screen.getByRole('button', { name: 'Swap Days' });
+    fireEvent.click(confirmBtn);
+
+    // Click "Swap Days" button inside the styled confirmation modal
+    const swapDaysBtn2 = screen.getByRole('button', { name: 'Swap Days' });
+    fireEvent.click(swapDaysBtn2);
+
+    expect(handleUpdateTrip).toHaveBeenCalled();
+    const updatedTrip = handleUpdateTrip.mock.calls[0][0] as Trip;
+    
+    // Day 1 should now have Day 2's contents (Louvre and noHotel=true)
+    expect(updatedTrip.plans[0].days['2026-07-01'].placeIds).toEqual(['place-louvre']);
+    expect(updatedTrip.plans[0].days['2026-07-01'].noHotel).toBe(true);
+
+    // Day 2 should now have Day 1's contents (Eiffel and Louvre, and no noHotel)
+    expect(updatedTrip.plans[0].days['2026-07-02'].placeIds).toEqual([
+      'place-eiffel',
+      'place-louvre'
+    ]);
+    expect(updatedTrip.plans[0].days['2026-07-02'].noHotel).toBeUndefined();
   });
 
   it('allows clearing all scheduled places on the active day', () => {
@@ -448,12 +530,16 @@ describe('TripPlanner Component', () => {
     const moveDayBtn = screen.getByRole('button', { name: /Move Day/i });
     fireEvent.click(moveDayBtn);
 
-    const select = screen.getByRole('combobox', { name: 'Select Destination Day' }) as HTMLSelectElement;
-    expect(select.value).toBe('2026-07-02'); // defaults to first available
+    const trigger = screen.getByRole('button', { name: 'Select Destination Day' });
+    expect(trigger).toHaveTextContent(/Day 2/); // defaults to first available
 
     // Change target day
-    fireEvent.change(select, { target: { value: '2026-07-03' } });
-    expect(select.value).toBe('2026-07-03');
+    fireEvent.click(trigger);
+    const options = container.querySelectorAll('button.combo-option');
+    const optionDay3 = Array.from(options).find(opt => opt.textContent?.includes('Day 3'));
+    expect(optionDay3).toBeDefined();
+    fireEvent.click(optionDay3!);
+    expect(trigger).toHaveTextContent(/Day 3/);
 
     // Trigger parent rerender by supplying a new trip prop object reference
     rerender(
@@ -464,8 +550,9 @@ describe('TripPlanner Component', () => {
       />
     );
 
-    // Target day should still be the chosen '2026-07-03' and not reset
-    expect(select.value).toBe('2026-07-03');
+    // Target day should still be the chosen 'Day 3' and not reset
+    const triggerAfter = screen.getByRole('button', { name: 'Select Destination Day' });
+    expect(triggerAfter).toHaveTextContent(/Day 3/);
   });
 
   it('displays drag-and-drop location reordering visual clues in the correct positions', () => {

@@ -4,7 +4,7 @@ import {
   Calendar, Layers, Check, Timer, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building, Hash,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
-  ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy
+  ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy, ArrowUpDown
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
@@ -72,6 +72,7 @@ interface ItineraryPanelProps {
   setShowDayOptionsMenu: (show: boolean) => void;
   showDayOptionsMenu: boolean;
   setShowMoveDayModal: (show: boolean) => void;
+  setShowSwapDaysModal: (show: boolean) => void;
   setShowAiGenerateDaysModal: (show: boolean) => void;
   setShowCustomPlaceModal: (show: boolean) => void;
   setAutoScheduleOnActiveDay: (auto: boolean) => void;
@@ -177,6 +178,7 @@ function ItineraryPanel({
   setShowDayOptionsMenu,
   showDayOptionsMenu,
   setShowMoveDayModal,
+  setShowSwapDaysModal,
   setShowAiGenerateDaysModal,
   setShowCustomPlaceModal,
   setAutoScheduleOnActiveDay,
@@ -1491,6 +1493,15 @@ function ItineraryPanel({
                           }}
                         >
                           <ArrowRight size={12} /> Move Day
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
+                            setShowSwapDaysModal(true);
+                            setShowDayOptionsMenu(false);
+                          }}
+                        >
+                          <ArrowUpDown size={12} /> Swap Days
                         </button>
                         <button 
                           className="dropdown-item danger"

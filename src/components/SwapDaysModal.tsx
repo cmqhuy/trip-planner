@@ -9,23 +9,23 @@ interface DayOption {
   locationIcon?: string;
 }
 
-interface MoveDayModalProps {
+interface SwapDaysModalProps {
   isOpen: boolean;
   onClose: () => void;
   activeDayLabel: string;
-  initialTargetDate?: string;
+  initialTargetDate: string;
   daysOptions: DayOption[];
-  onConfirmMove: (targetDateStr: string) => void;
+  onConfirmSwap: (targetDateStr: string) => void;
 }
 
-export default function MoveDayModal({
+export default function SwapDaysModal({
   isOpen,
   onClose,
   activeDayLabel,
   initialTargetDate,
   daysOptions,
-  onConfirmMove
-}: MoveDayModalProps) {
+  onConfirmSwap
+}: SwapDaysModalProps) {
   const [targetDate, setTargetDate] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const comboRef = useRef<HTMLDivElement>(null);
@@ -59,7 +59,7 @@ export default function MoveDayModal({
 
   const handleConfirm = () => {
     if (!targetDate) return;
-    onConfirmMove(targetDate);
+    onConfirmSwap(targetDate);
     onClose();
   };
 
@@ -69,20 +69,20 @@ export default function MoveDayModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Move Day</h3>
+          <h3>Swap Days</h3>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
         
         <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none' }}>
-          Move all scheduled places of <strong>{activeDayLabel}</strong> to another day. This will override the destination day's scheduled places.
+          Swap all scheduled places, notes, and AI daily tips of <strong>{activeDayLabel}</strong> with another day.
         </div>
 
         <div className="form-group" style={{ marginBottom: '20px', position: 'relative' }} ref={comboRef}>
-          <label htmlFor="destination-day-combo-trigger">Select Destination Day</label>
+          <label htmlFor="swap-day-combo-trigger">Select Day to Swap With</label>
           <button
-            id="destination-day-combo-trigger"
+            id="swap-day-combo-trigger"
             type="button"
             className="combo-trigger"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -140,7 +140,7 @@ export default function MoveDayModal({
             onClick={handleConfirm}
             disabled={!targetDate}
           >
-            Move Day
+            Swap Days
           </button>
         </div>
       </div>

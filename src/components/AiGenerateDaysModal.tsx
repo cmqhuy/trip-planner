@@ -9,6 +9,9 @@ interface DayOption {
   label: string;
   hasTips: boolean;
   tipsUpdatedAt?: number;
+  locationName?: string;
+  locationColor?: string;
+  locationIcon?: string;
 }
 
 interface AiGenerateDaysModalProps {
@@ -173,9 +176,25 @@ export default function AiGenerateDaysModal({
                       </button>
 
                       <div className="ai-list-row-body">
-                        <span className="ai-list-item-title">
-                          {d.label}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px', flexWrap: 'wrap' }}>
+                          <span className="ai-list-item-title">
+                            {d.label}
+                          </span>
+                          {d.locationName && (
+                            <span 
+                              style={{ 
+                                color: d.locationColor || 'var(--accent-primary)',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {d.locationIcon} {d.locationName}
+                            </span>
+                          )}
+                        </div>
                         <div className="ai-list-item-meta">
                           <span className="ai-list-item-label">
                             {d.dateStr}
