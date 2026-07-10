@@ -4236,13 +4236,13 @@ div.google-auth-avatar-desktop {
 }
 .transport-segment-tabs-scroll {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
   flex: 1;
   scrollbar-width: thin;
-  padding: 10px 12px;
+  padding: 10.5px 12px;
 }
 .transport-segment-tabs-scroll::-webkit-scrollbar {
   height: 4px;
