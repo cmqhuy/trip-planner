@@ -4230,15 +4230,18 @@ div.google-auth-avatar-desktop {
   .transport-segment-tabs {
     height: 52px;
   }
+  .transport-segment-tabs-scroll {
+    align-self: stretch;
+  }
 }
 .transport-segment-tabs-scroll {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   overflow-x: auto;
   flex: 1;
   scrollbar-width: thin;
-  padding: 10px 12px 8px;
+  padding: 11px 12px 8px;
 }
 .transport-segment-tabs-scroll::-webkit-scrollbar {
   height: 4px;
