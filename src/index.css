@@ -4239,6 +4239,7 @@ div.google-auth-avatar-desktop {
   align-items: flex-start;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
   flex: 1;
   scrollbar-width: thin;
   padding: 11px 12px 8px;
