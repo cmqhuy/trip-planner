@@ -193,7 +193,7 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
 export async function searchPlacesNearLocationPhoton(
   query: string,
   location: { city: string; country: string; lat: number; lng: number }
-): Promise<Omit<Place, 'placeGroupId'>[]> {
+): Promise<(Omit<Place, 'placeGroupId'> & { address?: string })[]> {
   if (!query || query.trim().length < 2) return [];
 
   try {
@@ -237,6 +237,9 @@ export async function searchPlacesNearLocationPhoton(
         }
       }
 
+      const parts = [props.street, props.house_number, props.postcode, props.city, props.country].filter(Boolean);
+      const addressStr = parts.length > 0 ? parts.join(', ') : props.city || '';
+
       return {
         id: `photon-place-${props.osm_id || Math.random().toString(36).substr(2, 9)}`,
         title,
@@ -245,7 +248,8 @@ export async function searchPlacesNearLocationPhoton(
         photoUrl,
         lat,
         lng,
-        notes: ''
+        notes: '',
+        address: addressStr
       };
     }));
 
@@ -260,7 +264,7 @@ export async function searchPlacesNearLocationPhoton(
 export async function searchPlacesNearLocation(
   query: string,
   location: { city: string; country: string; lat: number; lng: number }
-): Promise<Omit<Place, 'placeGroupId'>[]> {
+): Promise<(Omit<Place, 'placeGroupId'> & { address?: string })[]> {
   if (!query || query.trim().length < 2) return [];
 
   const trimmed = query.trim().toLowerCase();
@@ -286,7 +290,7 @@ export async function searchPlacesNearLocation(
   }
 
   // Fetch from both Nominatim and Photon in parallel
-  const fetchNominatim = async (): Promise<Omit<Place, 'placeGroupId'>[]> => {
+  const fetchNominatim = async (): Promise<(Omit<Place, 'placeGroupId'> & { address?: string })[]> => {
     try {
       const searchQuery = `${query}, ${location.city}`;
       const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=10`;
@@ -334,7 +338,8 @@ export async function searchPlacesNearLocation(
           photoUrl,
           lat,
           lng,
-          notes: ''
+          notes: '',
+          address: item.display_name
         };
       }));
     } catch (e) {
@@ -398,7 +403,7 @@ export function parseGoogleMapsUrl(input: string): { title?: string; lat?: numbe
 export async function fetchPlaceFromGoogleMapsUrl(
   mapsUrl: string,
   fallbackLocation?: { city: string; country: string; lat: number; lng: number }
-): Promise<{ place: Omit<Place, 'placeGroupId'> | null; error?: string }> {
+): Promise<{ place: (Omit<Place, 'placeGroupId'> & { address?: string }) | null; error?: string }> {
   const parsed = parseGoogleMapsUrl(mapsUrl);
   if (!parsed.isGoogleMapsUrl) return { place: null, error: 'Not a Google Maps URL.' };
   if (parsed.isShortUrl) {
@@ -423,7 +428,8 @@ export async function fetchPlaceFromGoogleMapsUrl(
             lat: parsed.lat,
             lng: parsed.lng,
             mapsLink: mapsUrl,
-            notes: undefined
+            notes: undefined,
+            address: data.display_name
           }
         };
       }
@@ -439,7 +445,8 @@ export async function fetchPlaceFromGoogleMapsUrl(
         lat: parsed.lat,
         lng: parsed.lng,
         mapsLink: mapsUrl,
-        notes: undefined
+        notes: undefined,
+        address: undefined
       }
     };
   }

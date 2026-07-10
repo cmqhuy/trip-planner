@@ -2985,6 +2985,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         isOwner={trip.isOwner !== false}
         tripDriveFileId={trip.driveFileId}
         defaultDate={activeDayStr}
+        catalogLocation={catalogLocation}
       />
 
       {/* 9. Hotel Modal */}
@@ -3009,6 +3010,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         isOwner={trip.isOwner !== false}
         tripDriveFileId={trip.driveFileId}
         defaultDate={activeDayStr}
+        catalogLocation={catalogLocation}
       />
 
       {/* 9b. Delete Reservation Modal */}

@@ -4217,31 +4217,143 @@ div.google-auth-avatar-desktop {
 .transport-segment-tabs {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--border-glass);
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   margin-top: 16px;
   margin-bottom: 16px;
 }
-.transport-segment-tabs .day-tab { min-width: 80px; padding: 5px 14px; font-size: 12px; justify-content: center; flex-direction: row; gap: 5px; align-items: center; }
-.transport-segment-tab-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-.transport-segment-add-btn { font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
-.transport-segment-delete-btn { font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 4px; }
-.segment-tab-error-dot { width: 6px; height: 6px; background: var(--color-danger); border-radius: 50%; flex-shrink: 0; }
-.transport-segment-fields { margin-top: 0; }
-.transport-add-segment-row { display: flex; justify-content: flex-start; padding: 6px 0 8px; }
-.transport-add-segment-btn { font-size: 12px; gap: 5px; }
-.transport-add-segment-btn--full { width: 100%; justify-content: center; padding: 10px 14px; font-size: 14px; }
-.transport-segment-spacer { visibility: hidden; pointer-events: none; user-select: none; }
-.transport-add-segment-mobile { display: none; }
+.transport-segment-tabs-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  padding: 4px 0;
+}
+.transport-segment-tabs-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.transport-segment-tabs-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+.transport-segment-tabs .day-tab {
+  min-width: 90px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  justify-content: center;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+}
+.transport-segment-tabs .day-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.transport-segment-tabs .day-tab.active {
+  background: var(--accent-primary);
+  color: #ffffff;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+.transport-segment-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.transport-segment-add-btn,
+.transport-add-segment-btn {
+  background: var(--accent-primary) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--accent-primary) !important;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-smooth);
+}
+.transport-segment-add-btn:hover,
+.transport-add-segment-btn:hover {
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+}
+.transport-segment-add-btn {
+  font-size: 11px;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.transport-segment-delete-btn {
+  font-size: 11px;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.segment-tab-error-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-danger);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.transport-segment-fields {
+  margin-top: 0;
+}
+.transport-add-segment-row {
+  display: flex;
+  justify-content: flex-start;
+  padding: 6px 0 8px;
+}
+.transport-add-segment-btn {
+  font-size: 12px;
+  gap: 5px;
+}
+.transport-add-segment-btn--full {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.transport-segment-spacer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.transport-add-segment-mobile {
+  display: none;
+}
 @media (max-width: 640px) {
-  .transport-segment-spacer { display: none; }
-  .transport-add-segment-desktop { display: none; }
-  .transport-add-segment-mobile { display: flex; padding: 12px 0 20px; }
-  .transport-segment-tab-actions { flex-basis: 100%; margin-left: 0; padding-top: 2px; }
+  .transport-segment-spacer {
+    display: none;
+  }
+  .transport-add-segment-desktop {
+    display: none;
+  }
+  .transport-add-segment-mobile {
+    display: flex;
+    padding: 12px 0 20px;
+  }
+  .transport-segment-tabs {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .transport-segment-tabs-scroll {
+    width: 100%;
+  }
+  .transport-segment-tab-actions {
+    justify-content: flex-end;
+  }
 }
 
 /* ===== TransportModal timezone combo box ===== */
@@ -4571,5 +4683,28 @@ input[type="number"] { -moz-appearance: textfield; }
   margin: 0;
   text-align: center;
 }
+
+/* Row wrapper for search/resolve buttons next to text fields */
+.input-with-button-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+.input-with-button-row input {
+  flex: 1;
+}
+.input-with-button-row button {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 0;
+}
+
 
 

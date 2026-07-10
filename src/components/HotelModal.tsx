@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2, Pencil, Check, Timer } from 'lucide-react';
+import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2, Pencil, Check, Timer, Search } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import ShareTripModal from './ShareTripModal';
-import type { Hotel } from '../types';
+import type { Hotel, Location, Place } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
 import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
 import { useDriveAttachments } from '../utils/useDriveAttachments';
+import { parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation } from '../utils/api';
+import { getBrowserTimezone } from '../utils/timezones';
 
 const STATUS_OPTIONS = [
   { value: 'Confirmed' as const, Icon: Check },
@@ -31,6 +33,7 @@ interface HotelModalProps {
   isOwner?: boolean;
   tripDriveFileId?: string;
   defaultDate?: string;
+  catalogLocation?: Location;
 }
 
 type SavedValues = {
@@ -68,12 +71,16 @@ export default function HotelModal({
   isOwner = true,
   tripDriveFileId,
   defaultDate,
+  catalogLocation,
 }: HotelModalProps) {
+  const browserTz = getBrowserTimezone();
+  const effectiveDefaultDate = defaultDate ?? tripStartDate;
+
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
-  const [checkInDate, setCheckInDate] = useState('');
+  const [checkInDate, setCheckInDate] = useState(effectiveDefaultDate);
   const [checkInTime, setCheckInTime] = useState('');
-  const [checkOutDate, setCheckOutDate] = useState('');
+  const [checkOutDate, setCheckOutDate] = useState(effectiveDefaultDate);
   const [checkOutTime, setCheckOutTime] = useState('');
   const [confirmationNo, setConfirmationNo] = useState('');
   const [bookedThrough, setBookedThrough] = useState('');
@@ -94,6 +101,13 @@ export default function HotelModal({
   const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
   const [statusOpen, setStatusOpen] = useState(false);
   const [statusPos, setStatusPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  // Auto-populate states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<(Omit<Place, 'placeGroupId'> & { address?: string })[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autofillInputRef = useRef<HTMLInputElement>(null);
@@ -163,9 +177,79 @@ export default function HotelModal({
       setShowAccessError(false);
       setShowShareFolder(false);
       setEditingChip(null);
+      setSearchQuery('');
+      setSuggestions([]);
+      setSearchError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Handle auto-populate suggestions search with debounce
+  useEffect(() => {
+    if (searchError) {
+      setSearchError(null);
+    }
+    if (!searchQuery.trim() || searchQuery.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    const { isGoogleMapsUrl } = parseGoogleMapsUrl(searchQuery);
+    if (isGoogleMapsUrl) {
+      setIsSearching(true);
+      fetchPlaceFromGoogleMapsUrl(searchQuery, catalogLocation ?? undefined).then(({ place, error }) => {
+        setIsSearching(false);
+        if (error || !place) {
+          setSearchError(error ?? 'Could not extract place info from this link.');
+          return;
+        }
+        setName(place.title);
+        setAddress(place.address || place.description || '');
+        if (place.lat != null) setLat(place.lat.toString());
+        if (place.lng != null) setLng(place.lng.toString());
+        setSearchQuery('');
+        setSuggestions([]);
+      });
+      return;
+    }
+
+    if (!catalogLocation) {
+      setSuggestions([]);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const results = await searchPlacesNearLocation(searchQuery, catalogLocation);
+        setSuggestions(results);
+      } catch (err) {
+        console.error('Failed to search hotels:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [searchQuery, catalogLocation]);
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const searchInput = document.getElementById('hotel-search-input');
+      const suggestionsPanel = document.querySelector('.modal-suggestions-panel');
+      if (!searchInput?.contains(target) && !suggestionsPanel?.contains(target)) {
+        setSuggestions([]);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   const handleCheckInChange = (val: string) => {
     setCheckInDate(val);
@@ -363,6 +447,47 @@ export default function HotelModal({
                 />
               </div>
             </div>
+            <div className="modal-search-container" id="hotel-search-input">
+              <Search size={14} className="modal-search-icon" />
+              <input
+                type="text"
+                placeholder="Type to search, or paste a Google Maps link..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="modal-search-input"
+              />
+              {isSearching && (
+                <div className="modal-search-loader">Searching...</div>
+              )}
+            </div>
+            {searchError && (
+              <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{searchError}</div>
+            )}
+            {suggestions.length > 0 && (
+              <div className="modal-suggestions-panel">
+                {suggestions.map((sug) => (
+                  <div
+                    key={sug.id}
+                    className="modal-suggestion-item"
+                    onClick={() => {
+                      setName(sug.title);
+                      setAddress(sug.address || sug.description || '');
+                      if (sug.lat != null) setLat(sug.lat.toString());
+                      if (sug.lng != null) setLng(sug.lng.toString());
+                      setSearchQuery('');
+                      setSuggestions([]);
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div className="modal-suggestion-name">{sug.title}</div>
+                    <div className="modal-suggestion-desc">
+                      {sug.address || sug.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit}>

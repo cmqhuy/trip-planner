@@ -4,10 +4,10 @@ import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
   Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check, Plus, Timer,
 } from 'lucide-react';
-import type { TransportationReservation } from '../types';
+import type { TransportationReservation, Location, Place } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { CURRENCY_LIST } from '../utils/currencies';
-import { lookupTimezone } from '../utils/api';
+import { lookupTimezone, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation } from '../utils/api';
 import DualMapPicker from './DualMapPicker';
 import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
 import { useDriveAttachments } from '../utils/useDriveAttachments';
@@ -57,6 +57,7 @@ interface TransportModalProps {
   isOwner?: boolean;
   tripDriveFileId?: string;
   defaultDate?: string;
+  catalogLocation?: Location;
 }
 
 const TRANSPORT_TYPES: { value: TransportationReservation['type']; label: string; Icon: React.ElementType }[] = [
@@ -117,7 +118,7 @@ function makeEmptySegment(defaultDate: string, browserTz: string, prevSeg?: Segm
 export default function TransportModal({
   isOpen, onClose, tripStartDate, onSave, onDelete, editingTransport, initialSegmentIndex,
   googleToken, tripPlannerFolderId, tripName, tripFilesFolderId, onFileFolderCreated,
-  isOwner = true, tripDriveFileId, defaultDate,
+  isOwner = true, tripDriveFileId, defaultDate, catalogLocation,
 }: TransportModalProps) {
   const browserTz = getBrowserTimezone();
   const effectiveDefaultDate = defaultDate ?? tripStartDate;
@@ -164,6 +165,17 @@ export default function TransportModal({
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
+  // Autocomplete suggestions and search states
+  const [depSuggestions, setDepSuggestions] = useState<(Omit<Place, 'placeGroupId'> & { address?: string })[]>([]);
+  const [depSuggestionsField, setDepSuggestionsField] = useState<'depLoc' | 'depAddress' | null>(null);
+  const [isDepSearching, setIsDepSearching] = useState(false);
+  const [depSearchError, setDepSearchError] = useState<string | null>(null);
+
+  const [arrSuggestions, setArrSuggestions] = useState<(Omit<Place, 'placeGroupId'> & { address?: string })[]>([]);
+  const [arrSuggestionsField, setArrSuggestionsField] = useState<'arrLoc' | 'arrAddress' | null>(null);
+  const [isArrSearching, setIsArrSearching] = useState(false);
+  const [arrSearchError, setArrSearchError] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autofillInputRef = useRef<HTMLInputElement>(null);
   const typeRef = useRef<HTMLDivElement>(null);
@@ -171,6 +183,8 @@ export default function TransportModal({
   const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
   const currencyTriggerRef = useRef<HTMLButtonElement>(null);
   const statusTriggerRef = useRef<HTMLButtonElement>(null);
+  const depSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const arrSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     attachedFiles, setAttachments, uploadingCount, removePrompt, setRemovePrompt,
@@ -247,8 +261,227 @@ export default function TransportModal({
     setShowAccessError(false);
     setShowShareFolder(false);
     setEditingChip(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setDepSuggestions([]);
+    setDepSuggestionsField(null);
+    setDepSearchError(null);
+    setArrSuggestions([]);
+    setArrSuggestionsField(null);
+    setArrSearchError(null);
   }, [isOpen]);
+
+  const handleSelectSuggestion = (field: 'dep' | 'arr', sug: Omit<Place, 'placeGroupId'> & { address?: string }) => {
+    updateSegment(activeSegmentIndex, {
+      depLoc: field === 'dep' ? sug.title : seg.depLoc,
+      depAddress: field === 'dep' ? (sug.address || sug.description || '') : seg.depAddress,
+      depLat: field === 'dep' ? sug.lat.toString() : seg.depLat,
+      depLng: field === 'dep' ? sug.lng.toString() : seg.depLng,
+
+      arrLoc: field === 'arr' ? sug.title : seg.arrLoc,
+      arrAddress: field === 'arr' ? (sug.address || sug.description || '') : seg.arrAddress,
+      arrLat: field === 'arr' ? sug.lat.toString() : seg.arrLat,
+      arrLng: field === 'arr' ? sug.lng.toString() : seg.arrLng,
+    });
+
+    if (sug.lat != null && sug.lng != null) {
+      lookupTimezone(sug.lat, sug.lng).then(tz => {
+        if (tz) {
+          updateSegment(activeSegmentIndex, {
+            depTz: field === 'dep' ? tz : seg.depTz,
+            arrTz: field === 'arr' ? tz : seg.arrTz,
+          });
+        }
+      });
+    }
+
+    if (field === 'dep') {
+      setDepSuggestions([]);
+      setDepSuggestionsField(null);
+    } else {
+      setArrSuggestions([]);
+      setArrSuggestionsField(null);
+    }
+  };
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      
+      const depLocInput = document.getElementById('dep-loc');
+      const depAddrInput = document.getElementById('dep-address');
+      const arrLocInput = document.getElementById('arr-loc');
+      const arrAddrInput = document.getElementById('arr-address');
+      const suggestionsPanels = document.querySelectorAll('.modal-suggestions-panel');
+      
+      let clickedPanel = false;
+      suggestionsPanels.forEach(panel => {
+        if (panel.contains(target)) clickedPanel = true;
+      });
+
+      if (!depLocInput?.contains(target) && !depAddrInput?.contains(target) && !clickedPanel) {
+        setDepSuggestions([]);
+        setDepSuggestionsField(null);
+      }
+      if (!arrLocInput?.contains(target) && !arrAddrInput?.contains(target) && !clickedPanel) {
+        setArrSuggestions([]);
+        setArrSuggestionsField(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  // Handle departure autocomplete search / Google Maps link paste as-you-type
+  useEffect(() => {
+    if (depSearchError) {
+      setDepSearchError(null);
+    }
+    
+    // Determine which field is focused and what query to use
+    const activeEl = document.activeElement;
+    let query = '';
+    let fieldName: 'depLoc' | 'depAddress' | null = null;
+    
+    if (activeEl?.id === 'dep-loc') {
+      query = seg.depLoc;
+      fieldName = 'depLoc';
+    } else if (activeEl?.id === 'dep-address') {
+      query = seg.depAddress;
+      fieldName = 'depAddress';
+    }
+    
+    if (!fieldName || !query.trim() || query.length < 3) {
+      setDepSuggestions([]);
+      setDepSuggestionsField(null);
+      return;
+    }
+
+    if (depSearchTimeoutRef.current) clearTimeout(depSearchTimeoutRef.current);
+
+    const { isGoogleMapsUrl } = parseGoogleMapsUrl(query);
+    if (isGoogleMapsUrl) {
+      setIsDepSearching(true);
+      fetchPlaceFromGoogleMapsUrl(query, catalogLocation ?? undefined).then(async ({ place, error }) => {
+        setIsDepSearching(false);
+        if (error || !place) {
+          setDepSearchError(error ?? 'Could not extract place info.');
+          return;
+        }
+        
+        const tz = place.lat != null && place.lng != null ? await lookupTimezone(place.lat, place.lng) : undefined;
+        
+        updateSegment(activeSegmentIndex, {
+          depLoc: place.title,
+          depAddress: place.address || place.description || '',
+          depLat: place.lat.toString(),
+          depLng: place.lng.toString(),
+          depTz: tz || seg.depTz
+        });
+        setDepSuggestions([]);
+        setDepSuggestionsField(null);
+      });
+      return;
+    }
+
+    if (!catalogLocation) {
+      setDepSuggestions([]);
+      setDepSuggestionsField(null);
+      return;
+    }
+
+    setDepSuggestionsField(fieldName);
+    depSearchTimeoutRef.current = setTimeout(async () => {
+      setIsDepSearching(true);
+      try {
+        const results = await searchPlacesNearLocation(query, catalogLocation);
+        setDepSuggestions(results);
+      } catch (err) {
+        console.error('Failed to search departure places:', err);
+      } finally {
+        setIsDepSearching(false);
+      }
+    }, 500);
+
+    return () => {
+      if (depSearchTimeoutRef.current) clearTimeout(depSearchTimeoutRef.current);
+    };
+  }, [seg.depLoc, seg.depAddress, catalogLocation, activeSegmentIndex]);
+
+  // Handle arrival autocomplete search / Google Maps link paste as-you-type
+  useEffect(() => {
+    if (arrSearchError) {
+      setArrSearchError(null);
+    }
+    
+    // Determine which field is focused and what query to use
+    const activeEl = document.activeElement;
+    let query = '';
+    let fieldName: 'arrLoc' | 'arrAddress' | null = null;
+    
+    if (activeEl?.id === 'arr-loc') {
+      query = seg.arrLoc;
+      fieldName = 'arrLoc';
+    } else if (activeEl?.id === 'arr-address') {
+      query = seg.arrAddress;
+      fieldName = 'arrAddress';
+    }
+    
+    if (!fieldName || !query.trim() || query.length < 3) {
+      setArrSuggestions([]);
+      setArrSuggestionsField(null);
+      return;
+    }
+
+    if (arrSearchTimeoutRef.current) clearTimeout(arrSearchTimeoutRef.current);
+
+    const { isGoogleMapsUrl } = parseGoogleMapsUrl(query);
+    if (isGoogleMapsUrl) {
+      setIsArrSearching(true);
+      fetchPlaceFromGoogleMapsUrl(query, catalogLocation ?? undefined).then(async ({ place, error }) => {
+        setIsArrSearching(false);
+        if (error || !place) {
+          setArrSearchError(error ?? 'Could not extract place info.');
+          return;
+        }
+        
+        const tz = place.lat != null && place.lng != null ? await lookupTimezone(place.lat, place.lng) : undefined;
+        
+        updateSegment(activeSegmentIndex, {
+          arrLoc: place.title,
+          arrAddress: place.address || place.description || '',
+          arrLat: place.lat.toString(),
+          arrLng: place.lng.toString(),
+          arrTz: tz || seg.arrTz
+        });
+        setArrSuggestions([]);
+        setArrSuggestionsField(null);
+      });
+      return;
+    }
+
+    if (!catalogLocation) {
+      setArrSuggestions([]);
+      setArrSuggestionsField(null);
+      return;
+    }
+
+    setArrSuggestionsField(fieldName);
+    arrSearchTimeoutRef.current = setTimeout(async () => {
+      setIsArrSearching(true);
+      try {
+        const results = await searchPlacesNearLocation(query, catalogLocation);
+        setArrSuggestions(results);
+      } catch (err) {
+        console.error('Failed to search arrival places:', err);
+      } finally {
+        setIsArrSearching(false);
+      }
+    }, 500);
+
+    return () => {
+      if (arrSearchTimeoutRef.current) clearTimeout(arrSearchTimeoutRef.current);
+    };
+  }, [seg.arrLoc, seg.arrAddress, catalogLocation, activeSegmentIndex]);
 
   useEffect(() => {
     if (!typeOpen) return;
@@ -711,19 +944,21 @@ export default function TransportModal({
               {/* Segment tab bar — only shown when >1 segment */}
               {segments.length > 1 && (
                 <div className="transport-segment-tabs">
-                  {segments.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`day-tab${activeSegmentIndex === idx ? ' active' : ''}`}
-                      onClick={() => setActiveSegmentIndex(idx)}
-                      data-tooltip={(segmentErrors[idx]?.length ?? 0) > 0 ? 'Required fields missing' : undefined}
-                      data-tooltip-position="bottom"
-                    >
-                      Segment {idx + 1}
-                      {(segmentErrors[idx]?.length ?? 0) > 0 && <span className="segment-tab-error-dot" />}
-                    </button>
-                  ))}
+                  <div className="transport-segment-tabs-scroll">
+                    {segments.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`day-tab${activeSegmentIndex === idx ? ' active' : ''}`}
+                        onClick={() => setActiveSegmentIndex(idx)}
+                        data-tooltip={(segmentErrors[idx]?.length ?? 0) > 0 ? 'Required fields missing' : undefined}
+                        data-tooltip-position="bottom"
+                      >
+                        Segment {idx + 1}
+                        {(segmentErrors[idx]?.length ?? 0) > 0 && <span className="segment-tab-error-dot" />}
+                      </button>
+                    ))}
+                  </div>
                   <div className="transport-segment-tab-actions">
                     <button
                       type="button"
@@ -763,7 +998,7 @@ export default function TransportModal({
                     </div>
                   </div>
 
-                  <div className="form-group">
+                  <div className="form-group form-group--relative" id="dep-loc-container">
                     <label htmlFor="dep-loc" className="place-form-label">
                       <span className="label-text">Departure Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                       {undoBtn(seg.depLoc, initialSegments?.[activeSegmentIndex]?.depLoc, () => updateSegment(activeSegmentIndex, { depLoc: initialSegments![activeSegmentIndex].depLoc }))}
@@ -772,15 +1007,63 @@ export default function TransportModal({
                       type="text" id="dep-loc" value={seg.depLoc}
                       className={segmentErrors[activeSegmentIndex]?.includes('depLoc') ? 'input-field-error' : undefined}
                       onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { depLoc: v }); if (v.trim()) clearSegmentError(activeSegmentIndex, 'depLoc'); }}
-                      placeholder="e.g. Seattle SEA Airport"
+                      placeholder="e.g. SEA Airport, or paste a Google Maps link..."
                     />
+                    {isDepSearching && depSuggestionsField === 'depLoc' && (
+                      <div className="modal-search-loader">Searching...</div>
+                    )}
+                    {depSearchError && depSuggestionsField === 'depLoc' && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{depSearchError}</div>
+                    )}
+                    {depSuggestions.length > 0 && depSuggestionsField === 'depLoc' && (
+                      <div className="modal-suggestions-panel">
+                        {depSuggestions.map((sug) => (
+                          <div
+                            key={sug.id}
+                            className="modal-suggestion-item"
+                            onClick={() => handleSelectSuggestion('dep', sug)}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <div className="modal-suggestion-name">{sug.title}</div>
+                            <div className="modal-suggestion-desc">{sug.address || sug.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="form-group">
+                  <div className="form-group form-group--relative" id="dep-address-container">
                     <label htmlFor="dep-address" className="place-form-label">
                       <span className="label-text">Departure Address</span>
                       {undoBtn(seg.depAddress, initialSegments?.[activeSegmentIndex]?.depAddress, () => updateSegment(activeSegmentIndex, { depAddress: initialSegments![activeSegmentIndex].depAddress }))}
                     </label>
-                    <input type="text" id="dep-address" value={seg.depAddress} onChange={e => updateSegment(activeSegmentIndex, { depAddress: e.target.value })} />
+                    <input
+                      type="text" id="dep-address" value={seg.depAddress}
+                      onChange={e => updateSegment(activeSegmentIndex, { depAddress: e.target.value })}
+                      placeholder="e.g. Address, or paste a Google Maps link..."
+                    />
+                    {isDepSearching && depSuggestionsField === 'depAddress' && (
+                      <div className="modal-search-loader">Searching...</div>
+                    )}
+                    {depSearchError && depSuggestionsField === 'depAddress' && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{depSearchError}</div>
+                    )}
+                    {depSuggestions.length > 0 && depSuggestionsField === 'depAddress' && (
+                      <div className="modal-suggestions-panel">
+                        {depSuggestions.map((sug) => (
+                          <div
+                            key={sug.id}
+                            className="modal-suggestion-item"
+                            onClick={() => handleSelectSuggestion('dep', sug)}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <div className="modal-suggestion-name">{sug.title}</div>
+                            <div className="modal-suggestion-desc">{sug.address || sug.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-row">
@@ -889,7 +1172,7 @@ export default function TransportModal({
                     </div>
                   )}
 
-                  <div className="form-group">
+                  <div className="form-group form-group--relative" id="arr-loc-container">
                     <label htmlFor="arr-loc" className="place-form-label">
                       <span className="label-text">Arrival Location <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                       {undoBtn(seg.arrLoc, initialSegments?.[activeSegmentIndex]?.arrLoc, () => updateSegment(activeSegmentIndex, { arrLoc: initialSegments![activeSegmentIndex].arrLoc }))}
@@ -898,15 +1181,63 @@ export default function TransportModal({
                       type="text" id="arr-loc" value={seg.arrLoc}
                       className={segmentErrors[activeSegmentIndex]?.includes('arrLoc') ? 'input-field-error' : undefined}
                       onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrLoc: v }); if (v.trim()) clearSegmentError(activeSegmentIndex, 'arrLoc'); }}
-                      placeholder="e.g. Los Angeles LAX Airport"
+                      placeholder="e.g. LAX Airport, or paste a Google Maps link..."
                     />
+                    {isArrSearching && arrSuggestionsField === 'arrLoc' && (
+                      <div className="modal-search-loader">Searching...</div>
+                    )}
+                    {arrSearchError && arrSuggestionsField === 'arrLoc' && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{arrSearchError}</div>
+                    )}
+                    {arrSuggestions.length > 0 && arrSuggestionsField === 'arrLoc' && (
+                      <div className="modal-suggestions-panel">
+                        {arrSuggestions.map((sug) => (
+                          <div
+                            key={sug.id}
+                            className="modal-suggestion-item"
+                            onClick={() => handleSelectSuggestion('arr', sug)}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <div className="modal-suggestion-name">{sug.title}</div>
+                            <div className="modal-suggestion-desc">{sug.address || sug.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="form-group">
+                  <div className="form-group form-group--relative" id="arr-address-container">
                     <label htmlFor="arr-address" className="place-form-label">
                       <span className="label-text">Arrival Address</span>
                       {undoBtn(seg.arrAddress, initialSegments?.[activeSegmentIndex]?.arrAddress, () => updateSegment(activeSegmentIndex, { arrAddress: initialSegments![activeSegmentIndex].arrAddress }))}
                     </label>
-                    <input type="text" id="arr-address" value={seg.arrAddress} onChange={e => updateSegment(activeSegmentIndex, { arrAddress: e.target.value })} />
+                    <input
+                      type="text" id="arr-address" value={seg.arrAddress}
+                      onChange={e => updateSegment(activeSegmentIndex, { arrAddress: e.target.value })}
+                      placeholder="e.g. Address, or paste a Google Maps link..."
+                    />
+                    {isArrSearching && arrSuggestionsField === 'arrAddress' && (
+                      <div className="modal-search-loader">Searching...</div>
+                    )}
+                    {arrSearchError && arrSuggestionsField === 'arrAddress' && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{arrSearchError}</div>
+                    )}
+                    {arrSuggestions.length > 0 && arrSuggestionsField === 'arrAddress' && (
+                      <div className="modal-suggestions-panel">
+                        {arrSuggestions.map((sug) => (
+                          <div
+                            key={sug.id}
+                            className="modal-suggestion-item"
+                            onClick={() => handleSelectSuggestion('arr', sug)}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <div className="modal-suggestion-name">{sug.title}</div>
+                            <div className="modal-suggestion-desc">{sug.address || sug.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-row">

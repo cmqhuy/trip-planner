@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchWikipediaData, searchLocation, searchPlacesNearLocation, searchPlacesNearLocationPhoton } from './api';
+import { fetchWikipediaData, searchLocation, searchPlacesNearLocation, searchPlacesNearLocationPhoton, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from './api';
 
 describe('api.ts - fetchWikipediaData', () => {
   beforeEach(() => {
@@ -373,4 +373,84 @@ describe('api.ts - parallel search places merging', () => {
     expect(sharedOccurrences.length).toBe(1);
   });
 });
+
+describe('api.ts - Google Maps URL Parser and Fetcher', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  describe('parseGoogleMapsUrl', () => {
+    it('should parse standard Google Maps URL with place name and coordinates', () => {
+      const url = 'https://www.google.com/maps/place/Eiffel+Tower/@48.8584,2.2945,17z/data=!3m1!4b1';
+      const parsed = parseGoogleMapsUrl(url);
+      expect(parsed.isGoogleMapsUrl).toBe(true);
+      expect(parsed.isShortUrl).toBe(false);
+      expect(parsed.title).toBe('Eiffel Tower');
+      expect(parsed.lat).toBe(48.8584);
+      expect(parsed.lng).toBe(2.2945);
+    });
+
+    it('should identify short Google Maps URLs', () => {
+      const shortUrl = 'https://maps.app.goo.gl/abcdefg';
+      const parsed = parseGoogleMapsUrl(shortUrl);
+      expect(parsed.isGoogleMapsUrl).toBe(true);
+      expect(parsed.isShortUrl).toBe(true);
+    });
+
+    it('should return isGoogleMapsUrl: false for non-Google Maps URLs', () => {
+      const normalUrl = 'https://www.example.com';
+      const parsed = parseGoogleMapsUrl(normalUrl);
+      expect(parsed.isGoogleMapsUrl).toBe(false);
+    });
+  });
+
+  describe('fetchPlaceFromGoogleMapsUrl', () => {
+    it('should resolve coordinates and reverse geocode address from Nominatim', async () => {
+      const url = 'https://www.google.com/maps/place/Eiffel+Tower/@48.8584,2.2945,17z/data=!3m1!4b1';
+      
+      const mockReverseGeocodeResponse = {
+        osm_id: 1234567,
+        name: 'Eiffel Tower',
+        display_name: 'Champ de Mars, 5 Avenue Anatole France, 75007 Paris, France',
+        type: 'attraction'
+      };
+
+      (globalThis.fetch as any).mockImplementation((reqUrl: string) => {
+        if (reqUrl.includes('nominatim.openstreetmap.org/reverse')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => mockReverseGeocodeResponse
+          });
+        }
+        // fetchWikipediaData stub
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ query: { pages: { '-1': {} } } })
+        });
+      });
+
+      const { place, error } = await fetchPlaceFromGoogleMapsUrl(url);
+      expect(error).toBeUndefined();
+      expect(place).not.toBeNull();
+      expect(place!.title).toBe('Eiffel Tower');
+      expect(place!.lat).toBe(48.8584);
+      expect(place!.lng).toBe(2.2945);
+      expect(place!.address).toBe('Champ de Mars, 5 Avenue Anatole France, 75007 Paris, France');
+    });
+
+    it('should return error for short Google Maps URLs due to short-link limitation', async () => {
+      const shortUrl = 'https://maps.app.goo.gl/abcdefg';
+      const { place, error } = await fetchPlaceFromGoogleMapsUrl(shortUrl);
+      expect(place).toBeNull();
+      expect(error).toContain('Short links are not supported');
+    });
+  });
+});
+
 
