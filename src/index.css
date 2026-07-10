@@ -4218,12 +4218,18 @@ div.google-auth-avatar-desktop {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
   background: rgba(15, 23, 42, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   margin-top: 16px;
   margin-bottom: 16px;
+  overflow: hidden;
+  padding: 0;
+}
+@media (min-width: 641px) {
+  .transport-segment-tabs {
+    height: 52px;
+  }
 }
 .transport-segment-tabs-scroll {
   display: flex;
@@ -4232,14 +4238,20 @@ div.google-auth-avatar-desktop {
   overflow-x: auto;
   flex: 1;
   scrollbar-width: thin;
-  padding: 4px 0;
+  padding: 10px 12px 8px;
 }
 .transport-segment-tabs-scroll::-webkit-scrollbar {
   height: 4px;
 }
+.transport-segment-tabs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
 .transport-segment-tabs-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
+}
+.transport-segment-tabs-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 .transport-segment-tabs .day-tab {
   min-width: 90px;
@@ -4270,6 +4282,7 @@ div.google-auth-avatar-desktop {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  padding-right: 12px;
 }
 .transport-segment-add-btn,
 .transport-add-segment-btn {
