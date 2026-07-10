@@ -4226,7 +4226,7 @@ div.google-auth-avatar-desktop {
   overflow: hidden;
   padding: 0;
 }
-@media (min-width: 641px) {
+@media (min-width: 1081px) {
   .transport-segment-tabs {
     height: 52px;
   }
@@ -4360,8 +4360,6 @@ div.google-auth-avatar-desktop {
     display: flex;
     padding: 12px 0 20px;
   }
-}
-@media (max-width: 640px) {
   .transport-segment-tabs {
     flex-direction: column;
     align-items: stretch;
