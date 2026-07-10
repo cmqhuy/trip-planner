@@ -164,7 +164,7 @@ describe('migrateTrips', () => {
         plans: [{ id: 'plan-1', days: {}, transports: [alreadyMigrated] }],
       };
       const [migrated] = migrateTrips([trip as any]);
-      expect(migrated.plans[0].transports[0]).toBe(alreadyMigrated);
+      expect(migrated.plans[0].transports[0]).toStrictEqual(alreadyMigrated);
     });
 
     it('defaults missing type to "other" and generates an id when absent', () => {

@@ -699,6 +699,16 @@ export default function App() {
     setTrips(filteredTrips);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filteredTrips));
 
+    // Remove sync timestamps for filtered shared trips
+    const updatedTimestamps = { ...syncTimestampsRef.current };
+    trips.forEach(t => {
+      if (t.isOwner === false) {
+        delete updatedTimestamps[t.id];
+      }
+    });
+    syncTimestampsRef.current = updatedTimestamps;
+    localStorage.setItem('vacation-itineraries-sync-timestamps', JSON.stringify(updatedTimestamps));
+
     setGoogleUser(null);
     setGoogleToken(null);
     setGoogleFolderId(null);

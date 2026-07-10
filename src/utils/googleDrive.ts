@@ -969,9 +969,45 @@ export async function deleteFileFromDrive(accessToken: string, fileId: string): 
       Authorization: `Bearer ${accessToken}`,
     },
   });
-  if (!response.ok && response.status !== 404) {
-    throw new Error(`Failed to delete file ${fileId} from Google Drive`);
+  if (response.ok || response.status === 404) {
+    return;
   }
+
+  // If DELETE failed (e.g. 403 Forbidden because we don't own the file),
+  // we attempt to remove it from any parent folders we have access to.
+  if (response.status === 403) {
+    try {
+      // 1. Get the file's parents
+      const getUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents&supportsAllDrives=true`;
+      const getRes = await fetch(getUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (getRes.ok) {
+        const meta = await getRes.json();
+        const parents = meta.parents || [];
+        if (parents.length > 0) {
+          // 2. Remove parents
+          const removeParents = parents.join(',');
+          const patchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?removeParents=${encodeURIComponent(removeParents)}&supportsAllDrives=true`;
+          const patchRes = await fetch(patchUrl, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+          if (patchRes.ok) {
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to unlink file after delete failed:', err);
+    }
+  }
+
+  throw new Error(`Failed to delete or unlink file ${fileId} from Google Drive`);
 }
 
 /**

@@ -137,6 +137,38 @@ function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 60000):
     .finally(() => clearTimeout(timeoutId));
 }
 
+const fixMarkdownHeaders = (content: string): string => {
+  if (!content) return content;
+  
+  // 1. Ensure there is a newline before any heading (except at the start of string).
+  let fixed = content.replace(/(?<!^)(?<!\n)(##+)\s+/g, '\n$1 ');
+
+  // 2. Ensure there is a newline after the heading title and before the next text.
+  const headers = [
+    'Daily Route Sequence \\& Summary',
+    'Timing \\& Optimization Suggestions',
+    'Logistics \\& Alerts',
+    'WARNING:[^\\n]+?Closed'
+  ];
+  
+  headers.forEach(headerPattern => {
+    const regex = new RegExp(`(##+\\s+${headerPattern})[ \\t]*([^\\r\\n])`, 'g');
+    fixed = fixed.replace(regex, '$1\n$2');
+  });
+
+  return fixed;
+};
+
+const getDayOfWeek = (dateStr: string): string => {
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+  } catch {
+    return '';
+  }
+};
+
 export class GeminiService {
   /**
    * Gets preference for syncing AI settings to Google Drive.
@@ -483,7 +515,9 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
       }).join('\n');
       const hotelsList = d.hotels.map(h => `- Hotel: ${h}`).join('\n');
       const transportsList = d.transports.map(t => `- Transit: ${t}`).join('\n');
-      return `Day ${d.dayNumber} (${d.dateStr}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
+      const dayOfWeek = getDayOfWeek(d.dateStr);
+      const dayLabel = dayOfWeek ? `${d.dateStr}, ${dayOfWeek}` : d.dateStr;
+      return `Day ${d.dayNumber} (${dayLabel}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
 Scheduled Places (in planned sequence order):
 ${placesList || 'None'}
 Hotels:
@@ -501,12 +535,31 @@ You are a professional local travel planner and guide. Provide daily itinerary s
 
 ${daysPrompt}
 
-For each day, write daily tips (in Markdown format). Keep the response structured, clear, and relatively brief (under 8-10 sentences total or a clean, bulleted checklist/list of tips, avoiding long essays).
-Specifically, cover the following in the daily_tips field under the aiDetails object:
+For each day, write daily tips (in Markdown format). Keep the response structured, clear, and relatively brief (avoiding long essays).
+You MUST follow this exact markdown structure (use the exact section headers on separate lines):
 
-1. **Daily Route Sequence & Summary**: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates.
-2. **Timing & Optimization Suggestions**: Give suggestions if any place takes a long time, sequence/route suggestions based on opening hours, and warn if a place is likely closed on this specific day.
-3. **Logistics & Alerts**: Recommended departure time, transit lines to use, weather check reminders, essential safety warnings.
+[WARNING section if applicable - see rules below]
+
+## Daily Route Sequence & Summary
+[Your route sequence and summary text here...]
+
+## Timing & Optimization Suggestions
+[Your timing and optimization suggestions text here...]
+
+## Logistics & Alerts
+[Your logistics and alerts text here...]
+
+CRITICAL FORMATTING & CONTENT RULES:
+1. Every Markdown header (starting with ##) MUST be on its own line.
+2. You MUST include a newline after every Markdown header before starting the text, and a newline before every Markdown header (except the first one) to separate sections. Never combine a heading markup and the paragraph content on the same line (e.g. do NOT output '## Section TitleParagraph starts here...', instead output '## Section Title\\nParagraph starts here...').
+3. If any scheduled attraction or place is closed or likely closed on the selected day of the week (or on this specific date), you MUST prepend a WARNING section as the first section in the daily_tips output:
+## WARNING: [Attraction Name] Closed
+[Explain why it is closed and suggest alternative plans or date adjustments.]
+
+Specifically, cover the following under the headers:
+- Daily Route Sequence & Summary: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates.
+- Timing & Optimization Suggestions: Give suggestions if any place takes a long time, sequence/route suggestions based on opening hours.
+- Logistics & Alerts: Recommended departure time from hotel/starting point, transit lines to use, weather check reminders, essential safety warnings (pickpockets, walking comfort).
 
 ${enableBabyLogistics ? `IMPORTANT BABY LOGISTICS REQUIREMENT:
 Since the user is traveling with a baby, generate a specific "baby_logistics" text (in Markdown format) under the "baby_logistics" key of the aiDetails object for each day. Keep it brief, 2-3 sentences or bullet points.` : ''}
@@ -526,9 +579,21 @@ Please respond with JSON in this exact format:
 
   static parseDailyTipsResponse(text: string): { dateStr: string; aiDetails?: { [key: string]: string } }[] {
     const parsed = JSON.parse(text);
-    if (!parsed.days || !Array.isArray(parsed.days)) {
+    if (!parsed || !Array.isArray(parsed.days)) {
       throw new Error('Invalid response structure: expected { "days": [...] }');
     }
+    
+    parsed.days.forEach((day: any) => {
+      if (day.aiDetails) {
+        if (typeof day.aiDetails.daily_tips === 'string') {
+          day.aiDetails.daily_tips = fixMarkdownHeaders(day.aiDetails.daily_tips);
+        }
+        if (typeof day.aiDetails.baby_logistics === 'string') {
+          day.aiDetails.baby_logistics = fixMarkdownHeaders(day.aiDetails.baby_logistics);
+        }
+      }
+    });
+
     return parsed.days;
   }
 
@@ -603,7 +668,9 @@ Please respond with JSON in this exact format:
       }).join('\n');
       const hotelsList = d.hotels.map(h => `- Hotel: ${h}`).join('\n');
       const transportsList = d.transports.map(t => `- Transit: ${t}`).join('\n');
-      return `Day ${d.dayNumber} (${d.dateStr}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
+      const dayOfWeek = getDayOfWeek(d.dateStr);
+      const dayLabel = dayOfWeek ? `${d.dateStr}, ${dayOfWeek}` : d.dateStr;
+      return `Day ${d.dayNumber} (${dayLabel}) in ${d.locationCity || 'unknown city'}, ${d.locationCountry || 'unknown country'}:
 Scheduled Places (in planned sequence order):
 ${placesList || 'None'}
 Hotels:
@@ -617,22 +684,34 @@ You are a professional local travel planner and guide. Provide daily itinerary s
 
 ${daysPrompt}
 
-For each day, write daily tips (in Markdown format). Keep the response structured, clear, and relatively brief (under 8-10 sentences total or a clean, bulleted checklist/list of tips, avoiding long essays).
-Specifically, cover the following in the daily_tips field under the aiDetails object:
+For each day, write daily tips (in Markdown format). Keep the response structured, clear, and relatively brief (avoiding long essays).
+You MUST follow this exact markdown structure (use the exact section headers on separate lines):
 
-1. **Daily Route Sequence & Summary**: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates. For example: "Start at [Hotel], take [transit] to [station X] for [Place 1], then walk along [street/path Y] to get to [Place 2], then take [transit] to [station Z]...".
-2. **Timing & Optimization Suggestions**:
-   - Give suggestions if any place takes a long time (e.g., "This place will take a long time to explore, so plan carefully").
-   - Give sequence/route suggestions based on opening hours or spatial layout (e.g., "It is recommended to visit X before Y because Y closes earlier/at [time]" or "Visiting X before Y offers a more optimal routing path").
-   - Warn the user if a place is likely closed on this specific day of the week or date.
-3. **Logistics & Alerts**:
-   - Recommended departure time from the hotel/starting point.
-   - Which local transit lines to use.
-   - Weather check reminders.
-   - Essential safety warnings (pickpocket warnings, local scams, walking terrain/comfort).
+[WARNING section if applicable - see rules below]
+
+## Daily Route Sequence & Summary
+[Your route sequence and summary text here...]
+
+## Timing & Optimization Suggestions
+[Your timing and optimization suggestions text here...]
+
+## Logistics & Alerts
+[Your logistics and alerts text here...]
+
+CRITICAL FORMATTING & CONTENT RULES:
+1. Every Markdown header (starting with ##) MUST be on its own line.
+2. You MUST include a newline after every Markdown header before starting the text, and a newline before every Markdown header (except the first one) to separate sections. Never combine a heading markup and the paragraph content on the same line (e.g. do NOT output '## Section TitleParagraph starts here...', instead output '## Section Title\\nParagraph starts here...').
+3. If any scheduled attraction or place is closed or likely closed on the selected day of the week (or on this specific date), you MUST prepend a WARNING section as the first section in the daily_tips output:
+## WARNING: [Attraction Name] Closed
+[Explain why it is closed and suggest alternative plans or date adjustments.]
+
+Specifically, cover the following under the headers:
+- Daily Route Sequence & Summary: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates.
+- Timing & Optimization Suggestions: Give suggestions if any place takes a long time, sequence/route suggestions based on opening hours.
+- Logistics & Alerts: Recommended departure time from hotel/starting point, transit lines to use, weather check reminders, essential safety warnings (pickpockets, walking comfort).
 
 ${enableBabyLogistics ? `IMPORTANT BABY LOGISTICS REQUIREMENT:
-Since the user is traveling with a baby, generate a specific "baby_logistics" text (in Markdown format) under the "baby_logistics" key of the aiDetails object for each day, describing what to be aware of regarding having a baby (e.g. stroller friendliness, diaper changing spots, safety, nursing facilities, nap planning). Keep it brief, 2-3 sentences or bullet points.` : ''}
+Since the user is traveling with a baby, generate a specific "baby_logistics" text (in Markdown format) under the "baby_logistics" key of the aiDetails object for each day. Keep it brief, 2-3 sentences or bullet points.` : ''}
 
 Ensure the returned JSON lists the exact "dateStr" for each day so it can be matched.`;
 
@@ -672,17 +751,9 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
       throw new Error('Gemini API returned an empty response.');
     }
 
-    const parsed = JSON.parse(resultText);
-    if (!parsed.days || !Array.isArray(parsed.days)) {
-      throw new Error('Invalid response structure from Gemini API.');
-    }
-
-    return parsed.days;
+    return this.parseDailyTipsResponse(resultText);
   }
 
-  /**
-   * Generates Daily Tips rotating through API keys.
-   */
   static async generateDailyTipsWithRotation(
     days: {
       dateStr: string;
@@ -1531,3 +1602,8 @@ IMPORTANT INSTRUCTIONS:
     throw lastError || new Error('All configured API keys failed to execute.');
   }
 }
+
+export const _testHelpers = {
+  fixMarkdownHeaders,
+  getDayOfWeek
+};
