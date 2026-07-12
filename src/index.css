@@ -4724,5 +4724,211 @@ input[type="number"] { -moz-appearance: textfield; }
   padding: 0;
 }
 
+/* Expense section styling */
+.expense-section {
+  border-top: 1px solid var(--border-glass);
+  margin-top: 12px;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.expense-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.expense-section-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expense-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: grab;
+  opacity: var(--opacity, 1);
+  transition: var(--transition-fast, all 0.15s ease);
+}
+
+.expense-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.expense-item:active {
+  cursor: grabbing;
+}
+
+.expense-item.drag-over {
+  border-color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.expense-item-grip {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  cursor: grab;
+  margin-right: 2px;
+}
+
+.expense-item-grip:active {
+  cursor: grabbing;
+}
+
+.expense-item-checkbox {
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border-glass);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.expense-item-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-item-desc.line-through {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.expense-item-amount {
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary);
+}
+
+.expense-item-amount.line-through {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.expense-item-currency {
+  font-size: 10px;
+  color: #a5b4fc;
+  padding: 2px 6px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.expense-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.expense-totals {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 6px;
+  border: 1px dashed var(--border-glass);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.expense-totals-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.expense-total-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.expense-form-row {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.combo-trigger-chevron-only {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  z-index: 2;
+  transition: var(--transition-fast, all 0.15s ease);
+}
+
+.combo-trigger-chevron-only:hover {
+  color: var(--text-primary);
+}
+
+/* Wrapper to style custom tooltips on self-closing inputs like date/time picker fields */
+.input-tooltip-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* Drag & Drop reorder separator indicator */
+.drag-indicator-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--accent-primary);
+  z-index: 10;
+  pointer-events: none;
+}
+
+
+
+
 
 

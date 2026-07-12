@@ -379,23 +379,29 @@ export default function TripDashboard({
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="start-date">Start Date</label>
-                  <input
-                    type="date"
-                    id="start-date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    required
-                  />
+                  <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                    <input
+                      type="date"
+                      id="start-date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      required
+                      title=""
+                    />
+                  </div>
                 </div>
                 <div className="form-group">
                   <label htmlFor="end-date">End Date</label>
-                  <input
-                    type="date"
-                    id="end-date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    required
-                  />
+                  <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                    <input
+                      type="date"
+                      id="end-date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      required
+                      title=""
+                    />
+                  </div>
                 </div>
               </div>
 

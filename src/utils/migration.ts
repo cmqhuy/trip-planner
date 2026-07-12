@@ -2,7 +2,7 @@ import type { Trip, ScheduleItem } from '../types';
 
 // Bump whenever a new migration step is added.
 // Trips already at this version are returned as-is (cheap no-op).
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 // v0 → v1: build scheduleItems from placeIds + scheduleNotes
 function applyV0toV1(trip: any): any {
@@ -89,6 +89,66 @@ function applyV2toV3(trip: any): any {
   return { ...trip, plans };
 }
 
+// v3 → v4: initialize expenses to [] on hotels and transports if they don't exist
+function applyV3toV4(trip: any): any {
+  const plans = (trip.plans || []).map((plan: any) => {
+    const hotels = (plan.hotels || []).map((h: any) => {
+      if (h.expenses) return h;
+      return { ...h, expenses: [] };
+    });
+    const transports = (plan.transports || []).map((t: any) => {
+      if (t.expenses) return t;
+      return { ...t, expenses: [] };
+    });
+    return { ...plan, hotels, transports };
+  });
+  return { ...trip, plans };
+}
+
+// v4 → v5: migrate price and currency fields on hotels/transports into expenses
+function applyV4toV5(trip: any): any {
+  const plans = (trip.plans || []).map((plan: any) => {
+    const hotels = (plan.hotels || []).map((h: any) => {
+      const expenses = h.expenses ? [...h.expenses] : [];
+      if (h.price != null && h.price !== '') {
+        const numericPrice = typeof h.price === 'string' ? parseFloat(h.price) : h.price;
+        if (!isNaN(numericPrice)) {
+          expenses.push({
+            id: `expense-migrated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            description: 'Base Price',
+            price: numericPrice,
+            currency: h.currency || 'USD',
+            paid: false
+          });
+        }
+      }
+      const { price: _p, currency: _c, ...rest } = h;
+      return { ...rest, expenses };
+    });
+
+    const transports = (plan.transports || []).map((t: any) => {
+      const expenses = t.expenses ? [...t.expenses] : [];
+      if (t.price != null && t.price !== '') {
+        const numericPrice = typeof t.price === 'string' ? parseFloat(t.price) : t.price;
+        if (!isNaN(numericPrice)) {
+          expenses.push({
+            id: `expense-migrated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            description: 'Base Price',
+            price: numericPrice,
+            currency: t.currency || 'USD',
+            paid: false
+          });
+        }
+      }
+      const { price: _p, currency: _c, ...rest } = t;
+      return { ...rest, expenses };
+    });
+
+    return { ...plan, hotels, transports };
+  });
+  return { ...trip, plans };
+}
+
 export function migrateTrips(rawTrips: any[]): Trip[] {
   return rawTrips.map((trip: any): Trip => {
     if (trip.schemaVersion === CURRENT_SCHEMA_VERSION) return trip as Trip;
@@ -97,6 +157,8 @@ export function migrateTrips(rawTrips: any[]): Trip[] {
     if ((t.schemaVersion ?? 0) < 1) t = applyV0toV1(t);
     if ((t.schemaVersion ?? 0) < 2) t = applyV1toV2(t);
     if ((t.schemaVersion ?? 0) < 3) t = applyV2toV3(t);
+    if ((t.schemaVersion ?? 0) < 4) t = applyV3toV4(t);
+    if ((t.schemaVersion ?? 0) < 5) t = applyV4toV5(t);
 
     return { ...t, schemaVersion: CURRENT_SCHEMA_VERSION };
   });

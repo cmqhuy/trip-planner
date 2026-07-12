@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2, Pencil, Check, Timer, Search } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import ShareTripModal from './ShareTripModal';
-import type { Hotel, Location, Place } from '../types';
+import type { Hotel, Location, Place, ExpenseLine } from '../types';
+import ExpensesSection from './ExpensesSection';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
-import { CURRENCY_LIST } from '../utils/currencies';
 import MapPicker from './MapPicker';
 import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
 import { useDriveAttachments } from '../utils/useDriveAttachments';
@@ -38,7 +38,7 @@ interface HotelModalProps {
 type SavedValues = {
   name: string; address: string; checkInDate: string; checkInTime: string;
   checkOutDate: string; checkOutTime: string; confirmationNo: string; notes: string;
-  bookedThrough: string; price: string; currency: string; lat: string; lng: string;
+  bookedThrough: string; lat: string; lng: string;
   status: 'Confirmed' | 'Planning' | 'Canceled';
 };
 
@@ -82,19 +82,16 @@ export default function HotelModal({
   const [checkOutTime, setCheckOutTime] = useState('');
   const [confirmationNo, setConfirmationNo] = useState('');
   const [bookedThrough, setBookedThrough] = useState('');
-  const [price, setPrice] = useState('');
-  const [currency, setCurrency] = useState('USD');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [notes, setNotes] = useState('');
   const [isAiFilling, setIsAiFilling] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
-  const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [showAccessError, setShowAccessError] = useState(false);
   const [showShareFolder, setShowShareFolder] = useState(false);
   const [editingChip, setEditingChip] = useState<{ fileId: string; value: string } | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
 
   const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
   const [statusOpen, setStatusOpen] = useState(false);
@@ -109,7 +106,6 @@ export default function HotelModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autofillInputRef = useRef<HTMLInputElement>(null);
-  const currencyTriggerRef = useRef<HTMLButtonElement>(null);
   const statusTriggerRef = useRef<HTMLButtonElement>(null);
 
   const {
@@ -145,8 +141,6 @@ export default function HotelModal({
         checkOutTime: h?.checkOutTime ?? '',
         confirmationNo: h?.confirmationNo ?? '',
         bookedThrough: h?.bookedThrough ?? '',
-        price: h?.price != null ? String(h.price) : '',
-        currency: h?.currency ?? 'USD',
         lat: h?.lat != null ? String(h.lat) : '',
         lng: h?.lng != null ? String(h.lng) : '',
         notes: h?.notes ?? '',
@@ -160,17 +154,15 @@ export default function HotelModal({
       setCheckOutTime(initial.checkOutTime);
       setConfirmationNo(initial.confirmationNo);
       setBookedThrough(initial.bookedThrough);
-      setPrice(initial.price);
-      setCurrency(initial.currency);
       setLat(initial.lat);
       setLng(initial.lng);
       setNotes(initial.notes);
       setStatus(initial.status);
+      setExpenses(h?.expenses ?? []);
       setAttachments(h?.attachments ?? []);
       setSavedValues(initial);
       setAiError(null);
       setRemovePrompt(null);
-      setCurrencyOpen(false);
       setStatusOpen(false);
       setShowAccessError(false);
       setShowShareFolder(false);
@@ -259,7 +251,6 @@ export default function HotelModal({
     if (!name.trim() || !checkInDate || !checkOutDate) return;
     const parsedLat = lat.trim() ? parseFloat(lat) : undefined;
     const parsedLng = lng.trim() ? parseFloat(lng) : undefined;
-    const parsedPrice = price.trim() ? parseFloat(price) : undefined;
     onSave({
       name: name.trim(),
       address: address.trim() || undefined,
@@ -269,11 +260,10 @@ export default function HotelModal({
       checkOutTime: checkOutTime || undefined,
       confirmationNo: confirmationNo.trim() || undefined,
       bookedThrough: bookedThrough.trim() || undefined,
-      price: parsedPrice,
-      currency: parsedPrice != null ? currency : undefined,
       lat: parsedLat,
       lng: parsedLng,
       notes: notes.trim() || undefined,
+      expenses,
       attachments: attachedFiles,
       status,
     });
@@ -298,8 +288,24 @@ export default function HotelModal({
       if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
       if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
       if (result.bookedThrough) setBookedThrough(result.bookedThrough);
-      if (result.price != null) setPrice(String(result.price));
-      if (result.currency) setCurrency(result.currency);
+      if (result.price != null) {
+        const numericPrice = typeof result.price === 'string' ? parseFloat(result.price) : result.price;
+        if (!isNaN(numericPrice)) {
+          setExpenses(prev => {
+            if (prev.some(e => e.description === 'Base Price')) return prev;
+            return [
+              ...prev,
+              {
+                id: `expense-autofill-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                description: 'Base Price',
+                price: numericPrice,
+                currency: result.currency || 'USD',
+                paid: false
+              }
+            ];
+          });
+        }
+      }
       if (result.notes) setNotes(result.notes);
       const fillAddress = result.address || address;
       if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
@@ -363,8 +369,24 @@ export default function HotelModal({
       if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
       if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
       if (result.bookedThrough) setBookedThrough(result.bookedThrough);
-      if (result.price != null) setPrice(String(result.price));
-      if (result.currency) setCurrency(result.currency);
+      if (result.price != null) {
+        const numericPrice = typeof result.price === 'string' ? parseFloat(result.price) : result.price;
+        if (!isNaN(numericPrice)) {
+          setExpenses(prev => {
+            if (prev.some(e => e.description === 'Base Price')) return prev;
+            return [
+              ...prev,
+              {
+                id: `expense-autofill-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                description: 'Base Price',
+                price: numericPrice,
+                currency: result.currency || 'USD',
+                paid: false
+              }
+            ];
+          });
+        }
+      }
       if (result.notes) setNotes(result.notes);
       
       const fillAddress = result.address || address;
@@ -393,7 +415,7 @@ export default function HotelModal({
 
   if (!isOpen) return null;
 
-  const selectedCurrency = CURRENCY_LIST.find(c => c.code === currency) ?? { code: currency, name: currency };
+
 
   return (
     <>
@@ -531,25 +553,31 @@ export default function HotelModal({
                       <span className="label-text">Check-In Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                       {undoBtn(checkInDate, savedValues?.checkInDate, () => setCheckInDate(savedValues!.checkInDate))}
                     </label>
-                    <input
-                      type="date"
-                      id="hotel-checkin"
-                      value={checkInDate}
-                      onChange={e => handleCheckInChange(e.target.value)}
-                      required
-                    />
+                    <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                      <input
+                        type="date"
+                        id="hotel-checkin"
+                        value={checkInDate}
+                        onChange={e => handleCheckInChange(e.target.value)}
+                        required
+                        title=""
+                      />
+                    </div>
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-checkin-time" className="place-form-label">
                       <span className="label-text">Check-In Time</span>
                       {undoBtn(checkInTime, savedValues?.checkInTime, () => setCheckInTime(savedValues!.checkInTime))}
                     </label>
-                    <input
-                      type="time"
-                      id="hotel-checkin-time"
-                      value={checkInTime}
-                      onChange={e => setCheckInTime(e.target.value)}
-                    />
+                    <div className="input-tooltip-wrapper" data-tooltip="Show time picker" data-tooltip-position="bottom">
+                      <input
+                        type="time"
+                        id="hotel-checkin-time"
+                        value={checkInTime}
+                        onChange={e => setCheckInTime(e.target.value)}
+                        title=""
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -560,25 +588,31 @@ export default function HotelModal({
                       <span className="label-text">Check-Out Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                       {undoBtn(checkOutDate, savedValues?.checkOutDate, () => setCheckOutDate(savedValues!.checkOutDate))}
                     </label>
-                    <input
-                      type="date"
-                      id="hotel-checkout"
-                      value={checkOutDate}
-                      onChange={e => setCheckOutDate(e.target.value)}
-                      required
-                    />
+                    <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                      <input
+                        type="date"
+                        id="hotel-checkout"
+                        value={checkOutDate}
+                        onChange={e => setCheckOutDate(e.target.value)}
+                        required
+                        title=""
+                      />
+                    </div>
                   </div>
                   <div className="form-group">
                     <label htmlFor="hotel-checkout-time" className="place-form-label">
                       <span className="label-text">Check-Out Time</span>
                       {undoBtn(checkOutTime, savedValues?.checkOutTime, () => setCheckOutTime(savedValues!.checkOutTime))}
                     </label>
-                    <input
-                      type="time"
-                      id="hotel-checkout-time"
-                      value={checkOutTime}
-                      onChange={e => setCheckOutTime(e.target.value)}
-                    />
+                    <div className="input-tooltip-wrapper" data-tooltip="Show time picker" data-tooltip-position="bottom">
+                      <input
+                        type="time"
+                        id="hotel-checkout-time"
+                        value={checkOutTime}
+                        onChange={e => setCheckOutTime(e.target.value)}
+                        title=""
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -657,65 +691,7 @@ export default function HotelModal({
                   )}
                 </div>
 
-                {/* Price + Currency */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="hotel-price" className="place-form-label">
-                      <span className="label-text">Price</span>
-                      {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
-                    </label>
-                    <input
-                      type="number"
-                      id="hotel-price"
-                      value={price}
-                      onChange={e => setPrice(e.target.value)}
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="place-form-label">
-                      <span className="label-text">Currency</span>
-                      {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
-                    </label>
-                    <div className="combo-wrapper">
-                      <button
-                        ref={currencyTriggerRef}
-                        type="button"
-                        className="combo-trigger"
-                        onClick={() => {
-                          if (!currencyOpen && currencyTriggerRef.current) {
-                            const r = currencyTriggerRef.current.getBoundingClientRect();
-                            setCurrencyPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                          }
-                          setCurrencyOpen(o => !o);
-                        }}
-                      >
-                        <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
-                        <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
-                      </button>
-                    </div>
-                    {currencyOpen && currencyPos && createPortal(
-                      <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setCurrencyOpen(false)} />
-                        <div className="combo-dropdown--portal" style={{ top: currencyPos.top, left: currencyPos.left, width: Math.max(currencyPos.width, 220) }} onClick={e => e.stopPropagation()}>
-                          {CURRENCY_LIST.map(c => (
-                            <button
-                              key={c.code}
-                              type="button"
-                              className={`combo-option${c.code === currency ? ' selected' : ''}`}
-                              onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
-                            >
-                              {c.code} — {c.name}
-                            </button>
-                          ))}
-                        </div>
-                      </>,
-                      document.body
-                    )}
-                  </div>
-                </div>
+
 
 
               </div>
@@ -776,6 +752,11 @@ export default function HotelModal({
                     rows={2}
                   />
                 </div>
+
+                <ExpensesSection
+                  expenses={expenses}
+                  onChange={setExpenses}
+                />
 
                 {/* File Attachments (only when Google signed in) */}
                 {googleToken && (

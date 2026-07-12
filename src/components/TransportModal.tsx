@@ -4,9 +4,9 @@ import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
   Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check, Plus, Timer,
 } from 'lucide-react';
-import type { TransportationReservation, Location, Place } from '../types';
+import type { TransportationReservation, Location, Place, ExpenseLine } from '../types';
+import ExpensesSection from './ExpensesSection';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
-import { CURRENCY_LIST } from '../utils/currencies';
 import { lookupTimezone, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation } from '../utils/api';
 import DualMapPicker from './DualMapPicker';
 import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
@@ -87,8 +87,6 @@ type ReservationSavedValues = {
   type: TransportationReservation['type'];
   confirmationNo: string;
   bookedThrough: string;
-  price: string;
-  currency: string;
   notes: string;
   status: 'Confirmed' | 'Planning' | 'Canceled';
 };
@@ -128,10 +126,9 @@ export default function TransportModal({
   const [type, setType] = useState<TransportationReservation['type']>('flight');
   const [confirmationNo, setConfirmationNo] = useState('');
   const [bookedThrough, setBookedThrough] = useState('');
-  const [price, setPrice] = useState('');
-  const [currency, setCurrency] = useState('USD');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
+  const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
 
   // Segment-level state
   const [segments, setSegments] = useState<SegmentFormState[]>([makeEmptySegment(effectiveDefaultDate, browserTz)]);
@@ -162,8 +159,7 @@ export default function TransportModal({
   const [arrTzOpen, setArrTzOpen] = useState(false);
   const [arrTzSearch, setArrTzSearch] = useState('');
   const [arrTzPos, setArrTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
-  const [currencyPos, setCurrencyPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
 
   // Autocomplete suggestions and search states
   const [depSuggestions, setDepSuggestions] = useState<(Omit<Place, 'placeGroupId'> & { address?: string })[]>([]);
@@ -181,7 +177,6 @@ export default function TransportModal({
   const typeRef = useRef<HTMLDivElement>(null);
   const depTzTriggerRef = useRef<HTMLButtonElement>(null);
   const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
-  const currencyTriggerRef = useRef<HTMLButtonElement>(null);
   const statusTriggerRef = useRef<HTMLButtonElement>(null);
   const depSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const arrSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,8 +226,6 @@ export default function TransportModal({
       type: t?.type ?? 'flight',
       confirmationNo: t?.confirmationNo ?? '',
       bookedThrough: t?.bookedThrough ?? '',
-      price: t?.price != null ? String(t.price) : '',
-      currency: t?.currency ?? 'USD',
       notes: t?.notes ?? '',
       status: t ? (t.status ?? 'Planning') : 'Confirmed',
     };
@@ -241,12 +234,11 @@ export default function TransportModal({
     setType(initValues.type);
     setConfirmationNo(initValues.confirmationNo);
     setBookedThrough(initValues.bookedThrough);
-    setPrice(initValues.price);
-    setCurrency(initValues.currency);
     setNotes(initValues.notes);
     setStatus(initValues.status);
     setSegments(initSegs);
     setActiveSegmentIndex(Math.min(initialSegmentIndex ?? 0, initSegs.length - 1));
+    setExpenses(t?.expenses ?? []);
     setAttachments(t?.attachments ?? []);
     setSavedValues(initValues);
     setInitialSegments(initSegs.map(s => ({ ...s })));
@@ -256,7 +248,6 @@ export default function TransportModal({
     setTypeOpen(false);
     setDepTzOpen(false);
     setArrTzOpen(false);
-    setCurrencyOpen(false);
     setStatusOpen(false);
     setShowAccessError(false);
     setShowShareFolder(false);
@@ -535,16 +526,14 @@ export default function TransportModal({
       if (firstInvalid !== -1 && firstInvalid !== activeSegmentIndex) setActiveSegmentIndex(firstInvalid);
       return;
     }
-    const parsedPrice = price.trim() ? parseFloat(price) : undefined;
     onSave({
       type,
       name: transitName.trim() || undefined,
       confirmationNo: confirmationNo.trim() || undefined,
       bookedThrough: bookedThrough.trim() || undefined,
-      price: parsedPrice,
-      currency: parsedPrice != null ? currency : undefined,
       notes: notes.trim() || undefined,
       status,
+      expenses,
       attachments: attachedFiles,
       segments: segments.map(s => ({
         id: s.id,
@@ -574,8 +563,24 @@ export default function TransportModal({
     if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) setType(result.type);
     if (result.confirmationNo !== undefined) setConfirmationNo(result.confirmationNo ?? '');
     if (result.bookedThrough !== undefined) setBookedThrough(result.bookedThrough ?? '');
-    if (result.price != null) setPrice(String(result.price));
-    if (result.currency) setCurrency(result.currency);
+    if (result.price != null) {
+      const numericPrice = typeof result.price === 'string' ? parseFloat(result.price) : result.price;
+      if (!isNaN(numericPrice)) {
+        setExpenses(prev => {
+          if (prev.some(e => e.description === 'Base Price')) return prev;
+          return [
+            ...prev,
+            {
+              id: `expense-autofill-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              description: 'Base Price',
+              price: numericPrice,
+              currency: result.currency || 'USD',
+              paid: false
+            }
+          ];
+        });
+      }
+    }
     if (result.notes !== undefined) setNotes(result.notes ?? '');
     if (result.status && ['Confirmed', 'Planning', 'Canceled'].includes(result.status)) setStatus(result.status);
 
@@ -744,7 +749,7 @@ export default function TransportModal({
   const filteredDepTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(depTzSearch.toLowerCase()));
   const filteredArrTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(arrTzSearch.toLowerCase()));
   const selectedTypeObj = TRANSPORT_TYPES.find(t => t.value === type) ?? TRANSPORT_TYPES[0];
-  const selectedCurrency = CURRENCY_LIST.find(c => c.code === currency) ?? { code: currency, name: currency };
+
 
   if (!isOpen) return null;
 
@@ -834,69 +839,25 @@ export default function TransportModal({
                       )}
                     </div>
                   </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="transit-price" className="place-form-label">
-                        <span className="label-text">Price</span>
-                        {undoBtn(price, savedValues?.price, () => setPrice(savedValues!.price))}
-                      </label>
-                      <input type="number" id="transit-price" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0.00" />
-                    </div>
-                    <div className="form-group">
-                      <label className="place-form-label">
-                        <span className="label-text">Currency</span>
-                        {undoBtn(currency, savedValues?.currency, () => setCurrency(savedValues!.currency))}
-                      </label>
-                      <div className="combo-wrapper">
-                        <button
-                          ref={currencyTriggerRef}
-                          type="button"
-                          className="combo-trigger"
-                          onClick={() => {
-                            if (!currencyOpen && currencyTriggerRef.current) {
-                              const r = currencyTriggerRef.current.getBoundingClientRect();
-                              setCurrencyPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                            }
-                            setCurrencyOpen(o => !o);
-                          }}
-                        >
-                          <span className="combo-trigger-content">{selectedCurrency.code} — {selectedCurrency.name}</span>
-                          <ChevronDown size={14} className={`expand-chevron${currencyOpen ? ' is-open' : ''}`} />
-                        </button>
-                      </div>
-                      {currencyOpen && currencyPos && createPortal(
-                        <>
-                          <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setCurrencyOpen(false)} />
-                          <div className="combo-dropdown--portal" style={{ top: currencyPos.top, left: currencyPos.left, width: Math.max(currencyPos.width, 220) }} onClick={e => e.stopPropagation()}>
-                            {CURRENCY_LIST.map(c => (
-                              <button key={c.code} type="button" className={`combo-option${c.code === currency ? ' selected' : ''}`} onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}>
-                                {c.code} — {c.name}
-                              </button>
-                            ))}
-                          </div>
-                        </>,
-                        document.body
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 <div className="place-form-right-col">
-                  <div className="form-group">
-                    <label htmlFor="transit-conf" className="place-form-label">
-                      <span className="label-text">Confirmation No</span>
-                      {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
-                    </label>
-                    <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
-                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="transit-conf" className="place-form-label">
+                        <span className="label-text">Confirmation No</span>
+                        {undoBtn(confirmationNo, savedValues?.confirmationNo, () => setConfirmationNo(savedValues!.confirmationNo))}
+                      </label>
+                      <input type="text" id="transit-conf" value={confirmationNo} onChange={e => setConfirmationNo(e.target.value)} />
+                    </div>
 
-                  <div className="form-group">
-                    <label htmlFor="transit-booked" className="place-form-label">
-                      <span className="label-text">Booked via</span>
-                      {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
-                    </label>
-                    <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
+                    <div className="form-group">
+                      <label htmlFor="transit-booked" className="place-form-label">
+                        <span className="label-text">Booked via</span>
+                        {undoBtn(bookedThrough, savedValues?.bookedThrough, () => setBookedThrough(savedValues!.bookedThrough))}
+                      </label>
+                      <input type="text" id="transit-booked" value={bookedThrough} onChange={e => setBookedThrough(e.target.value)} placeholder="e.g. Expedia" />
+                    </div>
                   </div>
 
                   <div className="form-group">
@@ -1072,26 +1033,32 @@ export default function TransportModal({
                         <span className="label-text">Departure Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                         {undoBtn(seg.depDate, initialSegments?.[activeSegmentIndex]?.depDate, () => updateSegment(activeSegmentIndex, { depDate: initialSegments![activeSegmentIndex].depDate }))}
                       </label>
-                      <input
-                        type="date" id="dep-date" value={seg.depDate}
-                        className={segmentErrors[activeSegmentIndex]?.includes('depDate') ? 'input-field-error' : undefined}
-                        onChange={e => {
-                          const val = e.target.value;
-                          updateSegment(activeSegmentIndex, { depDate: val, arrDate: seg.arrDate < val ? val : seg.arrDate });
-                          if (val) clearSegmentError(activeSegmentIndex, 'depDate');
-                        }}
-                      />
+                      <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                        <input
+                          type="date" id="dep-date" value={seg.depDate}
+                          className={segmentErrors[activeSegmentIndex]?.includes('depDate') ? 'input-field-error' : undefined}
+                          onChange={e => {
+                            const val = e.target.value;
+                            updateSegment(activeSegmentIndex, { depDate: val, arrDate: seg.arrDate < val ? val : seg.arrDate });
+                            if (val) clearSegmentError(activeSegmentIndex, 'depDate');
+                          }}
+                          title=""
+                        />
+                      </div>
                     </div>
                     <div className="form-group">
                       <label htmlFor="dep-time" className="place-form-label">
                         <span className="label-text">Departure Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                         {undoBtn(seg.depTime, initialSegments?.[activeSegmentIndex]?.depTime, () => updateSegment(activeSegmentIndex, { depTime: initialSegments![activeSegmentIndex].depTime }))}
                       </label>
-                      <input
-                        type="time" id="dep-time" value={seg.depTime}
-                        className={segmentErrors[activeSegmentIndex]?.includes('depTime') ? 'input-field-error' : undefined}
-                        onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { depTime: v }); if (v) clearSegmentError(activeSegmentIndex, 'depTime'); }}
-                      />
+                      <div className="input-tooltip-wrapper" data-tooltip="Show time picker" data-tooltip-position="bottom">
+                        <input
+                          type="time" id="dep-time" value={seg.depTime}
+                          className={segmentErrors[activeSegmentIndex]?.includes('depTime') ? 'input-field-error' : undefined}
+                          onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { depTime: v }); if (v) clearSegmentError(activeSegmentIndex, 'depTime'); }}
+                          title=""
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -1246,22 +1213,28 @@ export default function TransportModal({
                         <span className="label-text">Arrival Date <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                         {undoBtn(seg.arrDate, initialSegments?.[activeSegmentIndex]?.arrDate, () => updateSegment(activeSegmentIndex, { arrDate: initialSegments![activeSegmentIndex].arrDate }))}
                       </label>
-                      <input
-                        type="date" id="arr-date" value={seg.arrDate}
-                        className={segmentErrors[activeSegmentIndex]?.includes('arrDate') ? 'input-field-error' : undefined}
-                        onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrDate: v }); if (v) clearSegmentError(activeSegmentIndex, 'arrDate'); }}
-                      />
+                      <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                        <input
+                          type="date" id="arr-date" value={seg.arrDate}
+                          className={segmentErrors[activeSegmentIndex]?.includes('arrDate') ? 'input-field-error' : undefined}
+                          onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrDate: v }); if (v) clearSegmentError(activeSegmentIndex, 'arrDate'); }}
+                          title=""
+                        />
+                      </div>
                     </div>
                     <div className="form-group">
                       <label htmlFor="arr-time" className="place-form-label">
                         <span className="label-text">Arrival Time <span style={{ color: 'var(--color-danger)' }}>*</span></span>
                         {undoBtn(seg.arrTime, initialSegments?.[activeSegmentIndex]?.arrTime, () => updateSegment(activeSegmentIndex, { arrTime: initialSegments![activeSegmentIndex].arrTime }))}
                       </label>
-                      <input
-                        type="time" id="arr-time" value={seg.arrTime}
-                        className={segmentErrors[activeSegmentIndex]?.includes('arrTime') ? 'input-field-error' : undefined}
-                        onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrTime: v }); if (v) clearSegmentError(activeSegmentIndex, 'arrTime'); }}
-                      />
+                      <div className="input-tooltip-wrapper" data-tooltip="Show time picker" data-tooltip-position="bottom">
+                        <input
+                          type="time" id="arr-time" value={seg.arrTime}
+                          className={segmentErrors[activeSegmentIndex]?.includes('arrTime') ? 'input-field-error' : undefined}
+                          onChange={e => { const v = e.target.value; updateSegment(activeSegmentIndex, { arrTime: v }); if (v) clearSegmentError(activeSegmentIndex, 'arrTime'); }}
+                          title=""
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -1366,6 +1339,11 @@ export default function TransportModal({
                     </label>
                     <textarea id="transit-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Booking reference, details, ..." rows={2} />
                   </div>
+
+                  <ExpensesSection
+                    expenses={expenses}
+                    onChange={setExpenses}
+                  />
 
                   {googleToken && (
                     <div className="attachment-section">

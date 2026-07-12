@@ -4,6 +4,14 @@ export interface Attachment {
   name: string;      // user-customizable display name
 }
 
+export interface ExpenseLine {
+  id: string;
+  description: string;
+  price: number;
+  currency: string;
+  paid: boolean;
+}
+
 export interface SuggestedMarker {
   title: string;
   lat: number;
@@ -84,11 +92,10 @@ export interface TransportationReservation {
   name?: string;
   confirmationNo?: string;
   bookedThrough?: string;
-  price?: number;
-  currency?: string;
   notes?: string;
   status?: 'Confirmed' | 'Planning' | 'Canceled';
   attachments?: Attachment[];
+  expenses?: ExpenseLine[];
   segments: Transportation[];  // always length >= 1
 }
 
@@ -102,11 +109,10 @@ export interface FlatTransportationSegment extends Transportation {
   reservationName?: string;
   confirmationNo?: string;
   bookedThrough?: string;
-  price?: number;
-  currency?: string;
   notes?: string;
   status?: TransportationReservation['status'];
   attachments?: Attachment[];
+  expenses?: ExpenseLine[];
 }
 
 export function flattenReservations(reservations: TransportationReservation[]): FlatTransportationSegment[] {
@@ -120,11 +126,10 @@ export function flattenReservations(reservations: TransportationReservation[]): 
       reservationName: r.name,
       confirmationNo: r.confirmationNo,
       bookedThrough: r.bookedThrough,
-      price: r.price,
-      currency: r.currency,
       notes: r.notes,
       status: r.status,
       attachments: r.attachments,
+      expenses: r.expenses,
     }))
   );
 }
@@ -140,11 +145,10 @@ export interface Hotel {
   notes?: string;
   confirmationNo?: string;
   bookedThrough?: string;
-  price?: number;
-  currency?: string;
   lat?: number;
   lng?: number;
   attachments?: Attachment[];
+  expenses?: ExpenseLine[];
   status?: 'Confirmed' | 'Planning' | 'Canceled';
 }
 

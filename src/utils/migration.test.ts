@@ -164,7 +164,7 @@ describe('migrateTrips', () => {
         plans: [{ id: 'plan-1', days: {}, transports: [alreadyMigrated] }],
       };
       const [migrated] = migrateTrips([trip as any]);
-      expect(migrated.plans[0].transports[0]).toStrictEqual(alreadyMigrated);
+      expect(migrated.plans[0].transports[0]).toStrictEqual({ ...alreadyMigrated, expenses: [] });
     });
 
     it('defaults missing type to "other" and generates an id when absent', () => {
@@ -226,6 +226,88 @@ describe('migrateTrips', () => {
       expect(r.segments[0].departureLocationName).toBe('SFO');
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    });
+  });
+
+  describe('v3 → v4: initialize expenses array', () => {
+    it('initializes expenses to [] on hotels and transports if missing', () => {
+      const trip = {
+        id: 't1',
+        schemaVersion: 3,
+        plans: [{
+          id: 'plan-1',
+          days: {},
+          hotels: [{ id: 'hotel-1', name: 'My Hotel' }],
+          transports: [{ id: 'tr-1', name: 'My Train', segments: [] }],
+        }],
+      };
+      const [migrated] = migrateTrips([trip as any]);
+      expect(migrated.plans[0].hotels[0].expenses).toEqual([]);
+      expect(migrated.plans[0].transports[0].expenses).toEqual([]);
+      expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    });
+
+    it('does not overwrite existing expenses on hotels and transports', () => {
+      const existingExpenses = [{ id: 'exp-1', description: 'test', price: 10, currency: 'USD', paid: true }];
+      const trip = {
+        id: 't1',
+        schemaVersion: 3,
+        plans: [{
+          id: 'plan-1',
+          days: {},
+          hotels: [{ id: 'hotel-1', name: 'My Hotel', expenses: existingExpenses }],
+          transports: [{ id: 'tr-1', name: 'My Train', segments: [], expenses: existingExpenses }],
+        }],
+      };
+      const [migrated] = migrateTrips([trip as any]);
+      expect(migrated.plans[0].hotels[0].expenses).toEqual(existingExpenses);
+      expect(migrated.plans[0].transports[0].expenses).toEqual(existingExpenses);
+    });
+  });
+
+  describe('v4 → v5: migrate price/currency to expenses', () => {
+    it('converts hotel and transport price/currency into expenses and deletes the original fields', () => {
+      const trip = {
+        id: 't1',
+        schemaVersion: 4,
+        plans: [{
+          id: 'plan-1',
+          days: {},
+          hotels: [
+            { id: 'h-1', name: 'Hotel 1', price: 150, currency: 'EUR', expenses: [] },
+            { id: 'h-2', name: 'Hotel 2', expenses: [] }
+          ],
+          transports: [
+            { id: 'tr-1', name: 'Train 1', price: 45, currency: 'USD', expenses: [], segments: [] },
+            { id: 'tr-2', name: 'Train 2', expenses: [], segments: [] }
+          ]
+        }]
+      };
+      const [migrated] = migrateTrips([trip as any]);
+
+      const h1 = migrated.plans[0].hotels[0];
+      const h2 = migrated.plans[0].hotels[1];
+      const t1 = migrated.plans[0].transports[0];
+      const t2 = migrated.plans[0].transports[1];
+
+      expect((h1 as any).price).toBeUndefined();
+      expect((h1 as any).currency).toBeUndefined();
+      expect((t1 as any).price).toBeUndefined();
+      expect((t1 as any).currency).toBeUndefined();
+
+      expect(h1.expenses!.length).toBe(1);
+      expect(h1.expenses![0].description).toBe('Base Price');
+      expect(h1.expenses![0].price).toBe(150);
+      expect(h1.expenses![0].currency).toBe('EUR');
+
+      expect(h2.expenses!.length).toBe(0);
+
+      expect(t1.expenses!.length).toBe(1);
+      expect(t1.expenses![0].description).toBe('Base Price');
+      expect(t1.expenses![0].price).toBe(45);
+      expect(t1.expenses![0].currency).toBe('USD');
+
+      expect(t2.expenses!.length).toBe(0);
     });
   });
 

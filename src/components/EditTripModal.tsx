@@ -72,24 +72,30 @@ export default function EditTripModal({ isOpen, onClose, trip, onSave }: EditTri
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="edit-trip-start">Start Date</label>
-              <input 
-                type="date" 
-                id="edit-trip-start"
-                value={startDate} 
-                onChange={e => handleStartDateChange(e.target.value)} 
-                required 
-              />
+              <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                <input 
+                  type="date" 
+                  id="edit-trip-start"
+                  value={startDate} 
+                  onChange={e => handleStartDateChange(e.target.value)} 
+                  required 
+                  title=""
+                />
+              </div>
             </div>
 
             <div className="form-group">
               <label htmlFor="edit-trip-end">End Date</label>
-              <input 
-                type="date" 
-                id="edit-trip-end"
-                value={endDate} 
-                onChange={e => setEndDate(e.target.value)} 
-                required 
-              />
+              <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom">
+                <input 
+                  type="date" 
+                  id="edit-trip-end"
+                  value={endDate} 
+                  onChange={e => setEndDate(e.target.value)} 
+                  required 
+                  title=""
+                />
+              </div>
             </div>
           </div>
 
