@@ -53,6 +53,53 @@ describe('TripDashboard Component', () => {
     expect(screen.getByText('10 days')).toBeInTheDocument();
   });
 
+  it('sorts the trips by start date descending by default', () => {
+    const testTrips: Trip[] = [
+      {
+        id: 'trip-old',
+        name: 'Older Trip',
+        startDate: '2026-05-01',
+        endDate: '2026-05-10',
+        locations: [],
+        plans: [],
+        placeGroups: []
+      },
+      {
+        id: 'trip-newest',
+        name: 'Newest Trip',
+        startDate: '2026-09-01',
+        endDate: '2026-09-10',
+        locations: [],
+        plans: [],
+        placeGroups: []
+      },
+      {
+        id: 'trip-middle',
+        name: 'Middle Trip',
+        startDate: '2026-07-01',
+        endDate: '2026-07-10',
+        locations: [],
+        plans: [],
+        placeGroups: []
+      }
+    ];
+
+    render(
+      <TripDashboard
+        trips={testTrips}
+        onCreateTrip={vi.fn()}
+        onDeleteTrip={vi.fn()}
+        onSelectTrip={vi.fn()}
+      />
+    );
+
+    const tripNames = screen.getAllByRole('heading', { level: 3 })
+      .map(heading => heading.querySelector('.trip-card-name-text')?.textContent)
+      .filter(Boolean);
+
+    expect(tripNames).toEqual(['Newest Trip', 'Middle Trip', 'Older Trip']);
+  });
+
   it('calls onSelectTrip when a trip card is clicked', () => {
     const handleCreate = vi.fn();
     const handleDelete = vi.fn();

@@ -30,6 +30,8 @@ export default function TripDashboard({
   onImportSharedTrip,
   onOpenGooglePicker
 }: TripDashboardProps) {
+  const sortedTrips = [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
+
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -193,7 +195,7 @@ export default function TripDashboard({
         </div>
       </div>
 
-      {trips.length === 0 ? (
+      {sortedTrips.length === 0 ? (
         <div className="glass-panel dashboard-empty-state">
           <Map size={48} className="text-muted" />
           <div>
@@ -208,7 +210,7 @@ export default function TripDashboard({
         </div>
       ) : (
         <div className="trips-grid">
-          {trips.map((trip, idx) => (
+          {sortedTrips.map((trip, idx) => (
             <div
               key={trip.id}
               className="trip-card glass-panel"
