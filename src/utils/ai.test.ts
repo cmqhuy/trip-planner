@@ -85,4 +85,25 @@ describe('ai helper functions', () => {
       expect(day1Index).toBeLessThan(day2Index);
     });
   });
+
+  describe('file extraction prompts', () => {
+    it('includes cost and expense instructions in hotel prompt', () => {
+      const prompt = GeminiService.buildHotelDetailsFromFilesPrompt();
+      expect(prompt).toContain('cost and expense');
+      expect(prompt).toContain('description');
+      expect(prompt).toContain('price');
+      expect(prompt).toContain('currency');
+      expect(prompt).toContain('paid');
+    });
+
+    it('includes cost and expense instructions in transit prompt', () => {
+      const prompt = GeminiService.buildTransitDetailsFromFilesPrompt();
+      expect(prompt).toContain('cost and expense');
+      expect(prompt).toContain('baggage fees');
+      expect(prompt).toContain('description');
+      expect(prompt).toContain('price');
+      expect(prompt).toContain('currency');
+      expect(prompt).toContain('paid');
+    });
+  });
 });

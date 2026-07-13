@@ -270,6 +270,33 @@ export default function HotelModal({
     onClose();
   };
 
+  const applyAiResult = async (result: any) => {
+    if (result.name) setName(result.name);
+    if (result.address) setAddress(result.address);
+    if (result.checkInDate) setCheckInDate(result.checkInDate);
+    if (result.checkInTime) setCheckInTime(result.checkInTime);
+    if (result.checkOutDate) setCheckOutDate(result.checkOutDate);
+    if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
+    if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
+    if (result.bookedThrough) setBookedThrough(result.bookedThrough);
+    const parsed = GeminiService.parseExtractedExpenses(result, 'expense-autofill');
+    if (parsed.length > 0) {
+      setExpenses(prev => {
+        const filtered = parsed.filter(ne => !prev.some(pe => pe.description === ne.description && pe.price === ne.price));
+        return [...prev, ...filtered];
+      });
+    }
+    if (result.notes) setNotes(result.notes);
+    const fillAddress = result.address || address;
+    if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
+      const coords = await geocodeAddress(fillAddress);
+      if (coords) { setLat(coords.lat.toFixed(6)); setLng(coords.lng.toFixed(6)); }
+    } else {
+      if (result.lat != null) setLat(String(result.lat));
+      if (result.lng != null) setLng(String(result.lng));
+    }
+  };
+
   const handleAiFill = async () => {
     if (!googleToken || attachedFiles.length === 0) return;
     if (!GeminiService.isAiEnabled() || GeminiService.isManualMode()) return;
@@ -280,41 +307,7 @@ export default function HotelModal({
         attachedFiles.map(f => fetchFileContentFromDrive(googleToken!, f.fileId))
       );
       const result = await GeminiService.generateHotelDetailsFromFilesWithRotation(fileContents);
-      if (result.name) setName(result.name);
-      if (result.address) setAddress(result.address);
-      if (result.checkInDate) setCheckInDate(result.checkInDate);
-      if (result.checkInTime) setCheckInTime(result.checkInTime);
-      if (result.checkOutDate) setCheckOutDate(result.checkOutDate);
-      if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
-      if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
-      if (result.bookedThrough) setBookedThrough(result.bookedThrough);
-      if (result.price != null) {
-        const numericPrice = typeof result.price === 'string' ? parseFloat(result.price) : result.price;
-        if (!isNaN(numericPrice)) {
-          setExpenses(prev => {
-            if (prev.some(e => e.description === 'Base Price')) return prev;
-            return [
-              ...prev,
-              {
-                id: `expense-autofill-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                description: 'Base Price',
-                price: numericPrice,
-                currency: result.currency || 'USD',
-                paid: false
-              }
-            ];
-          });
-        }
-      }
-      if (result.notes) setNotes(result.notes);
-      const fillAddress = result.address || address;
-      if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
-        const coords = await geocodeAddress(fillAddress);
-        if (coords) { setLat(coords.lat.toFixed(6)); setLng(coords.lng.toFixed(6)); }
-      } else {
-        if (result.lat != null) setLat(String(result.lat));
-        if (result.lng != null) setLng(String(result.lng));
-      }
+      await applyAiResult(result);
     } catch (err: any) {
       setAiError(err.message || 'AI fill failed.');
     } finally {
@@ -361,42 +354,7 @@ export default function HotelModal({
 
       // 3. Extract details using AI
       const result = await GeminiService.generateHotelDetailsFromFilesWithRotation([fileData]);
-      if (result.name) setName(result.name);
-      if (result.address) setAddress(result.address);
-      if (result.checkInDate) setCheckInDate(result.checkInDate);
-      if (result.checkInTime) setCheckInTime(result.checkInTime);
-      if (result.checkOutDate) setCheckOutDate(result.checkOutDate);
-      if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
-      if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
-      if (result.bookedThrough) setBookedThrough(result.bookedThrough);
-      if (result.price != null) {
-        const numericPrice = typeof result.price === 'string' ? parseFloat(result.price) : result.price;
-        if (!isNaN(numericPrice)) {
-          setExpenses(prev => {
-            if (prev.some(e => e.description === 'Base Price')) return prev;
-            return [
-              ...prev,
-              {
-                id: `expense-autofill-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                description: 'Base Price',
-                price: numericPrice,
-                currency: result.currency || 'USD',
-                paid: false
-              }
-            ];
-          });
-        }
-      }
-      if (result.notes) setNotes(result.notes);
-      
-      const fillAddress = result.address || address;
-      if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
-        const coords = await geocodeAddress(fillAddress);
-        if (coords) { setLat(coords.lat.toFixed(6)); setLng(coords.lng.toFixed(6)); }
-      } else {
-        if (result.lat != null) setLat(String(result.lat));
-        if (result.lng != null) setLng(String(result.lng));
-      }
+      await applyAiResult(result);
     } catch (err: any) {
       setAiError(err.message || 'AI autofill failed.');
     } finally {

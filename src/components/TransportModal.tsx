@@ -563,23 +563,12 @@ export default function TransportModal({
     if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) setType(result.type);
     if (result.confirmationNo !== undefined) setConfirmationNo(result.confirmationNo ?? '');
     if (result.bookedThrough !== undefined) setBookedThrough(result.bookedThrough ?? '');
-    if (result.price != null) {
-      const numericPrice = typeof result.price === 'string' ? parseFloat(result.price) : result.price;
-      if (!isNaN(numericPrice)) {
-        setExpenses(prev => {
-          if (prev.some(e => e.description === 'Base Price')) return prev;
-          return [
-            ...prev,
-            {
-              id: `expense-autofill-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              description: 'Base Price',
-              price: numericPrice,
-              currency: result.currency || 'USD',
-              paid: false
-            }
-          ];
-        });
-      }
+    const parsed = GeminiService.parseExtractedExpenses(result, 'expense-autofill');
+    if (parsed.length > 0) {
+      setExpenses(prev => {
+        const filtered = parsed.filter(ne => !prev.some(pe => pe.description === ne.description && pe.price === ne.price));
+        return [...prev, ...filtered];
+      });
     }
     if (result.notes !== undefined) setNotes(result.notes ?? '');
     if (result.status && ['Confirmed', 'Planning', 'Canceled'].includes(result.status)) setStatus(result.status);

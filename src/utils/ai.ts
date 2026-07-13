@@ -1,4 +1,6 @@
 
+import type { ExpenseLine } from '../types';
+
 export const DEFAULT_AI_ICONS = [
   'Sparkles', 'Sparkle', 'Wand2', 'Brain', 'Bot',
   'Calendar', 'Ticket', 'Compass', 'AlertCircle', 'HelpCircle',
@@ -1348,7 +1350,13 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   // ── File-based reservation auto-fill ─────────────────────────────────────
 
   static buildHotelDetailsFromFilesPrompt(): string {
-    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a hotel reservation or booking confirmation. Extract the hotel details from these files and return them as JSON. For fields other than address, lat, and lng, return only the fields you can confidently identify from the files (leave uncertain fields as empty strings; do not guess or invent information not clearly visible). For address, lat, and lng: if they are not explicitly mentioned or clear in the files, you must search your knowledge base or infer the hotel's correct street address, latitude, and longitude based on the hotel name and city/region, and fill them in.`;
+    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a hotel reservation or booking confirmation. Extract the hotel details from these files and return them as JSON. For fields other than address, lat, and lng, return only the fields you can confidently identify from the files (leave uncertain fields as empty strings; do not guess or invent information not clearly visible). For address, lat, and lng: if they are not explicitly mentioned or clear in the files, you must search your knowledge base or infer the hotel's correct street address, latitude, and longitude based on the hotel name and city/region, and fill them in.
+
+Additionally, extract all cost and expense line items associated with this reservation (e.g., room rate, taxes, resort fees, cleaning fees, parking fees, or total paid/due amount). For each expense item, extract:
+- description: A brief description of what the charge is for
+- price: The numeric price/amount of the expense
+- currency: The currency code (e.g., "USD", "EUR", "JPY")
+- paid: A boolean indicating whether this specific line item has already been paid (infer from payment confirmations, "paid" status, or deposit/transaction details in the files).`;
   }
 
   static buildTransitDetailsFromFilesPrompt(): string {
@@ -1362,7 +1370,12 @@ IMPORTANT INSTRUCTIONS:
 3. FORMATS:
    - Departure and arrival times must use HH:MM (24-hour) format.
    - Dates must use YYYY-MM-DD format.
-4. NAME FIELD: For the "name" field at the top-level, use a route-based description derived from the departure and arrival locations of the trip (e.g. "Flight to Tokyo", "SFO → CDG", "Train to Paris") — do NOT use the passenger name printed on the ticket.`;
+4. NAME FIELD: For the "name" field at the top-level, use a route-based description derived from the departure and arrival locations of the trip (e.g. "Flight to Tokyo", "SFO → CDG", "Train to Paris") — do NOT use the passenger name printed on the ticket.
+5. EXPENSES: Extract all cost and expense line items associated with this transit booking (e.g., ticket fare, taxes, baggage fees, seat selection fees, or total paid/due amount). For each expense item, extract:
+   - description: A brief description of what the charge is for (e.g., "Airfare", "Baggage Fee")
+   - price: The numeric price/amount of the expense
+   - currency: The currency code (e.g., "USD", "EUR", "JPY")
+   - paid: A boolean indicating whether this specific line item has already been paid (infer from payment confirmations, "paid" status, or transaction details in the files).`;
   }
 
   static async generateHotelDetailsFromFiles(
@@ -1373,6 +1386,12 @@ IMPORTANT INSTRUCTIONS:
     name?: string; address?: string; checkInDate?: string; checkInTime?: string;
     checkOutDate?: string; checkOutTime?: string; confirmationNo?: string; notes?: string;
     bookedThrough?: string; price?: number; currency?: string; lat?: number; lng?: number;
+    expenses?: {
+      description: string;
+      price: number;
+      currency: string;
+      paid: boolean;
+    }[];
   }> {
     const totalBase64Size = fileContents.reduce((sum, f) => sum + f.base64.length, 0);
     if (totalBase64Size > 10 * 1024 * 1024) {
@@ -1409,6 +1428,19 @@ IMPORTANT INSTRUCTIONS:
                 currency: { type: 'STRING' },
                 lat: { type: 'NUMBER' },
                 lng: { type: 'NUMBER' },
+                expenses: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      description: { type: 'STRING' },
+                      price: { type: 'NUMBER' },
+                      currency: { type: 'STRING' },
+                      paid: { type: 'BOOLEAN' }
+                    },
+                    required: ['description', 'price', 'currency', 'paid']
+                  }
+                }
               },
             }
           }
@@ -1433,6 +1465,12 @@ IMPORTANT INSTRUCTIONS:
     name?: string; address?: string; checkInDate?: string; checkInTime?: string;
     checkOutDate?: string; checkOutTime?: string; confirmationNo?: string; notes?: string;
     bookedThrough?: string; price?: number; currency?: string; lat?: number; lng?: number;
+    expenses?: {
+      description: string;
+      price: number;
+      currency: string;
+      paid: boolean;
+    }[];
   }> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
@@ -1460,6 +1498,12 @@ IMPORTANT INSTRUCTIONS:
     name?: string; bookedThrough?: string; price?: number; currency?: string;
     departureAddress?: string; departureLat?: number; departureLng?: number;
     arrivalAddress?: string; arrivalLat?: number; arrivalLng?: number;
+    expenses?: {
+      description: string;
+      price: number;
+      currency: string;
+      paid: boolean;
+    }[];
     segments?: {
       carrier?: string;
       transitCode?: string;
@@ -1524,6 +1568,19 @@ IMPORTANT INSTRUCTIONS:
                 arrivalAddress: { type: 'STRING' },
                 arrivalLat: { type: 'NUMBER' },
                 arrivalLng: { type: 'NUMBER' },
+                expenses: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      description: { type: 'STRING' },
+                      price: { type: 'NUMBER' },
+                      currency: { type: 'STRING' },
+                      paid: { type: 'BOOLEAN' }
+                    },
+                    required: ['description', 'price', 'currency', 'paid']
+                  }
+                },
                 segments: {
                   type: 'ARRAY',
                   items: {
@@ -1576,6 +1633,12 @@ IMPORTANT INSTRUCTIONS:
     name?: string; bookedThrough?: string; price?: number; currency?: string;
     departureAddress?: string; departureLat?: number; departureLng?: number;
     arrivalAddress?: string; arrivalLat?: number; arrivalLng?: number;
+    expenses?: {
+      description: string;
+      price: number;
+      currency: string;
+      paid: boolean;
+    }[];
     segments?: {
       carrier?: string;
       transitCode?: string;
@@ -1607,6 +1670,36 @@ IMPORTANT INSTRUCTIONS:
       }
     }
     throw lastError || new Error('All configured API keys failed to execute.');
+  }
+
+  static parseExtractedExpenses(
+    result: { expenses?: any[]; price?: number | string; currency?: string },
+    idPrefix = 'expense-extracted'
+  ): ExpenseLine[] {
+    if (result.expenses && Array.isArray(result.expenses) && result.expenses.length > 0) {
+      return result.expenses.map((exp: any) => ({
+        id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        description: exp.description || 'Expense Item',
+        price: typeof exp.price === 'string' ? parseFloat(exp.price) : (Number(exp.price) || 0),
+        currency: exp.currency || result.currency || 'USD',
+        paid: typeof exp.paid === 'boolean' ? exp.paid : false
+      }));
+    }
+    if (result.price != null) {
+      const numericPrice = typeof result.price === 'string' ? parseFloat(result.price) : result.price;
+      if (!isNaN(numericPrice)) {
+        return [
+          {
+            id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            description: 'Base Price',
+            price: numericPrice,
+            currency: result.currency || 'USD',
+            paid: false
+          }
+        ];
+      }
+    }
+    return [];
   }
 }
 

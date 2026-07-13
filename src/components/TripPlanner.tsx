@@ -2020,13 +2020,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           checkOutTime: result.checkOutTime || '11:00',
           confirmationNo: result.confirmationNo,
           bookedThrough: result.bookedThrough,
-          expenses: result.price ? [{
-            id: `expense-import-${Date.now()}`,
-            description: 'Base Price',
-            price: typeof result.price === 'string' ? parseFloat(result.price) : result.price,
-            currency: result.currency || 'USD',
-            paid: false
-          }] : [],
+          expenses: GeminiService.parseExtractedExpenses(result, 'expense-import'),
           lat: finalLat,
           lng: finalLng,
           notes: result.notes,
@@ -2165,13 +2159,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           type: (result.type as any) || 'flight',
           confirmationNo: result.confirmationNo,
           bookedThrough: result.bookedThrough,
-          expenses: result.price ? [{
-            id: `expense-import-${Date.now()}`,
-            description: 'Base Price',
-            price: typeof result.price === 'string' ? parseFloat(result.price) : result.price,
-            currency: result.currency || 'USD',
-            paid: false
-          }] : [],
+          expenses: GeminiService.parseExtractedExpenses(result, 'expense-import'),
           notes: result.notes,
           status: 'Planning',
           attachments: attachment ? [attachment] : [],
