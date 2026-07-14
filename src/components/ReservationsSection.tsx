@@ -165,8 +165,7 @@ export default function ReservationsSection({
   };
 
   const getDailyHotelWarnings = (): { dateStr: string; message: string }[] => {
-    const warnings: { dateStr: string; message: string }[] = [];
-    for (const d of daysList) {
+    const dailyStatuses = daysList.map(d => {
       const isNoHotel = activePlan.days[d]?.noHotel;
       const hotelsForDay = activePlan.hotels.filter(
         h => h.status !== 'Canceled' && h.checkInDate <= d && d < h.checkOutDate
@@ -175,30 +174,66 @@ export default function ReservationsSection({
       const pendingHotels = hotelsForDay.filter(h => !h.status || h.status === 'Planning');
 
       if (confirmedHotels.length === 0) {
-        if (isNoHotel) continue;
+        if (isNoHotel) {
+          return { dateStr: d, type: 'none' as const };
+        }
         if (pendingHotels.length > 0) {
-          warnings.push({
-            dateStr: d,
-            message: `No confirmed hotels booked for ${formatDisplayDate(d)}. Please mark the pending hotel to confirmed.`
-          });
-        } else {
-          const locId = activePlan.days[d]?.locationId;
-          if (locId) {
-            warnings.push({
-              dateStr: d,
-              message: `No hotels booked for ${formatDisplayDate(d)}.`
-            });
-          }
+          return { dateStr: d, type: 'pending-no-confirmed' as const };
+        }
+        const locId = activePlan.days[d]?.locationId;
+        if (locId) {
+          return { dateStr: d, type: 'no-hotel' as const };
         }
       } else {
         if (pendingHotels.length > 0) {
+          return { dateStr: d, type: 'pending-with-confirmed' as const };
+        }
+      }
+      return { dateStr: d, type: 'none' as const };
+    });
+
+    const warnings: { dateStr: string; message: string }[] = [];
+    let currentNoHotelRun: string[] = [];
+
+    const flushNoHotelRun = () => {
+      if (currentNoHotelRun.length === 0) return;
+      if (currentNoHotelRun.length === 1) {
+        const d = currentNoHotelRun[0];
+        warnings.push({
+          dateStr: d,
+          message: `No hotels booked for ${formatDisplayDate(d)}.`
+        });
+      } else {
+        const startDay = currentNoHotelRun[0];
+        const endDay = currentNoHotelRun[currentNoHotelRun.length - 1];
+        warnings.push({
+          dateStr: startDay,
+          message: `No hotels booked for ${formatDisplayDate(startDay)} - ${formatDisplayDate(endDay)}.`
+        });
+      }
+      currentNoHotelRun = [];
+    };
+
+    for (const status of dailyStatuses) {
+      if (status.type === 'no-hotel') {
+        currentNoHotelRun.push(status.dateStr);
+      } else {
+        flushNoHotelRun();
+        if (status.type === 'pending-no-confirmed') {
           warnings.push({
-            dateStr: d,
-            message: `There are pending hotels for ${formatDisplayDate(d)}. Please confirm or cancel them.`
+            dateStr: status.dateStr,
+            message: `No confirmed hotels booked for ${formatDisplayDate(status.dateStr)}. Please mark the pending hotel to confirmed.`
+          });
+        } else if (status.type === 'pending-with-confirmed') {
+          warnings.push({
+            dateStr: status.dateStr,
+            message: `There are pending hotels for ${formatDisplayDate(status.dateStr)}. Please confirm or cancel them.`
           });
         }
       }
     }
+    flushNoHotelRun();
+
     return warnings;
   };
 
