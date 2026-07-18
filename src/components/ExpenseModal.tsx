@@ -103,7 +103,7 @@ export default function ExpenseModal({
       <div className="modal-content glass-panel" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
-            {isLinked ? 'Linked Reservation Expense' : (expense && expense.id) ? 'Edit Expense Details' : 'Add Expense Details'}
+            {isLinked ? 'Linked Expense' : (expense && expense.id) ? 'Edit Expense Details' : 'Add Expense Details'}
           </h3>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
