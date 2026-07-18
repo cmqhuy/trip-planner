@@ -423,7 +423,7 @@ export default function ReservationsSection({
                     <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
                   </div>
 
-                  {/* Expandable section: address and confirmation only */}
+                  {/* Expandable section: address, confirmation and notes */}
                   <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                     <div>
                       <div className="reservation-card-expanded-content">
@@ -449,51 +449,51 @@ export default function ReservationsSection({
                             {h.status || 'Planning'}
                           </span>
                         </div>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Notes — always visible outside expandable */}
-                  <div className="reservation-card-notes-wrap">
-                    <div className="notes-box">
-                      <label className="notes-label">
-                        <FileText size={11} /> Notes
-                        {trip.canEdit !== false && editingHotelNoteId !== h.id && (
-                          <button
-                            className="mini-icon-btn notes-edit-btn"
-                            onClick={e => {
-                              e.stopPropagation();
-                              setEditingHotelNoteId(h.id);
-                              setEditingTransitNoteId(null);
-                              setEditingHotelNotesText(h.notes ?? '');
-                            }}
-                            data-tooltip="Edit notes"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                        )}
-                      </label>
-                      {editingHotelNoteId === h.id ? (
-                        <div className="notes-edit-wrapper">
-                           <textarea
-                             className="notes-textarea"
-                             rows={3}
-                             value={editingHotelNotesText}
-                             onChange={e => setEditingHotelNotesText(e.target.value)}
-                             placeholder="Add notes..."
-                           />
-                           <div className="notes-actions">
-                             <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
-                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingHotelNotesText); setEditingHotelNoteId(null); }}>
-                               <Check size={12} /> Save Notes
-                             </button>
-                           </div>
+                        {/* Notes inside expanded section */}
+                        <div className="reservation-card-notes-wrap">
+                          <div className="notes-box">
+                            <label className="notes-label">
+                              <FileText size={11} /> Notes
+                              {trip.canEdit !== false && editingHotelNoteId !== h.id && (
+                                <button
+                                  className="mini-icon-btn notes-edit-btn"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setEditingHotelNoteId(h.id);
+                                    setEditingTransitNoteId(null);
+                                    setEditingHotelNotesText(h.notes ?? '');
+                                  }}
+                                  data-tooltip="Edit notes"
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                              )}
+                            </label>
+                            {editingHotelNoteId === h.id ? (
+                              <div className="notes-edit-wrapper">
+                                 <textarea
+                                   className="notes-textarea"
+                                   rows={3}
+                                   value={editingHotelNotesText}
+                                   onChange={e => setEditingHotelNotesText(e.target.value)}
+                                   placeholder="Add notes..."
+                                 />
+                                 <div className="notes-actions">
+                                   <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
+                                   <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingHotelNotesText); setEditingHotelNoteId(null); }}>
+                                     <Check size={12} /> Save Notes
+                                   </button>
+                                 </div>
+                              </div>
+                            ) : (
+                              <span className={`notes-text ${h.notes ? 'has-content' : 'no-content'}`}>
+                                {h.notes || 'No notes added yet.'}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      ) : (
-                        <span className={`notes-text ${h.notes ? 'has-content' : 'no-content'}`}>
-                          {h.notes || 'No notes added yet.'}
-                        </span>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -677,7 +677,7 @@ export default function ReservationsSection({
                     <p className="place-desc-text"><Calendar size={11} /> Arrives: {formatCardDateTime(t.arrivalDate, t.arrivalTime, t.arrivalTimezone)}</p>
                   </div>
 
-                  {/* Expandable section: confirmation + labeled addresses */}
+                  {/* Expandable section: confirmation, addresses and notes */}
                   <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                     <div>
                       <div className="reservation-card-expanded-content">
@@ -714,51 +714,51 @@ export default function ReservationsSection({
                           <ArrowDownLeft size={11} />
                           <span className="place-desc-text">Arrival: {t.arrivalAddress || t.arrivalLocationName}</span>
                         </a>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Notes — always visible outside expandable */}
-                  <div className="reservation-card-notes-wrap">
-                    <div className="notes-box">
-                      <label className="notes-label">
-                        <FileText size={11} /> Notes
-                        {trip.canEdit !== false && editingTransitNoteId !== t.reservationId && (
-                          <button
-                            className="mini-icon-btn notes-edit-btn"
-                            onClick={e => {
-                              e.stopPropagation();
-                              setEditingTransitNoteId(t.reservationId);
-                              setEditingHotelNoteId(null);
-                              setEditingTransitNotesText(t.notes ?? '');
-                            }}
-                            data-tooltip="Edit notes"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                        )}
-                      </label>
-                      {editingTransitNoteId === t.reservationId ? (
-                        <div className="notes-edit-wrapper">
-                           <textarea
-                             className="notes-textarea"
-                             rows={3}
-                             value={editingTransitNotesText}
-                             onChange={e => setEditingTransitNotesText(e.target.value)}
-                             placeholder="Add notes..."
-                           />
-                           <div className="notes-actions">
-                             <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                             <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t.reservationId, editingTransitNotesText); setEditingTransitNoteId(null); }}>
-                               <Check size={12} /> Save Notes
-                             </button>
-                           </div>
+                        {/* Notes inside expanded section */}
+                        <div className="reservation-card-notes-wrap">
+                          <div className="notes-box">
+                            <label className="notes-label">
+                              <FileText size={11} /> Notes
+                              {trip.canEdit !== false && editingTransitNoteId !== t.reservationId && (
+                                <button
+                                  className="mini-icon-btn notes-edit-btn"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setEditingTransitNoteId(t.reservationId);
+                                    setEditingHotelNoteId(null);
+                                    setEditingTransitNotesText(t.notes ?? '');
+                                  }}
+                                  data-tooltip="Edit notes"
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                              )}
+                            </label>
+                            {editingTransitNoteId === t.reservationId ? (
+                              <div className="notes-edit-wrapper">
+                                 <textarea
+                                   className="notes-textarea"
+                                   rows={3}
+                                   value={editingTransitNotesText}
+                                   onChange={e => setEditingTransitNotesText(e.target.value)}
+                                   placeholder="Add notes..."
+                                 />
+                                 <div className="notes-actions">
+                                   <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
+                                   <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t.reservationId, editingTransitNotesText); setEditingTransitNoteId(null); }}>
+                                     <Check size={12} /> Save Notes
+                                   </button>
+                                 </div>
+                              </div>
+                            ) : (
+                              <span className={`notes-text ${t.notes ? 'has-content' : 'no-content'}`}>
+                                {t.notes || 'No notes added yet.'}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      ) : (
-                        <span className={`notes-text ${t.notes ? 'has-content' : 'no-content'}`}>
-                          {t.notes || 'No notes added yet.'}
-                        </span>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
