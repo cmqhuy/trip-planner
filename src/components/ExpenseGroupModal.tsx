@@ -87,8 +87,8 @@ export default function ExpenseGroupModal({
 
               <button
                 type="button"
+                className="loc-select-trigger combo-trigger"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="group-icon-btn"
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -103,16 +103,16 @@ export default function ExpenseGroupModal({
                   marginTop: '6px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>{selectedIconObj.emoji}</span>
+                <div className="combo-trigger-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {getExpenseGroupIcon(selectedIconObj.value, 14, '', { color })}
                   <span>{selectedIconObj.label}</span>
                 </div>
-                <ChevronDown size={14} style={{ opacity: 0.7, transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                <ChevronDown size={14} className={`expand-chevron${dropdownOpen ? ' is-open' : ''}`} />
               </button>
 
               {dropdownOpen && (
                 <div
-                  className="group-icon-dropdown"
+                  className="loc-select-dropdown combo-dropdown"
                   style={{
                     position: 'absolute',
                     top: '100%',
@@ -153,7 +153,7 @@ export default function ExpenseGroupModal({
                           borderRadius: '4px'
                         }}
                       >
-                        <span>{option.emoji}</span>
+                        {getExpenseGroupIcon(option.value, 14, '', { color })}
                         <span style={{ flex: 1 }}>{option.label}</span>
                       </button>
                     );

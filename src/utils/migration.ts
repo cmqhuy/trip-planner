@@ -3,7 +3,7 @@ import { DEFAULT_EXPENSE_GROUPS } from './api';
 
 // Bump whenever a new migration step is added.
 // Trips already at this version are returned as-is (cheap no-op).
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 // v0 → v1: build scheduleItems from placeIds + scheduleNotes
 function applyV0toV1(trip: any): any {
@@ -169,6 +169,20 @@ function applyV5toV6(trip: any): any {
   return { ...trip, plans };
 }
 
+// v6 → v7: update default 'transports' group icon to 'plane'
+function applyV6toV7(trip: any): any {
+  const plans = (trip.plans || []).map((plan: any) => {
+    const expenseGroups = (plan.expenseGroups || []).map((g: any) => {
+      if (g.id === 'transports' && (!g.icon || g.icon === 'car')) {
+        return { ...g, icon: 'plane' };
+      }
+      return g;
+    });
+    return { ...plan, expenseGroups };
+  });
+  return { ...trip, plans };
+}
+
 export function migrateTrips(rawTrips: any[]): Trip[] {
   return rawTrips.map((trip: any): Trip => {
     if (trip.schemaVersion === CURRENT_SCHEMA_VERSION) return trip as Trip;
@@ -180,6 +194,7 @@ export function migrateTrips(rawTrips: any[]): Trip[] {
     if ((t.schemaVersion ?? 0) < 4) t = applyV3toV4(t);
     if ((t.schemaVersion ?? 0) < 5) t = applyV4toV5(t);
     if ((t.schemaVersion ?? 0) < 6) t = applyV5toV6(t);
+    if ((t.schemaVersion ?? 0) < 7) t = applyV6toV7(t);
 
     return { ...t, schemaVersion: CURRENT_SCHEMA_VERSION };
   });

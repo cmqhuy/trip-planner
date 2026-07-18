@@ -103,7 +103,7 @@ export default function ExpenseModal({
       <div className="modal-content glass-panel" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
-            {isLinked ? 'Linked Reservation Expense' : expense ? 'Edit Expense' : 'Add Expense'}
+            {isLinked ? 'Linked Reservation Expense' : expense ? 'Edit Expense' : 'Add Expense Details'}
           </h3>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
@@ -257,7 +257,7 @@ export default function ExpenseModal({
             )}
           </div>
 
-          <div className="form-group" style={{ marginTop: '14px' }}>
+          <div className="form-group">
             <label>Notes</label>
             <textarea
               value={notes}
@@ -268,12 +268,10 @@ export default function ExpenseModal({
             />
           </div>
 
-          <div style={{ marginTop: '16px', borderTop: '1px dashed var(--border-glass)', paddingTop: '16px' }}>
-            <ExpensesSection
-              expenses={lineItems}
-              onChange={setLineItems}
-            />
-          </div>
+          <ExpensesSection
+            expenses={lineItems}
+            onChange={setLineItems}
+          />
 
           <div className="modal-actions" style={{ marginTop: '24px' }}>
             {expense && onDelete && (

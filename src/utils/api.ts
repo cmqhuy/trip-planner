@@ -10,7 +10,7 @@ export const DEFAULT_PLACE_GROUPS: PlaceGroup[] = [
 
 export const DEFAULT_EXPENSE_GROUPS: ExpenseGroup[] = [
   { id: 'hotels', name: 'Hotels', icon: 'building', color: '#10b981' },
-  { id: 'transports', name: 'Transits', icon: 'car', color: '#f59e0b' },
+  { id: 'transports', name: 'Transits', icon: 'plane', color: '#f59e0b' },
   { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' },
   { id: 'dining', name: 'Dining', icon: 'utensils', color: '#3b82f6' }
 ];
