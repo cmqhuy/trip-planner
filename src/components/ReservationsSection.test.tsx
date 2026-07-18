@@ -37,7 +37,13 @@ const mockTrip: Trip = {
       days: {
         '2026-07-01': {
           dateStr: '2026-07-01',
-          placeIds: ['place-sensoji']
+          placeIds: ['place-sensoji'],
+          locationId: 'loc-tokyo'
+        },
+        '2026-07-02': {
+          dateStr: '2026-07-02',
+          placeIds: [],
+          locationId: 'loc-tokyo'
         }
       },
       hotels: [
@@ -104,12 +110,22 @@ describe('ReservationsSection Component', () => {
       />
     );
 
+    // Verify header colors
+    const hotelsHeader = screen.getByText(/Hotels \(\d+\)/).closest('.subsection-title') as HTMLElement;
+    const transitsHeader = screen.getByText(/Transits & Flights \(\d+\)/).closest('.subsection-title') as HTMLElement;
+    expect(hotelsHeader.style.color).toBe('rgb(16, 185, 129)');
+    expect(transitsHeader.style.color).toBe('rgb(245, 158, 11)');
+
     // 1. Transit info assertion — new card shows "departure → arrival" heading
     expect(screen.getByText('SFO → HND')).toBeInTheDocument();
     expect(screen.getByText('ANA · NH7')).toBeInTheDocument();
 
     // 2. Hotel accommodation assertion
     expect(screen.getByText('Grand Hyatt')).toBeInTheDocument();
+
+    // Verify location tag is rendered in cards
+    const locationTags = screen.getAllByText('Tokyo');
+    expect(locationTags.length).toBeGreaterThanOrEqual(2);
 
     // 3. Reservation required assertion
     const placeCard = screen.getByText('Senso-ji Temple');

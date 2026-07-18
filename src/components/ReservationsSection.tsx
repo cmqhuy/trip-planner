@@ -9,7 +9,7 @@ import {
 import type { Trip, Plan, Hotel, TransportationReservation, FlatTransportationSegment } from '../types';
 import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
-import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
+import { buildHotelMapsLink, buildTransitMapsLink, getFormattedLocationName, getLocIcon } from '../utils/api';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
 
 interface ReservationsSectionProps {
@@ -40,14 +40,15 @@ const renderStatusIcon = (status?: string) => {
   return <Timer size={10} />;
 };
 
-function TransportTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
+function TransportTypeIcon({ type, size = 14, className, style }: { type: string; size?: number; className?: string; style?: React.CSSProperties }) {
+  const props = { size, className, style };
   switch (type) {
-    case 'flight': return <Plane size={size} />;
-    case 'train': return <Train size={size} />;
-    case 'bus': return <Bus size={size} />;
-    case 'car': return <Car size={size} />;
-    case 'ferry': return <Anchor size={size} />;
-    default: return <Navigation size={size} />;
+    case 'flight': return <Plane {...props} />;
+    case 'train': return <Train {...props} />;
+    case 'bus': return <Bus {...props} />;
+    case 'car': return <Car {...props} />;
+    case 'ferry': return <Anchor {...props} />;
+    default: return <Navigation {...props} />;
   }
 }
 
@@ -138,6 +139,21 @@ export default function ReservationsSection({
 
   const shortDate = (d: string) =>
     new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const hexToRgba = (hex: string, alpha: number) => {
+    if (!hex || !hex.startsWith('#') || hex.length !== 7) return `rgba(99, 102, 241, ${alpha})`;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const getHotelLocation = (h: Hotel) => {
+    const coveredDay = daysList.find(d => h.checkInDate <= d && d < h.checkOutDate);
+    if (!coveredDay) return undefined;
+    const locId = activePlan.days[coveredDay]?.locationId;
+    return locId ? trip.locations.find(l => l.id === locId) : undefined;
+  };
 
   const saveHotelNotes = (hotel: Hotel, text: string) =>
     onEditHotel({ ...hotel, notes: text.trim() || undefined });
@@ -290,8 +306,8 @@ export default function ReservationsSection({
         {/* 1. Hotels */}
         <div className="left-panel-subsection">
           <div className="subsection-header">
-            <h4 className="subsection-title">
-              <Building size={12} /> Hotels ({activePlan.hotels.length})
+            <h4 className="subsection-title" style={{ color: '#10b981' }}>
+              <Building size={12} style={{ color: '#10b981' }} /> Hotels ({activePlan.hotels.length})
             </h4>
             <div className="subsection-actions">
               {trip.canEdit !== false && (
@@ -358,8 +374,38 @@ export default function ReservationsSection({
                   >
                     <div className="reservation-card-first-row">
                       <div className="reservation-card-icon-row">
-                        <Building size={13} className="reservation-card-type-icon" />
-                        {locationName && <span className="reservation-card-location">{locationName}</span>}
+                        <Building size={13} className="reservation-card-type-icon" style={{ color: '#10b981' }} />
+                        {(() => {
+                          const location = getHotelLocation(h);
+                          if (!location) return null;
+                          const tagColor = location.color || 'var(--accent-primary)';
+                          const hexColor = location.color || '#6366f1';
+                          const tagBg = hexToRgba(hexColor, 0.08);
+                          const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
+                          return (
+                            <span
+                              className="catalog-day-tag"
+                              style={{
+                                fontSize: '9px',
+                                padding: '1px 5px',
+                                color: tagColor,
+                                background: tagBg,
+                                border: tagBorder,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                maxWidth: '120px',
+                                minWidth: 0,
+                                fontStyle: 'normal'
+                              }}
+                            >
+                              <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {getFormattedLocationName(location, trip.locations)}
+                              </span>
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
                         <div className="catalog-allocated-days">
@@ -509,8 +555,8 @@ export default function ReservationsSection({
         {/* 2. Transits & Flights */}
         <div className="left-panel-subsection">
           <div className="subsection-header">
-            <h4 className="subsection-title">
-              <Plane size={12} /> Transits & Flights ({activePlan.transports.length})
+            <h4 className="subsection-title" style={{ color: '#f59e0b' }}>
+              <Plane size={12} style={{ color: '#f59e0b' }} /> Transits & Flights ({activePlan.transports.length})
             </h4>
             <div className="subsection-actions">
               {trip.canEdit !== false && (
@@ -580,11 +626,55 @@ export default function ReservationsSection({
                   >
                     <div className="reservation-card-first-row">
                       <div className="reservation-card-icon-row">
-                        <TransportTypeIcon type={t.type} size={13} />
+                        <TransportTypeIcon type={t.type} size={13} style={{ color: '#f59e0b' }} />
                         {t.totalSegments > 1 && (
-                          <span className="catalog-day-tag">{t.segmentIndex + 1}/{t.totalSegments}</span>
+                          <span className="catalog-day-tag catalog-day-tag--active">{t.segmentIndex + 1}/{t.totalSegments}</span>
                         )}
-                        {(() => { const loc = getTransitLocationText(t); return loc ? <span className="reservation-card-location">{loc}</span> : null; })()}
+                        {(() => {
+                          const depLoc = t.departureDate ? (activePlan.days[t.departureDate]?.locationId ? trip.locations.find(l => l.id === activePlan.days[t.departureDate].locationId) : undefined) : undefined;
+                          const arrLoc = t.arrivalDate ? (activePlan.days[t.arrivalDate]?.locationId ? trip.locations.find(l => l.id === activePlan.days[t.arrivalDate].locationId) : undefined) : undefined;
+
+                          const renderTag = (loc: typeof trip.locations[0]) => {
+                            const tagColor = loc.color || 'var(--accent-primary)';
+                            const hexColor = loc.color || '#6366f1';
+                            const tagBg = hexToRgba(hexColor, 0.08);
+                            const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
+                            return (
+                              <span
+                                className="catalog-day-tag"
+                                style={{
+                                  fontSize: '9px',
+                                  padding: '1px 5px',
+                                  color: tagColor,
+                                  background: tagBg,
+                                  border: tagBorder,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  maxWidth: '120px',
+                                  minWidth: 0
+                                }}
+                              >
+                                <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(loc)}</span>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {getFormattedLocationName(loc, trip.locations)}
+                                </span>
+                              </span>
+                            );
+                          };
+
+                          if (!depLoc && !arrLoc) return null;
+                          if (!depLoc) return renderTag(arrLoc!);
+                          if (!arrLoc) return renderTag(depLoc);
+                          if (depLoc.id === arrLoc.id) return renderTag(depLoc);
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              {renderTag(depLoc)}
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>→</span>
+                              {renderTag(arrLoc)}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
                         <div className="catalog-allocated-days">
