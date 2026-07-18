@@ -132,11 +132,8 @@ export default function ExpensesPanel({
         if (h) return h.checkInDate || '';
       } else if (item.linkedReservationType === 'transit') {
         const t = transports.find(x => x.id === item.linkedReservationId);
-        if (t) {
-          if (t.segments && t.segments.length > 0) {
-            return t.segments[0].departureDate || '';
-          }
-          return t.departureDate || '';
+        if (t && t.segments && t.segments.length > 0) {
+          return t.segments[0].departureDate || '';
         }
       }
     }

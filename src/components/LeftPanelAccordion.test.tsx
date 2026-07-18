@@ -111,6 +111,13 @@ describe('LeftPanelAccordion Component', () => {
         onAddHotel={vi.fn()}
         onAddTransit={vi.fn()}
         onImportReservationFile={vi.fn()}
+        onAddExpense={vi.fn()}
+        onEditExpense={vi.fn()}
+        onAddExpenseGroup={vi.fn()}
+        onEditExpenseGroup={vi.fn()}
+        onMoveExpenseGroup={vi.fn()}
+        activeExpenseGroupDropdownId={null}
+        setActiveExpenseGroupDropdownId={vi.fn()}
       />
     );
 
