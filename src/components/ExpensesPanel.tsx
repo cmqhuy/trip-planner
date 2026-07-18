@@ -157,25 +157,6 @@ export default function ExpensesPanel({
     return '';
   };
 
-  const getBriefDetails = (item: ExpenseItem) => {
-    if (item.linkedReservationId) {
-      if (item.linkedReservationType === 'hotel') {
-        const h = hotels.find(x => x.id === item.linkedReservationId);
-        if (h) return `${h.checkInDate} to ${h.checkOutDate}`;
-      } else if (item.linkedReservationType === 'transit') {
-        const t = transports.find(x => x.id === item.linkedReservationId);
-        if (t) {
-          const typeStr = t.type.charAt(0).toUpperCase() + t.type.slice(1);
-          if (t.segments && t.segments.length > 0) {
-            return `${typeStr}: ${t.segments[0].departureDate}`;
-          }
-          return typeStr;
-        }
-      }
-    }
-    return '';
-  };
-
   const getGroupColor = (g: ExpenseGroup) => {
     if (g.color) return g.color;
     if (g.id === 'hotels') return '#10b981';
@@ -392,7 +373,6 @@ export default function ExpensesPanel({
                 <div className="catalog-places-list">
                   {itemsInGroup.length > 0 ? (
                     itemsInGroup.map(item => {
-                      const briefDetails = getBriefDetails(item);
                       const isLinked = !!item.linkedReservationId;
                       const unpaid = (item.lineItems || []).filter(l => !l.paid).length;
 
