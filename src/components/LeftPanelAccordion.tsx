@@ -1,14 +1,15 @@
-import { BookOpen, CheckSquare, Building, Sparkles, AlertTriangle } from 'lucide-react';
+import { BookOpen, CheckSquare, Building, Sparkles, AlertTriangle, Receipt } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, TransportationReservation } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
 import ReservationsSection from './ReservationsSection';
 import TipsSection from './TipsSection';
+import ExpensesPanel from './ExpensesPanel';
 
 interface LeftPanelAccordionProps {
   activeMobileTab: 'catalog' | 'itinerary' | 'map';
-  expandedLeftSection: 'catalog' | 'checklist' | 'reservations' | 'tips';
-  setExpandedLeftSection: (section: 'catalog' | 'checklist' | 'reservations' | 'tips') => void;
+  expandedLeftSection: 'catalog' | 'checklist' | 'reservations' | 'expenses' | 'tips';
+  setExpandedLeftSection: (section: 'catalog' | 'checklist' | 'reservations' | 'expenses' | 'tips') => void;
   trip: Trip;
   catalogLocation: Location | undefined;
   selectedCatalogLocId: string;
@@ -76,6 +77,15 @@ interface LeftPanelAccordionProps {
   onAddHotel: () => void;
   onAddTransit: () => void;
   onImportReservationFile: (type: 'hotel' | 'transit', file: File) => void;
+
+  // Expenses actions passed down
+  onAddExpense: (groupId: string) => void;
+  onEditExpense: (expense: any) => void;
+  onAddExpenseGroup: () => void;
+  onEditExpenseGroup: (group: any) => void;
+  onMoveExpenseGroup: (index: number, direction: 'up' | 'down') => void;
+  activeExpenseGroupDropdownId: string | null;
+  setActiveExpenseGroupDropdownId: (id: string | null) => void;
 }
 
 export default function LeftPanelAccordion({
@@ -149,6 +159,14 @@ export default function LeftPanelAccordion({
   onAddHotel,
   onAddTransit,
   onImportReservationFile,
+
+  onAddExpense,
+  onEditExpense,
+  onAddExpenseGroup,
+  onEditExpenseGroup,
+  onMoveExpenseGroup,
+  activeExpenseGroupDropdownId,
+  setActiveExpenseGroupDropdownId
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
@@ -258,7 +276,7 @@ export default function LeftPanelAccordion({
           onClick={() => setExpandedLeftSection(expandedLeftSection === 'reservations' ? 'catalog' : 'reservations')}
         >
           <span className="flex-align accordion-section-title">
-            <Building size={16} className="text-success" />
+            <Building size={16} className="text-danger" />
             Reservations
           </span>
           {(() => {
@@ -311,7 +329,34 @@ export default function LeftPanelAccordion({
         )}
       </div>
 
-      {/* Accordion Section 4: Tips */}
+      {/* Accordion Section 4: Expenses */}
+      <div className={`accordion-section ${expandedLeftSection === 'expenses' ? 'expanded' : 'collapsed'}`}>
+        <div 
+          className="accordion-header flex-between"
+          onClick={() => setExpandedLeftSection(expandedLeftSection === 'expenses' ? 'catalog' : 'expenses')}
+        >
+          <span className="flex-align accordion-section-title">
+            <Receipt size={16} style={{ color: 'var(--color-success)' }} />
+            Expenses
+          </span>
+        </div>
+        
+        {expandedLeftSection === 'expenses' && (
+          <ExpensesPanel
+            trip={trip}
+            activePlan={activePlan}
+            onAddExpense={onAddExpense}
+            onEditExpense={onEditExpense}
+            onAddExpenseGroup={onAddExpenseGroup}
+            onEditExpenseGroup={onEditExpenseGroup}
+            onMoveExpenseGroup={onMoveExpenseGroup}
+            activeGroupDropdownId={activeExpenseGroupDropdownId}
+            setActiveGroupDropdownId={setActiveExpenseGroupDropdownId}
+          />
+        )}
+      </div>
+
+      {/* Accordion Section 5: Tips */}
       <div className={`accordion-section ${expandedLeftSection === 'tips' ? 'expanded' : 'collapsed'}`}>
         <div 
           className="accordion-header flex-between"

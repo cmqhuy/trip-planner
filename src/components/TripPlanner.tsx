@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, TransportationReservation, FlatTransportationSegment } from '../types';
+import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine } from '../types';
 import { flattenReservations } from '../types';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
@@ -35,7 +35,7 @@ const clearDayFields = (day: PlanDay): PlanDay => {
   return updateDayItems(clearedDay, remainingItems);
 };
 import { Navigation, BookOpen, Clock, Loader2 } from 'lucide-react';
-import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, getLocIcon, getFormattedLocationName } from '../utils/api';
+import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, getLocIcon, getFormattedLocationName } from '../utils/api';
 import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
@@ -63,6 +63,8 @@ import TripAiConfigModal from './TripAiConfigModal';
 import AiGenerateDaysModal from './AiGenerateDaysModal';
 import LeftPanelAccordion from './LeftPanelAccordion';
 import ItineraryPanel from './ItineraryPanel';
+import ExpenseGroupModal from './ExpenseGroupModal';
+import ExpenseModal from './ExpenseModal';
 
 const LOCATION_COLORS = [
   '#6366f1', // Indigo
@@ -467,7 +469,14 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [hideAllocatedPlaces, setHideAllocatedPlaces] = useState(false);
 
   // Accordion state for left panel
-  const [expandedLeftSection, setExpandedLeftSection] = useState<'catalog' | 'checklist' | 'reservations' | 'tips'>('catalog');
+  const [expandedLeftSection, setExpandedLeftSection] = useState<'catalog' | 'checklist' | 'reservations' | 'tips' | 'expenses'>('catalog');
+  
+  // Expense Modal and Group states
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
+  const [showExpenseGroupModal, setShowExpenseGroupModal] = useState(false);
+  const [editingExpenseGroup, setEditingExpenseGroup] = useState<ExpenseGroup | null>(null);
+  const [activeExpenseGroupDropdownId, setActiveExpenseGroupDropdownId] = useState<string | null>(null);
   
   // Left and Right panel collapsed states (desktop only)
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -1149,7 +1158,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       endDate: trip.endDate,
       days: clonedDays,
       hotels: [],
-      transports: []
+      transports: [],
+      expenseGroups: [...DEFAULT_EXPENSE_GROUPS],
+      expenses: []
     };
 
     onUpdateTrip({
@@ -1729,6 +1740,289 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       placeGroups: currentGroups
     });
   }, [trip, onUpdateTrip]);
+
+  // ==========================================
+  // EXPENSES CRUD HANDLERS
+  // ==========================================
+  const handleAddExpense = useCallback((groupId: string) => {
+    setEditingExpense({
+      id: '',
+      title: '',
+      notes: '',
+      date: '',
+      groupId,
+      lineItems: []
+    });
+    setShowExpenseModal(true);
+  }, []);
+
+  const handleEditExpense = useCallback((expense: ExpenseItem) => {
+    setEditingExpense(expense);
+    setShowExpenseModal(true);
+  }, []);
+
+  const handleSaveExpense = useCallback((expenseData: {
+    title: string;
+    notes: string;
+    date?: string;
+    groupId: string;
+    lineItems: ExpenseLine[];
+  }) => {
+    if (!editingExpense) return;
+
+    const isLinked = !!editingExpense.linkedReservationId;
+    const linkedType = editingExpense.linkedReservationType;
+    const linkedId = editingExpense.linkedReservationId;
+
+    if (isLinked) {
+      // Modify linked hotel or transport reservation
+      const updatedPlans = trip.plans.map(p => {
+        if (p.id !== activePlan.id) return p;
+
+        if (linkedType === 'hotel') {
+          const updatedHotels = (p.hotels || []).map(h => {
+            if (h.id !== linkedId) return h;
+            return {
+              ...h,
+              name: expenseData.title,
+              notes: expenseData.notes,
+              expenses: expenseData.lineItems
+            };
+          });
+          return { ...p, hotels: updatedHotels };
+        } else if (linkedType === 'transit') {
+          const updatedTransports = (p.transports || []).map(t => {
+            if (t.id !== linkedId) return t;
+            return {
+              ...t,
+              name: expenseData.title,
+              notes: expenseData.notes,
+              expenses: expenseData.lineItems
+            };
+          });
+          return { ...p, transports: updatedTransports };
+        }
+        return p;
+      });
+
+      onUpdateTrip({
+        ...trip,
+        plans: updatedPlans
+      });
+    } else {
+      // Modify manual expense
+      const updatedPlans = trip.plans.map(p => {
+        if (p.id !== activePlan.id) return p;
+
+        const currentExpenses = p.expenses ? [...p.expenses] : [];
+        if (editingExpense.id) {
+          // Edit existing
+          const idx = currentExpenses.findIndex(e => e.id === editingExpense.id);
+          if (idx !== -1) {
+            currentExpenses[idx] = {
+              ...currentExpenses[idx],
+              title: expenseData.title,
+              notes: expenseData.notes,
+              date: expenseData.date,
+              groupId: expenseData.groupId,
+              lineItems: expenseData.lineItems
+            };
+          }
+        } else {
+          // Create new manual expense
+          currentExpenses.push({
+            id: `expense-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title: expenseData.title,
+            notes: expenseData.notes,
+            date: expenseData.date,
+            groupId: expenseData.groupId,
+            lineItems: expenseData.lineItems
+          });
+        }
+
+        return { ...p, expenses: currentExpenses };
+      });
+
+      onUpdateTrip({
+        ...trip,
+        plans: updatedPlans
+      });
+    }
+
+    setEditingExpense(null);
+    setShowExpenseModal(false);
+  }, [editingExpense, activePlan, trip, onUpdateTrip]);
+
+  const handleDeleteExpense = useCallback(() => {
+    if (!editingExpense) return;
+
+    const isLinked = !!editingExpense.linkedReservationId;
+    const linkedType = editingExpense.linkedReservationType;
+    const linkedId = editingExpense.linkedReservationId;
+
+    const performDelete = () => {
+      if (isLinked) {
+        // Clear expenses on linked reservation
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id !== activePlan.id) return p;
+
+          if (linkedType === 'hotel') {
+            const updatedHotels = (p.hotels || []).map(h => {
+              if (h.id !== linkedId) return h;
+              return { ...h, expenses: [] };
+            });
+            return { ...p, hotels: updatedHotels };
+          } else if (linkedType === 'transit') {
+            const updatedTransports = (p.transports || []).map(t => {
+              if (t.id !== linkedId) return t;
+              return { ...t, expenses: [] };
+            });
+            return { ...p, transports: updatedTransports };
+          }
+          return p;
+        });
+
+        onUpdateTrip({
+          ...trip,
+          plans: updatedPlans
+        });
+      } else {
+        // Delete manual expense
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id !== activePlan.id) return p;
+          const currentExpenses = (p.expenses || []).filter(e => e.id !== editingExpense.id);
+          return { ...p, expenses: currentExpenses };
+        });
+
+        onUpdateTrip({
+          ...trip,
+          plans: updatedPlans
+        });
+      }
+
+      setEditingExpense(null);
+      setShowExpenseModal(false);
+    };
+
+    if (isLinked) {
+      setConfirmModal({
+        title: 'Clear Reservation Expenses',
+        message: `Are you sure you want to clear all expense items for "${editingExpense.title}"? This will keep the reservation but delete its associated expense line items.`,
+        confirmText: 'Clear Expenses',
+        onConfirm: performDelete
+      });
+    } else {
+      setConfirmModal({
+        title: 'Delete Expense',
+        message: `Are you sure you want to delete the expense "${editingExpense.title}"?`,
+        confirmText: 'Delete',
+        onConfirm: performDelete
+      });
+    }
+  }, [editingExpense, activePlan, trip, onUpdateTrip]);
+
+  const handleAddExpenseGroup = useCallback(() => {
+    setEditingExpenseGroup(null);
+    setShowExpenseGroupModal(true);
+  }, []);
+
+  const handleEditExpenseGroup = useCallback((group: ExpenseGroup) => {
+    setEditingExpenseGroup(group);
+    setShowExpenseGroupModal(true);
+  }, []);
+
+  const handleSaveExpenseGroup = useCallback((groupData: { name: string; icon: string; color: string }) => {
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id !== activePlan.id) return p;
+
+      const currentGroups = p.expenseGroups ? [...p.expenseGroups] : [];
+      if (editingExpenseGroup) {
+        // Edit existing
+        const idx = currentGroups.findIndex(g => g.id === editingExpenseGroup.id);
+        if (idx !== -1) {
+          currentGroups[idx] = {
+            ...currentGroups[idx],
+            name: groupData.name,
+            icon: groupData.icon,
+            color: groupData.color
+          };
+        }
+      } else {
+        // Create new group
+        currentGroups.push({
+          id: `expgroup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: groupData.name,
+          icon: groupData.icon,
+          color: groupData.color
+        });
+      }
+
+      return { ...p, expenseGroups: currentGroups };
+    });
+
+    onUpdateTrip({
+      ...trip,
+      plans: updatedPlans
+    });
+
+    setEditingExpenseGroup(null);
+    setShowExpenseGroupModal(false);
+  }, [editingExpenseGroup, activePlan, trip, onUpdateTrip]);
+
+  const handleDeleteExpenseGroup = useCallback(() => {
+    if (!editingExpenseGroup) return;
+
+    setConfirmModal({
+      title: 'Delete Expense Group',
+      message: `Are you sure you want to delete the group "${editingExpenseGroup.name}"? All custom manual expenses in this group will also be permanently deleted.`,
+      confirmText: 'Delete Group',
+      onConfirm: () => {
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id !== activePlan.id) return p;
+
+          const currentGroups = (p.expenseGroups || []).filter(g => g.id !== editingExpenseGroup.id);
+          const currentExpenses = (p.expenses || []).filter(e => e.groupId !== editingExpenseGroup.id);
+
+          return {
+            ...p,
+            expenseGroups: currentGroups,
+            expenses: currentExpenses
+          };
+        });
+
+        onUpdateTrip({
+          ...trip,
+          plans: updatedPlans
+        });
+
+        setEditingExpenseGroup(null);
+        setShowExpenseGroupModal(false);
+      }
+    });
+  }, [editingExpenseGroup, activePlan, trip, onUpdateTrip]);
+
+  const handleMoveExpenseGroup = useCallback((index: number, direction: 'up' | 'down') => {
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id !== activePlan.id) return p;
+
+      const currentGroups = [...(p.expenseGroups || [])];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+      if (targetIndex < 0 || targetIndex >= currentGroups.length) return p;
+
+      // Swap
+      const temp = currentGroups[index];
+      currentGroups[index] = currentGroups[targetIndex];
+      currentGroups[targetIndex] = temp;
+
+      return { ...p, expenseGroups: currentGroups };
+    });
+
+    onUpdateTrip({
+      ...trip,
+      plans: updatedPlans
+    });
+  }, [activePlan, trip, onUpdateTrip]);
 
   const handleSaveEditTrip = (name: string, startDate: string, endDate: string) => {
     if (!name.trim() || !startDate || !endDate) return;
@@ -2643,6 +2937,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onAddHotel={() => { setEditingHotel(null); setShowHotelModal(true); }}
         onAddTransit={() => { setEditingTransport(null); setShowTransportModal(true); }}
         onImportReservationFile={handleImportReservationFile}
+        onAddExpense={handleAddExpense}
+        onEditExpense={handleEditExpense}
+        onAddExpenseGroup={handleAddExpenseGroup}
+        onEditExpenseGroup={handleEditExpenseGroup}
+        onMoveExpenseGroup={handleMoveExpenseGroup}
+        activeExpenseGroupDropdownId={activeExpenseGroupDropdownId}
+        setActiveExpenseGroupDropdownId={setActiveExpenseGroupDropdownId}
       />
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}
@@ -3104,6 +3405,28 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
             </p>
           </div>
         </div>
+      )}
+      {showExpenseModal && (
+        <ExpenseModal
+          isOpen={showExpenseModal}
+          onClose={() => { setShowExpenseModal(false); setEditingExpense(null); }}
+          expense={editingExpense}
+          expenseGroups={activePlan.expenseGroups || []}
+          hotels={activePlan.hotels || []}
+          transports={activePlan.transports || []}
+          onSave={handleSaveExpense}
+          onDelete={editingExpense && (editingExpense.id || editingExpense.linkedReservationId) ? handleDeleteExpense : undefined}
+        />
+      )}
+
+      {showExpenseGroupModal && (
+        <ExpenseGroupModal
+          isOpen={showExpenseGroupModal}
+          onClose={() => { setShowExpenseGroupModal(false); setEditingExpenseGroup(null); }}
+          group={editingExpenseGroup}
+          onSave={handleSaveExpenseGroup}
+          onDelete={editingExpenseGroup && editingExpenseGroup.id ? handleDeleteExpenseGroup : undefined}
+        />
       )}
     </div>
   );

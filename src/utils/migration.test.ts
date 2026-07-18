@@ -311,6 +311,26 @@ describe('migrateTrips', () => {
     });
   });
 
+  describe('v5 → v6: initialize expenseGroups and expenses', () => {
+    it('initializes default expenseGroups and empty expenses on each plan', () => {
+      const trip = {
+        id: 't1',
+        schemaVersion: 5,
+        plans: [{
+          id: 'plan-1',
+          hotels: [],
+          transports: []
+        }]
+      };
+      const [migrated] = migrateTrips([trip as any]);
+      expect(migrated.plans[0].expenseGroups).toBeDefined();
+      expect(migrated.plans[0].expenseGroups!.length).toBe(4);
+      expect(migrated.plans[0].expenseGroups![0].id).toBe('hotels');
+      expect(migrated.plans[0].expenseGroups![1].id).toBe('transports');
+      expect(migrated.plans[0].expenses).toEqual([]);
+    });
+  });
+
   describe('output schemaVersion', () => {
     it('stamps CURRENT_SCHEMA_VERSION on every migrated trip', () => {
       const trips = [

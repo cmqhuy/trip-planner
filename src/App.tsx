@@ -3,7 +3,7 @@ import type { Trip, Plan, PlanDay } from './types';
 import { migrateTrips } from './utils/migration';
 import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
-import { DEFAULT_PLACE_GROUPS } from './utils/api';
+import { DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS } from './utils/api';
 import { generateDatesRange } from './utils/dateUtils';
 import {
   loadGsiScript,
@@ -836,7 +836,9 @@ export default function App() {
       endDate: newTripData.endDate,
       days: defaultDays,
       hotels: [],
-      transports: []
+      transports: [],
+      expenseGroups: [...DEFAULT_EXPENSE_GROUPS],
+      expenses: []
     };
 
     const newTrip: Trip = {

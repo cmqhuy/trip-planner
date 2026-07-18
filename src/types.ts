@@ -165,6 +165,24 @@ export interface ScheduleNoteItem {
 
 export type ScheduleItem = SchedulePlaceItem | ScheduleNoteItem;
 
+export interface ExpenseGroup {
+  id: string;
+  name: string;
+  icon: string; // Lucide icon key
+  color?: string; // hex representation
+}
+
+export interface ExpenseItem {
+  id: string;
+  title: string;
+  notes?: string;
+  date?: string; // YYYY-MM-DD, optional/custom
+  groupId: string; // Links to ExpenseGroup.id
+  linkedReservationId?: string; // Links to Hotel.id or TransportationReservation.id
+  linkedReservationType?: 'hotel' | 'transit';
+  lineItems: ExpenseLine[];
+}
+
 export interface PlanDay {
   dateStr: string; // YYYY-MM-DD
   locationId?: string; // Reference to Location.id (where the day ends)
@@ -186,6 +204,8 @@ export interface Plan {
   hotels: Hotel[];
   transports: TransportationReservation[];
   manualChecklist?: { id: string; text: string; completed: boolean; }[];
+  expenseGroups?: ExpenseGroup[];
+  expenses?: ExpenseItem[];
   aiDetails?: {
     [key: string]: string;
   };

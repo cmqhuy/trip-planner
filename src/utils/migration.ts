@@ -1,8 +1,9 @@
 import type { Trip, ScheduleItem } from '../types';
+import { DEFAULT_EXPENSE_GROUPS } from './api';
 
 // Bump whenever a new migration step is added.
 // Trips already at this version are returned as-is (cheap no-op).
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 // v0 → v1: build scheduleItems from placeIds + scheduleNotes
 function applyV0toV1(trip: any): any {
@@ -149,6 +150,25 @@ function applyV4toV5(trip: any): any {
   return { ...trip, plans };
 }
 
+// v5 → v6: initialize expenseGroups and expenses on every plan if not exists (and assign colors to groups)
+function applyV5toV6(trip: any): any {
+  const plans = (trip.plans || []).map((plan: any) => {
+    const rawGroups = plan.expenseGroups || [...DEFAULT_EXPENSE_GROUPS];
+    const expenseGroups = rawGroups.map((g: any) => {
+      if (g.color) return g;
+      let color = '#6366f1';
+      if (g.id === 'hotels') color = '#10b981';
+      else if (g.id === 'transports') color = '#f59e0b';
+      else if (g.id === 'attractions') color = '#ef4444';
+      else if (g.id === 'dining') color = '#3b82f6';
+      return { ...g, color };
+    });
+    const expenses = plan.expenses || [];
+    return { ...plan, expenseGroups, expenses };
+  });
+  return { ...trip, plans };
+}
+
 export function migrateTrips(rawTrips: any[]): Trip[] {
   return rawTrips.map((trip: any): Trip => {
     if (trip.schemaVersion === CURRENT_SCHEMA_VERSION) return trip as Trip;
@@ -159,6 +179,7 @@ export function migrateTrips(rawTrips: any[]): Trip[] {
     if ((t.schemaVersion ?? 0) < 3) t = applyV2toV3(t);
     if ((t.schemaVersion ?? 0) < 4) t = applyV3toV4(t);
     if ((t.schemaVersion ?? 0) < 5) t = applyV4toV5(t);
+    if ((t.schemaVersion ?? 0) < 6) t = applyV5toV6(t);
 
     return { ...t, schemaVersion: CURRENT_SCHEMA_VERSION };
   });
