@@ -172,9 +172,11 @@ describe('ExpensesPanel Component', () => {
     expect(museumDateTag.className).toContain('catalog-day-tag--active');
     expect(teaDateTag.className).not.toContain('catalog-day-tag--active');
 
-    // Tokyo Museum, Kyoto Tea, Grand Tokyo Hotel, and Train Tokyo -> Kyoto all map to Japan
-    const japanFlags = screen.getAllByText('🇯🇵');
-    expect(japanFlags).toHaveLength(4);
+    // Tokyo Museum maps to Tokyo (Jul 1), Kyoto Tea maps to Kyoto (Jul 2)
+    const tokyoTags = screen.getAllByText('Tokyo');
+    const kyotoTags = screen.getAllByText('Kyoto');
+    expect(tokyoTags.length).toBeGreaterThanOrEqual(1);
+    expect(kyotoTags.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders location tags and date tags for hotel expenses', () => {
@@ -239,7 +241,7 @@ describe('ExpensesPanel Component', () => {
     // Transit tag is rendered
     expect(screen.getByText('Transit')).toBeInTheDocument();
 
-    // Kyoto location tag is rendered next to it (since last segment arrival date 2026-07-02 maps to Kyoto)
+    // Transit departure and arrival are both on 2026-07-02 (Kyoto), so they collapse to a single Kyoto tag
     const kyotoInstances = screen.getAllByText('Kyoto');
     expect(kyotoInstances.length).toBeGreaterThanOrEqual(2);
 

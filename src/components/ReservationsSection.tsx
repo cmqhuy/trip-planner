@@ -6,11 +6,12 @@ import {
   MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
   Plus, Sparkles
 } from 'lucide-react';
-import type { Trip, Plan, Hotel, TransportationReservation, FlatTransportationSegment } from '../types';
+import type { Trip, Plan, Hotel, TransportationReservation } from '../types';
 import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
-import { buildHotelMapsLink, buildTransitMapsLink, getFormattedLocationName, getLocIcon } from '../utils/api';
+import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
+import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
 
 interface ReservationsSectionProps {
   trip: Trip;
@@ -148,37 +149,10 @@ export default function ReservationsSection({
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  const getHotelLocation = (h: Hotel) => {
-    const coveredDay = daysList.find(d => h.checkInDate <= d && d < h.checkOutDate);
-    if (!coveredDay) return undefined;
-    const locId = activePlan.days[coveredDay]?.locationId;
-    return locId ? trip.locations.find(l => l.id === locId) : undefined;
-  };
-
   const saveHotelNotes = (hotel: Hotel, text: string) =>
     onEditHotel({ ...hotel, notes: text.trim() || undefined });
   const saveTransportNotes = (reservationId: string, text: string) =>
     onSaveTransportNotes(reservationId, text.trim());
-
-  // --- Hotel helpers ---
-
-  const getHotelLocationName = (h: Hotel): string | undefined => {
-    const coveredDay = daysList.find(d => h.checkInDate <= d && d < h.checkOutDate);
-    if (!coveredDay) return undefined;
-    const locId = activePlan.days[coveredDay]?.locationId;
-    return locId ? trip.locations.find(l => l.id === locId)?.city : undefined;
-  };
-
-  const getTransitLocationText = (t: FlatTransportationSegment): string | undefined => {
-    const depLocId = activePlan.days[t.departureDate]?.locationId;
-    const arrLocId = activePlan.days[t.arrivalDate]?.locationId;
-    const depCity = depLocId ? trip.locations.find(l => l.id === depLocId)?.city : undefined;
-    const arrCity = arrLocId ? trip.locations.find(l => l.id === arrLocId)?.city : undefined;
-    if (!depCity && !arrCity) return undefined;
-    if (!depCity) return arrCity;
-    if (!arrCity) return depCity;
-    return depCity === arrCity ? depCity : `${depCity} → ${arrCity}`;
-  };
 
   const getDailyHotelWarnings = (): { dateStr: string; message: string }[] => {
     const dailyStatuses = daysList.map(d => {
@@ -360,7 +334,7 @@ export default function ReservationsSection({
 
             {sortHotels(activePlan.hotels).map(h => {
               const isExpanded = expandedHotelId === h.id;
-              const locationName = getHotelLocationName(h);
+              const hotelLoc = getHotelResolvedLocation(h, activePlan.days, trip.locations);
               const isInRange = !!selectedDateStr && selectedDateStr >= h.checkInDate && selectedDateStr <= h.checkOutDate;
               return (
                 <div
@@ -375,11 +349,9 @@ export default function ReservationsSection({
                     <div className="reservation-card-first-row">
                       <div className="reservation-card-icon-row">
                         <Building size={13} className="reservation-card-type-icon" style={{ color: '#10b981' }} />
-                        {(() => {
-                          const location = getHotelLocation(h);
-                          if (!location) return null;
-                          const tagColor = location.color || 'var(--accent-primary)';
-                          const hexColor = location.color || '#6366f1';
+                        {hotelLoc && (() => {
+                          const tagColor = hotelLoc.color || 'var(--accent-primary)';
+                          const hexColor = hotelLoc.color || '#6366f1';
                           const tagBg = hexToRgba(hexColor, 0.08);
                           const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
                           return (
@@ -399,9 +371,8 @@ export default function ReservationsSection({
                                 fontStyle: 'normal'
                               }}
                             >
-                              <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {getFormattedLocationName(location, trip.locations)}
+                                {hotelLoc.city}
                               </span>
                             </span>
                           );
@@ -631,8 +602,7 @@ export default function ReservationsSection({
                           <span className="catalog-day-tag catalog-day-tag--active">{t.segmentIndex + 1}/{t.totalSegments}</span>
                         )}
                         {(() => {
-                          const depLoc = t.departureDate ? (activePlan.days[t.departureDate]?.locationId ? trip.locations.find(l => l.id === activePlan.days[t.departureDate].locationId) : undefined) : undefined;
-                          const arrLoc = t.arrivalDate ? (activePlan.days[t.arrivalDate]?.locationId ? trip.locations.find(l => l.id === activePlan.days[t.arrivalDate].locationId) : undefined) : undefined;
+                          const { departureLocation: depLoc, arrivalLocation: arrLoc } = getTransitResolvedLocations(t.departureDate, t.arrivalDate, activePlan.days, trip.locations);
 
                           const renderTag = (loc: typeof trip.locations[0]) => {
                             const tagColor = loc.color || 'var(--accent-primary)';
@@ -655,9 +625,8 @@ export default function ReservationsSection({
                                   minWidth: 0
                                 }}
                               >
-                                <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(loc)}</span>
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {getFormattedLocationName(loc, trip.locations)}
+                                  {loc.city}
                                 </span>
                               </span>
                             );

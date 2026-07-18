@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { Plus, MoreVertical, ChevronUp, ChevronDown, Edit2, Link } from 'lucide-react';
 import type { Trip, Plan, ExpenseGroup, ExpenseItem, Hotel, TransportationReservation } from '../types';
 import { getExpenseGroupIcon, getExpenseReservationDates } from '../utils/expenseUtils';
+import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
 import { compareCurrencies } from '../utils/currencies';
-import { getFormattedLocationName, getLocIcon } from '../utils/api';
 
 const hexToRgba = (hex: string, alpha: number) => {
   if (!hex || !hex.startsWith('#') || hex.length !== 7) return `rgba(99, 102, 241, ${alpha})`;
@@ -400,9 +400,31 @@ export default function ExpensesPanel({
                       const isInRange = !!activeDayStr && startDate && endDate && activeDayStr >= startDate && activeDayStr <= endDate;
 
                       const isHotel = isLinked && item.linkedReservationType === 'hotel';
-                      const locationDate = isLinked && !isHotel ? endDate : startDate;
-                      const expenseDay = locationDate ? activePlan.days[locationDate] : undefined;
-                      const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
+                      const isTransit = isLinked && item.linkedReservationType === 'transit';
+
+                      // Resolve location(s) using shared helpers
+                      const resolvedLocations = (() => {
+                        if (isHotel) {
+                          const hotel = hotels.find(x => x.id === item.linkedReservationId);
+                          if (hotel) {
+                            const loc = getHotelResolvedLocation(hotel, activePlan.days, trip.locations);
+                            return loc ? { departureLocation: loc, arrivalLocation: loc } : { departureLocation: undefined, arrivalLocation: undefined };
+                          }
+                        } else if (isTransit) {
+                          const transport = transports.find(x => x.id === item.linkedReservationId);
+                          if (transport && transport.segments && transport.segments.length > 0) {
+                            const firstSeg = transport.segments[0];
+                            const lastSeg = transport.segments[transport.segments.length - 1];
+                            return getTransitResolvedLocations(firstSeg.departureDate, lastSeg.arrivalDate, activePlan.days, trip.locations);
+                          }
+                        } else if (item.date) {
+                          const locId = activePlan.days[item.date]?.locationId;
+                          const loc = locId ? trip.locations.find(l => l.id === locId) : undefined;
+                          return loc ? { departureLocation: loc, arrivalLocation: loc } : { departureLocation: undefined, arrivalLocation: undefined };
+                        }
+                        return { departureLocation: undefined, arrivalLocation: undefined };
+                      })();
+                      const { departureLocation: depLoc, arrivalLocation: arrLoc } = resolvedLocations;
 
                       return (
                         <div
@@ -478,35 +500,48 @@ export default function ExpensesPanel({
                                  );
                               })()}
 
-                              {/* Location Tag */}
-                              {location && (() => {
-                                 const tagColor = location.color || 'var(--accent-primary)';
-                                 const hexColor = location.color || '#6366f1';
-                                 const tagBg = hexToRgba(hexColor, 0.08);
-                                 const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
-                                 return (
-                                   <span
-                                     className="catalog-day-tag"
-                                     style={{
-                                       fontSize: '9px',
-                                       padding: '1px 5px',
-                                       color: tagColor,
-                                       background: tagBg,
-                                       border: tagBorder,
-                                       display: 'inline-flex',
-                                       alignItems: 'center',
-                                       gap: '3px',
-                                       maxWidth: '120px',
-                                       minWidth: 0,
-                                       flexShrink: 1
-                                     }}
-                                   >
-                                     <span style={{ fontSize: '10px', lineHeight: 1, flexShrink: 0 }}>{getLocIcon(location)}</span>
-                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                       {getFormattedLocationName(location, trip.locations)}
-                                     </span>
-                                   </span>
-                                 );
+                              {/* Location Tag(s) */}
+                              {(() => {
+                                const renderLocTag = (loc: typeof trip.locations[0]) => {
+                                  const tagColor = loc.color || 'var(--accent-primary)';
+                                  const hexColor = loc.color || '#6366f1';
+                                  const tagBg = hexToRgba(hexColor, 0.08);
+                                  const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
+                                  return (
+                                    <span
+                                      className="catalog-day-tag"
+                                      style={{
+                                        fontSize: '9px',
+                                        padding: '1px 5px',
+                                        color: tagColor,
+                                        background: tagBg,
+                                        border: tagBorder,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        maxWidth: '120px',
+                                        minWidth: 0,
+                                        flexShrink: 1
+                                      }}
+                                    >
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {loc.city}
+                                      </span>
+                                    </span>
+                                  );
+                                };
+
+                                if (!depLoc && !arrLoc) return null;
+                                if (!depLoc) return renderLocTag(arrLoc!);
+                                if (!arrLoc) return renderLocTag(depLoc);
+                                if (depLoc.id === arrLoc.id) return renderLocTag(depLoc);
+                                return (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', overflow: 'hidden', minWidth: 0 }}>
+                                    {renderLocTag(depLoc)}
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', flexShrink: 0 }}>→</span>
+                                    {renderLocTag(arrLoc)}
+                                  </div>
+                                );
                               })()}
                             </div>
 
