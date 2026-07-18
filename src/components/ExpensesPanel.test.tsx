@@ -145,6 +145,7 @@ describe('ExpensesPanel Component', () => {
         onMoveExpenseGroup={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
+        activeDayStr="2026-07-01"
       />
     );
 
@@ -159,6 +160,14 @@ describe('ExpensesPanel Component', () => {
 
     // Kyoto Tea is on 2026-07-02 which maps to Kyoto
     expect(screen.getAllByText('Kyoto')[0]).toBeInTheDocument();
+
+    // Verify date formatting and selected highlight
+    const museumDateTag = screen.getByText('Jul 1');
+    const teaDateTag = screen.getByText('Jul 2');
+    expect(museumDateTag).toBeInTheDocument();
+    expect(teaDateTag).toBeInTheDocument();
+    expect(museumDateTag.className).toContain('catalog-day-tag--active');
+    expect(teaDateTag.className).not.toContain('catalog-day-tag--active');
 
     // Tokyo Museum, Kyoto Tea, Grand Tokyo Hotel, and Train Tokyo -> Kyoto all map to Japan
     const japanFlags = screen.getAllByText('🇯🇵');

@@ -13,6 +13,11 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const shortDate = (d: string) => {
+  if (!d) return '';
+  return new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 interface ExpensesPanelProps {
   trip: Trip;
   activePlan: Plan;
@@ -23,6 +28,7 @@ interface ExpensesPanelProps {
   onMoveExpenseGroup: (index: number, direction: 'up' | 'down') => void;
   activeGroupDropdownId: string | null;
   setActiveGroupDropdownId: (id: string | null) => void;
+  activeDayStr?: string;
 }
 
 export default function ExpensesPanel({
@@ -34,7 +40,8 @@ export default function ExpensesPanel({
   onEditExpenseGroup,
   onMoveExpenseGroup,
   activeGroupDropdownId,
-  setActiveGroupDropdownId
+  setActiveGroupDropdownId,
+  activeDayStr
 }: ExpensesPanelProps) {
 
   // Auto-close dropdowns when clicking outside
@@ -462,11 +469,14 @@ export default function ExpensesPanel({
                                 </span>
                               );
                             })()}
-                            {item.date && (
-                              <span className="catalog-day-tag" style={{ fontSize: '9px', padding: '1px 5px' }}>
-                                {item.date}
-                              </span>
-                            )}
+                            {item.date && (() => {
+                              const isActive = activeDayStr === item.date;
+                              return (
+                                <span className={`catalog-day-tag${isActive ? ' catalog-day-tag--active' : ''}`} style={{ fontSize: '9px', padding: '1px 5px' }}>
+                                  {shortDate(item.date)}
+                                </span>
+                              );
+                            })()}
                             {isLinked && (() => {
                                const isHotel = item.linkedReservationType === 'hotel';
                                const tagColor = isHotel ? '#10b981' : '#f59e0b';
