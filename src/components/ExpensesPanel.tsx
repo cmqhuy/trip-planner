@@ -3,6 +3,15 @@ import { Plus, MoreVertical, ChevronUp, ChevronDown, Edit2, Link } from 'lucide-
 import type { Trip, Plan, ExpenseGroup, ExpenseItem, Hotel, TransportationReservation } from '../types';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
 import { compareCurrencies } from '../utils/currencies';
+import { getFormattedLocationName, getLocIcon } from '../utils/api';
+
+const hexToRgba = (hex: string, alpha: number) => {
+  if (!hex || !hex.startsWith('#') || hex.length !== 7) return `rgba(99, 102, 241, ${alpha})`;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 interface ExpensesPanelProps {
   trip: Trip;
@@ -426,6 +435,33 @@ export default function ExpensesPanel({
                           </div>
 
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                            {!isLinked && (() => {
+                              const expenseDay = item.date ? activePlan.days[item.date] : undefined;
+                              const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
+                              if (!location) return null;
+                              const tagColor = location.color || 'var(--accent-primary)';
+                              const hexColor = location.color || '#6366f1';
+                              const tagBg = hexToRgba(hexColor, 0.08);
+                              const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
+                              return (
+                                <span
+                                  className="catalog-day-tag"
+                                  style={{
+                                    fontSize: '9px',
+                                    padding: '1px 5px',
+                                    color: tagColor,
+                                    background: tagBg,
+                                    border: tagBorder,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}
+                                >
+                                  <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
+                                  <span>{getFormattedLocationName(location, trip.locations)}</span>
+                                </span>
+                              );
+                            })()}
                             {item.date && (
                               <span className="catalog-day-tag" style={{ fontSize: '9px', padding: '1px 5px' }}>
                                 {item.date}
