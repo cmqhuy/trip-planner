@@ -518,10 +518,40 @@ export default function ExpensesPanel({
                                        </span>
                                      );
                                    })()}
+                                   {!isHotel && (() => {
+                                     const t = transports.find(x => x.id === item.linkedReservationId);
+                                     if (!t || !t.segments || t.segments.length === 0) return null;
+                                     const lastSegment = t.segments[t.segments.length - 1];
+                                     const expenseDay = lastSegment.arrivalDate ? activePlan.days[lastSegment.arrivalDate] : undefined;
+                                     const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
+                                     if (!location) return null;
+                                     const locColor = location.color || 'var(--accent-primary)';
+                                     const hexColor = location.color || '#6366f1';
+                                     const locBg = hexToRgba(hexColor, 0.08);
+                                     const locBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
+                                     return (
+                                       <span
+                                         className="catalog-day-tag"
+                                         style={{
+                                           fontSize: '9px',
+                                           padding: '1px 5px',
+                                           color: locColor,
+                                           background: locBg,
+                                           border: locBorder,
+                                           display: 'inline-flex',
+                                           alignItems: 'center',
+                                           gap: '3px'
+                                         }}
+                                       >
+                                         <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
+                                         <span>{getFormattedLocationName(location, trip.locations)}</span>
+                                       </span>
+                                     );
+                                   })()}
                                  </>
                                );
                              })()}
-                            {briefDetails && !(isLinked && item.linkedReservationType === 'hotel') && (
+                            {briefDetails && !isLinked && (
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                 {briefDetails}
                               </span>

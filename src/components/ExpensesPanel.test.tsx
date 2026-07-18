@@ -62,11 +62,33 @@ const mockTrip: Trip = {
           ]
         }
       ],
-      transports: [],
+      transports: [
+        {
+          id: 't-1',
+          type: 'train',
+          segments: [
+            {
+              id: 't-1-s0',
+              departureLocationName: 'Tokyo',
+              arrivalLocationName: 'Kyoto',
+              departureDate: '2026-07-02',
+              departureTime: '10:00',
+              departureTimezone: 'JST',
+              arrivalDate: '2026-07-02',
+              arrivalTime: '12:00',
+              arrivalTimezone: 'JST'
+            }
+          ],
+          expenses: [
+            { id: 't-line-1', description: 'Ticket', price: 8000, currency: 'JPY', paid: true }
+          ]
+        }
+      ],
       manualChecklist: [],
       expenseGroups: [
         { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' },
-        { id: 'hotels', name: 'Hotels', icon: 'hotel', color: '#10b981' }
+        { id: 'hotels', name: 'Hotels', icon: 'hotel', color: '#10b981' },
+        { id: 'transports', name: 'Transports', icon: 'bus', color: '#f59e0b' }
       ],
       expenses: [
         {
@@ -136,11 +158,11 @@ describe('ExpensesPanel Component', () => {
     expect(screen.getAllByText('Tokyo')[0]).toBeInTheDocument();
 
     // Kyoto Tea is on 2026-07-02 which maps to Kyoto
-    expect(screen.getByText('Kyoto')).toBeInTheDocument();
+    expect(screen.getAllByText('Kyoto')[0]).toBeInTheDocument();
 
-    // Tokyo Museum, Kyoto Tea, and Grand Tokyo Hotel all map to Japan
+    // Tokyo Museum, Kyoto Tea, Grand Tokyo Hotel, and Train Tokyo -> Kyoto all map to Japan
     const japanFlags = screen.getAllByText('🇯🇵');
-    expect(japanFlags).toHaveLength(3);
+    expect(japanFlags).toHaveLength(4);
   });
 
   it('renders location tags and suppresses date range for hotel expenses', () => {
@@ -171,5 +193,35 @@ describe('ExpensesPanel Component', () => {
 
     // Check-in / check-out dates should NOT be displayed
     expect(screen.queryByText('2026-07-01 to 2026-07-02')).not.toBeInTheDocument();
+  });
+
+  it('renders location tags for transit expenses using the arrival date of the last leg', () => {
+    render(
+      <ExpensesPanel
+        trip={mockTrip}
+        activePlan={mockTrip.plans[0]}
+        onAddExpense={vi.fn()}
+        onEditExpense={vi.fn()}
+        onAddExpenseGroup={vi.fn()}
+        onEditExpenseGroup={vi.fn()}
+        onMoveExpenseGroup={vi.fn()}
+        activeGroupDropdownId={null}
+        setActiveGroupDropdownId={vi.fn()}
+      />
+    );
+
+    // Transit title matches the formatted summary
+    expect(screen.getByText('Train: Tokyo → Kyoto')).toBeInTheDocument();
+
+    // Transit tag is rendered
+    expect(screen.getByText('Transit')).toBeInTheDocument();
+
+    // Kyoto location tag is rendered next to it (since last segment arrival date 2026-07-02 maps to Kyoto)
+    // Kyoto text will exist twice now (once for Kyoto Tea, once for Train)
+    const kyotoInstances = screen.getAllByText('Kyoto');
+    expect(kyotoInstances.length).toBeGreaterThanOrEqual(2);
+
+    // Transit date should NOT be displayed
+    expect(screen.queryByText('Train: 2026-07-02')).not.toBeInTheDocument();
   });
 });
