@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Plus, MoreVertical, ChevronUp, ChevronDown, Edit2, Link } from 'lucide-react';
 import type { Trip, Plan, ExpenseGroup, ExpenseItem, Hotel, TransportationReservation } from '../types';
-import { getExpenseGroupIcon } from '../utils/expenseUtils';
+import { getExpenseGroupIcon, getExpenseReservationDates } from '../utils/expenseUtils';
 import { compareCurrencies } from '../utils/currencies';
 import { getFormattedLocationName, getLocIcon } from '../utils/api';
 
@@ -395,6 +395,15 @@ export default function ExpensesPanel({
                       const briefDetails = getBriefDetails(item);
                       const isLinked = !!item.linkedReservationId;
                       const unpaid = (item.lineItems || []).filter(l => !l.paid).length;
+
+                      const { startDate, endDate } = getExpenseReservationDates(item, hotels, transports);
+                      const isInRange = !!activeDayStr && startDate && endDate && activeDayStr >= startDate && activeDayStr <= endDate;
+
+                      const isHotel = isLinked && item.linkedReservationType === 'hotel';
+                      const locationDate = isLinked && !isHotel ? endDate : startDate;
+                      const expenseDay = locationDate ? activePlan.days[locationDate] : undefined;
+                      const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
+
                       return (
                         <div
                           key={item.id}
@@ -441,49 +450,14 @@ export default function ExpensesPanel({
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
-                            {!isLinked && (() => {
-                              const expenseDay = item.date ? activePlan.days[item.date] : undefined;
-                              const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
-                              if (!location) return null;
-                              const tagColor = location.color || 'var(--accent-primary)';
-                              const hexColor = location.color || '#6366f1';
-                              const tagBg = hexToRgba(hexColor, 0.08);
-                              const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
-                              return (
-                                <span
-                                  className="catalog-day-tag"
-                                  style={{
-                                    fontSize: '9px',
-                                    padding: '1px 5px',
-                                    color: tagColor,
-                                    background: tagBg,
-                                    border: tagBorder,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px'
-                                  }}
-                                >
-                                  <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
-                                  <span>{getFormattedLocationName(location, trip.locations)}</span>
-                                </span>
-                              );
-                            })()}
-                            {item.date && (() => {
-                              const isActive = activeDayStr === item.date;
-                              return (
-                                <span className={`catalog-day-tag${isActive ? ' catalog-day-tag--active' : ''}`} style={{ fontSize: '9px', padding: '1px 5px' }}>
-                                  {shortDate(item.date)}
-                                </span>
-                              );
-                            })()}
-                            {isLinked && (() => {
-                               const isHotel = item.linkedReservationType === 'hotel';
-                               const tagColor = isHotel ? '#10b981' : '#f59e0b';
-                               const tagBg = isHotel ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)';
-                               const tagBorder = isHotel ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)';
-                               return (
-                                 <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', gap: '6px', width: '100%' }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
+                              {/* Linked Tag */}
+                              {isLinked && (() => {
+                                 const tagColor = isHotel ? '#10b981' : '#f59e0b';
+                                 const tagBg = isHotel ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)';
+                                 const tagBorder = isHotel ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)';
+                                 return (
                                    <span
                                      className="catalog-day-tag"
                                      style={{
@@ -494,83 +468,95 @@ export default function ExpensesPanel({
                                        border: tagBorder,
                                        display: 'inline-flex',
                                        alignItems: 'center',
-                                       gap: '3px'
+                                       gap: '3px',
+                                       flexShrink: 0
                                      }}
                                    >
                                      <Link size={8} />
                                      <span>{isHotel ? 'Hotel' : 'Transit'}</span>
                                    </span>
-                                   {isHotel && (() => {
-                                     const h = hotels.find(x => x.id === item.linkedReservationId);
-                                     const expenseDay = h?.checkInDate ? activePlan.days[h.checkInDate] : undefined;
-                                     const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
-                                     if (!location) return null;
-                                     const locColor = location.color || 'var(--accent-primary)';
-                                     const hexColor = location.color || '#6366f1';
-                                     const locBg = hexToRgba(hexColor, 0.08);
-                                     const locBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
-                                     return (
-                                       <span
-                                         className="catalog-day-tag"
-                                         style={{
-                                           fontSize: '9px',
-                                           padding: '1px 5px',
-                                           color: locColor,
-                                           background: locBg,
-                                           border: locBorder,
-                                           display: 'inline-flex',
-                                           alignItems: 'center',
-                                           gap: '3px'
-                                         }}
-                                       >
-                                         <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
-                                         <span>{getFormattedLocationName(location, trip.locations)}</span>
-                                       </span>
-                                     );
-                                   })()}
-                                   {!isHotel && (() => {
-                                     const t = transports.find(x => x.id === item.linkedReservationId);
-                                     if (!t || !t.segments || t.segments.length === 0) return null;
-                                     const lastSegment = t.segments[t.segments.length - 1];
-                                     const expenseDay = lastSegment.arrivalDate ? activePlan.days[lastSegment.arrivalDate] : undefined;
-                                     const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
-                                     if (!location) return null;
-                                     const locColor = location.color || 'var(--accent-primary)';
-                                     const hexColor = location.color || '#6366f1';
-                                     const locBg = hexToRgba(hexColor, 0.08);
-                                     const locBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
-                                     return (
-                                       <span
-                                         className="catalog-day-tag"
-                                         style={{
-                                           fontSize: '9px',
-                                           padding: '1px 5px',
-                                           color: locColor,
-                                           background: locBg,
-                                           border: locBorder,
-                                           display: 'inline-flex',
-                                           alignItems: 'center',
-                                           gap: '3px'
-                                         }}
-                                       >
-                                         <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
-                                         <span>{getFormattedLocationName(location, trip.locations)}</span>
-                                       </span>
-                                     );
-                                   })()}
-                                 </>
-                               );
-                             })()}
-                            {briefDetails && !isLinked && (
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                {briefDetails}
-                              </span>
-                            )}
-                            {unpaid > 0 && (
-                              <span style={{ fontSize: '11px', color: 'var(--color-danger)', fontWeight: 500, marginLeft: 'auto' }}>
-                                {unpaid} unpaid
-                              </span>
-                            )}
+                                 );
+                              })()}
+
+                              {/* Location Tag */}
+                              {location && (() => {
+                                 const tagColor = location.color || 'var(--accent-primary)';
+                                 const hexColor = location.color || '#6366f1';
+                                 const tagBg = hexToRgba(hexColor, 0.08);
+                                 const tagBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
+                                 return (
+                                   <span
+                                     className="catalog-day-tag"
+                                     style={{
+                                       fontSize: '9px',
+                                       padding: '1px 5px',
+                                       color: tagColor,
+                                       background: tagBg,
+                                       border: tagBorder,
+                                       display: 'inline-flex',
+                                       alignItems: 'center',
+                                       gap: '3px',
+                                       maxWidth: '120px',
+                                       minWidth: 0,
+                                       flexShrink: 1
+                                     }}
+                                   >
+                                     <span style={{ fontSize: '10px', lineHeight: 1, flexShrink: 0 }}>{getLocIcon(location)}</span>
+                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                       {getFormattedLocationName(location, trip.locations)}
+                                     </span>
+                                   </span>
+                                 );
+                              })()}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                              {/* Date Tags */}
+                              {(() => {
+                                if (!startDate) return null;
+
+                                if (isHotel) {
+                                  return (
+                                    <>
+                                      <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
+                                        {shortDate(startDate)}
+                                      </span>
+                                      {endDate && (
+                                        <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
+                                          {shortDate(endDate)}
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                } else if (isLinked && item.linkedReservationType === 'transit') {
+                                  return (
+                                    <>
+                                      <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
+                                        {shortDate(startDate)}
+                                      </span>
+                                      {endDate && startDate !== endDate && (
+                                        <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
+                                          {shortDate(endDate)}
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                } else {
+                                  // Non-linked
+                                  return (
+                                    <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
+                                      {shortDate(startDate)}
+                                    </span>
+                                  );
+                                }
+                              })()}
+
+                              {unpaid > 0 && (
+                                <span style={{ fontSize: '11px', color: 'var(--color-danger)', fontWeight: 500 }}>
+                                  {unpaid} unpaid
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );

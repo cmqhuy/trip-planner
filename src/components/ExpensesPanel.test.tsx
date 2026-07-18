@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ExpensesPanel from './ExpensesPanel';
 import type { Trip } from '../types';
@@ -161,9 +161,12 @@ describe('ExpensesPanel Component', () => {
     // Kyoto Tea is on 2026-07-02 which maps to Kyoto
     expect(screen.getAllByText('Kyoto')[0]).toBeInTheDocument();
 
-    // Verify date formatting and selected highlight
-    const museumDateTag = screen.getByText('Jul 1');
-    const teaDateTag = screen.getByText('Jul 2');
+    // Verify date formatting and selected highlight within specific cards
+    const museumCard = screen.getByText('Tokyo Museum').closest('.catalog-place-card')!;
+    const teaCard = screen.getByText('Kyoto Tea').closest('.catalog-place-card')!;
+    
+    const museumDateTag = within(museumCard as HTMLElement).getByText('Jul 1');
+    const teaDateTag = within(teaCard as HTMLElement).getByText('Jul 2');
     expect(museumDateTag).toBeInTheDocument();
     expect(teaDateTag).toBeInTheDocument();
     expect(museumDateTag.className).toContain('catalog-day-tag--active');
@@ -174,7 +177,7 @@ describe('ExpensesPanel Component', () => {
     expect(japanFlags).toHaveLength(4);
   });
 
-  it('renders location tags and suppresses date range for hotel expenses', () => {
+  it('renders location tags and date tags for hotel expenses', () => {
     render(
       <ExpensesPanel
         trip={mockTrip}
@@ -186,6 +189,7 @@ describe('ExpensesPanel Component', () => {
         onMoveExpenseGroup={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
+        activeDayStr="2026-07-01"
       />
     );
 
@@ -196,15 +200,24 @@ describe('ExpensesPanel Component', () => {
     expect(screen.getByText('Hotel')).toBeInTheDocument();
 
     // Tokyo location tag is rendered next to it (since check-in date 2026-07-01 maps to Tokyo)
-    // Tokyo text will exist twice now (once for Museum, once for Hotel)
     const tokyoInstances = screen.getAllByText('Tokyo');
     expect(tokyoInstances.length).toBeGreaterThanOrEqual(2);
 
-    // Check-in / check-out dates should NOT be displayed
+    // Check-in / check-out date range string should NOT be displayed
     expect(screen.queryByText('2026-07-01 to 2026-07-02')).not.toBeInTheDocument();
+
+    // Short date tags for check-in and check-out should be displayed and highlighted (since activeDayStr is 2026-07-01)
+    const hotelCard = screen.getByText('Grand Tokyo Hotel').closest('.catalog-place-card')!;
+    const hotelJul1Tag = within(hotelCard as HTMLElement).getByText('Jul 1');
+    const hotelJul2Tag = within(hotelCard as HTMLElement).getByText('Jul 2');
+
+    expect(hotelJul1Tag).toBeInTheDocument();
+    expect(hotelJul2Tag).toBeInTheDocument();
+    expect(hotelJul1Tag.className).toContain('catalog-day-tag--active');
+    expect(hotelJul2Tag.className).toContain('catalog-day-tag--active');
   });
 
-  it('renders location tags for transit expenses using the arrival date of the last leg', () => {
+  it('renders location tags and date tags for transit expenses using the arrival date of the last leg', () => {
     render(
       <ExpensesPanel
         trip={mockTrip}
@@ -216,6 +229,7 @@ describe('ExpensesPanel Component', () => {
         onMoveExpenseGroup={vi.fn()}
         activeGroupDropdownId={null}
         setActiveGroupDropdownId={vi.fn()}
+        activeDayStr="2026-07-01"
       />
     );
 
@@ -226,11 +240,16 @@ describe('ExpensesPanel Component', () => {
     expect(screen.getByText('Transit')).toBeInTheDocument();
 
     // Kyoto location tag is rendered next to it (since last segment arrival date 2026-07-02 maps to Kyoto)
-    // Kyoto text will exist twice now (once for Kyoto Tea, once for Train)
     const kyotoInstances = screen.getAllByText('Kyoto');
     expect(kyotoInstances.length).toBeGreaterThanOrEqual(2);
 
-    // Transit date should NOT be displayed
+    // Transit date string summary should NOT be displayed
     expect(screen.queryByText('Train: 2026-07-02')).not.toBeInTheDocument();
+
+    // Transit short date tag (Jul 2) is displayed, but not active (since activeDayStr is 2026-07-01 and transit is on 2026-07-02)
+    const transitCard = screen.getByText('Train: Tokyo → Kyoto').closest('.catalog-place-card')!;
+    const transitJul2Tag = within(transitCard as HTMLElement).getByText('Jul 2');
+    expect(transitJul2Tag).toBeInTheDocument();
+    expect(transitJul2Tag.className).not.toContain('catalog-day-tag--active');
   });
 });
