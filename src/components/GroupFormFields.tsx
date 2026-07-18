@@ -35,12 +35,12 @@ export default function GroupFormFields({
   }, []);
 
   const options = [
-    { value: 'landmark', label: 'Landmark', emoji: '🏛️', iconName: 'landmark' },
-    { value: 'utensils', label: 'Restaurant / Food', emoji: '🍴', iconName: 'utensils' },
-    { value: 'shopping-bag', label: 'Shopping', emoji: '🛍️', iconName: 'shopping-bag' },
-    { value: 'camera', label: 'Photography', emoji: '📷', iconName: 'camera' },
-    { value: 'map-pin', label: 'General', emoji: '📍', iconName: 'map-pin' },
-    { value: 'heart', label: 'Favorite', emoji: '💖', iconName: 'heart' },
+    { value: 'landmark', label: 'Landmark', iconName: 'landmark' },
+    { value: 'utensils', label: 'Restaurant / Food', iconName: 'utensils' },
+    { value: 'shopping-bag', label: 'Shopping', iconName: 'shopping-bag' },
+    { value: 'camera', label: 'Photography', iconName: 'camera' },
+    { value: 'map-pin', label: 'General', iconName: 'map-pin' },
+    { value: 'heart', label: 'Favorite', iconName: 'heart' },
   ];
 
   const selectedOption = options.find(o => o.value === icon) || options[4];
@@ -77,10 +77,10 @@ export default function GroupFormFields({
           <ColorPalette value={color} onChange={setColor} />
         </div>
 
-        <div className="form-group group-form-icon-select" ref={containerRef}>
-          <label>
+        <div className="form-group group-form-icon-select flex-1" ref={containerRef} style={{ position: 'relative' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             Icon Style
-            <span className="group-icon-preview">
+            <span className="group-icon-preview" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center' }}>
               {getIconComponent(icon)}
             </span>
           </label>
@@ -88,56 +88,74 @@ export default function GroupFormFields({
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="group-icon-btn"
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
-            onMouseLeave={e => !isOpen && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)')}
+            className="loc-select-trigger combo-trigger"
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-glass)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              color: 'var(--text-primary)',
+              marginTop: '6px'
+            }}
           >
-            <div className="group-icon-trigger-inner">
-              <span className="flex-shrink-0">{selectedOption.emoji}</span>
-              <span className="group-icon-label">{selectedOption.label}</span>
+            <div className="combo-trigger-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {getIconComponent(selectedOption.value)}
+              <span>{selectedOption.label}</span>
             </div>
-            <ChevronDown size={14} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+            <ChevronDown size={14} className={`expand-chevron${isOpen ? ' is-open' : ''}`} />
           </button>
 
           {isOpen && (
-            <div className="group-icon-dropdown">
+            <div
+              className="loc-select-dropdown combo-dropdown"
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 10000,
+                background: 'rgba(15, 23, 42, 0.95)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '6px',
+                boxShadow: 'var(--shadow-lg), 0 4px 20px rgba(0,0,0,0.5)',
+                marginTop: '4px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                padding: '4px'
+              }}
+            >
               {options.map(option => {
                 const isSelected = option.value === icon;
                 return (
-                  <div
+                  <button
                     key={option.value}
+                    type="button"
+                    className={`combo-option${isSelected ? ' selected' : ''}`}
                     onClick={() => {
                       setIcon(option.value);
                       setIsOpen(false);
                     }}
                     style={{
+                      width: '100%',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
+                      gap: '10px',
                       padding: '8px 10px',
-                      borderRadius: '6px',
+                      border: 'none',
+                      textAlign: 'left',
                       cursor: 'pointer',
-                      fontSize: '13px',
-                      color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
-                      background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                      transition: 'all 0.15s ease',
-                    }}
-                    onMouseEnter={e => {
-                      if (!isSelected) {
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-                        e.currentTarget.style.color = 'var(--text-primary)';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (!isSelected) {
-                        e.currentTarget.style.background = 'transparent';
-                        e.currentTarget.style.color = 'var(--text-muted)';
-                      }
+                      borderRadius: '4px'
                     }}
                   >
-                    <span className="flex-shrink-0">{option.emoji}</span>
-                    <span style={{ fontWeight: isSelected ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{option.label}</span>
-                  </div>
+                    {getIconComponent(option.value)}
+                    <span style={{ flex: 1 }}>{option.label}</span>
+                  </button>
                 );
               })}
             </div>

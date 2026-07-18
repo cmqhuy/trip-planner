@@ -103,7 +103,7 @@ export default function ExpenseModal({
       <div className="modal-content glass-panel" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
-            {isLinked ? 'Linked Reservation Expense' : expense ? 'Edit Expense' : 'Add Expense Details'}
+            {isLinked ? 'Linked Reservation Expense' : (expense && expense.id) ? 'Edit Expense Details' : 'Add Expense Details'}
           </h3>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
@@ -286,7 +286,7 @@ export default function ExpenseModal({
             )}
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary">
-              {expense ? 'Save Changes' : 'Add Expense'}
+              {(expense && expense.id) ? 'Save Changes' : 'Add Expense'}
             </button>
           </div>
         </form>
