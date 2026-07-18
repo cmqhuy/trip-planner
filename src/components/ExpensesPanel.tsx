@@ -473,25 +473,55 @@ export default function ExpensesPanel({
                                const tagBg = isHotel ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)';
                                const tagBorder = isHotel ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)';
                                return (
-                                 <span
-                                   className="catalog-day-tag"
-                                   style={{
-                                     fontSize: '9px',
-                                     padding: '1px 5px',
-                                     color: tagColor,
-                                     background: tagBg,
-                                     border: tagBorder,
-                                     display: 'inline-flex',
-                                     alignItems: 'center',
-                                     gap: '3px'
-                                   }}
-                                 >
-                                   <Link size={8} />
-                                   <span>{isHotel ? 'Hotel' : 'Transit'}</span>
-                                 </span>
+                                 <>
+                                   <span
+                                     className="catalog-day-tag"
+                                     style={{
+                                       fontSize: '9px',
+                                       padding: '1px 5px',
+                                       color: tagColor,
+                                       background: tagBg,
+                                       border: tagBorder,
+                                       display: 'inline-flex',
+                                       alignItems: 'center',
+                                       gap: '3px'
+                                     }}
+                                   >
+                                     <Link size={8} />
+                                     <span>{isHotel ? 'Hotel' : 'Transit'}</span>
+                                   </span>
+                                   {isHotel && (() => {
+                                     const h = hotels.find(x => x.id === item.linkedReservationId);
+                                     const expenseDay = h?.checkInDate ? activePlan.days[h.checkInDate] : undefined;
+                                     const location = expenseDay?.locationId ? trip.locations.find(l => l.id === expenseDay.locationId) : undefined;
+                                     if (!location) return null;
+                                     const locColor = location.color || 'var(--accent-primary)';
+                                     const hexColor = location.color || '#6366f1';
+                                     const locBg = hexToRgba(hexColor, 0.08);
+                                     const locBorder = `1px solid ${hexToRgba(hexColor, 0.2)}`;
+                                     return (
+                                       <span
+                                         className="catalog-day-tag"
+                                         style={{
+                                           fontSize: '9px',
+                                           padding: '1px 5px',
+                                           color: locColor,
+                                           background: locBg,
+                                           border: locBorder,
+                                           display: 'inline-flex',
+                                           alignItems: 'center',
+                                           gap: '3px'
+                                         }}
+                                       >
+                                         <span style={{ fontSize: '10px', lineHeight: 1 }}>{getLocIcon(location)}</span>
+                                         <span>{getFormattedLocationName(location, trip.locations)}</span>
+                                       </span>
+                                     );
+                                   })()}
+                                 </>
                                );
                              })()}
-                            {briefDetails && (
+                            {briefDetails && !(isLinked && item.linkedReservationType === 'hotel') && (
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                 {briefDetails}
                               </span>

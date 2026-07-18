@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown } from 'lucide-react';
+import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation } from 'lucide-react';
 import type { ExpenseGroup, ExpenseItem, ExpenseLine, Hotel, TransportationReservation } from '../types';
 import ExpensesSection from './ExpensesSection';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
@@ -19,6 +19,17 @@ interface ExpenseModalProps {
     lineItems: ExpenseLine[];
   }) => void;
   onDelete?: () => void;
+}
+
+function TransportTypeIcon({ type, size = 12, className }: { type: string; size?: number; className?: string }) {
+  switch (type) {
+    case 'flight': return <Plane size={size} className={className} />;
+    case 'train': return <Train size={size} className={className} />;
+    case 'bus': return <Bus size={size} className={className} />;
+    case 'car': return <Car size={size} className={className} />;
+    case 'ferry': return <Anchor size={size} className={className} />;
+    default: return <Navigation size={size} className={className} />;
+  }
 }
 
 export default function ExpenseModal({
@@ -135,13 +146,13 @@ export default function ExpenseModal({
             </p>
             {linkedHotel && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
-                <Building size={12} />
+                <Building size={12} className="flex-shrink-0" />
                 <span>Hotel: {linkedHotel.name} ({linkedHotel.checkInDate} to {linkedHotel.checkOutDate})</span>
               </div>
             )}
             {linkedTransport && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
-                <Car size={12} />
+                <TransportTypeIcon type={linkedTransport.type} size={12} className="flex-shrink-0" />
                 <span>Transit: {getTransportSubtitle(linkedTransport)}</span>
               </div>
             )}

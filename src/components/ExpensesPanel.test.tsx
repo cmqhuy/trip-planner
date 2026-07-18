@@ -51,11 +51,22 @@ const mockTrip: Trip = {
           placeIds: []
         }
       },
-      hotels: [],
+      hotels: [
+        {
+          id: 'hotel-1',
+          name: 'Grand Tokyo Hotel',
+          checkInDate: '2026-07-01',
+          checkOutDate: '2026-07-02',
+          expenses: [
+            { id: 'h-line-1', description: 'Room', price: 100, currency: 'USD', paid: true }
+          ]
+        }
+      ],
       transports: [],
       manualChecklist: [],
       expenseGroups: [
-        { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' }
+        { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' },
+        { id: 'hotels', name: 'Hotels', icon: 'hotel', color: '#10b981' }
       ],
       expenses: [
         {
@@ -122,13 +133,43 @@ describe('ExpensesPanel Component', () => {
     expect(screen.getByText('No Date Expense')).toBeInTheDocument();
 
     // Tokyo Museum is on 2026-07-01 which maps to Tokyo
-    expect(screen.getByText('Tokyo')).toBeInTheDocument();
+    expect(screen.getAllByText('Tokyo')[0]).toBeInTheDocument();
 
     // Kyoto Tea is on 2026-07-02 which maps to Kyoto
     expect(screen.getByText('Kyoto')).toBeInTheDocument();
 
-    // The other two should not map to any location tags
+    // Tokyo Museum, Kyoto Tea, and Grand Tokyo Hotel all map to Japan
     const japanFlags = screen.getAllByText('🇯🇵');
-    expect(japanFlags).toHaveLength(2);
+    expect(japanFlags).toHaveLength(3);
+  });
+
+  it('renders location tags and suppresses date range for hotel expenses', () => {
+    render(
+      <ExpensesPanel
+        trip={mockTrip}
+        activePlan={mockTrip.plans[0]}
+        onAddExpense={vi.fn()}
+        onEditExpense={vi.fn()}
+        onAddExpenseGroup={vi.fn()}
+        onEditExpenseGroup={vi.fn()}
+        onMoveExpenseGroup={vi.fn()}
+        activeGroupDropdownId={null}
+        setActiveGroupDropdownId={vi.fn()}
+      />
+    );
+
+    // Grand Tokyo Hotel expense is rendered
+    expect(screen.getByText('Grand Tokyo Hotel')).toBeInTheDocument();
+
+    // Hotel tag is rendered
+    expect(screen.getByText('Hotel')).toBeInTheDocument();
+
+    // Tokyo location tag is rendered next to it (since check-in date 2026-07-01 maps to Tokyo)
+    // Tokyo text will exist twice now (once for Museum, once for Hotel)
+    const tokyoInstances = screen.getAllByText('Tokyo');
+    expect(tokyoInstances.length).toBeGreaterThanOrEqual(2);
+
+    // Check-in / check-out dates should NOT be displayed
+    expect(screen.queryByText('2026-07-01 to 2026-07-02')).not.toBeInTheDocument();
   });
 });
