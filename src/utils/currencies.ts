@@ -45,3 +45,22 @@ export const CURRENCY_LIST: Currency[] = [
   { code: 'VND', name: 'Vietnamese Dong' },
   { code: 'ZAR', name: 'South African Rand' },
 ];
+
+const orderMap = new Map<string, number>();
+CURRENCY_LIST.forEach((c, idx) => {
+  orderMap.set(c.code.toUpperCase(), idx);
+});
+
+export const compareCurrencies = (a: string, b: string): number => {
+  const codeA = a.toUpperCase();
+  const codeB = b.toUpperCase();
+  const idxA = orderMap.get(codeA);
+  const idxB = orderMap.get(codeB);
+
+  if (idxA !== undefined && idxB !== undefined) {
+    return idxA - idxB;
+  }
+  if (idxA !== undefined) return -1;
+  if (idxB !== undefined) return 1;
+  return codeA.localeCompare(codeB);
+};

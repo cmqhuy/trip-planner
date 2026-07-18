@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Plus, MoreVertical, ChevronUp, ChevronDown, Edit2, Link } from 'lucide-react';
 import type { Trip, Plan, ExpenseGroup, ExpenseItem, Hotel, TransportationReservation } from '../types';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
+import { compareCurrencies } from '../utils/currencies';
 
 interface ExpensesPanelProps {
   trip: Trip;
@@ -192,90 +193,99 @@ export default function ExpensesPanel({
         className="expenses-summary-card glass-panel"
         style={{
           margin: '0 0 12px 0',
-            padding: '12px',
-            borderRadius: '8px',
-            background: 'rgba(255, 255, 255, 0.02)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}
-        >
-          <h4 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
-            Trip Total & Breakdown
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <div>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Paid</span>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#10b981', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {Object.keys(totalPaid).length > 0 ? (
-                  Object.entries(totalPaid).map(([curr, val]) => (
+          padding: '12px',
+          borderRadius: '8px',
+          background: 'rgba(255, 255, 255, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}
+      >
+        <h4 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+          Trip Total & Breakdown
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Paid</span>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#10b981', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {Object.keys(totalPaid).length > 0 ? (
+                Object.entries(totalPaid)
+                  .sort(([codeA], [codeB]) => compareCurrencies(codeA, codeB))
+                  .map(([curr, val]) => (
                     <div key={curr}>{formatPrice(val)} {curr}</div>
                   ))
-                ) : (
-                  <div>0.00</div>
-                )}
-              </div>
-            </div>
-            <div>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Unpaid</span>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#ef4444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {Object.keys(totalUnpaid).length > 0 ? (
-                  Object.entries(totalUnpaid).map(([curr, val]) => (
-                    <div key={curr}>{formatPrice(val)} {curr}</div>
-                  ))
-                ) : (
-                  <div>0.00</div>
-                )}
-              </div>
-            </div>
-          </div>
-          <div style={{ borderTop: '1px dashed var(--border-glass)', paddingTop: '8px' }}>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Total Budget</span>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {Object.keys(totalOverall).length > 0 ? (
-                Object.entries(totalOverall).map(([curr, val]) => (
-                  <div key={curr}>{formatPrice(val)} {curr}</div>
-                ))
               ) : (
                 <div>0.00</div>
               )}
             </div>
           </div>
-
-          {/* Group Breakdown */}
-          <div style={{ borderTop: '1px dashed var(--border-glass)', paddingTop: '8px' }}>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>By Groups</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {expenseGroups.map(g => {
-                const sum = groupTotals[g.id] || {};
-                const gColor = getGroupColor(g);
-                return (
-                  <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      {getExpenseGroupIcon(g.icon, 11, '', { color: gColor })}
-                      <span>{g.name}</span>
-                    </span>
-                    <div style={{ fontWeight: 500, textAlign: 'right' }}>
-                      {Object.keys(sum).length > 0 ? (
-                        Object.entries(sum).map(([curr, val]) => (
-                          <div key={curr}>{formatPrice(val)} {curr}</div>
-                        ))
-                      ) : (
-                        <div>0.00</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          <div>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Unpaid</span>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#ef4444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {Object.keys(totalUnpaid).length > 0 ? (
+                Object.entries(totalUnpaid)
+                  .sort(([codeA], [codeB]) => compareCurrencies(codeA, codeB))
+                  .map(([curr, val]) => (
+                    <div key={curr}>{formatPrice(val)} {curr}</div>
+                  ))
+              ) : (
+                <div>0.00</div>
+              )}
             </div>
           </div>
         </div>
+        <div style={{ borderTop: '1px dashed var(--border-glass)', paddingTop: '8px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Total Budget</span>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {Object.keys(totalOverall).length > 0 ? (
+              Object.entries(totalOverall)
+                .sort(([codeA], [codeB]) => compareCurrencies(codeA, codeB))
+                .map(([curr, val]) => (
+                  <div key={curr}>{formatPrice(val)} {curr}</div>
+                ))
+            ) : (
+              <div>0.00</div>
+            )}
+          </div>
+        </div>
 
-        {/* Groups List */}
+        {/* Group Breakdown */}
+        <div style={{ borderTop: '1px dashed var(--border-glass)', paddingTop: '8px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>By Groups</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {expenseGroups.map(g => {
+              const sum = groupTotals[g.id] || {};
+              const gColor = getGroupColor(g);
+              return (
+                <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    {getExpenseGroupIcon(g.icon, 11, '', { color: gColor })}
+                    <span>{g.name}</span>
+                  </span>
+                  <div style={{ fontWeight: 500, textAlign: 'right' }}>
+                    {Object.keys(sum).length > 0 ? (
+                      Object.entries(sum)
+                        .sort(([codeA], [codeB]) => compareCurrencies(codeA, codeB))
+                        .map(([curr, val]) => (
+                          <div key={curr}>{formatPrice(val)} {curr}</div>
+                        ))
+                    ) : (
+                      <div>0.00</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+         {/* Groups List */}
         <div style={{ padding: '0 0 12px 0', display: 'flex', flexDirection: 'column' }}>
           {expenseGroups.map((group, groupIdx) => {
             const isFirst = groupIdx === 0;
             const isLast = groupIdx === expenseGroups.length - 1;
+            const showAbove = groupIdx >= Math.max(1, expenseGroups.length - 2);
             const gColor = getGroupColor(group);
 
             const itemsInGroup = allMergedExpenses
@@ -322,7 +332,7 @@ export default function ExpensesPanel({
                           <MoreVertical size={12} />
                         </button>
                         {activeGroupDropdownId === group.id && (
-                          <div className="dropdown-menu dropdown-menu--right" style={{ zIndex: 1100 }}>
+                          <div className={`dropdown-menu dropdown-menu--right${showAbove ? ' dropdown-menu-above' : ''}`} style={{ zIndex: 1100 }}>
                             <button
                               className="dropdown-item"
                               disabled={isFirst}
@@ -368,6 +378,7 @@ export default function ExpensesPanel({
                     itemsInGroup.map(item => {
                       const briefDetails = getBriefDetails(item);
                       const isLinked = !!item.linkedReservationId;
+                      const unpaid = (item.lineItems || []).filter(l => !l.paid).length;
                       return (
                         <div
                           key={item.id}
@@ -400,11 +411,13 @@ export default function ExpensesPanel({
                                 }, {} as Record<string, { total: number; hasUnpaid: boolean }>);
 
                                 return Object.keys(currencyStatus).length > 0 ? (
-                                  Object.entries(currencyStatus).map(([curr, status]) => (
-                                    <div key={curr} style={{ color: status.hasUnpaid ? 'var(--color-danger)' : 'var(--text-primary)' }}>
-                                      {formatPrice(status.total)} {curr}
-                                    </div>
-                                  ))
+                                  Object.entries(currencyStatus)
+                                    .sort(([codeA], [codeB]) => compareCurrencies(codeA, codeB))
+                                    .map(([curr, status]) => (
+                                      <div key={curr} style={{ color: status.hasUnpaid ? 'var(--color-danger)' : 'var(--text-primary)' }}>
+                                        {formatPrice(status.total)} {curr}
+                                      </div>
+                                    ))
                                 ) : (
                                   <div style={{ color: 'var(--text-primary)' }}>0.00</div>
                                 );
@@ -418,45 +431,41 @@ export default function ExpensesPanel({
                                 {item.date}
                               </span>
                             )}
-                            {isLinked && (
-                              <span
-                                className="catalog-day-tag"
-                                style={{
-                                  fontSize: '9px',
-                                  padding: '1px 5px',
-                                  color: '#fbbf24',
-                                  background: 'rgba(245, 158, 11, 0.08)',
-                                  border: '1px solid rgba(245, 158, 11, 0.2)',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px'
-                                }}
-                              >
-                                <Link size={8} />
-                                <span>{item.linkedReservationType === 'hotel' ? 'Hotel' : 'Transit'}</span>
-                              </span>
-                            )}
+                            {isLinked && (() => {
+                               const isHotel = item.linkedReservationType === 'hotel';
+                               const tagColor = isHotel ? '#10b981' : '#f59e0b';
+                               const tagBg = isHotel ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)';
+                               const tagBorder = isHotel ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)';
+                               return (
+                                 <span
+                                   className="catalog-day-tag"
+                                   style={{
+                                     fontSize: '9px',
+                                     padding: '1px 5px',
+                                     color: tagColor,
+                                     background: tagBg,
+                                     border: tagBorder,
+                                     display: 'inline-flex',
+                                     alignItems: 'center',
+                                     gap: '3px'
+                                   }}
+                                 >
+                                   <Link size={8} />
+                                   <span>{isHotel ? 'Hotel' : 'Transit'}</span>
+                                 </span>
+                               );
+                             })()}
                             {briefDetails && (
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                 {briefDetails}
                               </span>
                             )}
+                            {unpaid > 0 && (
+                              <span style={{ fontSize: '11px', color: 'var(--color-danger)', fontWeight: 500, marginLeft: 'auto' }}>
+                                {unpaid} unpaid
+                              </span>
+                            )}
                           </div>
-
-                          {item.lineItems && item.lineItems.length > 0 && (
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px', fontSize: '10px' }}>
-                              {(() => {
-                                const total = item.lineItems.length;
-                                const paid = item.lineItems.filter(l => l.paid).length;
-                                const hasUnpaid = paid < total;
-                                return (
-                                  <span style={{ color: hasUnpaid ? 'var(--color-danger)' : 'var(--text-muted)' }}>
-                                    {paid} / {total} {total === 1 ? 'line' : 'lines'} paid
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          )}
                         </div>
                       );
                     })

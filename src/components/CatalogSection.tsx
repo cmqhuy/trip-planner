@@ -313,11 +313,14 @@ function CatalogSection({
                         >
                           <MoreVertical size={12} />
                         </button>
-                        {activeGroupDropdownId === group.id && (
-                          <div className="dropdown-menu">
-                            <button
-                              className="dropdown-item"
-                              disabled={group.isFirst}
+                         {activeGroupDropdownId === group.id && (() => {
+                           const totalReorderable = (trip.placeGroups || DEFAULT_PLACE_GROUPS).length;
+                           const showAbove = group.groupIdx >= Math.max(1, totalReorderable - 2);
+                           return (
+                             <div className={`dropdown-menu${showAbove ? ' dropdown-menu-above' : ''}`}>
+                               <button
+                                 className="dropdown-item"
+                                 disabled={group.isFirst}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleMoveGroupOrder(group.groupIdx!, 'up');
@@ -348,7 +351,8 @@ function CatalogSection({
                               <Edit2 size={12} /> Edit Group
                             </button>
                           </div>
-                        )}
+                        );
+                      })()}
                       </div>
                     )}
                     <span className="badge badge--count">

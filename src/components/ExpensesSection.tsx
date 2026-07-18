@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Check, X, Pencil, Trash2, ChevronDown, CheckSquare, Square, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, ChevronDown, CheckSquare, Square, GripVertical } from 'lucide-react';
 import type { ExpenseLine } from '../types';
-import { CURRENCY_LIST } from '../utils/currencies';
+import { CURRENCY_LIST, compareCurrencies } from '../utils/currencies';
 
 interface ExpensesSectionProps {
   expenses: ExpenseLine[];
@@ -24,7 +24,7 @@ export default function ExpensesSection({
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState(defaultCurrency);
-  const [paid, setPaid] = useState(false);
+  const [paid, setPaid] = useState(true);
 
   // Dropdown states
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -36,7 +36,7 @@ export default function ExpensesSection({
     setDescription('');
     setPrice('');
     setCurrency(defaultCurrency);
-    setPaid(false);
+    setPaid(true);
   };
 
   const handleStartAdd = () => {
@@ -60,8 +60,8 @@ export default function ExpensesSection({
     resetForm();
   };
 
-  const handleSave = () => {
-    if (!description.trim()) return;
+   const handleSave = () => {
+    if (!description.trim() && !price.trim()) return;
     const parsedPrice = parseFloat(price) || 0;
     const finalCurrency = currency.trim() || defaultCurrency;
 
@@ -195,25 +195,25 @@ export default function ExpensesSection({
               <span>Paid</span>
             </label>
 
-            <div style={{ display: 'flex', gap: '4px' }}>
+             <div style={{ display: 'flex', gap: '4px' }}>
               <button
                 type="button"
-                className="mini-icon-btn flex-align"
+                className="mini-icon-btn ai-md-save-btn"
                 onClick={handleSave}
-                disabled={!description.trim()}
+                disabled={!description.trim() && !price.trim()}
                 data-tooltip="Save line item"
                 data-tooltip-position="bottom"
               >
-                <Check size={13} />
+                Save
               </button>
               <button
                 type="button"
-                className="mini-icon-btn mini-icon-btn--danger flex-align"
+                className="mini-icon-btn ai-md-cancel-btn"
                 onClick={handleCancel}
                 data-tooltip="Cancel"
                 data-tooltip-position="bottom"
               >
-                <X size={13} />
+                Cancel
               </button>
             </div>
           </div>
@@ -319,10 +319,10 @@ export default function ExpensesSection({
                   >
                     {item.paid ? <CheckSquare size={14} /> : <Square size={14} />}
                   </button>
-                  <span className={`expense-item-desc ${item.paid ? 'line-through' : ''}`}>
+                   <span className="expense-item-desc">
                     {item.description}
                   </span>
-                  <span className={`expense-item-amount ${item.paid ? 'line-through' : ''}`}>
+                  <span className={`expense-item-amount ${!item.paid ? 'text-danger' : ''}`}>
                     {formatPrice(item.price)}
                   </span>
                   <span className="expense-item-currency">{item.currency}</span>
@@ -352,12 +352,14 @@ export default function ExpensesSection({
           {/* Multiple Currencies Total */}
           <div className="expense-totals">
             <span className="expense-totals-label">Total:</span>
-            {Object.entries(totals).map(([currencyCode, sum], idx) => (
-              <span key={currencyCode} className="expense-total-badge">
-                {idx > 0 && <span style={{ marginRight: '6px', color: 'var(--text-muted)' }}>•</span>}
-                {formatPrice(sum)} {currencyCode}
-              </span>
-            ))}
+             {Object.entries(totals)
+              .sort(([codeA], [codeB]) => compareCurrencies(codeA, codeB))
+              .map(([currencyCode, sum], idx) => (
+                <span key={currencyCode} className="expense-total-badge">
+                  {idx > 0 && <span style={{ marginRight: '6px', color: 'var(--text-muted)' }}>•</span>}
+                  {formatPrice(sum)} {currencyCode}
+                </span>
+              ))}
           </div>
         </div>
       ) : (

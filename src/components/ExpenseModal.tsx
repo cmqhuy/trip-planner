@@ -247,12 +247,15 @@ export default function ExpenseModal({
                   <Calendar size={13} />
                   Date
                 </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  style={{ marginTop: '6px', width: '100%' }}
-                />
+                 <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom" style={{ marginTop: '6px' }}>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    style={{ width: '100%' }}
+                    title=""
+                  />
+                </div>
               </div>
             )}
           </div>

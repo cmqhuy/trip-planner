@@ -4828,6 +4828,10 @@ input[type="number"] { -moz-appearance: textfield; }
   opacity: 0.6;
 }
 
+.expense-item-amount.text-danger {
+  color: var(--color-danger);
+}
+
 .expense-item-currency {
   font-size: 10px;
   color: #a5b4fc;
