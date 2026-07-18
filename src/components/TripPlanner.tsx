@@ -3426,6 +3426,19 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           transports={activePlan.transports || []}
           onSave={handleSaveExpense}
           onDelete={editingExpense && (editingExpense.id || editingExpense.linkedReservationId) ? handleDeleteExpense : undefined}
+          onOpenReservation={editingExpense?.linkedReservationId ? (() => {
+            const linkedId = editingExpense.linkedReservationId;
+            const linkedType = editingExpense.linkedReservationType;
+            setShowExpenseModal(false);
+            setEditingExpense(null);
+            if (linkedType === 'hotel') {
+              const hotel = (activePlan.hotels || []).find(h => h.id === linkedId);
+              if (hotel) handleOpenEditHotel(hotel);
+            } else if (linkedType === 'transit') {
+              const transport = (activePlan.transports || []).find(t => t.id === linkedId);
+              if (transport) handleOpenEditTransport(transport, 0);
+            }
+          }) : undefined}
         />
       )}
 

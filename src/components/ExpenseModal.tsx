@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation } from 'lucide-react';
+import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation, ExternalLink } from 'lucide-react';
 import type { ExpenseGroup, ExpenseItem, ExpenseLine, Hotel, TransportationReservation } from '../types';
 import ExpensesSection from './ExpensesSection';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
@@ -19,6 +19,7 @@ interface ExpenseModalProps {
     lineItems: ExpenseLine[];
   }) => void;
   onDelete?: () => void;
+  onOpenReservation?: () => void;
 }
 
 function TransportTypeIcon({ type, size = 12, className }: { type: string; size?: number; className?: string }) {
@@ -40,7 +41,8 @@ export default function ExpenseModal({
   hotels,
   transports,
   onSave,
-  onDelete
+  onDelete,
+  onOpenReservation
 }: ExpenseModalProps) {
   const [title, setTitle] = useState(expense?.title || '');
   const [notes, setNotes] = useState(expense?.notes || '');
@@ -155,6 +157,16 @@ export default function ExpenseModal({
                 <TransportTypeIcon type={linkedTransport.type} size={12} className="flex-shrink-0" />
                 <span>Transit: {getTransportSubtitle(linkedTransport)}</span>
               </div>
+            )}
+            {onOpenReservation && (
+              <button
+                type="button"
+                className="linked-expense-open-btn"
+                onClick={onOpenReservation}
+              >
+                <ExternalLink size={12} />
+                Open Reservation
+              </button>
             )}
           </div>
         )}
