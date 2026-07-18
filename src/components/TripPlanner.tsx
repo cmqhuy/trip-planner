@@ -36,7 +36,7 @@ const clearDayFields = (day: PlanDay): PlanDay => {
 };
 import { Navigation, BookOpen, Clock, Loader2 } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, getLocIcon, getFormattedLocationName } from '../utils/api';
-import { getDaysDiff, shiftTripDates } from '../utils/dateUtils';
+import { getDaysDiff, shiftTripDates, getTodayDateString } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { aiRequestQueue } from '../utils/aiRequestQueue';
@@ -203,7 +203,14 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [activeDayStr, setActiveDayStr] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const urlDay = params.get('day');
-    return urlDay && daysList.includes(urlDay) ? urlDay : (daysList[0] || '');
+    if (urlDay && daysList.includes(urlDay)) {
+      return urlDay;
+    }
+    const todayStr = getTodayDateString();
+    if (daysList.includes(todayStr)) {
+      return todayStr;
+    }
+    return daysList[0] || '';
   });
   const activeDay = activePlan?.days[activeDayStr];
 
@@ -229,7 +236,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const plan = trip.plans.find(p => p.id === targetPlanId) || trip.plans[0];
     const planDays = Object.keys(plan?.days || {}).sort();
     const urlDay = params.get('day');
-    const targetDay = urlDay && planDays.includes(urlDay) ? urlDay : (planDays[0] || '');
+    const todayStr = getTodayDateString();
+    const targetDay = urlDay && planDays.includes(urlDay)
+      ? urlDay
+      : (planDays.includes(todayStr) ? todayStr : (planDays[0] || ''));
     setActiveDayStr(targetDay);
   }, [trip.id]);
 

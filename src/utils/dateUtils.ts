@@ -125,3 +125,15 @@ export function shiftTripDates(trip: Trip, newStartDate: string, newEndDate: str
     plans: updatedPlans
   };
 }
+
+/**
+ * Returns today's date in local time formatted as YYYY-MM-DD.
+ */
+export function getTodayDateString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+

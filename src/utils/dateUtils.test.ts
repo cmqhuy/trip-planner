@@ -1,5 +1,5 @@
-import { describe, test, expect } from 'vitest';
-import { getDaysDiff, shiftDateString, generateDatesRange, shiftTripDates } from './dateUtils';
+import { describe, test, expect, vi } from 'vitest';
+import { getDaysDiff, shiftDateString, generateDatesRange, shiftTripDates, getTodayDateString } from './dateUtils';
 import type { Trip } from '../types';
 
 describe('dateUtils tests', () => {
@@ -131,5 +131,24 @@ describe('dateUtils tests', () => {
     // Day 3 is truncated (does not exist in plans.days)
     expect(plan.days['2026-06-13']).toBeUndefined();
     expect(Object.keys(plan.days)).toHaveLength(2);
+  });
+
+  test('getTodayDateString returns local date YYYY-MM-DD', () => {
+    try {
+      vi.useFakeTimers();
+      // Set to a specific date: 2026-07-18 12:00:00 local time
+      const date = new Date(2026, 6, 18, 12, 0, 0); // Month is 0-indexed (6 = July)
+      vi.setSystemTime(date);
+
+      expect(getTodayDateString()).toBe('2026-07-18');
+
+      // Set to a different date: 2028-12-31
+      const date2 = new Date(2028, 11, 31, 23, 59, 0); // Month 11 = December
+      vi.setSystemTime(date2);
+
+      expect(getTodayDateString()).toBe('2028-12-31');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

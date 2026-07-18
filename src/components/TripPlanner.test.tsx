@@ -759,6 +759,85 @@ describe('TripPlanner Component', () => {
     // Verify "Edit Place" is no longer visible
     expect(screen.queryByText('Edit Place')).toBeNull();
   });
+
+  it('automatically selects today if today is within the trip dates', () => {
+    vi.useFakeTimers();
+    // July 2, 2026 is Day 2 of mockTrip
+    const date = new Date(2026, 6, 2, 12, 0, 0);
+    vi.setSystemTime(date);
+
+    // Clear URL day param so it defaults to today
+    window.history.pushState({}, '', '?plan=plan-main');
+
+    const handleUpdateTrip = vi.fn();
+    const handleBack = vi.fn();
+
+    const { container } = render(
+      <TripPlanner
+        trip={mockTrip}
+        onBack={handleBack}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    const tabs = container.querySelectorAll('.day-tab');
+    expect(tabs[1].classList.contains('active')).toBe(true);
+    expect(tabs[0].classList.contains('active')).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('defaults to Day 1 if today is not within the trip dates', () => {
+    vi.useFakeTimers();
+    // August 1, 2026 is outside mockTrip (July 1 - July 3)
+    const date = new Date(2026, 7, 1, 12, 0, 0);
+    vi.setSystemTime(date);
+
+    // Clear URL day param so it defaults to first day
+    window.history.pushState({}, '', '?plan=plan-main');
+
+    const handleUpdateTrip = vi.fn();
+    const handleBack = vi.fn();
+
+    const { container } = render(
+      <TripPlanner
+        trip={mockTrip}
+        onBack={handleBack}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    const tabs = container.querySelectorAll('.day-tab');
+    expect(tabs[0].classList.contains('active')).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('honors the day parameter from URL even if today is within the trip dates', () => {
+    vi.useFakeTimers();
+    // July 2, 2026 is today
+    const date = new Date(2026, 6, 2, 12, 0, 0);
+    vi.setSystemTime(date);
+
+    // URL asks for July 3
+    window.history.pushState({}, '', '?plan=plan-main&day=2026-07-03');
+
+    const handleUpdateTrip = vi.fn();
+    const handleBack = vi.fn();
+
+    const { container } = render(
+      <TripPlanner
+        trip={mockTrip}
+        onBack={handleBack}
+        onUpdateTrip={handleUpdateTrip}
+      />
+    );
+
+    const tabs = container.querySelectorAll('.day-tab');
+    expect(tabs[2].classList.contains('active')).toBe(true);
+
+    vi.useRealTimers();
+  });
 });
 
 
