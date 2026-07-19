@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation, ExternalLink } from 'lucide-react';
 import type { ExpenseGroup, ExpenseItem, ExpenseLine, Hotel, TransportationReservation } from '../types';
 import ExpensesSection from './ExpensesSection';
@@ -50,21 +51,20 @@ export default function ExpenseModal({
   const [groupId, setGroupId] = useState(expense?.groupId || expenseGroups[0]?.id || '');
   const [lineItems, setLineItems] = useState<ExpenseLine[]>(expense?.lineItems || []);
 
-  // Combo-box state
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
-  const groupDropdownRef = useRef<HTMLDivElement>(null);
+  const [groupDropdownPos, setGroupDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const groupTriggerRef = useRef<HTMLButtonElement>(null);
 
-  // Click outside listener for combo box
   useEffect(() => {
-    if (!groupDropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!groupDropdownRef.current?.contains(e.target as Node)) {
-        setGroupDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [groupDropdownOpen]);
+    if (isOpen) {
+      setTitle(expense?.title || '');
+      setNotes(expense?.notes || '');
+      setDate(expense?.date || '');
+      setGroupId(expense?.groupId || expenseGroups[0]?.id || '');
+      setLineItems(expense?.lineItems || []);
+      setGroupDropdownOpen(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -72,7 +72,6 @@ export default function ExpenseModal({
   const linkedType = expense?.linkedReservationType;
   const linkedId = expense?.linkedReservationId;
 
-  // Retrieve linked details
   let linkedHotel: Hotel | undefined;
   let linkedTransport: TransportationReservation | undefined;
   if (isLinked) {
@@ -111,9 +110,16 @@ export default function ExpenseModal({
     return `${typeStr} Reservation`;
   };
 
+  const openGroupDropdown = () => {
+    if (isLinked) return;
+    const r = groupTriggerRef.current!.getBoundingClientRect();
+    setGroupDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    setGroupDropdownOpen(true);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content glass-panel scrollable" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
             {isLinked ? 'Linked Expense' : (expense && expense.id) ? 'Edit Expense Details' : 'Add Expense Details'}
@@ -123,183 +129,138 @@ export default function ExpenseModal({
           </button>
         </div>
 
-        {isLinked && (
-          <div
-            className="linked-expense-warning"
-            style={{
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px dashed rgba(245, 158, 11, 0.3)',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              fontSize: '12px',
-              color: '#fbbf24'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
-              <AlertTriangle size={14} />
-              <span>Linked to Reservation</span>
-            </div>
-            <p style={{ margin: 0, opacity: 0.9 }}>
-              This expense is linked to a reservation. Modifying it will update the reservation details. Deleting this expense will clear the expense details from the reservation.
-            </p>
-            {linkedHotel && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
-                <Building size={12} className="flex-shrink-0" />
-                <span>Hotel: {linkedHotel.name} ({linkedHotel.checkInDate} to {linkedHotel.checkOutDate})</span>
-              </div>
-            )}
-            {linkedTransport && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
-                <TransportTypeIcon type={linkedTransport.type} size={12} className="flex-shrink-0" />
-                <span>Transit: {getTransportSubtitle(linkedTransport)}</span>
-              </div>
-            )}
-            {onOpenReservation && (
-              <button
-                type="button"
-                className="linked-expense-open-btn"
-                onClick={onOpenReservation}
-              >
-                <ExternalLink size={12} />
-                Open Reservation
-              </button>
-            )}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Expense Name / Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. Flight Ticket, Subway Pass, Disneyland Ticket"
-              required
-              autoFocus={!isLinked}
-            />
-          </div>
-
-          <div className="form-row form-row--top">
-            {/* Group Selection Combo Box */}
-            <div className="form-group flex-1" ref={groupDropdownRef} style={{ position: 'relative' }}>
-              <label>Group</label>
-              <button
-                type="button"
-                className="loc-select-trigger combo-trigger"
-                onClick={() => !isLinked && setGroupDropdownOpen(!groupDropdownOpen)}
-                disabled={isLinked}
+          <div className="modal-scroll-body">
+            {isLinked && (
+              <div
+                className="linked-expense-warning"
                 style={{
-                  width: '100%',
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px dashed rgba(245, 158, 11, 0.3)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '16px',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  background: isLinked ? 'rgba(255, 255, 255, 0.01)' : 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid var(--border-glass)',
-                  borderRadius: '6px',
-                  cursor: isLinked ? 'not-allowed' : 'pointer',
-                  color: isLinked ? 'var(--text-muted)' : 'var(--text-primary)',
-                  marginTop: '6px'
+                  flexDirection: 'column',
+                  gap: '6px',
+                  fontSize: '12px',
+                  color: '#fbbf24'
                 }}
               >
-                <span className="combo-trigger-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {getExpenseGroupIcon(selectedGroup?.icon || 'dollar-sign', 14)}
-                  <span>{selectedGroup?.name || 'Select Group'}</span>
-                </span>
-                {!isLinked && <ChevronDown size={14} className={`expand-chevron${groupDropdownOpen ? ' is-open' : ''}`} />}
-              </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                  <AlertTriangle size={14} />
+                  <span>Linked to Reservation</span>
+                </div>
+                <p style={{ margin: 0, opacity: 0.9 }}>
+                  This expense is linked to a reservation. Modifying it will update the reservation details. Deleting this expense will clear the expense details from the reservation.
+                </p>
+                {linkedHotel && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
+                    <Building size={12} className="flex-shrink-0" />
+                    <span>Hotel: {linkedHotel.name} ({linkedHotel.checkInDate} to {linkedHotel.checkOutDate})</span>
+                  </div>
+                )}
+                {linkedTransport && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
+                    <TransportTypeIcon type={linkedTransport.type} size={12} className="flex-shrink-0" />
+                    <span>Transit: {getTransportSubtitle(linkedTransport)}</span>
+                  </div>
+                )}
+                {onOpenReservation && (
+                  <button
+                    type="button"
+                    className="linked-expense-open-btn"
+                    onClick={onOpenReservation}
+                  >
+                    <ExternalLink size={12} />
+                    Open Reservation
+                  </button>
+                )}
+              </div>
+            )}
 
-              {groupDropdownOpen && (
-                <div
-                  className="loc-select-dropdown combo-dropdown"
+            <div className="form-group">
+              <label>Expense Name / Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="e.g. Flight Ticket, Subway Pass, Disneyland Ticket"
+                required
+                autoFocus={!isLinked}
+              />
+            </div>
+
+            <div className="form-row form-row--top">
+              {/* Group Selection Combo Box */}
+              <div className="form-group flex-1" style={{ position: 'relative' }}>
+                <label>Group</label>
+                <button
+                  ref={groupTriggerRef}
+                  type="button"
+                  className="loc-select-trigger combo-trigger"
+                  onClick={openGroupDropdown}
+                  disabled={isLinked}
                   style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    zIndex: 1100,
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    backdropFilter: 'blur(16px)',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: isLinked ? 'rgba(255, 255, 255, 0.01)' : 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid var(--border-glass)',
                     borderRadius: '6px',
-                    boxShadow: 'var(--shadow-lg), 0 4px 20px rgba(0,0,0,0.5)',
-                    marginTop: '4px',
-                    maxHeight: '180px',
-                    overflowY: 'auto',
-                    padding: '4px'
+                    cursor: isLinked ? 'not-allowed' : 'pointer',
+                    color: isLinked ? 'var(--text-muted)' : 'var(--text-primary)',
+                    marginTop: '6px'
                   }}
                 >
-                  {expenseGroups.map(g => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      className={`combo-option${g.id === groupId ? ' selected' : ''}`}
-                      onClick={() => {
-                        setGroupId(g.id);
-                        setGroupDropdownOpen(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        border: 'none',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        borderRadius: '4px'
-                      }}
-                    >
-                      {getExpenseGroupIcon(g.icon, 14)}
-                      <span>{g.name}</span>
-                    </button>
-                  ))}
+                  <span className="combo-trigger-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {getExpenseGroupIcon(selectedGroup?.icon || 'dollar-sign', 14)}
+                    <span>{selectedGroup?.name || 'Select Group'}</span>
+                  </span>
+                  {!isLinked && <ChevronDown size={14} className={`expand-chevron${groupDropdownOpen ? ' is-open' : ''}`} />}
+                </button>
+              </div>
+
+              {/* Date Selection - only for manual/non-linked expenses */}
+              {!isLinked && (
+                <div className="form-group flex-1">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={13} />
+                    Date
+                  </label>
+                  <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom" style={{ marginTop: '6px' }}>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={e => setDate(e.target.value)}
+                      style={{ width: '100%' }}
+                      title=""
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Date Selection - only for manual/non-linked expenses */}
-            {!isLinked && (
-              <div className="form-group flex-1">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Calendar size={13} />
-                  Date
-                </label>
-                 <div className="input-tooltip-wrapper" data-tooltip="Show date picker" data-tooltip-position="bottom" style={{ marginTop: '6px' }}>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    style={{ width: '100%' }}
-                    title=""
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+            <div className="form-group">
+              <label>Notes</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Add details, notes or payment instructions..."
+                rows={2}
+                style={{ marginTop: '6px', resize: 'vertical' }}
+              />
+            </div>
 
-          <div className="form-group">
-            <label>Notes</label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Add details, notes or payment instructions..."
-              rows={2}
-              style={{ marginTop: '6px', resize: 'vertical' }}
+            <ExpensesSection
+              expenses={lineItems}
+              onChange={setLineItems}
             />
           </div>
 
-          <ExpensesSection
-            expenses={lineItems}
-            onChange={setLineItems}
-          />
-
-          <div className="modal-actions" style={{ marginTop: '24px' }}>
+          <div className="modal-actions">
             {expense && onDelete && (
               <button
                 type="button"
@@ -317,6 +278,26 @@ export default function ExpenseModal({
           </div>
         </form>
       </div>
+
+      {groupDropdownOpen && groupDropdownPos && createPortal(<>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setGroupDropdownOpen(false)} />
+        <div
+          className="combo-dropdown--portal"
+          style={{ top: groupDropdownPos.top, left: groupDropdownPos.left, width: Math.max(groupDropdownPos.width, 200) }}
+        >
+          {expenseGroups.map(g => (
+            <button
+              key={g.id}
+              type="button"
+              className={`combo-option${g.id === groupId ? ' selected' : ''}`}
+              onClick={() => { setGroupId(g.id); setGroupDropdownOpen(false); }}
+            >
+              {getExpenseGroupIcon(g.icon, 14)}
+              <span>{g.name}</span>
+            </button>
+          ))}
+        </div>
+      </>, document.body)}
     </div>
   );
 }
