@@ -101,6 +101,7 @@ interface ItineraryPanelProps {
   handleGenerateSingleDayTips: (dateStr: string) => void;
   handleSaveDayTips: (dateStr: string, content: string) => void;
   handleSaveBabyLogistics: (dateStr: string, content: string) => void;
+  handleSaveSuggestedReservations: (dateStr: string, content: string) => void;
   handleClearDay: () => void;
   handleAddPlaceFromDayTimeline: (place: Omit<Place, 'placeGroupId'>) => void;
   handleOpenAddPlaceAtIndex: (insertAtIndex: number) => void;
@@ -207,6 +208,7 @@ function ItineraryPanel({
   handleGenerateSingleDayTips,
   handleSaveDayTips,
   handleSaveBabyLogistics,
+  handleSaveSuggestedReservations,
   handleClearDay,
   handleAddPlaceFromDayTimeline,
   handleOpenAddPlaceAtIndex,
@@ -1316,8 +1318,10 @@ function ItineraryPanel({
               <div className="timeline-section-actions">
                 {(() => {
                   const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
+                  const isSuggestedReservationsEnabled = !trip.disabledDayFields?.includes('suggested_reservations');
                   const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
-                  const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
+                  const isAnyDayFieldEnabled = isDailyTipsEnabled || isSuggestedReservationsEnabled || isBabyLogisticsEnabled;
+                  const hasExistingContent = !!(activeDay?.aiDetails?.daily_tips || activeDay?.aiDetails?.suggested_reservations || activeDay?.aiDetails?.baby_logistics);
                   return (
                     <>
                       {trip.canEdit !== false && (
@@ -1329,10 +1333,10 @@ function ItineraryPanel({
                             }
                           }}
                           disabled={daysGeneratingDates.has(activeDayStr) || !isAnyDayFieldEnabled}
-                          data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : (activeDay?.aiDetails?.daily_tips ? 'Regenerate Tips' : 'Generate Tips')}
+                          data-tooltip={!isAnyDayFieldEnabled ? 'Enable at least one day-level AI field in Settings first' : (hasExistingContent ? 'Regenerate Tips' : 'Generate Tips')}
                         >
                           {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />}
-                          {activeDay?.aiDetails?.daily_tips ? 'Regenerate Tips' : 'Generate Tips'}
+                          {hasExistingContent ? 'Regenerate Tips' : 'Generate Tips'}
                         </button>
                       )}
                       {trip.canEdit !== false && (
@@ -1344,7 +1348,7 @@ function ItineraryPanel({
                             }
                           }}
                           disabled={!isAnyDayFieldEnabled}
-                          data-tooltip={!isAnyDayFieldEnabled ? 'Enable Daily Tips or Baby Logistics in Settings first' : 'Batch Generate Tips'}
+                          data-tooltip={!isAnyDayFieldEnabled ? 'Enable at least one day-level AI field in Settings first' : 'Batch Generate Tips'}
                         >
                           <Sparkles size={14} /> Batch Generate Tips
                         </button>
@@ -1358,35 +1362,47 @@ function ItineraryPanel({
             <div className="glass-panel ai-day-assistant-card">
               {(() => {
                 const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
+                const isSuggestedReservationsEnabled = !trip.disabledDayFields?.includes('suggested_reservations');
                 const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
-                const isAnyDayFieldEnabled = isDailyTipsEnabled || isBabyLogisticsEnabled;
+                const isAnyDayFieldEnabled = isDailyTipsEnabled || isSuggestedReservationsEnabled || isBabyLogisticsEnabled;
+
+                const hasDailyTips = isDailyTipsEnabled && !!activeDay?.aiDetails?.daily_tips;
+                const hasSuggestedReservations = isSuggestedReservationsEnabled && !!activeDay?.aiDetails?.suggested_reservations;
+                const hasBabyLogistics = isBabyLogisticsEnabled && !!activeDay?.aiDetails?.baby_logistics;
+                const hasAnyContent = hasDailyTips || hasSuggestedReservations || hasBabyLogistics;
 
                 return daysGeneratingDates.has(activeDayStr) ? (
                   <FunGeneratingLoader message="Asking Gemini to design daily tips & route logistics..." />
-                ) : (isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips) || (isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics) ? (
+                ) : hasAnyContent ? (
                   <div className="day-ai-content-col">
-                    
+
                     {/* Daily Tips */}
-                    {isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips && (
-                      <AiMarkdownSection 
-                        content={activeDay.aiDetails.daily_tips} 
-                        updatedAt={activeDay.aiUpdatedAt}
+                    {hasDailyTips && (
+                      <AiMarkdownSection
+                        content={activeDay!.aiDetails!.daily_tips!}
+                        updatedAt={activeDay?.aiUpdatedAt}
                         onSave={(newVal) => handleSaveDayTips(activeDayStr, newVal)}
                         canEdit={trip.canEdit !== false}
                       />
                     )}
 
+                    {/* Suggested Reservations */}
+                    {hasSuggestedReservations && (
+                      <div className={hasDailyTips ? 'day-ai-section-divider' : undefined}>
+                        <AiMarkdownSection
+                          content={activeDay!.aiDetails!.suggested_reservations!}
+                          onSave={(newVal) => handleSaveSuggestedReservations(activeDayStr, newVal)}
+                          canEdit={trip.canEdit !== false}
+                          title={<span className="suggested-reservations-title">Suggested Reservations</span>}
+                        />
+                      </div>
+                    )}
+
                     {/* Baby Logistics (if enabled and generated) */}
-                    {isBabyLogisticsEnabled && activeDay?.aiDetails?.baby_logistics && (
-                      <div 
-                        style={{ 
-                          borderTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '1px solid rgba(255, 255, 255, 0.05)' : 'none', 
-                          paddingTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '8px' : '0', 
-                          marginTop: isDailyTipsEnabled && activeDay?.aiDetails?.daily_tips ? '4px' : '0' 
-                        }}
-                      >
-                        <AiMarkdownSection 
-                          content={activeDay.aiDetails.baby_logistics} 
+                    {hasBabyLogistics && (
+                      <div className={hasDailyTips || hasSuggestedReservations ? 'day-ai-section-divider' : undefined}>
+                        <AiMarkdownSection
+                          content={activeDay!.aiDetails!.baby_logistics!}
                           onSave={(newVal) => handleSaveBabyLogistics(activeDayStr, newVal)}
                           canEdit={trip.canEdit !== false}
                           title={

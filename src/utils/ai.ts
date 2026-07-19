@@ -506,6 +506,7 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     disabledDayFields?: string[]
   ): string {
     const tipsDisabled = disabledDayFields?.includes('daily_tips');
+    const reservationsDisabled = disabledDayFields?.includes('suggested_reservations');
     const sortedDays = [...days].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
     const daysPrompt = sortedDays.map(d => {
       const placesList = d.places.map(p => {
@@ -531,6 +532,7 @@ ${transportsList || 'None'}`;
 
     const schemaFields = [];
     if (!tipsDisabled) schemaFields.push('"daily_tips": "<markdown tips>"');
+    if (!reservationsDisabled) schemaFields.push('"suggested_reservations": "<markdown reservation list>"');
     if (enableBabyLogistics) schemaFields.push('"baby_logistics": "<markdown baby tips>"');
 
     return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
@@ -564,6 +566,13 @@ Specifically, cover the following under the headers:
 - Timing & Optimization Suggestions: Give suggestions if any place takes a long time, sequence/route suggestions based on opening hours.
 - Logistics & Alerts: Recommended departure time from hotel/starting point, transit lines to use, weather check reminders, essential safety warnings (pickpockets, walking comfort).
 
+${!reservationsDisabled ? `IMPORTANT SUGGESTED RESERVATIONS REQUIREMENT:
+Generate a "suggested_reservations" text (in Markdown format) listing any scheduled attractions that typically require advance reservations, timed-entry tickets, or bookings (e.g. popular museums, tours, restaurants, experiences). For each, specify:
+- What needs to be booked (entry ticket, time slot, guided tour, table reservation, etc.)
+- How far in advance to book (e.g. "book 2–4 weeks ahead", "same-day booking usually possible")
+- A brief note on why (e.g. "sells out fast on weekends", "free but limited capacity")
+If none of the places require advance booking, write "No advance reservations needed for this day." Keep it concise — one bullet per attraction.` : ''}
+
 ${enableBabyLogistics ? `IMPORTANT BABY LOGISTICS REQUIREMENT:
 Since the user is traveling with a baby, generate a specific "baby_logistics" text (in Markdown format) under the "baby_logistics" key of the aiDetails object for each day. Keep it brief, 2-3 sentences or bullet points.` : ''}
 
@@ -590,6 +599,9 @@ Please respond with JSON in this exact format:
       if (day.aiDetails) {
         if (typeof day.aiDetails.daily_tips === 'string') {
           day.aiDetails.daily_tips = fixMarkdownHeaders(day.aiDetails.daily_tips);
+        }
+        if (typeof day.aiDetails.suggested_reservations === 'string') {
+          day.aiDetails.suggested_reservations = fixMarkdownHeaders(day.aiDetails.suggested_reservations);
         }
         if (typeof day.aiDetails.baby_logistics === 'string') {
           day.aiDetails.baby_logistics = fixMarkdownHeaders(day.aiDetails.baby_logistics);
@@ -639,9 +651,15 @@ Please respond with JSON in this exact format:
     const aiDetailsRequired: string[] = [];
 
     const tipsDisabled = disabledDayFields?.includes('daily_tips');
+    const reservationsDisabled = disabledDayFields?.includes('suggested_reservations');
     if (!tipsDisabled) {
       aiDetailsProps['daily_tips'] = { type: 'STRING' };
       aiDetailsRequired.push('daily_tips');
+    }
+
+    if (!reservationsDisabled) {
+      aiDetailsProps['suggested_reservations'] = { type: 'STRING' };
+      aiDetailsRequired.push('suggested_reservations');
     }
 
     if (enableBabyLogistics) {
@@ -718,6 +736,13 @@ Specifically, cover the following under the headers:
 - Daily Route Sequence & Summary: Provide a short, station-to-station or road-by-road route summary based on the planned sequence of places and coordinates.
 - Timing & Optimization Suggestions: Give suggestions if any place takes a long time, sequence/route suggestions based on opening hours.
 - Logistics & Alerts: Recommended departure time from hotel/starting point, transit lines to use, weather check reminders, essential safety warnings (pickpockets, walking comfort).
+
+${!reservationsDisabled ? `IMPORTANT SUGGESTED RESERVATIONS REQUIREMENT:
+Generate a "suggested_reservations" text (in Markdown format) listing any scheduled attractions that typically require advance reservations, timed-entry tickets, or bookings (e.g. popular museums, tours, restaurants, experiences). For each, specify:
+- What needs to be booked (entry ticket, time slot, guided tour, table reservation, etc.)
+- How far in advance to book (e.g. "book 2–4 weeks ahead", "same-day booking usually possible")
+- A brief note on why (e.g. "sells out fast on weekends", "free but limited capacity")
+If none of the places require advance booking, write "No advance reservations needed for this day." Keep it concise — one bullet per attraction.` : ''}
 
 ${enableBabyLogistics ? `IMPORTANT BABY LOGISTICS REQUIREMENT:
 Since the user is traveling with a baby, generate a specific "baby_logistics" text (in Markdown format) under the "baby_logistics" key of the aiDetails object for each day. Keep it brief, 2-3 sentences or bullet points.` : ''}

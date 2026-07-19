@@ -160,6 +160,7 @@ describe('ItineraryPanel Component', () => {
         handleGenerateSingleDayTips={vi.fn()}
         handleSaveDayTips={vi.fn()}
         handleSaveBabyLogistics={vi.fn()}
+        handleSaveSuggestedReservations={vi.fn()}
         handleClearDay={vi.fn()}
         handleAddPlaceFromDayTimeline={vi.fn()}
         handleOpenAddPlaceAtIndex={vi.fn()}

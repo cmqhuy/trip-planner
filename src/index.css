@@ -2961,10 +2961,12 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .mini-icon-btn.ai-insights-btn { gap: 4px; color: #a5b4fc; }
 .mini-icon-btn.ai-generate-btn { gap: 4px; }
 .baby-logistics-title { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #fbcfe8; }
+.suggested-reservations-title { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #a5f3fc; }
 .day-no-tips { padding: 8px 0; text-align: center; }
 .day-no-tips-text { font-size: 11.5px; color: var(--text-muted); font-style: italic; display: block; margin-bottom: 6px; }
 .day-generate-btn { font-size: 11px; padding: 4px 10px; gap: 4px; border-color: rgba(99,102,241,0.15); display: flex; margin: 0 auto; }
 .day-ai-content-col { display: flex; flex-direction: column; gap: 10px; }
+.day-ai-section-divider { border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 8px; margin-top: 4px; }
 .place-search-wrapper { position: relative; margin-bottom: 16px; }
 .place-search-inner { position: relative; }
 .place-search-icon { position: absolute; left: 10px; top: 12px; color: var(--text-muted); }

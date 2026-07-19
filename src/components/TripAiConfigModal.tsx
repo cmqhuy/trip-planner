@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   X, Sparkles, Plus, Trash2, AlertCircle, Edit2, ChevronUp, ChevronDown, GripVertical,
-  Calendar, Ticket, Compass, HelpCircle, MapPin, Info, Smile, Camera, Utensils,
+  Calendar, CalendarCheck, Ticket, Compass, HelpCircle, MapPin, Info, Smile, Camera, Utensils,
   ShoppingBag, Coffee, DollarSign, BookOpen, Clock, Baby,
   Sparkle, Wand2, Brain, Bot, Activity, TrendingUp, Flame, Gem, Sun, Heart, Globe, Languages, Map
 } from 'lucide-react';
@@ -16,6 +16,7 @@ export const FIELD_ICONS_MAP: { [key: string]: React.ComponentType<any> } = {
   Brain,
   Bot,
   Calendar,
+  CalendarCheck,
   Ticket,
   Compass,
   AlertCircle,
@@ -80,6 +81,7 @@ export const getIconColor = (iconName: string) => {
 
 const DAY_LEVEL_FIELDS = [
   { key: 'daily_tips', label: 'Daily Tips & Routes', defaultIcon: 'Compass', description: 'Generates daily summaries, optimal routing sequences, timing guidelines, and logistics warnings based on scheduled places.' },
+  { key: 'suggested_reservations', label: 'Suggested Reservations', defaultIcon: 'CalendarCheck', description: 'Lists attractions that require advance reservations, tickets, or bookings, and how far ahead they should be booked.' },
   { key: 'baby_logistics', label: 'Baby Logistics', defaultIcon: 'Baby', description: 'Generates baby-specific logistics like stroller friendliness, diaper changing spots, nursing facilities, and nap planning.' }
 ];
 

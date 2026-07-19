@@ -2779,6 +2779,26 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     });
   }, [activePlan, trip, onUpdateTrip]);
 
+  const handleSaveSuggestedReservations = useCallback((dateStr: string, newContent: string) => {
+    const day = activePlan.days[dateStr];
+    if (!day) return;
+    const updatedDays = {
+      ...activePlan.days,
+      [dateStr]: {
+        ...day,
+        aiDetails: {
+          ...(day.aiDetails || {}),
+          suggested_reservations: newContent
+        },
+        aiUpdatedAt: Date.now()
+      }
+    };
+    onUpdateTrip({
+      ...trip,
+      plans: trip.plans.map(p => p.id === activePlan.id ? { ...p, days: updatedDays } : p)
+    });
+  }, [activePlan, trip, onUpdateTrip]);
+
   // ----------------------------------------------------
   // Rendering Helpers
   // ----------------------------------------------------
@@ -3029,6 +3049,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleGenerateSingleDayTips={handleGenerateSingleDayTips}
         handleSaveDayTips={handleSaveDayTips}
         handleSaveBabyLogistics={handleSaveBabyLogistics}
+        handleSaveSuggestedReservations={handleSaveSuggestedReservations}
         handleClearDay={handleClearDay}
         handleAddPlaceFromDayTimeline={handleAddPlaceFromDayTimeline}
         handleOpenAddPlaceAtIndex={handleOpenAddPlaceAtIndex}
