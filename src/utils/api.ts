@@ -1,4 +1,4 @@
-import type { Location, Place, PlaceGroup, ExpenseGroup } from '../types';
+import type { Location, Place, PlaceGroup, ExpenseGroup, ReservationGroup } from '../types';
 
 // Standard place groups template for new locations
 export const DEFAULT_PLACE_GROUPS: PlaceGroup[] = [
@@ -13,6 +13,13 @@ export const DEFAULT_EXPENSE_GROUPS: ExpenseGroup[] = [
   { id: 'transports', name: 'Transits', icon: 'plane', color: '#f59e0b' },
   { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' },
   { id: 'dining', name: 'Dining', icon: 'utensils', color: '#3b82f6' }
+];
+
+export const DEFAULT_RESERVATION_GROUPS: ReservationGroup[] = [
+  { id: 'hotels',      name: 'Hotels',      icon: 'building',  color: '#10b981' },
+  { id: 'transports',  name: 'Transits',    icon: 'plane',     color: '#f59e0b' },
+  { id: 'attractions', name: 'Attractions', icon: 'landmark',  color: '#ef4444' },
+  { id: 'dining',      name: 'Dining',      icon: 'utensils',  color: '#3b82f6' },
 ];
 
 // Rich local fallback database for autocomplete & offline use

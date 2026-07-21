@@ -111,6 +111,20 @@ describe('LeftPanelAccordion Component', () => {
         onAddHotel={vi.fn()}
         onAddTransit={vi.fn()}
         onImportReservationFile={vi.fn()}
+        reservationGroups={[
+          { id: 'hotels', name: 'Hotels', icon: 'building', color: '#10b981' },
+          { id: 'transports', name: 'Transits', icon: 'plane', color: '#f59e0b' },
+          { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' },
+          { id: 'dining', name: 'Dining', icon: 'utensils', color: '#3b82f6' },
+        ]}
+        genericReservations={[]}
+        onAddReservationGroup={vi.fn()}
+        onEditReservationGroup={vi.fn()}
+        onMoveReservationGroup={vi.fn()}
+        onAddGenericReservation={vi.fn()}
+        onEditGenericReservation={vi.fn()}
+        activeReservationGroupDropdownId={null}
+        setActiveReservationGroupDropdownId={vi.fn()}
         onAddExpense={vi.fn()}
         onEditExpense={vi.fn()}
         onAddExpenseGroup={vi.fn()}

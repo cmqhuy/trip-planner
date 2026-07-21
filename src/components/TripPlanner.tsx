@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine } from '../types';
+import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation } from '../types';
 import { flattenReservations } from '../types';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
@@ -35,7 +35,7 @@ const clearDayFields = (day: PlanDay): PlanDay => {
   return updateDayItems(clearedDay, remainingItems);
 };
 import { Navigation, BookOpen, Clock, Loader2 } from 'lucide-react';
-import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, getLocIcon, getFormattedLocationName } from '../utils/api';
+import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS, DEFAULT_RESERVATION_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, getLocIcon, getFormattedLocationName } from '../utils/api';
 import { getDaysDiff, shiftTripDates, getTodayDateString } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
@@ -65,6 +65,8 @@ import LeftPanelAccordion from './LeftPanelAccordion';
 import ItineraryPanel from './ItineraryPanel';
 import ExpenseGroupModal from './ExpenseGroupModal';
 import ExpenseModal from './ExpenseModal';
+import ReservationGroupModal from './ReservationGroupModal';
+import GenericReservationModal from './GenericReservationModal';
 
 const LOCATION_COLORS = [
   '#6366f1', // Indigo
@@ -487,6 +489,14 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [showExpenseGroupModal, setShowExpenseGroupModal] = useState(false);
   const [editingExpenseGroup, setEditingExpenseGroup] = useState<ExpenseGroup | null>(null);
   const [activeExpenseGroupDropdownId, setActiveExpenseGroupDropdownId] = useState<string | null>(null);
+
+  // Reservation Group and GenericReservation states
+  const [showReservationGroupModal, setShowReservationGroupModal] = useState(false);
+  const [editingReservationGroup, setEditingReservationGroup] = useState<ReservationGroup | null>(null);
+  const [activeReservationGroupDropdownId, setActiveReservationGroupDropdownId] = useState<string | null>(null);
+  const [showGenericReservationModal, setShowGenericReservationModal] = useState(false);
+  const [editingGenericReservation, setEditingGenericReservation] = useState<GenericReservation | null>(null);
+  const [targetGenericReservationGroupId, setTargetGenericReservationGroupId] = useState<string | null>(null);
   
   // Left and Right panel collapsed states (desktop only)
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -1170,7 +1180,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       hotels: [],
       transports: [],
       expenseGroups: [...DEFAULT_EXPENSE_GROUPS],
-      expenses: []
+      expenses: [],
+      reservationGroups: [...DEFAULT_RESERVATION_GROUPS],
+      genericReservations: []
     };
 
     onUpdateTrip({
@@ -2033,6 +2045,132 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       plans: updatedPlans
     });
   }, [activePlan, trip, onUpdateTrip]);
+
+  // --- Reservation Group handlers ---
+
+  const handleAddReservationGroup = useCallback(() => {
+    setEditingReservationGroup(null);
+    setShowReservationGroupModal(true);
+  }, []);
+
+  const handleEditReservationGroup = useCallback((group: ReservationGroup) => {
+    setEditingReservationGroup(group);
+    setShowReservationGroupModal(true);
+  }, []);
+
+  const handleSaveReservationGroup = useCallback((groupData: { name: string; icon: string; color: string }) => {
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id !== activePlan.id) return p;
+      const currentGroups = p.reservationGroups ? [...p.reservationGroups] : [...DEFAULT_RESERVATION_GROUPS];
+      if (editingReservationGroup) {
+        const idx = currentGroups.findIndex(g => g.id === editingReservationGroup.id);
+        if (idx !== -1) {
+          currentGroups[idx] = { ...currentGroups[idx], name: groupData.name, icon: groupData.icon, color: groupData.color };
+        }
+      } else {
+        currentGroups.push({
+          id: `rg-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          name: groupData.name,
+          icon: groupData.icon,
+          color: groupData.color
+        });
+      }
+      return { ...p, reservationGroups: currentGroups };
+    });
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+    setEditingReservationGroup(null);
+    setShowReservationGroupModal(false);
+  }, [editingReservationGroup, activePlan, trip, onUpdateTrip]);
+
+  const handleDeleteReservationGroup = useCallback(() => {
+    if (!editingReservationGroup) return;
+    setConfirmModal({
+      title: 'Delete Reservation Group',
+      message: `Are you sure you want to delete the "${editingReservationGroup.name}" group and all its reservations?`,
+      confirmText: 'Delete',
+      onConfirm: () => {
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id !== activePlan.id) return p;
+          const currentGroups = (p.reservationGroups || []).filter(g => g.id !== editingReservationGroup.id);
+          const currentReservations = (p.genericReservations || []).filter(r => r.groupId !== editingReservationGroup.id);
+          return { ...p, reservationGroups: currentGroups, genericReservations: currentReservations };
+        });
+        onUpdateTrip({ ...trip, plans: updatedPlans });
+        setEditingReservationGroup(null);
+        setShowReservationGroupModal(false);
+      }
+    });
+  }, [editingReservationGroup, activePlan, trip, onUpdateTrip]);
+
+  const handleMoveReservationGroup = useCallback((index: number, direction: 'up' | 'down') => {
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id !== activePlan.id) return p;
+      const currentGroups = [...(p.reservationGroups || DEFAULT_RESERVATION_GROUPS)];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= currentGroups.length) return p;
+      const temp = currentGroups[index];
+      currentGroups[index] = currentGroups[targetIndex];
+      currentGroups[targetIndex] = temp;
+      return { ...p, reservationGroups: currentGroups };
+    });
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+  }, [activePlan, trip, onUpdateTrip]);
+
+  // --- Generic Reservation handlers ---
+
+  const handleAddGenericReservation = useCallback((groupId: string) => {
+    setTargetGenericReservationGroupId(groupId);
+    setEditingGenericReservation(null);
+    setShowGenericReservationModal(true);
+  }, []);
+
+  const handleEditGenericReservation = useCallback((reservation: GenericReservation) => {
+    setTargetGenericReservationGroupId(reservation.groupId);
+    setEditingGenericReservation(reservation);
+    setShowGenericReservationModal(true);
+  }, []);
+
+  const handleSaveGenericReservation = useCallback((data: Omit<GenericReservation, 'id' | 'groupId'>) => {
+    const groupId = targetGenericReservationGroupId;
+    if (!groupId) return;
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id !== activePlan.id) return p;
+      const current = [...(p.genericReservations || [])];
+      if (editingGenericReservation) {
+        const idx = current.findIndex(r => r.id === editingGenericReservation.id);
+        if (idx !== -1) current[idx] = { ...editingGenericReservation, ...data };
+      } else {
+        current.push({
+          id: `gr-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          groupId,
+          ...data
+        });
+      }
+      return { ...p, genericReservations: current };
+    });
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+    setEditingGenericReservation(null);
+    setTargetGenericReservationGroupId(null);
+    setShowGenericReservationModal(false);
+  }, [editingGenericReservation, targetGenericReservationGroupId, activePlan, trip, onUpdateTrip]);
+
+  const handleDeleteGenericReservation = useCallback(() => {
+    if (!editingGenericReservation) return;
+    setConfirmModal({
+      title: 'Delete Reservation',
+      message: `Are you sure you want to delete "${editingGenericReservation.title}"?`,
+      confirmText: 'Delete',
+      onConfirm: () => {
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id !== activePlan.id) return p;
+          return { ...p, genericReservations: (p.genericReservations || []).filter(r => r.id !== editingGenericReservation.id) };
+        });
+        onUpdateTrip({ ...trip, plans: updatedPlans });
+        setEditingGenericReservation(null);
+        setShowGenericReservationModal(false);
+      }
+    });
+  }, [editingGenericReservation, activePlan, trip, onUpdateTrip]);
 
   const handleSaveEditTrip = (name: string, startDate: string, endDate: string) => {
     if (!name.trim() || !startDate || !endDate) return;
@@ -2967,6 +3105,15 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onAddHotel={() => { setEditingHotel(null); setShowHotelModal(true); }}
         onAddTransit={() => { setEditingTransport(null); setShowTransportModal(true); }}
         onImportReservationFile={handleImportReservationFile}
+        reservationGroups={activePlan.reservationGroups || DEFAULT_RESERVATION_GROUPS}
+        genericReservations={activePlan.genericReservations || []}
+        onAddReservationGroup={handleAddReservationGroup}
+        onEditReservationGroup={handleEditReservationGroup}
+        onMoveReservationGroup={handleMoveReservationGroup}
+        onAddGenericReservation={handleAddGenericReservation}
+        onEditGenericReservation={handleEditGenericReservation}
+        activeReservationGroupDropdownId={activeReservationGroupDropdownId}
+        setActiveReservationGroupDropdownId={setActiveReservationGroupDropdownId}
         onAddExpense={handleAddExpense}
         onEditExpense={handleEditExpense}
         onAddExpenseGroup={handleAddExpenseGroup}
@@ -3470,6 +3617,27 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           group={editingExpenseGroup}
           onSave={handleSaveExpenseGroup}
           onDelete={editingExpenseGroup && editingExpenseGroup.id ? handleDeleteExpenseGroup : undefined}
+        />
+      )}
+
+      {showReservationGroupModal && (
+        <ReservationGroupModal
+          isOpen={showReservationGroupModal}
+          onClose={() => { setShowReservationGroupModal(false); setEditingReservationGroup(null); }}
+          group={editingReservationGroup}
+          onSave={handleSaveReservationGroup}
+          onDelete={editingReservationGroup && editingReservationGroup.id ? handleDeleteReservationGroup : undefined}
+        />
+      )}
+
+      {showGenericReservationModal && (
+        <GenericReservationModal
+          isOpen={showGenericReservationModal}
+          onClose={() => { setShowGenericReservationModal(false); setEditingGenericReservation(null); setTargetGenericReservationGroupId(null); }}
+          reservation={editingGenericReservation}
+          groupName={(activePlan.reservationGroups || DEFAULT_RESERVATION_GROUPS).find(g => g.id === targetGenericReservationGroupId)?.name || 'Reservation'}
+          onSave={handleSaveGenericReservation}
+          onDelete={editingGenericReservation ? handleDeleteGenericReservation : undefined}
         />
       )}
     </div>

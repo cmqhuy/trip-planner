@@ -1,5 +1,5 @@
 import { BookOpen, CheckSquare, Building, Sparkles, AlertTriangle, Receipt } from 'lucide-react';
-import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, TransportationReservation } from '../types';
+import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, TransportationReservation, ReservationGroup, GenericReservation } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
 import ReservationsSection from './ReservationsSection';
@@ -77,6 +77,16 @@ interface LeftPanelAccordionProps {
   onAddHotel: () => void;
   onAddTransit: () => void;
   onImportReservationFile: (type: 'hotel' | 'transit', file: File) => void;
+  // Reservation group management
+  reservationGroups: ReservationGroup[];
+  genericReservations: GenericReservation[];
+  onAddReservationGroup: () => void;
+  onEditReservationGroup: (group: ReservationGroup) => void;
+  onMoveReservationGroup: (index: number, direction: 'up' | 'down') => void;
+  onAddGenericReservation: (groupId: string) => void;
+  onEditGenericReservation: (reservation: GenericReservation) => void;
+  activeReservationGroupDropdownId: string | null;
+  setActiveReservationGroupDropdownId: (id: string | null) => void;
 
   // Expenses actions passed down
   onAddExpense: (groupId: string) => void;
@@ -159,6 +169,15 @@ export default function LeftPanelAccordion({
   onAddHotel,
   onAddTransit,
   onImportReservationFile,
+  reservationGroups,
+  genericReservations,
+  onAddReservationGroup,
+  onEditReservationGroup,
+  onMoveReservationGroup,
+  onAddGenericReservation,
+  onEditGenericReservation,
+  activeReservationGroupDropdownId,
+  setActiveReservationGroupDropdownId,
 
   onAddExpense,
   onEditExpense,
@@ -325,6 +344,15 @@ export default function LeftPanelAccordion({
             onAddHotel={onAddHotel}
             onAddTransit={onAddTransit}
             onImportReservationFile={onImportReservationFile}
+            reservationGroups={reservationGroups}
+            genericReservations={genericReservations}
+            onAddReservationGroup={onAddReservationGroup}
+            onEditReservationGroup={onEditReservationGroup}
+            onMoveReservationGroup={onMoveReservationGroup}
+            onAddGenericReservation={onAddGenericReservation}
+            onEditGenericReservation={onEditGenericReservation}
+            activeReservationGroupDropdownId={activeReservationGroupDropdownId}
+            setActiveReservationGroupDropdownId={setActiveReservationGroupDropdownId}
           />
         )}
       </div>

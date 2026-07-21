@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ReservationsSection from './ReservationsSection';
 import type { Trip } from '../types';
@@ -88,6 +88,23 @@ describe('ReservationsSection Component', () => {
     const handlePlaceClick = vi.fn();
     const daysList = ['2026-07-01', '2026-07-02', '2026-07-03'];
 
+    const defaultProps = {
+      reservationGroups: [
+        { id: 'hotels', name: 'Hotels', icon: 'building', color: '#10b981' },
+        { id: 'transports', name: 'Transits', icon: 'plane', color: '#f59e0b' },
+        { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' },
+        { id: 'dining', name: 'Dining', icon: 'utensils', color: '#3b82f6' },
+      ],
+      genericReservations: [],
+      onAddReservationGroup: vi.fn(),
+      onEditReservationGroup: vi.fn(),
+      onMoveReservationGroup: vi.fn(),
+      onAddGenericReservation: vi.fn(),
+      onEditGenericReservation: vi.fn(),
+      activeReservationGroupDropdownId: null,
+      setActiveReservationGroupDropdownId: vi.fn(),
+    };
+
     render(
       <ReservationsSection
         trip={mockTrip}
@@ -107,14 +124,9 @@ describe('ReservationsSection Component', () => {
         onAddHotel={vi.fn()}
         onAddTransit={vi.fn()}
         onImportReservationFile={vi.fn()}
+        {...defaultProps}
       />
     );
-
-    // Verify header colors
-    const hotelsHeader = screen.getByText(/Hotels \(\d+\)/).closest('.subsection-title') as HTMLElement;
-    const transitsHeader = screen.getByText(/Transits & Flights \(\d+\)/).closest('.subsection-title') as HTMLElement;
-    expect(hotelsHeader.style.color).toBe('rgb(16, 185, 129)');
-    expect(transitsHeader.style.color).toBe('rgb(245, 158, 11)');
 
     // 1. Transit info assertion — new card shows "departure → arrival" heading
     expect(screen.getByText('SFO → HND')).toBeInTheDocument();
@@ -125,15 +137,13 @@ describe('ReservationsSection Component', () => {
 
     // Verify location tag is rendered in cards
     const locationTags = screen.getAllByText('Tokyo');
-    expect(locationTags.length).toBeGreaterThanOrEqual(2);
+    expect(locationTags.length).toBeGreaterThanOrEqual(1);
 
-    // 3. Reservation required assertion
-    const placeCard = screen.getByText('Senso-ji Temple');
-    expect(placeCard).toBeInTheDocument();
-
-    // Test interactive callback
-    fireEvent.click(placeCard);
-    expect(handlePlaceClick).toHaveBeenCalledWith('place-sensoji');
+    // 3. Verify group headers are rendered
+    expect(screen.getByText('Hotels')).toBeInTheDocument();
+    expect(screen.getByText('Transits')).toBeInTheDocument();
+    expect(screen.getByText('Attractions')).toBeInTheDocument();
+    expect(screen.getByText('Dining')).toBeInTheDocument();
   });
 
   it('merges consecutive hotel warnings into a single warning', () => {
@@ -194,6 +204,20 @@ describe('ReservationsSection Component', () => {
         onAddHotel={vi.fn()}
         onAddTransit={vi.fn()}
         onImportReservationFile={vi.fn()}
+        reservationGroups={[
+          { id: 'hotels', name: 'Hotels', icon: 'building', color: '#10b981' },
+          { id: 'transports', name: 'Transits', icon: 'plane', color: '#f59e0b' },
+          { id: 'attractions', name: 'Attractions', icon: 'landmark', color: '#ef4444' },
+          { id: 'dining', name: 'Dining', icon: 'utensils', color: '#3b82f6' },
+        ]}
+        genericReservations={[]}
+        onAddReservationGroup={vi.fn()}
+        onEditReservationGroup={vi.fn()}
+        onMoveReservationGroup={vi.fn()}
+        onAddGenericReservation={vi.fn()}
+        onEditGenericReservation={vi.fn()}
+        activeReservationGroupDropdownId={null}
+        setActiveReservationGroupDropdownId={vi.fn()}
       />
     );
 

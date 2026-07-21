@@ -762,6 +762,10 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   font-size: 14px;
   font-weight: 600;
 }
+.place-group-title > svg {
+  display: block;
+  flex-shrink: 0;
+}
 
 .group-badge-dot {
   width: 10px;
@@ -3442,7 +3446,7 @@ div.google-auth-avatar-desktop {
     padding: 2px 4px !important;
   }
   .reservation-card {
-    padding: 5px 8px !important;
+    padding: 8px !important;
   }
   .reservation-card .card-options-menu:last-child {
     margin-right: -2px;

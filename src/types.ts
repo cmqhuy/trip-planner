@@ -172,6 +172,25 @@ export interface ExpenseGroup {
   color?: string; // hex representation
 }
 
+export interface ReservationGroup {
+  id: string;
+  name: string;
+  icon: string; // Lucide icon key
+  color?: string; // hex representation
+}
+
+export interface GenericReservation {
+  id: string;
+  title: string;
+  groupId: string;
+  date?: string;           // YYYY-MM-DD
+  time?: string;           // HH:MM
+  confirmationNo?: string;
+  bookedThrough?: string;
+  notes?: string;
+  status?: 'Confirmed' | 'Planning' | 'Canceled';
+}
+
 export interface ExpenseItem {
   id: string;
   title: string;
@@ -206,6 +225,8 @@ export interface Plan {
   manualChecklist?: { id: string; text: string; completed: boolean; }[];
   expenseGroups?: ExpenseGroup[];
   expenses?: ExpenseItem[];
+  reservationGroups?: ReservationGroup[];
+  genericReservations?: GenericReservation[];
   aiDetails?: {
     [key: string]: string;
   };
