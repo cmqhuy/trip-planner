@@ -2873,9 +2873,10 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .catalog-groups-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
 .catalog-groups-right { display: flex; align-items: center; gap: 12px; }
 .catalog-hide-allocated-label { font-size: 11px; color: var(--text-secondary); cursor: pointer; user-select: none; gap: 4px; }
-.catalog-add-group-btn { color: var(--accent-secondary); padding: 2px; }
+.catalog-add-group-btn { color: var(--accent-secondary); padding: 4px 8px; gap: 4px; font-size: 11px; }
 .group-dropdown-container { position: relative; display: inline-block; }
 .catalog-group-action-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 6px; flex-shrink: 0; }
+.catalog-group-action-btn--labeled { display: flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 8px; flex-shrink: 0; }
 .catalog-group-ai-btn { color: #a5b4fc; }
 .badge--count { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
 .catalog-places-list--mh { min-height: 30px; }
@@ -3890,10 +3891,13 @@ div.google-auth-avatar-desktop {
     justify-content: center !important;
     padding: 0 !important;
   }
-  .accordion-content .mini-icon-btn.flex-align:not(.ai-markdown-edit-btn) {
+  .accordion-content .mini-icon-btn.flex-align:not(.ai-markdown-edit-btn),
+  .accordion-content .mini-icon-btn.catalog-add-group-btn:not(.ai-markdown-edit-btn):not(.ai-md-save-btn):not(.ai-md-cancel-btn),
+  .accordion-content .mini-icon-btn.catalog-group-action-btn--labeled:not(.ai-markdown-edit-btn):not(.ai-md-save-btn):not(.ai-md-cancel-btn) {
     width: auto !important;
     min-width: auto !important;
     padding: 0 10px !important;
+    gap: 4px !important;
     border-radius: 6px !important;
   }
 }

@@ -78,7 +78,7 @@ export default function GenericReservationModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>{reservation ? `Edit ${groupName} Reservation` : `Add ${groupName} Reservation`}</h3>
+          <h3>{reservation ? 'Edit Reservation Details' : 'Add Reservation Details'}</h3>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
           </button>
@@ -192,7 +192,7 @@ export default function GenericReservationModal({
             )}
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary">
-              {reservation ? 'Save' : 'Add'}
+              {reservation ? 'Save Changes' : 'Add Reservation'}
             </button>
           </div>
         </form>

@@ -666,7 +666,7 @@ export default function ReservationsSection({
                 data-tooltip="Add Reservation Group"
                 data-tooltip-position="bottom"
               >
-                <Plus size={14} />
+                <Plus size={14} /> Add Group
               </button>
             )}
           </div>
@@ -696,7 +696,7 @@ export default function ReservationsSection({
                       <>
                         {/* Add button */}
                         <button
-                          className="mini-icon-btn catalog-group-action-btn"
+                          className="mini-icon-btn catalog-group-action-btn--labeled"
                           onClick={() => {
                             if (group.id === 'hotels') onAddHotel();
                             else if (group.id === 'transports') onAddTransit();
@@ -704,14 +704,14 @@ export default function ReservationsSection({
                           }}
                           data-tooltip={`Add Reservation to ${group.name}`}
                         >
-                          <Plus size={12} />
+                          <Plus size={12} /> Add
                         </button>
 
                         {/* Import button — only for hotels/transits */}
                         {isDefaultGroup && (
                           <>
                             <button
-                              className="mini-icon-btn catalog-group-action-btn"
+                              className="mini-icon-btn catalog-group-action-btn--labeled"
                               onClick={() => {
                                 if (group.id === 'hotels') hotelFileInputRef.current?.click();
                                 else transitFileInputRef.current?.click();
@@ -720,11 +720,11 @@ export default function ReservationsSection({
                               data-tooltip={
                                 !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
                                 GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
-                                `Import ${group.name.toLowerCase()} booking confirmation using AI`
+                                `Import ${group.name} Booking Confirmation using AI`
                               }
                               data-tooltip-position="bottom"
                             >
-                              <Sparkles size={12} />
+                              <Sparkles size={12} /> Import
                             </button>
                             {group.id === 'hotels' && (
                               <input

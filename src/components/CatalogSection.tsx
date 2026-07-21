@@ -206,7 +206,7 @@ function CatalogSection({
                   data-tooltip="Add Group"
                   data-tooltip-position="bottom"
                 >
-                  <Plus size={14} />
+                  <Plus size={14} /> Add Group
                 </button>
               )}
             </div>

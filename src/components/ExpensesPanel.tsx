@@ -179,7 +179,7 @@ export default function ExpensesPanel({
               data-tooltip="Add Expense Group"
               data-tooltip-position="bottom"
             >
-              <Plus size={14} />
+              <Plus size={14} /> Add Group
             </button>
           )}
         </div>
@@ -309,11 +309,11 @@ export default function ExpensesPanel({
                   <div className="flex-align flex-align--gap4">
                     {trip.canEdit !== false && (
                       <button
-                        className="mini-icon-btn catalog-group-action-btn"
+                        className="mini-icon-btn catalog-group-action-btn--labeled"
                         onClick={() => onAddExpense(group.id)}
                         data-tooltip={`Add Expense to ${group.name}`}
                       >
-                        <Plus size={12} />
+                        <Plus size={12} /> Add
                       </button>
                     )}
                     {trip.canEdit !== false && (
@@ -578,7 +578,7 @@ export default function ExpensesPanel({
                     })
                   ) : (
                     <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '4px' }}>
-                      No expenses in this group.
+                      No expenses added.
                     </p>
                   )}
                 </div>
