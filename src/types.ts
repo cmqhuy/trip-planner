@@ -163,7 +163,22 @@ export interface ScheduleNoteItem {
   text: string;
 }
 
-export type ScheduleItem = SchedulePlaceItem | ScheduleNoteItem;
+export interface ScheduleHotelEventItem {
+  type: 'hotel-event';
+  hotelId: string;
+  event: 'check-in' | 'check-out';
+  time?: string; // HH:MM — user-editable, pre-populated from hotel.checkInTime/checkOutTime
+}
+
+export interface ScheduleTransitEventItem {
+  type: 'transit-event';
+  reservationId: string;
+  segmentIndex: number;
+  event: 'departure' | 'arrival';
+  time?: string; // HH:MM — user-editable, pre-populated from segment.departureTime/arrivalTime
+}
+
+export type ScheduleItem = SchedulePlaceItem | ScheduleNoteItem | ScheduleHotelEventItem | ScheduleTransitEventItem;
 
 export interface ExpenseGroup {
   id: string;

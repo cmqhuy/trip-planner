@@ -2570,6 +2570,10 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .schedule-add-slot.visible {
   opacity: 1;
 }
+.schedule-add-slot.schedule-add-slot--open {
+  opacity: 1;
+  z-index: 1050;
+}
 .schedule-add-btn {
   background: transparent !important;
   border: 1px solid transparent !important;
@@ -2941,6 +2945,12 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .timeline-place-map-link { padding: 2px 4px; font-size: 9px; text-decoration: none; border-radius: 4px; display: flex; align-items: center; justify-content: center; width: 36px; box-sizing: border-box; text-align: center; height: 18px; }
 .timeline-place-number { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.08); color: var(--text-primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 .timeline-place-number--ai { background: rgba(167,139,250,0.2); color: #c4b5fd; }
+.timeline-event-time-tag { min-width: 44px; height: 24px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--text-primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; padding: 0 5px; }
+.timeline-event-time-tag:hover { background: rgba(255,255,255,0.14); }
+.schedule-event-time-input { width: 120px; height: 30px; border-radius: 4px; background: var(--bg-dark); border: none; outline: none; color: var(--text-primary); font-size: 13px; font-weight: 600; text-align: center; padding: 0 6px; }
+.event-time-picker-popover { position: fixed; z-index: 10000; background: rgba(15,23,42,0.97); border: 1px solid var(--accent-primary); border-radius: 8px; padding: 6px 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; align-items: center; }
+.reservation-add-to-schedule-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.reservation-add-to-schedule-btn { font-size: 10px; padding: 2px 6px; height: 20px; display: flex; align-items: center; gap: 3px; }
 .place-title-text { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
 .place-desc-text { font-size: 13px; color: var(--text-secondary); }
 .place-notes-btn-wrapper { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }

@@ -840,4 +840,315 @@ describe('TripPlanner Component', () => {
   });
 });
 
+// ─── Day operations with hotel/transit events ─────────────────────────────────
+// These tests verify that Move Day, Swap Days, and Clear Day handle the new
+// hotel-event and transit-event ScheduleItem types correctly.
 
+describe('Day operations with hotel/transit events', () => {
+  beforeEach(() => {
+    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
+    window.history.pushState({}, '', '?plan=plan-main&day=2026-07-01');
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  // Shared trip fixture: Day 1 has a place + hotel check-in event; Day 2 has a place + transit departure event.
+  const tripWithEvents: Trip = {
+    id: 'trip-events',
+    name: 'Events Trip',
+    startDate: '2026-07-01',
+    endDate: '2026-07-02',
+    locations: [
+      {
+        id: 'loc-paris',
+        city: 'Paris',
+        country: 'France',
+        lat: 48.8566,
+        lng: 2.3522,
+        places: [
+          { id: 'place-eiffel', title: 'Eiffel Tower', description: '', lat: 48.8584, lng: 2.2945, notes: '' },
+          { id: 'place-louvre', title: 'Louvre Museum', description: '', lat: 48.8606, lng: 2.3376, notes: '' },
+        ],
+      },
+    ],
+    plans: [
+      {
+        id: 'plan-main',
+        name: 'Main Plan',
+        startDate: '2026-07-01',
+        endDate: '2026-07-02',
+        days: {
+          '2026-07-01': {
+            dateStr: '2026-07-01',
+            locationId: 'loc-paris',
+            placeIds: ['place-eiffel'],
+            scheduleItems: [
+              { type: 'hotel-event', hotelId: 'hotel-1', event: 'check-in', time: '15:00' },
+              { type: 'place', placeId: 'place-eiffel' },
+            ],
+          },
+          '2026-07-02': {
+            dateStr: '2026-07-02',
+            locationId: 'loc-paris',
+            placeIds: ['place-louvre'],
+            scheduleItems: [
+              { type: 'transit-event', reservationId: 'res-1', segmentIndex: 0, event: 'departure', time: '09:00' },
+              { type: 'place', placeId: 'place-louvre' },
+            ],
+          },
+        },
+        hotels: [
+          {
+            id: 'hotel-1',
+            name: 'Grand Hotel',
+            checkInDate: '2026-07-01',
+            checkOutDate: '2026-07-02',
+            checkInTime: '15:00',
+            checkOutTime: '11:00',
+          },
+        ],
+        transports: [
+          {
+            id: 'res-1',
+            type: 'flight',
+            name: 'Air France AF123',
+            segments: [
+              {
+                id: 'seg-1',
+                departureLocationName: 'Paris CDG',
+                departureDate: '2026-07-02',
+                departureTime: '09:00',
+                departureTimezone: 'Europe/Paris',
+                arrivalLocationName: 'London LHR',
+                arrivalDate: '2026-07-02',
+                arrivalTime: '10:00',
+                arrivalTimezone: 'Europe/London',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    placeGroups: [],
+  };
+
+  it('Move Day: source day keeps its hotel-event; destination day keeps its transit-event; only places transfer', () => {
+    const handleUpdateTrip = vi.fn();
+    const { container } = render(
+      <TripPlanner trip={tripWithEvents} onBack={vi.fn()} onUpdateTrip={handleUpdateTrip} />
+    );
+
+    // Open Day Options on Day 1
+    fireEvent.click(container.querySelector('[data-tooltip="Day Options"]')!);
+    fireEvent.click(screen.getByRole('button', { name: /Move Day/i }));
+
+    // Select Day 2 as destination
+    fireEvent.click(screen.getByRole('button', { name: 'Select Destination Day' }));
+    const opt = Array.from(container.querySelectorAll('button.combo-option')).find(b => b.textContent?.includes('Day 2'));
+    fireEvent.click(opt!);
+
+    // Confirm twice (modal + confirmation dialog)
+    fireEvent.click(screen.getByRole('button', { name: 'Move Day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Day' }));
+
+    expect(handleUpdateTrip).toHaveBeenCalled();
+    const updated = handleUpdateTrip.mock.calls[0][0] as Trip;
+    const day1 = updated.plans[0].days['2026-07-01'];
+    const day2 = updated.plans[0].days['2026-07-02'];
+
+    // Day 1 source: place moved away, hotel-event stays
+    expect(day1.placeIds).toEqual([]);
+    expect(day1.scheduleItems?.some(i => i.type === 'hotel-event')).toBe(true);
+    expect(day1.scheduleItems?.some(i => i.type === 'place')).toBe(false);
+
+    // Day 2 destination: receives Day 1's place, keeps its own transit-event
+    expect(day2.placeIds).toContain('place-eiffel');
+    expect(day2.scheduleItems?.some(i => i.type === 'transit-event')).toBe(true);
+    // Day 2 should NOT receive Day 1's hotel-event
+    expect(day2.scheduleItems?.filter(i => i.type === 'hotel-event').length).toBe(0);
+  });
+
+  it('Swap Days: each day keeps its own reservation events; places are exchanged', () => {
+    const handleUpdateTrip = vi.fn();
+    const { container } = render(
+      <TripPlanner trip={tripWithEvents} onBack={vi.fn()} onUpdateTrip={handleUpdateTrip} />
+    );
+
+    fireEvent.click(container.querySelector('[data-tooltip="Day Options"]')!);
+    fireEvent.click(screen.getByRole('button', { name: /Swap Days/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Day to Swap With' }));
+    const opt = Array.from(container.querySelectorAll('button.combo-option')).find(b => b.textContent?.includes('Day 2'));
+    fireEvent.click(opt!);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Swap Days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap Days' }));
+
+    expect(handleUpdateTrip).toHaveBeenCalled();
+    const updated = handleUpdateTrip.mock.calls[0][0] as Trip;
+    const day1 = updated.plans[0].days['2026-07-01'];
+    const day2 = updated.plans[0].days['2026-07-02'];
+
+    // Day 1 now has Day 2's place (Louvre), but keeps its own hotel-event
+    expect(day1.placeIds).toEqual(['place-louvre']);
+    expect(day1.scheduleItems?.some(i => i.type === 'hotel-event')).toBe(true);
+    expect(day1.scheduleItems?.some(i => i.type === 'transit-event')).toBe(false);
+
+    // Day 2 now has Day 1's place (Eiffel), but keeps its own transit-event
+    expect(day2.placeIds).toEqual(['place-eiffel']);
+    expect(day2.scheduleItems?.some(i => i.type === 'transit-event')).toBe(true);
+    expect(day2.scheduleItems?.some(i => i.type === 'hotel-event')).toBe(false);
+  });
+
+  it('Clear Day: removes hotel-event AND place items from the active day', () => {
+    const handleUpdateTrip = vi.fn();
+    const { container } = render(
+      <TripPlanner trip={tripWithEvents} onBack={vi.fn()} onUpdateTrip={handleUpdateTrip} />
+    );
+
+    fireEvent.click(container.querySelector('[data-tooltip="Day Options"]')!);
+    fireEvent.click(screen.getByRole('button', { name: /Clear Day/i }));
+
+    const clearModal = screen.getByRole('heading', { name: 'Clear Day', level: 3 }).closest('.modal-content');
+    fireEvent.click(clearModal!.querySelector('button.btn-primary')!);
+
+    expect(handleUpdateTrip).toHaveBeenCalled();
+    const updated = handleUpdateTrip.mock.calls[0][0] as Trip;
+    const day1 = updated.plans[0].days['2026-07-01'];
+
+    expect(day1.placeIds).toEqual([]);
+    expect(day1.scheduleItems ?? []).toHaveLength(0);
+  });
+
+  it('Move Day baseline: without reservation events, place/note items transfer normally', () => {
+    // Sanity check: operations without hotel/transit events work as before.
+    const baseTrip: Trip = {
+      ...tripWithEvents,
+      plans: [
+        {
+          ...tripWithEvents.plans[0],
+          days: {
+            '2026-07-01': {
+              dateStr: '2026-07-01',
+              locationId: 'loc-paris',
+              placeIds: ['place-eiffel'],
+              scheduleItems: [{ type: 'place', placeId: 'place-eiffel' }],
+            },
+            '2026-07-02': {
+              dateStr: '2026-07-02',
+              placeIds: [],
+              scheduleItems: [],
+            },
+          },
+        },
+      ],
+    };
+
+    const handleUpdateTrip = vi.fn();
+    const { container } = render(
+      <TripPlanner trip={baseTrip} onBack={vi.fn()} onUpdateTrip={handleUpdateTrip} />
+    );
+
+    fireEvent.click(container.querySelector('[data-tooltip="Day Options"]')!);
+    fireEvent.click(screen.getByRole('button', { name: /Move Day/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Destination Day' }));
+    const opt = Array.from(container.querySelectorAll('button.combo-option')).find(b => b.textContent?.includes('Day 2'));
+    fireEvent.click(opt!);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Day' }));
+
+    expect(handleUpdateTrip).toHaveBeenCalled();
+    const updated = handleUpdateTrip.mock.calls[0][0] as Trip;
+    expect(updated.plans[0].days['2026-07-01'].placeIds).toEqual([]);
+    expect(updated.plans[0].days['2026-07-02'].placeIds).toEqual(['place-eiffel']);
+    expect(updated.plans[0].days['2026-07-02'].scheduleItems?.some(i => i.type === 'place')).toBe(true);
+  });
+
+  it('Swap Days baseline: without reservation events, place items exchange normally', () => {
+    const baseTrip: Trip = {
+      ...tripWithEvents,
+      plans: [
+        {
+          ...tripWithEvents.plans[0],
+          days: {
+            '2026-07-01': {
+              dateStr: '2026-07-01',
+              locationId: 'loc-paris',
+              placeIds: ['place-eiffel'],
+              scheduleItems: [{ type: 'place', placeId: 'place-eiffel' }],
+            },
+            '2026-07-02': {
+              dateStr: '2026-07-02',
+              placeIds: ['place-louvre'],
+              scheduleItems: [{ type: 'place', placeId: 'place-louvre' }],
+            },
+          },
+        },
+      ],
+    };
+
+    const handleUpdateTrip = vi.fn();
+    const { container } = render(
+      <TripPlanner trip={baseTrip} onBack={vi.fn()} onUpdateTrip={handleUpdateTrip} />
+    );
+
+    fireEvent.click(container.querySelector('[data-tooltip="Day Options"]')!);
+    fireEvent.click(screen.getByRole('button', { name: /Swap Days/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Day to Swap With' }));
+    const opt = Array.from(container.querySelectorAll('button.combo-option')).find(b => b.textContent?.includes('Day 2'));
+    fireEvent.click(opt!);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Swap Days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap Days' }));
+
+    expect(handleUpdateTrip).toHaveBeenCalled();
+    const updated = handleUpdateTrip.mock.calls[0][0] as Trip;
+    expect(updated.plans[0].days['2026-07-01'].placeIds).toEqual(['place-louvre']);
+    expect(updated.plans[0].days['2026-07-02'].placeIds).toEqual(['place-eiffel']);
+  });
+
+  it('Clear Day baseline: without reservation events, all schedule items are removed', () => {
+    const baseTrip: Trip = {
+      ...tripWithEvents,
+      plans: [
+        {
+          ...tripWithEvents.plans[0],
+          days: {
+            '2026-07-01': {
+              dateStr: '2026-07-01',
+              locationId: 'loc-paris',
+              placeIds: ['place-eiffel'],
+              scheduleItems: [
+                { type: 'note', id: 'note-1', text: 'Check-in note' },
+                { type: 'place', placeId: 'place-eiffel' },
+              ],
+            },
+            '2026-07-02': { dateStr: '2026-07-02', placeIds: [], scheduleItems: [] },
+          },
+        },
+      ],
+    };
+
+    const handleUpdateTrip = vi.fn();
+    const { container } = render(
+      <TripPlanner trip={baseTrip} onBack={vi.fn()} onUpdateTrip={handleUpdateTrip} />
+    );
+
+    fireEvent.click(container.querySelector('[data-tooltip="Day Options"]')!);
+    fireEvent.click(screen.getByRole('button', { name: /Clear Day/i }));
+
+    const clearModal = screen.getByRole('heading', { name: 'Clear Day', level: 3 }).closest('.modal-content');
+    fireEvent.click(clearModal!.querySelector('button.btn-primary')!);
+
+    expect(handleUpdateTrip).toHaveBeenCalled();
+    const updated = handleUpdateTrip.mock.calls[0][0] as Trip;
+    expect(updated.plans[0].days['2026-07-01'].placeIds).toEqual([]);
+    expect(updated.plans[0].days['2026-07-01'].scheduleItems ?? []).toHaveLength(0);
+  });
+});

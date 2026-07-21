@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation } from '../types';
+import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation } from '../types';
 import { flattenReservations } from '../types';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
@@ -8,10 +8,13 @@ const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
   placeIds: items.filter((i): i is SchedulePlaceItem => i.type === 'place').map(i => i.placeId)
 });
 
+// Items that move with days (Move Day, Swap Days). Non-transferable items (hotel/transit events) stay on their original day.
+const isTransferableItem = (item: ScheduleItem): item is SchedulePlaceItem => item.type === 'place' || item.type === 'note';
+
 const transferDayFields = (source: PlanDay, target: PlanDay): PlanDay => {
-  const sourceItems = (source.scheduleItems || []).filter(
-    item => item.type === 'place' || item.type === 'note'
-  );
+  const sourceItems = (source.scheduleItems || []).filter(isTransferableItem);
+  // Preserve the target day's hotel/transit events — they are tied to that date
+  const targetNonTransferable = (target.scheduleItems || []).filter(i => !isTransferableItem(i));
   const updatedTarget = {
     ...target,
     locationId: source.locationId,
@@ -19,13 +22,12 @@ const transferDayFields = (source: PlanDay, target: PlanDay): PlanDay => {
     aiUpdatedAt: source.aiUpdatedAt,
     noHotel: source.noHotel,
   };
-  return updateDayItems(updatedTarget, sourceItems);
+  return updateDayItems(updatedTarget, [...targetNonTransferable, ...sourceItems]);
 };
 
 const clearDayFields = (day: PlanDay): PlanDay => {
-  const remainingItems = (day.scheduleItems || []).filter(
-    item => item.type !== 'place' && item.type !== 'note'
-  );
+  // Keep non-transferable items (hotel/transit events) — used by Move Day source side
+  const remainingItems = (day.scheduleItems || []).filter(i => !isTransferableItem(i));
   const clearedDay = {
     ...day,
     aiDetails: undefined,
@@ -1126,7 +1128,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     if (!activeDayStr) return;
 
     const formattedDay = `Day ${daysList.indexOf(activeDayStr) + 1} (${formatDisplayDate(activeDayStr).split(',')[1]?.trim() || activeDayStr})`;
-    
+
     setConfirmModal({
       title: 'Clear Day',
       message: `Are you sure you want to clear all scheduled places from ${formattedDay}?`,
@@ -1135,14 +1137,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         const updatedPlans = trip.plans.map(p => {
           if (p.id === activePlan.id) {
             const day = p.days[activeDayStr];
-            // Only remove place and note items; keep any future item types
-            const remainingItems = (day?.scheduleItems || []).filter(
-              item => item.type !== 'place' && item.type !== 'note'
-            );
-            return {
-              ...p,
-              days: { ...p.days, [activeDayStr]: updateDayItems(day!, remainingItems) }
-            };
+            if (!day) return p;
+            // clearDayFields removes place/note but keeps hotel/transit events (for Move Day compat).
+            // Here we want a full clear, so additionally remove hotel/transit events.
+            const base = clearDayFields(day);
+            const fullyCleared = updateDayItems(base, (base.scheduleItems || []).filter(isTransferableItem));
+            return { ...p, days: { ...p.days, [activeDayStr]: fullyCleared } };
           }
           return p;
         });
@@ -1657,6 +1657,37 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         const currentItems = [...(day.scheduleItems || [])];
         currentItems.splice(itemIndex, 1);
         return { ...p, days: { ...p.days, [activeDayStr]: updateDayItems(day, currentItems) } };
+      });
+      return { ...prevTrip, plans: updatedPlans };
+    });
+  }, [activePlan.id, activeDayStr, onUpdateTrip]);
+
+  const handleAddReservationEventToSchedule = useCallback((item: ScheduleHotelEventItem | ScheduleTransitEventItem, insertAtIndex?: number) => {
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id !== activePlan.id) return p;
+        const day = p.days[activeDayStr];
+        if (!day) return p;
+        const current = day.scheduleItems ?? [];
+        const idx = insertAtIndex ?? current.length;
+        const newItems = [...current.slice(0, idx), item, ...current.slice(idx)];
+        return { ...p, days: { ...p.days, [activeDayStr]: updateDayItems(day, newItems) } };
+      });
+      return { ...prevTrip, plans: updatedPlans };
+    });
+  }, [activePlan.id, activeDayStr, onUpdateTrip]);
+
+  const handleUpdateScheduleItemTime = useCallback((itemIndex: number, time: string) => {
+    onUpdateTrip(prevTrip => {
+      const updatedPlans = prevTrip.plans.map(p => {
+        if (p.id !== activePlan.id) return p;
+        const day = p.days[activeDayStr];
+        if (!day) return p;
+        const items = [...(day.scheduleItems ?? [])];
+        const it = items[itemIndex];
+        if (!it || (it.type !== 'hotel-event' && it.type !== 'transit-event')) return p;
+        items[itemIndex] = { ...it, time };
+        return { ...p, days: { ...p.days, [activeDayStr]: updateDayItems(day, items) } };
       });
       return { ...prevTrip, plans: updatedPlans };
     });
@@ -3209,6 +3240,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleAddScheduleNote={handleAddScheduleNote}
         handleUpdateScheduleNote={handleUpdateScheduleNote}
         handleDeleteScheduleNote={handleDeleteScheduleNote}
+        handleAddReservationEventToSchedule={handleAddReservationEventToSchedule}
+        handleUpdateScheduleItemTime={handleUpdateScheduleItemTime}
         handleAddPlaceToDay={handleAddPlaceToDay}
         handleAddAiSuggestionToCatalog={handleAddAiSuggestionToCatalog}
         handleOpenEditPlace={handleOpenEditPlace}

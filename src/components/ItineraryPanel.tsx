@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   MapPin, Plus, Trash2, Edit2, Share2, Sparkles, MoreVertical,
   Calendar, Layers, Check, Timer, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
@@ -6,7 +7,8 @@ import {
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
   ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy, ArrowUpDown
 } from 'lucide-react';
-import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem } from '../types';
+import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem } from '../types';
+import { flattenReservations } from '../types';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { getOptimizedImageUrl } from '../utils/image';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
@@ -114,6 +116,8 @@ interface ItineraryPanelProps {
   handleAddScheduleNote: (insertAtIndex: number, text: string) => void;
   handleUpdateScheduleNote: (itemIndex: number, text: string) => void;
   handleDeleteScheduleNote: (itemIndex: number) => void;
+  handleAddReservationEventToSchedule: (item: ScheduleHotelEventItem | ScheduleTransitEventItem, insertAtIndex?: number) => void;
+  handleUpdateScheduleItemTime: (itemIndex: number, time: string) => void;
   handleAddPlaceToDay: (place: Place) => void;
   handleAddAiSuggestionToCatalog: (place: Place) => void;
   handleOpenEditPlace: (place: Place) => void;
@@ -221,6 +225,8 @@ function ItineraryPanel({
   handleAddScheduleNote,
   handleUpdateScheduleNote,
   handleDeleteScheduleNote,
+  handleAddReservationEventToSchedule,
+  handleUpdateScheduleItemTime,
   handleAddPlaceToDay,
   handleAddAiSuggestionToCatalog,
   handleOpenEditPlace,
@@ -258,6 +264,9 @@ function ItineraryPanel({
 
   const [hoveredScheduleItemIndex, setHoveredScheduleItemIndex] = useState<number | null>(null);
   const [editingNoteItemIndex, setEditingNoteItemIndex] = useState<number | null>(null);
+  const [timePickerState, setTimePickerState] = useState<{ itemIdx: number; value: string; top: number; left: number } | null>(null);
+  const [addSlotSubMenu, setAddSlotSubMenu] = useState<{ type: 'hotel' | 'transit'; insertAtIndex: number } | null>(null);
+  const [dayOptionsSubMenu, setDayOptionsSubMenu] = useState<'hotel' | 'transit' | null>(null);
   const [activeAddDropdownIndex, setActiveAddDropdownIndex] = useState<number | null>(null);
   const [isPlanPickerOpen, setIsPlanPickerOpen] = useState(false);
   const [openHotelMenuId, setOpenHotelMenuId] = useState<string | null>(null);
@@ -342,12 +351,27 @@ function ItineraryPanel({
     return () => document.removeEventListener('mousedown', handler);
   }, [isPlanPickerOpen]);
 
+  const getTransitIcon = (type: string, size = 14) => {
+    if (type === 'flight') return <Plane size={size} />;
+    if (type === 'train') return <Train size={size} />;
+    if (type === 'bus') return <Bus size={size} />;
+    if (type === 'car') return <Car size={size} />;
+    if (type === 'ferry') return <Anchor size={size} />;
+    return <Navigation size={size} />;
+  };
+
+  const isHotelEventInSchedule = (hotelId: string, event: 'check-in' | 'check-out') =>
+    scheduleItems.some(i => i.type === 'hotel-event' && (i as ScheduleHotelEventItem).hotelId === hotelId && (i as ScheduleHotelEventItem).event === event);
+
+  const isTransitEventInSchedule = (reservationId: string, segmentIndex: number, event: 'departure' | 'arrival') =>
+    scheduleItems.some(i => i.type === 'transit-event' && (i as ScheduleTransitEventItem).reservationId === reservationId && (i as ScheduleTransitEventItem).segmentIndex === segmentIndex && (i as ScheduleTransitEventItem).event === event);
+
   const renderAddSlot = (insertAtIndex: number, canEdit: boolean) => {
     if (!canEdit) return null;
     const isVisible = hoveredScheduleItemIndex === insertAtIndex || hoveredScheduleItemIndex === insertAtIndex - 1;
     return (
       <div
-        className={`schedule-add-slot${isVisible ? ' visible' : ''}`}
+        className={`schedule-add-slot${isVisible ? ' visible' : ''}${activeAddDropdownIndex === insertAtIndex ? ' schedule-add-slot--open' : ''}`}
         onMouseEnter={cancelHideItem}
         onMouseLeave={scheduleHideItem}
         onClick={e => e.stopPropagation()}
@@ -361,27 +385,100 @@ function ItineraryPanel({
         </button>
         {activeAddDropdownIndex === insertAtIndex && (
           <div className="schedule-add-dropdown dropdown-menu">
-            <button
-              className="dropdown-item"
-              onClick={e => {
-                e.stopPropagation();
-                setActiveAddDropdownIndex(null);
-                handleOpenAddPlaceAtIndex(insertAtIndex);
-              }}
-            >
-              <MapPin size={12} /> Add Place
-            </button>
-            <button
-              className="dropdown-item"
-              onClick={e => {
-                e.stopPropagation();
-                setActiveAddDropdownIndex(null);
-                handleAddScheduleNote(insertAtIndex, '');
-                setEditingNoteItemIndex(insertAtIndex);
-              }}
-            >
-              <FileText size={12} /> Add Note
-            </button>
+            {addSlotSubMenu && addSlotSubMenu.insertAtIndex === insertAtIndex ? (
+              <>
+                <button className="dropdown-item" style={{ opacity: 0.6, pointerEvents: 'none', fontSize: '11px' }}>
+                  {addSlotSubMenu.type === 'hotel' ? <Building size={12} /> : getTransitIcon('flight', 12)} {addSlotSubMenu.type === 'hotel' ? 'Hotel Events' : 'Transit Events'}
+                </button>
+                <button className="dropdown-item" onClick={e => { e.stopPropagation(); setAddSlotSubMenu(null); }}>
+                  ← Back
+                </button>
+                {addSlotSubMenu.type === 'hotel' && activePlan.hotels.filter(h => h.status !== 'Canceled' && (h.checkInDate === activeDayStr || h.checkOutDate === activeDayStr)).map(h => (
+                  <React.Fragment key={h.id}>
+                    {h.checkInDate === activeDayStr && !isHotelEventInSchedule(h.id, 'check-in') && (
+                      <button className="dropdown-item" onClick={e => {
+                        e.stopPropagation();
+                        handleAddReservationEventToSchedule({ type: 'hotel-event', hotelId: h.id, event: 'check-in', time: h.checkInTime }, insertAtIndex);
+                        setActiveAddDropdownIndex(null); setAddSlotSubMenu(null);
+                      }}>
+                        <Building size={12} /> {h.name} — Check-in
+                      </button>
+                    )}
+                    {h.checkOutDate === activeDayStr && !isHotelEventInSchedule(h.id, 'check-out') && (
+                      <button className="dropdown-item" onClick={e => {
+                        e.stopPropagation();
+                        handleAddReservationEventToSchedule({ type: 'hotel-event', hotelId: h.id, event: 'check-out', time: h.checkOutTime }, insertAtIndex);
+                        setActiveAddDropdownIndex(null); setAddSlotSubMenu(null);
+                      }}>
+                        <Building size={12} /> {h.name} — Check-out
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+                {addSlotSubMenu.type === 'transit' && flattenReservations(activePlan.transports.filter(t => t.status !== 'Canceled')).filter(t => t.departureDate === activeDayStr || t.arrivalDate === activeDayStr).map(t => (
+                  <React.Fragment key={`${t.reservationId}-${t.segmentIndex}`}>
+                    {t.departureDate === activeDayStr && !isTransitEventInSchedule(t.reservationId, t.segmentIndex, 'departure') && (
+                      <button className="dropdown-item" onClick={e => {
+                        e.stopPropagation();
+                        handleAddReservationEventToSchedule({ type: 'transit-event', reservationId: t.reservationId, segmentIndex: t.segmentIndex, event: 'departure', time: t.departureTime }, insertAtIndex);
+                        setActiveAddDropdownIndex(null); setAddSlotSubMenu(null);
+                      }}>
+                        {getTransitIcon(t.type, 12)} {t.reservationName || t.departureLocationName} — Departure
+                      </button>
+                    )}
+                    {t.arrivalDate === activeDayStr && !isTransitEventInSchedule(t.reservationId, t.segmentIndex, 'arrival') && (
+                      <button className="dropdown-item" onClick={e => {
+                        e.stopPropagation();
+                        handleAddReservationEventToSchedule({ type: 'transit-event', reservationId: t.reservationId, segmentIndex: t.segmentIndex, event: 'arrival', time: t.arrivalTime }, insertAtIndex);
+                        setActiveAddDropdownIndex(null); setAddSlotSubMenu(null);
+                      }}>
+                        {getTransitIcon(t.type, 12)} {t.reservationName || t.arrivalLocationName} — Arrival
+                      </button>
+                    )}
+                  </React.Fragment>
+                ))}
+              </>
+            ) : (
+              <>
+                <button
+                  className="dropdown-item"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setActiveAddDropdownIndex(null);
+                    handleOpenAddPlaceAtIndex(insertAtIndex);
+                  }}
+                >
+                  <MapPin size={12} /> Add Place
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setActiveAddDropdownIndex(null);
+                    handleAddScheduleNote(insertAtIndex, '');
+                    setEditingNoteItemIndex(insertAtIndex);
+                  }}
+                >
+                  <FileText size={12} /> Add Note
+                </button>
+                {activePlan.hotels.filter(h => h.status !== 'Canceled' && (h.checkInDate === activeDayStr || h.checkOutDate === activeDayStr)).length > 0 && (
+                  <button className="dropdown-item" onClick={e => {
+                    e.stopPropagation();
+                    setAddSlotSubMenu({ type: 'hotel', insertAtIndex });
+                  }}>
+                    <Building size={12} /> Add Hotel Event →
+                  </button>
+                )}
+                {flattenReservations(activePlan.transports.filter(t => t.status !== 'Canceled')).filter(t => t.departureDate === activeDayStr || t.arrivalDate === activeDayStr).length > 0 && (
+                  <button className="dropdown-item" onClick={e => {
+                    e.stopPropagation();
+                    setAddSlotSubMenu({ type: 'transit', insertAtIndex });
+                  }}>
+                    <Plane size={12} /> Add Transit Event →
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -521,6 +618,192 @@ function ItineraryPanel({
                 <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleDeleteScheduleNote(idx); setActiveTimelinePlaceDropdownKey(null); }}>
                   <Trash2 size={12} /> Delete Note
                 </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderReservationEventDragHandlers = (idx: number) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      handleDayPlaceDragStart(idx);
+      if (e.currentTarget) {
+        const card = e.currentTarget as HTMLElement;
+        card.classList.add('is-dragging-ghost');
+        setTimeout(() => card.classList.remove('is-dragging-ghost'), 0);
+      }
+    },
+    onDragEnd: () => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); },
+    onDragOver: (e: React.DragEvent) => {
+      if (draggedDayPlaceIndex === idx) return;
+      if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
+      e.preventDefault();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const position = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
+      if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
+        setDragOverDayPlaceIndex(idx);
+        setDragOverDayPlacePosition(position);
+      }
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.stopPropagation();
+      if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
+      else if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
+      setDragOverDayPlaceIndex(null);
+    },
+  });
+
+  const renderEventTimeTag = (item: ScheduleHotelEventItem | ScheduleTransitEventItem, idx: number, canEdit: boolean) => (
+    <div
+      className="timeline-event-time-tag"
+      onClick={canEdit ? e => {
+        e.stopPropagation();
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setTimePickerState({ itemIdx: idx, value: item.time || '', top: rect.bottom + 6, left: rect.left });
+      } : undefined}
+      data-tooltip={canEdit ? 'Click to edit time' : undefined}
+      style={{ cursor: canEdit ? 'pointer' : 'default' }}
+    >
+      {item.time || '--:--'}
+    </div>
+  );
+
+  const renderReservationEventMoveButtons = (idx: number, isFirst: boolean, isLast: boolean, dropdownKey: string, label: string) => (
+    <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
+      <div className="place-card-move-buttons">
+        <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
+        <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
+      </div>
+      <div className="timeline-place-dropdown-container">
+        <button className="mini-icon-btn" onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip={`${label} Options`}><MoreVertical size={14} /></button>
+        {activeTimelinePlaceDropdownKey === dropdownKey && (
+          <div className="dropdown-menu dropdown-menu-above">
+            <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}>
+              <Trash2 size={12} /> Remove from Day
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderHotelEventCard = (item: ScheduleHotelEventItem, idx: number, isFirst: boolean, isLast: boolean, canEdit: boolean) => {
+    const hotel = activePlan.hotels.find(h => h.id === item.hotelId);
+    const isMismatch = hotel && (item.event === 'check-in' ? hotel.checkInDate !== activeDayStr : hotel.checkOutDate !== activeDayStr);
+    const dropdownKey = `hotel-event-${item.hotelId}-${item.event}-${idx}`;
+    const mobileDropdownKey = `${dropdownKey}-mobile`;
+
+    return (
+      <div
+        className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        onClick={e => e.stopPropagation()}
+        {...(canEdit ? renderReservationEventDragHandlers(idx) : {})}
+      >
+        <div className="timeline-dot" style={{ backgroundColor: '#10b981' }}>
+          <Building size={12} style={{ color: '#ffffff' }} />
+        </div>
+        <div className="card-header-row">
+          <div className="timeline-card-content">
+            {renderEventTimeTag(item, idx, canEdit)}
+            <div className="schedule-thumb-col">
+              <div className="place-card-thumb-container" style={{ color: '#10b981' }}><Building size={16} /></div>
+              {hotel && (
+                <a href={buildHotelMapsLink(hotel)} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link" onClick={e => e.stopPropagation()}>Map</a>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h4 className="place-title-text">{hotel ? hotel.name : <span style={{ color: '#ef4444' }}>Hotel (deleted)</span>}</h4>
+                {isMismatch && <span data-tooltip="Hotel dates have changed — this event may be on the wrong day" style={{ color: '#f59e0b', flexShrink: 0 }}><AlertTriangle size={13} /></span>}
+              </div>
+              <p className="place-desc-text"><Building size={11} /> {item.event === 'check-in' ? 'Check-in' : 'Check-out'}{(() => { const t = item.event === 'check-in' ? hotel?.checkInTime : hotel?.checkOutTime; return t ? <> · {t}</> : null; })()}</p>
+              {hotel?.address && <p className="place-desc-text"><MapPin size={11} /> {hotel.address}</p>}
+              {hotel?.confirmationNo && <p className="place-desc-text"><Hash size={11} /> {hotel.confirmationNo}</p>}
+            </div>
+          </div>
+          {canEdit && renderReservationEventMoveButtons(idx, isFirst, isLast, dropdownKey, 'Hotel Event')}
+        </div>
+
+        {/* Mobile dropdown */}
+        {canEdit && (
+          <div className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`} onClick={e => e.stopPropagation()}>
+            <button className="mini-icon-btn" onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Hotel Event Options"><MoreVertical size={14} /></button>
+            {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
+              <div className="dropdown-menu">
+                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
+                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTransitEventCard = (item: ScheduleTransitEventItem, idx: number, isFirst: boolean, isLast: boolean, canEdit: boolean) => {
+    const reservation = activePlan.transports.find(r => r.id === item.reservationId);
+    const segment = reservation?.segments[item.segmentIndex];
+    const isMismatch = segment && (item.event === 'departure' ? segment.departureDate !== activeDayStr : segment.arrivalDate !== activeDayStr);
+    const dropdownKey = `transit-event-${item.reservationId}-${item.segmentIndex}-${item.event}-${idx}`;
+    const mobileDropdownKey = `${dropdownKey}-mobile`;
+    const locationName = segment ? (item.event === 'departure' ? segment.departureLocationName : segment.arrivalLocationName) : '';
+    const isDeleted = !reservation;
+    const reservationName = reservation?.name || '';
+    const title = [reservationName, locationName].filter(Boolean).join(' · ') || (isDeleted ? 'Transit (deleted)' : '');
+    const eventLabel = item.event === 'departure' ? 'Departure' : 'Arrival';
+    const carrierLine = [segment?.carrier, segment?.transitCode].filter(Boolean).join(' · ');
+    const mapUrl = segment ? buildTransitMapsLink(item.event === 'departure' ? segment.departureLocationName : segment.arrivalLocationName, item.event === 'departure' ? segment.departureAddress : segment.arrivalAddress) : undefined;
+
+    return (
+      <div
+        className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        onClick={e => e.stopPropagation()}
+        {...(canEdit ? renderReservationEventDragHandlers(idx) : {})}
+      >
+        <div className="timeline-dot" style={{ backgroundColor: '#f59e0b', color: '#ffffff' }}>
+          {reservation ? getTransitIcon(reservation.type, 12) : <Navigation size={12} />}
+        </div>
+        <div className="card-header-row">
+          <div className="timeline-card-content">
+            {renderEventTimeTag(item, idx, canEdit)}
+            <div className="schedule-thumb-col">
+              <div className="place-card-thumb-container" style={{ color: '#f59e0b' }}>
+                {reservation ? getTransitIcon(reservation.type, 16) : <Navigation size={16} />}
+              </div>
+              {mapUrl && (
+                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link" onClick={e => e.stopPropagation()}>Map</a>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h4 className="place-title-text" style={isDeleted ? { color: '#ef4444' } : undefined}>{title}</h4>
+                {isMismatch && <span data-tooltip="Transit dates have changed — this event may be on the wrong day" style={{ color: '#f59e0b', flexShrink: 0 }}><AlertTriangle size={13} /></span>}
+              </div>
+              <p className="place-desc-text">{reservation ? getTransitIcon(reservation.type, 11) : <Navigation size={11} />} {eventLabel}{locationName ? (item.event === 'departure' ? ` from ${locationName}` : ` at ${locationName}`) : ''}{(() => { const t = segment ? (item.event === 'departure' ? segment.departureTime : segment.arrivalTime) : undefined; return t ? <> · {t}</> : null; })()}</p>
+              {(() => {
+                const addr = segment ? (item.event === 'departure' ? segment.departureAddress : segment.arrivalAddress) : undefined;
+                return addr ? <p className="place-desc-text"><MapPin size={11} /> {addr}</p> : null;
+              })()}
+              {carrierLine && <p className="place-desc-text"><Navigation size={11} /> {carrierLine}</p>}
+              {reservation?.confirmationNo && <p className="place-desc-text"><Hash size={11} /> {reservation.confirmationNo}</p>}
+            </div>
+          </div>
+          {canEdit && renderReservationEventMoveButtons(idx, isFirst, isLast, dropdownKey, 'Transit Event')}
+        </div>
+
+        {/* Mobile dropdown */}
+        {canEdit && (
+          <div className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`} onClick={e => e.stopPropagation()}>
+            <button className="mini-icon-btn" onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Transit Event Options"><MoreVertical size={14} /></button>
+            {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
+              <div className="dropdown-menu">
+                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
+                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
               </div>
             )}
           </div>
@@ -930,6 +1213,20 @@ function ItineraryPanel({
                         </div>
                         <p className="place-desc-text"><Calendar size={11} /> Check-in: {formatCardDate(h.checkInDate, h.checkInTime)}</p>
                         <p className="place-desc-text"><Calendar size={11} /> Check-out: {formatCardDate(h.checkOutDate, h.checkOutTime)}</p>
+                        {trip.canEdit !== false && (
+                          <div className="reservation-add-to-schedule-row" onClick={e => e.stopPropagation()}>
+                            {h.checkInDate === activeDayStr && !isHotelEventInSchedule(h.id, 'check-in') && (
+                              <button className="btn-secondary reservation-add-to-schedule-btn" onClick={() => handleAddReservationEventToSchedule({ type: 'hotel-event', hotelId: h.id, event: 'check-in', time: h.checkInTime })}>
+                                <Plus size={10} /> Add Check-in to Day Schedule
+                              </button>
+                            )}
+                            {h.checkOutDate === activeDayStr && !isHotelEventInSchedule(h.id, 'check-out') && (
+                              <button className="btn-secondary reservation-add-to-schedule-btn" onClick={() => handleAddReservationEventToSchedule({ type: 'hotel-event', hotelId: h.id, event: 'check-out', time: h.checkOutTime })}>
+                                <Plus size={10} /> Add Check-out to Day Schedule
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="hotel-card-right-actions" onClick={e => e.stopPropagation()}>
                         <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedHotelId(isExpanded ? null : h.id)} />
@@ -1169,6 +1466,11 @@ function ItineraryPanel({
                             <span className="transport-time-detail">
                               <Calendar size={11} />{formatCardDate(t.departureDate)}{t.departureTime ? ` · ${t.departureTime}` : ''}{depTzLabel}
                             </span>
+                            {isDeparture && trip.canEdit !== false && !isTransitEventInSchedule(t.reservationId, t.segmentIndex, 'departure') && (
+                              <button className="btn-secondary reservation-add-to-schedule-btn" style={{ alignSelf: 'flex-start' }} onClick={e => { e.stopPropagation(); handleAddReservationEventToSchedule({ type: 'transit-event', reservationId: t.reservationId, segmentIndex: t.segmentIndex, event: 'departure', time: t.departureTime }); }}>
+                                <Plus size={10} /> Add Departure to Day Schedule
+                              </button>
+                            )}
                           </div>
                           <div className="transport-flow" style={{ opacity: isArrival ? 1 : 0.5 }}>
                             <span className="transport-flow-sub">
@@ -1178,6 +1480,11 @@ function ItineraryPanel({
                             <span className="transport-time-detail">
                               <Calendar size={11} />{formatCardDate(t.arrivalDate)}{t.arrivalTime ? ` · ${t.arrivalTime}` : ''}{arrTzLabel}
                             </span>
+                            {isArrival && trip.canEdit !== false && !isTransitEventInSchedule(t.reservationId, t.segmentIndex, 'arrival') && (
+                              <button className="btn-secondary reservation-add-to-schedule-btn" style={{ alignSelf: 'flex-start' }} onClick={e => { e.stopPropagation(); handleAddReservationEventToSchedule({ type: 'transit-event', reservationId: t.reservationId, segmentIndex: t.segmentIndex, event: 'arrival', time: t.arrivalTime }); }}>
+                                <Plus size={10} /> Add Arrival to Day Schedule
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1491,43 +1798,104 @@ function ItineraryPanel({
                     </button>
                     {showDayOptionsMenu && (
                       <div className="dropdown-menu">
-                        <button 
-                          className="dropdown-item"
-                          onClick={() => {
-                            handleAddScheduleNote(scheduleItems.length, '');
-                            setEditingNoteItemIndex(scheduleItems.length);
-                            setShowDayOptionsMenu(false);
-                          }}
-                        >
-                          <FileText size={12} /> Add Note
-                        </button>
-                        <button 
-                          className="dropdown-item"
-                          onClick={() => {
-                            setShowMoveDayModal(true);
-                            setShowDayOptionsMenu(false);
-                          }}
-                        >
-                          <ArrowRight size={12} /> Move Day
-                        </button>
-                        <button 
-                          className="dropdown-item"
-                          onClick={() => {
-                            setShowSwapDaysModal(true);
-                            setShowDayOptionsMenu(false);
-                          }}
-                        >
-                          <ArrowUpDown size={12} /> Swap Days
-                        </button>
-                        <button 
-                          className="dropdown-item danger"
-                          onClick={() => {
-                            handleClearDay();
-                            setShowDayOptionsMenu(false);
-                          }}
-                        >
-                          <Trash2 size={12} /> Clear Day
-                        </button>
+                        {dayOptionsSubMenu ? (
+                          <>
+                            <button className="dropdown-item" style={{ opacity: 0.6, pointerEvents: 'none', fontSize: '11px' }}>
+                              {dayOptionsSubMenu === 'hotel' ? <><Building size={12} /> Hotel Events</> : <><Plane size={12} /> Transit Events</>}
+                            </button>
+                            <button className="dropdown-item" onClick={() => setDayOptionsSubMenu(null)}>← Back</button>
+                            {dayOptionsSubMenu === 'hotel' && activePlan.hotels.filter(h => h.status !== 'Canceled' && (h.checkInDate === activeDayStr || h.checkOutDate === activeDayStr)).map(h => (
+                              <React.Fragment key={h.id}>
+                                {h.checkInDate === activeDayStr && !isHotelEventInSchedule(h.id, 'check-in') && (
+                                  <button className="dropdown-item" onClick={() => {
+                                    handleAddReservationEventToSchedule({ type: 'hotel-event', hotelId: h.id, event: 'check-in', time: h.checkInTime });
+                                    setShowDayOptionsMenu(false); setDayOptionsSubMenu(null);
+                                  }}>
+                                    <Building size={12} /> {h.name} — Check-in
+                                  </button>
+                                )}
+                                {h.checkOutDate === activeDayStr && !isHotelEventInSchedule(h.id, 'check-out') && (
+                                  <button className="dropdown-item" onClick={() => {
+                                    handleAddReservationEventToSchedule({ type: 'hotel-event', hotelId: h.id, event: 'check-out', time: h.checkOutTime });
+                                    setShowDayOptionsMenu(false); setDayOptionsSubMenu(null);
+                                  }}>
+                                    <Building size={12} /> {h.name} — Check-out
+                                  </button>
+                                )}
+                              </React.Fragment>
+                            ))}
+                            {dayOptionsSubMenu === 'transit' && flattenReservations(activePlan.transports.filter(t => t.status !== 'Canceled')).filter(t => t.departureDate === activeDayStr || t.arrivalDate === activeDayStr).map(t => (
+                              <React.Fragment key={`${t.reservationId}-${t.segmentIndex}`}>
+                                {t.departureDate === activeDayStr && !isTransitEventInSchedule(t.reservationId, t.segmentIndex, 'departure') && (
+                                  <button className="dropdown-item" onClick={() => {
+                                    handleAddReservationEventToSchedule({ type: 'transit-event', reservationId: t.reservationId, segmentIndex: t.segmentIndex, event: 'departure', time: t.departureTime });
+                                    setShowDayOptionsMenu(false); setDayOptionsSubMenu(null);
+                                  }}>
+                                    {getTransitIcon(t.type, 12)} {t.reservationName || t.departureLocationName} — Departure
+                                  </button>
+                                )}
+                                {t.arrivalDate === activeDayStr && !isTransitEventInSchedule(t.reservationId, t.segmentIndex, 'arrival') && (
+                                  <button className="dropdown-item" onClick={() => {
+                                    handleAddReservationEventToSchedule({ type: 'transit-event', reservationId: t.reservationId, segmentIndex: t.segmentIndex, event: 'arrival', time: t.arrivalTime });
+                                    setShowDayOptionsMenu(false); setDayOptionsSubMenu(null);
+                                  }}>
+                                    {getTransitIcon(t.type, 12)} {t.reservationName || t.arrivalLocationName} — Arrival
+                                  </button>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="dropdown-item"
+                              onClick={() => {
+                                handleAddScheduleNote(scheduleItems.length, '');
+                                setEditingNoteItemIndex(scheduleItems.length);
+                                setShowDayOptionsMenu(false);
+                              }}
+                            >
+                              <FileText size={12} /> Add Note
+                            </button>
+                            {activePlan.hotels.filter(h => h.status !== 'Canceled' && (h.checkInDate === activeDayStr || h.checkOutDate === activeDayStr)).length > 0 && (
+                              <button className="dropdown-item" onClick={e => { e.stopPropagation(); setDayOptionsSubMenu('hotel'); }}>
+                                <Building size={12} /> Add Hotel Event →
+                              </button>
+                            )}
+                            {flattenReservations(activePlan.transports.filter(t => t.status !== 'Canceled')).filter(t => t.departureDate === activeDayStr || t.arrivalDate === activeDayStr).length > 0 && (
+                              <button className="dropdown-item" onClick={e => { e.stopPropagation(); setDayOptionsSubMenu('transit'); }}>
+                                <Plane size={12} /> Add Transit Event →
+                              </button>
+                            )}
+                            <button
+                              className="dropdown-item"
+                              onClick={() => {
+                                setShowMoveDayModal(true);
+                                setShowDayOptionsMenu(false);
+                              }}
+                            >
+                              <ArrowRight size={12} /> Move Day
+                            </button>
+                            <button
+                              className="dropdown-item"
+                              onClick={() => {
+                                setShowSwapDaysModal(true);
+                                setShowDayOptionsMenu(false);
+                              }}
+                            >
+                              <ArrowUpDown size={12} /> Swap Days
+                            </button>
+                            <button
+                              className="dropdown-item danger"
+                              onClick={() => {
+                                handleClearDay();
+                                setShowDayOptionsMenu(false);
+                              }}
+                            >
+                              <Trash2 size={12} /> Clear Day
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1709,6 +2077,44 @@ function ItineraryPanel({
                         );
                       }
 
+                      if (item.type === 'hotel-event') {
+                        const hotelItem = item as ScheduleHotelEventItem;
+                        return (
+                          <React.Fragment key={`hotel-event-${hotelItem.hotelId}-${hotelItem.event}-${idx}`}>
+                            {renderAddSlot(idx, canEdit)}
+                            <div
+                              style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                              onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
+                              onMouseLeave={scheduleHideItem}
+                            >
+                              {dragOverDayPlaceIndex === idx && (
+                                <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                              )}
+                              {renderHotelEventCard(hotelItem, idx, isFirst, isLast, canEdit)}
+                            </div>
+                          </React.Fragment>
+                        );
+                      }
+
+                      if (item.type === 'transit-event') {
+                        const transitItem = item as ScheduleTransitEventItem;
+                        return (
+                          <React.Fragment key={`transit-event-${transitItem.reservationId}-${transitItem.segmentIndex}-${transitItem.event}-${idx}`}>
+                            {renderAddSlot(idx, canEdit)}
+                            <div
+                              style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                              onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
+                              onMouseLeave={scheduleHideItem}
+                            >
+                              {dragOverDayPlaceIndex === idx && (
+                                <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                              )}
+                              {renderTransitEventCard(transitItem, idx, isFirst, isLast, canEdit)}
+                            </div>
+                          </React.Fragment>
+                        );
+                      }
+
                       // Place item
                       const placeItem = item as SchedulePlaceItem;
                       const placeNumber = ++placeCount;
@@ -1880,6 +2286,28 @@ function ItineraryPanel({
         <div className="no-active-day">
           No day plan created yet.
         </div>
+      )}
+
+      {/* Time picker portal — rendered outside the card so it doesn't affect card layout */}
+      {timePickerState && createPortal(
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setTimePickerState(null)} />
+          <div className="event-time-picker-popover" style={{ top: timePickerState.top, left: timePickerState.left }}>
+            <input
+              type="time"
+              className="schedule-event-time-input"
+              defaultValue={timePickerState.value}
+              autoFocus
+              onBlur={e => { handleUpdateScheduleItemTime(timePickerState.itemIdx, e.target.value); setTimePickerState(null); }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { handleUpdateScheduleItemTime(timePickerState.itemIdx, (e.target as HTMLInputElement).value); setTimePickerState(null); }
+                if (e.key === 'Escape') setTimePickerState(null);
+              }}
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );
