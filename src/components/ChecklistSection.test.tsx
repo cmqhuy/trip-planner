@@ -61,13 +61,13 @@ describe('ChecklistSection Component', () => {
     expect(screen.getByText('[ ] Book train tickets')).toBeInTheDocument();
     expect(screen.getByText('[ ] Check weather forecast')).toBeInTheDocument();
 
-    // Reservation Checklist (App Generated) section check for missing hotel and transit warnings
-    expect(screen.getByRole('heading', { name: 'Reservation Checklist (App Generated)' })).toBeInTheDocument();
+    // Warnings section check for missing hotel and transit warnings
+    expect(screen.getByRole('heading', { name: 'Warnings' })).toBeInTheDocument();
     expect(screen.getByText(/No hotels booked for/)).toBeInTheDocument();
     expect(screen.getByText(/No transit from Paris to Nice/)).toBeInTheDocument();
   });
 
-  it('hides Reservation Checklist (App Generated) section when all warnings are resolved', () => {
+  it('hides Warnings section when all warnings are resolved', () => {
     const cleanPlan = {
       ...mockTrip.plans[0],
       days: {
@@ -91,7 +91,7 @@ describe('ChecklistSection Component', () => {
     );
 
     // Section header should NOT be present when no warnings exist
-    expect(screen.queryByRole('heading', { name: 'Reservation Checklist (App Generated)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Warnings' })).not.toBeInTheDocument();
   });
 
   it('allows adding a new manual task', () => {

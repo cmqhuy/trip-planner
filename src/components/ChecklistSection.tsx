@@ -348,19 +348,19 @@ function ChecklistSection({
           </div>
         </div>
 
-        {/* Section B: Reservation Checklist (App Generated) */}
+        {/* Section B: Warnings */}
         {reservationWarnings.length > 0 && (
           <div className="left-panel-subsection">
             <div className="subsection-header">
-              <h4 className="subsection-title">Reservation Checklist (App Generated)</h4>
+              <h4 className="subsection-title">Warnings</h4>
             </div>
             <div className="subsection-content">
               {reservationWarnings.map((item) => (
                 <div key={item.id} className="checklist-item-wrapper">
                   <div className="checklist-item-row reservation-warning-row">
-                    <div className="checklist-item-content">
-                      <AlertTriangle size={13} className="text-warning flex-shrink-0" style={{ marginTop: '2px' }} />
-                      <span className="reservation-warning-text">
+                    <div className="checklist-item-content" style={{ alignItems: 'flex-start' }}>
+                      <AlertTriangle size={11} className="text-warning flex-shrink-0" style={{ marginTop: '2px' }} />
+                      <span className="reservation-warning-text" style={{ fontSize: '11px', color: '#f59e0b', lineHeight: '1.4' }}>
                         {item.message}
                       </span>
                     </div>
