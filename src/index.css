@@ -3859,77 +3859,38 @@ div.google-auth-avatar-desktop {
 
 @media (max-width: 1080px) {
   .checklist-item-row {
-    align-items: center !important;
+    align-items: flex-start !important;
     min-height: 36px !important;
+    padding: 6px 10px !important;
   }
   .checklist-item-content {
-    align-items: center !important;
+    align-items: flex-start !important;
     min-height: 36px !important;
   }
   .checklist-item-label {
-    align-items: center !important;
+    align-items: flex-start !important;
     min-height: 36px !important;
   }
   .checklist-item-end-actions {
     height: 36px !important;
-    align-items: center !important;
+    align-items: flex-start !important;
+    align-self: flex-start !important;
   }
   .checklist-grip {
-    height: 36px !important;
+    height: 18px !important;
     align-items: center !important;
+    align-self: flex-start !important;
+    margin-top: 1px !important;
   }
   input[type="checkbox"].checklist-checkbox {
-    margin: 0 !important;
-    align-self: center !important;
+    margin: 3px 0 0 0 !important;
+    align-self: flex-start !important;
   }
   .checklist-item-text {
-    align-self: center !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    min-height: 36px !important;
-  }
-  .checklist-edit-btn,
-  .checklist-delete-btn,
-  .checklist-save-btn,
-  .checklist-cancel-btn {
-    height: 36px !important;
-    width: 36px !important;
-    min-height: 36px !important;
-    min-width: 36px !important;
-    padding: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-  .checklist-item-row {
-    align-items: center !important;
-    min-height: 36px !important;
-  }
-  .checklist-item-content {
-    align-items: center !important;
-    min-height: 36px !important;
-  }
-  .checklist-item-label {
-    align-items: center !important;
-    min-height: 36px !important;
-  }
-  .checklist-item-end-actions {
-    height: 36px !important;
-    align-items: center !important;
-  }
-  .checklist-grip {
-    height: 36px !important;
-    align-items: center !important;
-  }
-  input[type="checkbox"].checklist-checkbox {
-    margin: 0 !important;
-    align-self: center !important;
-  }
-  .checklist-item-text {
-    align-self: center !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    min-height: 36px !important;
+    align-self: flex-start !important;
+    display: block !important;
+    min-height: auto !important;
+    padding-top: 1px !important;
   }
   .checklist-edit-btn,
   .checklist-delete-btn,
