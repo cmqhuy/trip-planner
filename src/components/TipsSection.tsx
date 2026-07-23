@@ -54,7 +54,7 @@ export default function TipsSection({
         </div>
 
         <span className="subsection-subtitle subsection-subtitle--block">
-          Quick reference for convenience stores, currencies, local apps, dress codes, etc.
+          Quick reference for safety tips, convenience stores, currencies, local apps, etc.
         </span>
 
         <div className="subsection-content">

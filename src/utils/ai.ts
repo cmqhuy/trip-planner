@@ -1111,12 +1111,13 @@ Please respond with JSON in this exact format:
 You are a local travel guide expert. Provide a very concise Local Essentials Reference (in Markdown format) for ${location.city}, ${location.country}.
 
 Please organize the guide with clean subheadings, keeping each section extremely brief (max 2-3 concise bullet points or 1-2 short sentences per section, avoiding any wordiness):
-1. **Convenience Stores & Essentials**: Best popular chains, what you can find there, and payment options.
-2. **Currency & Payments**: Local currency, acceptance of credit cards vs cash, and tipping culture.
-3. **Transportation & Cards**: Primary means of transportation, what transit card/payment to use, and how to pay.
-4. **Local Apps**: Must-have transit/mapping, ride-sharing, and translation apps.
-5. **Dress Code & Etiquette**: Cultural norms and seasonal packing/clothing tips.
-6. **Other Utilities**: Power plugs & voltage, tap water safety, and emergency phone numbers.
+1. **Safety & Awareness**: Key safety tips (e.g. pickpocketing hotspots, theft prevention, civil unrest/protest risks, common tourist scams, areas to exercise caution).
+2. **Convenience Stores & Essentials**: Best popular chains (e.g. 7-Eleven, Lawson, etc.), what you can find there, and payment options.
+3. **Currency & Payments**: Local currency, acceptance of credit cards vs cash, and tipping culture.
+4. **Transportation & Cards**: Primary means of transportation (e.g. subway, train, bus), what transit card/payment to use (e.g. Suica, Oyster), and how to pay.
+5. **Local Apps**: Must-have transit/mapping, ride-sharing, and translation apps.
+6. **Dress Code & Etiquette**: Cultural norms and seasonal packing/clothing tips.
+7. **Other Utilities**: Power plugs & voltage, tap water safety, and emergency phone numbers.
 
 Output ONLY raw Markdown. Do not include any greeting or conversational filler.`;
   }
@@ -1129,18 +1130,7 @@ Output ONLY raw Markdown. Do not include any greeting or conversational filler.`
     apiKey: string,
     model = 'gemini-2.5-flash'
   ): Promise<string> {
-    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
-You are a local travel guide expert. Provide a very concise Local Essentials Reference (in Markdown format) for ${location.city}, ${location.country}.
-
-Please organize the guide with clean subheadings, keeping each section extremely brief (max 2-3 concise bullet points or 1-2 short sentences per section, avoiding any wordiness):
-1. **Convenience Stores & Essentials**: Best popular chains (e.g. 7-Eleven, Lawson, etc.), what you can find there, and payment options.
-2. **Currency & Payments**: Local currency, acceptance of credit cards vs cash, and tipping culture.
-3. **Transportation & Cards**: Primary means of transportation (e.g. subway, train, bus), what transit card/payment to use (e.g. Suica, Oyster), and how to pay.
-4. **Local Apps**: Must-have transit/mapping, ride-sharing, and translation apps.
-5. **Dress Code & Etiquette**: Cultural norms and seasonal packing/clothing tips.
-6. **Other Utilities**: Power plugs & voltage, tap water safety, and emergency phone numbers.
-
-Output ONLY raw Markdown. Do not include any greeting or conversational filler.`;
+    const promptText = this.buildLocalEssentialsPrompt(location);
 
     const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',

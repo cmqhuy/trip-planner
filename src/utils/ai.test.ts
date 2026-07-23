@@ -106,4 +106,14 @@ describe('ai helper functions', () => {
       expect(prompt).toContain('paid');
     });
   });
+
+  describe('buildLocalEssentialsPrompt', () => {
+    it('includes safety & awareness instructions like pickpocketing, theft, unrest, and scams', () => {
+      const prompt = GeminiService.buildLocalEssentialsPrompt({ city: 'Paris', country: 'France' });
+      expect(prompt).toContain('Safety & Awareness');
+      expect(prompt).toContain('pickpocketing');
+      expect(prompt).toContain('unrest');
+      expect(prompt).toContain('scams');
+    });
+  });
 });
