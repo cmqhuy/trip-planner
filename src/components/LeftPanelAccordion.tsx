@@ -284,6 +284,8 @@ export default function LeftPanelAccordion({
             onGenerateTripChecklist={onGenerateTripChecklist}
             onSaveAiChecklist={onSaveAiChecklist}
             onUpdateTrip={onUpdateTrip}
+            daysList={daysList}
+            formatDisplayDate={formatDisplayDate}
           />
         )}
       </div>

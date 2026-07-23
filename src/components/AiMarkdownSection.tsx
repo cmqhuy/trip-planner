@@ -171,10 +171,25 @@ export default function AiMarkdownSection({
                 </h5>
               );
             }
-            if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')) {
-              const contentText = line.startsWith('- ') || line.startsWith('* ') ? line.substring(2) : line.substring(1);
+
+            const numberedMatch = trimmed.match(/^(\d+[\.\)])\s+(.*)/);
+            if (numberedMatch) {
+              const isIndented = line.search(/\S/) > 0;
               return (
-                <div key={idx} className="ai-md-list-item">
+                <div key={idx} className="ai-md-list-item" style={{ paddingLeft: isIndented ? '18px' : '6px' }}>
+                  <span className="text-accent flex-shrink-0" style={{ fontSize: '11px', fontWeight: 600 }}>{numberedMatch[1]}</span>
+                  <span className="ai-md-item-text">
+                    {parseInlineMarkdown(numberedMatch[2])}
+                  </span>
+                </div>
+              );
+            }
+
+            if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+              const isIndented = line.search(/\S/) > 0;
+              const contentText = trimmed.startsWith('- ') || trimmed.startsWith('* ') ? trimmed.substring(2) : trimmed.substring(1);
+              return (
+                <div key={idx} className="ai-md-list-item" style={{ paddingLeft: isIndented ? '18px' : '6px' }}>
                   <span className="text-accent flex-shrink-0">•</span>
                   <span className="ai-md-item-text">
                     {parseInlineMarkdown(contentText)}

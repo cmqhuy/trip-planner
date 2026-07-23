@@ -386,14 +386,13 @@ function CatalogSection({
                         className={`catalog-place-card ${activePlaceId === place.id ? 'catalog-place-card--active' : ''} ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                         draggable={trip.canEdit !== false}
                         onDragStart={(e) => {
-                          handlePlaceDragStart(place.id);
-                          if (e.currentTarget) {
-                            const card = e.currentTarget;
-                            card.classList.add('is-dragging-ghost');
-                            setTimeout(() => {
-                              card.classList.remove('is-dragging-ghost');
-                            }, 0);
+                          if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', place.id);
                           }
+                          setTimeout(() => {
+                            handlePlaceDragStart(place.id);
+                          }, 0);
                         }}
                         onDragEnd={() => {
                           setDraggedPlaceId(null);

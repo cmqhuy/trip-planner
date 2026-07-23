@@ -496,14 +496,13 @@ function ItineraryPanel({
         onClick={e => e.stopPropagation()}
         draggable={canEdit}
         onDragStart={(e) => {
-          handleDayPlaceDragStart(idx);
-          if (e.currentTarget) {
-            const card = e.currentTarget;
-            card.classList.add('is-dragging-ghost');
-            setTimeout(() => {
-              card.classList.remove('is-dragging-ghost');
-            }, 0);
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(idx));
           }
+          setTimeout(() => {
+            handleDayPlaceDragStart(idx);
+          }, 0);
         }}
         onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
         onDragOver={(e) => {
@@ -2144,14 +2143,13 @@ function ItineraryPanel({
                               data-place-id={place.id}
                               draggable={canEdit}
                               onDragStart={(e) => {
-                                handleDayPlaceDragStart(idx);
-                                if (e.currentTarget) {
-                                  const card = e.currentTarget;
-                                  card.classList.add('is-dragging-ghost');
-                                  setTimeout(() => {
-                                    card.classList.remove('is-dragging-ghost');
-                                  }, 0);
+                                if (e.dataTransfer) {
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  e.dataTransfer.setData('text/plain', String(idx));
                                 }
+                                setTimeout(() => {
+                                  handleDayPlaceDragStart(idx);
+                                }, 0);
                               }}
                               onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
                               onDragOver={(e) => {
