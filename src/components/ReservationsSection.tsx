@@ -13,6 +13,7 @@ import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
 import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
+import { getReservationWarnings } from '../utils/reservationWarnings';
 
 interface ReservationsSectionProps {
   trip: Trip;
@@ -195,93 +196,9 @@ export default function ReservationsSection({
   const saveTransportNotes = (reservationId: string, text: string) =>
     onSaveTransportNotes(reservationId, text.trim());
 
-  const getDailyHotelWarnings = (): { dateStr: string; message: string }[] => {
-    const dailyStatuses = daysList.map(d => {
-      const isNoHotel = activePlan.days[d]?.noHotel;
-      const hotelsForDay = activePlan.hotels.filter(
-        h => h.status !== 'Canceled' && h.checkInDate <= d && d < h.checkOutDate
-      );
-      const confirmedHotels = hotelsForDay.filter(h => h.status === 'Confirmed');
-      const pendingHotels = hotelsForDay.filter(h => !h.status || h.status === 'Planning');
-
-      if (confirmedHotels.length === 0) {
-        if (isNoHotel) return { dateStr: d, type: 'none' as const };
-        if (pendingHotels.length > 0) return { dateStr: d, type: 'pending-no-confirmed' as const };
-        const locId = activePlan.days[d]?.locationId;
-        if (locId) return { dateStr: d, type: 'no-hotel' as const };
-      } else {
-        if (pendingHotels.length > 0) return { dateStr: d, type: 'pending-with-confirmed' as const };
-      }
-      return { dateStr: d, type: 'none' as const };
-    });
-
-    const warnings: { dateStr: string; message: string }[] = [];
-    let currentNoHotelRun: string[] = [];
-
-    const flushNoHotelRun = () => {
-      if (currentNoHotelRun.length === 0) return;
-      if (currentNoHotelRun.length === 1) {
-        const d = currentNoHotelRun[0];
-        warnings.push({ dateStr: d, message: `No hotels booked for ${formatDisplayDate(d)}.` });
-      } else {
-        const startDay = currentNoHotelRun[0];
-        const endDay = currentNoHotelRun[currentNoHotelRun.length - 1];
-        warnings.push({ dateStr: startDay, message: `No hotels booked for ${formatDisplayDate(startDay)} - ${formatDisplayDate(endDay)}.` });
-      }
-      currentNoHotelRun = [];
-    };
-
-    for (const status of dailyStatuses) {
-      if (status.type === 'no-hotel') {
-        currentNoHotelRun.push(status.dateStr);
-      } else {
-        flushNoHotelRun();
-        if (status.type === 'pending-no-confirmed') {
-          warnings.push({ dateStr: status.dateStr, message: `No confirmed hotels booked for ${formatDisplayDate(status.dateStr)}. Please mark the pending hotel to confirmed.` });
-        } else if (status.type === 'pending-with-confirmed') {
-          warnings.push({ dateStr: status.dateStr, message: `There are pending hotels for ${formatDisplayDate(status.dateStr)}. Please confirm or cancel them.` });
-        }
-      }
-    }
-    flushNoHotelRun();
-    return warnings;
-  };
-
-  const getDailyTransitWarnings = (): { message: string }[] => {
-    const warnings: { message: string }[] = [];
-    for (let i = 1; i < daysList.length; i++) {
-      const prevDayStr = daysList[i - 1];
-      const dayStr = daysList[i];
-      const prevLocId = activePlan.days[prevDayStr]?.locationId;
-      const currLocId = activePlan.days[dayStr]?.locationId;
-      if (prevLocId && currLocId && prevLocId !== currLocId) {
-        const prevLoc = trip.locations.find(l => l.id === prevLocId);
-        const currLoc = trip.locations.find(l => l.id === currLocId);
-        const prevCity = prevLoc?.city ?? 'previous location';
-        const currCity = currLoc?.city ?? 'next location';
-
-        const transits = activePlan.transports.filter(
-          t => t.status !== 'Canceled' && t.segments.some(s => s.departureDate === prevDayStr || s.arrivalDate === dayStr)
-        );
-        const confirmedTransports = transits.filter(t => t.status === 'Confirmed');
-        const pendingTransports = transits.filter(t => !t.status || t.status === 'Planning');
-
-        if (confirmedTransports.length === 0) {
-          if (pendingTransports.length > 0) {
-            warnings.push({ message: `No confirmed transit from ${prevCity} to ${currCity}. Please mark the pending transit to confirmed.` });
-          } else {
-            warnings.push({ message: `No transit from ${prevCity} to ${currCity}.` });
-          }
-        } else if (pendingTransports.length > 0) {
-          warnings.push({ message: `There are pending transits from ${prevCity} to ${currCity}. Please confirm or cancel them.` });
-        }
-      }
-    }
-    return warnings;
-  };
-
-  const hotelWarnings = getDailyHotelWarnings();
-  const transitWarnings = getDailyTransitWarnings();
+  const allWarnings = getReservationWarnings(trip, activePlan, daysList, formatDisplayDate);
+  const hotelWarnings = allWarnings.filter(w => w.type === 'hotel');
+  const transitWarnings = allWarnings.filter(w => w.type === 'transit');
 
   const renderHotelCards = () => (
     <>

@@ -1,11 +1,13 @@
 import { useState, memo } from 'react';
 import { 
-  ChevronUp, ChevronDown, Trash2, Pencil, Check, X,
-  RefreshCw, Sparkles, GripVertical
+  Trash2, Pencil, Check, X,
+  RefreshCw, Sparkles, GripVertical, AlertTriangle
 } from 'lucide-react';
 import type { Trip, Plan } from '../types';
 import FunGeneratingLoader from './FunGeneratingLoader';
 import AiMarkdownSection from './AiMarkdownSection';
+import { getReservationWarnings } from '../utils/reservationWarnings';
+import { generateDatesRange } from '../utils/dateUtils';
 
 interface ChecklistSectionProps {
   trip: Trip;
@@ -14,6 +16,8 @@ interface ChecklistSectionProps {
   onGenerateTripChecklist: () => void;
   onSaveAiChecklist: (content: string) => void;
   onUpdateTrip: (updatedTrip: Trip | ((prevTrip: Trip) => Trip)) => void;
+  daysList?: string[];
+  formatDisplayDate?: (dateStr: string) => string;
 }
 
 function ChecklistSection({
@@ -22,13 +26,19 @@ function ChecklistSection({
   generatingChecklist,
   onGenerateTripChecklist,
   onSaveAiChecklist,
-  onUpdateTrip
+  onUpdateTrip,
+  daysList,
+  formatDisplayDate
 }: ChecklistSectionProps) {
   const [manualChecklistInput, setManualChecklistInput] = useState('');
   const [draggedChecklistIndex, setDraggedChecklistIndex] = useState<number | null>(null);
   const [dragOverChecklistIndex, setDragOverChecklistIndex] = useState<number | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingItemText, setEditingItemText] = useState('');
+
+  const activeDaysList = daysList || generateDatesRange(activePlan.startDate, activePlan.endDate);
+  const formatDate = formatDisplayDate || ((d: string) => d);
+  const reservationWarnings = getReservationWarnings(trip, activePlan, activeDaysList, formatDate);
 
   const handleAddManualChecklistItem = (text: string) => {
     if (!text.trim()) return;
@@ -95,36 +105,6 @@ function ChecklistSection({
     setEditingItemId(null);
   };
 
-  const handleMoveManualChecklistItem = (id: string, direction: 'up' | 'down') => {
-    onUpdateTrip(prevTrip => {
-      const updatedPlans = prevTrip.plans.map(p => {
-        if (p.id === activePlan.id) {
-          const list = [...(p.manualChecklist || [])];
-          const idx = list.findIndex(item => item.id === id);
-          if (idx === -1) return p;
-          if (direction === 'up' && idx > 0) {
-            const temp = list[idx];
-            list[idx] = list[idx - 1];
-            list[idx - 1] = temp;
-          } else if (direction === 'down' && idx < list.length - 1) {
-            const temp = list[idx];
-            list[idx] = list[idx + 1];
-            list[idx + 1] = temp;
-          }
-          return {
-            ...p,
-            manualChecklist: list
-          };
-        }
-        return p;
-      });
-      return {
-        ...prevTrip,
-        plans: updatedPlans
-      };
-    });
-  };
-
   const handleDeleteManualChecklistItem = (id: string) => {
     onUpdateTrip(prevTrip => {
       const updatedPlans = prevTrip.plans.map(p => {
@@ -182,7 +162,7 @@ function ChecklistSection({
               const showLineAtBottom = draggedChecklistIndex !== null && draggedChecklistIndex < idx;
               const isEditing = editingItemId === item.id;
               return (
-                <div key={item.id} className="checklist-item-wrapper">
+                <div key={item.id} className="checklist-item-wrapper" style={{ position: 'relative' }}>
                   {isDragOver && (
                     <div style={{
                       position: 'absolute',
@@ -200,13 +180,17 @@ function ChecklistSection({
                   )}
                   <div
                     className={`checklist-item-row ${dragOverChecklistIndex === idx ? 'drag-over' : ''}`}
+                    data-checklist-idx={idx}
                     draggable={trip.canEdit !== false && !isEditing}
                     onDragStart={(e) => {
                       if (isEditing) return;
-                      setDraggedChecklistIndex(idx);
                       if (e.dataTransfer) {
                         e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(idx));
                       }
+                      setTimeout(() => {
+                        setDraggedChecklistIndex(idx);
+                      }, 0);
                     }}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -239,6 +223,7 @@ function ChecklistSection({
                           plans: updatedPlans
                         };
                       });
+                      setDraggedChecklistIndex(null);
                     }}
                     onDragEnd={() => {
                       setDraggedChecklistIndex(null);
@@ -327,28 +312,6 @@ function ChecklistSection({
                           </>
                         ) : (
                           <>
-                            <span className="checklist-move-actions-desktop">
-                              <button
-                                type="button"
-                                className="mini-icon-btn checklist-move-btn"
-                                onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
-                                disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
-                                style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
-                                data-tooltip="Move Up"
-                              >
-                                <ChevronUp size={12} />
-                              </button>
-                              <button
-                                type="button"
-                                className="mini-icon-btn checklist-move-btn"
-                                onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
-                                disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
-                                style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
-                                data-tooltip="Move Down"
-                              >
-                                <ChevronDown size={12} />
-                              </button>
-                            </span>
                             <button
                               type="button"
                               className="mini-icon-btn checklist-edit-btn"
@@ -385,11 +348,34 @@ function ChecklistSection({
           </div>
         </div>
 
-        {/* Section B: AI Generated Checklist */}
+        {/* Section B: Reservation Checklist (App Generated) */}
+        {reservationWarnings.length > 0 && (
+          <div className="left-panel-subsection">
+            <div className="subsection-header">
+              <h4 className="subsection-title">Reservation Checklist (App Generated)</h4>
+            </div>
+            <div className="subsection-content">
+              {reservationWarnings.map((item) => (
+                <div key={item.id} className="checklist-item-wrapper">
+                  <div className="checklist-item-row reservation-warning-row">
+                    <div className="checklist-item-content">
+                      <AlertTriangle size={13} className="text-warning flex-shrink-0" style={{ marginTop: '2px' }} />
+                      <span className="reservation-warning-text">
+                        {item.message}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Section C: AI Suggestions */}
         <div className="left-panel-subsection">
           <div className="subsection-header">
             <h4 className="subsection-title">
-              AI Preparation Checklist
+              AI Suggestions
             </h4>
             <div className="subsection-actions">
               {trip.canEdit !== false && (
@@ -418,14 +404,14 @@ function ChecklistSection({
             ) : (
               <div className="checklist-empty-state">
                 <span className="subsection-subtitle checklist-empty-subtitle">
-                  No AI checklist generated yet.
+                  No AI suggestions generated yet.
                 </span>
                 {trip.canEdit !== false && (
                   <button
                     className="btn-secondary flex-align checklist-generate-btn"
                     onClick={onGenerateTripChecklist}
                   >
-                    <Sparkles size={11} /> Generate Checklist
+                    <Sparkles size={11} /> Generate Suggestions
                   </button>
                 )}
               </div>
