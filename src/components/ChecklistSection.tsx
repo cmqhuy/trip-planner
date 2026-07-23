@@ -1,6 +1,6 @@
 import { useState, memo } from 'react';
 import { 
-  ChevronUp, ChevronDown, Trash2, 
+  ChevronUp, ChevronDown, Trash2, Pencil, Check, X,
   RefreshCw, Sparkles, GripVertical
 } from 'lucide-react';
 import type { Trip, Plan } from '../types';
@@ -27,6 +27,8 @@ function ChecklistSection({
   const [manualChecklistInput, setManualChecklistInput] = useState('');
   const [draggedChecklistIndex, setDraggedChecklistIndex] = useState<number | null>(null);
   const [dragOverChecklistIndex, setDragOverChecklistIndex] = useState<number | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemText, setEditingItemText] = useState('');
 
   const handleAddManualChecklistItem = (text: string) => {
     if (!text.trim()) return;
@@ -72,6 +74,25 @@ function ChecklistSection({
         plans: updatedPlans
       };
     });
+  };
+
+  const handleSaveEditedChecklistItem = (id: string) => {
+    if (!editingItemText.trim()) return;
+    onUpdateTrip(prevTrip => ({
+      ...prevTrip,
+      plans: prevTrip.plans.map(p => {
+        if (p.id === activePlan.id) {
+          return {
+            ...p,
+            manualChecklist: (p.manualChecklist || []).map(item => 
+              item.id === id ? { ...item, text: editingItemText.trim() } : item
+            )
+          };
+        }
+        return p;
+      })
+    }));
+    setEditingItemId(null);
   };
 
   const handleMoveManualChecklistItem = (id: string, direction: 'up' | 'down') => {
@@ -159,7 +180,7 @@ function ChecklistSection({
             {(activePlan.manualChecklist || []).map((item, idx) => {
               const isDragOver = idx === dragOverChecklistIndex && draggedChecklistIndex !== null && draggedChecklistIndex !== idx;
               const showLineAtBottom = draggedChecklistIndex !== null && draggedChecklistIndex < idx;
-              console.log('RENDER checklist item idx:', idx, 'isDragOver:', isDragOver, 'draggedIndex:', draggedChecklistIndex, 'dragOverIndex:', dragOverChecklistIndex);
+              const isEditing = editingItemId === item.id;
               return (
                 <div key={item.id} className="checklist-item-wrapper">
                   {isDragOver && (
@@ -179,9 +200,9 @@ function ChecklistSection({
                   )}
                   <div
                     className={`checklist-item-row ${dragOverChecklistIndex === idx ? 'drag-over' : ''}`}
-                    draggable={trip.canEdit !== false}
+                    draggable={trip.canEdit !== false && !isEditing}
                     onDragStart={(e) => {
-                      console.log('DRAGSTART checklist idx:', idx);
+                      if (isEditing) return;
                       setDraggedChecklistIndex(idx);
                       if (e.dataTransfer) {
                         e.dataTransfer.effectAllowed = 'move';
@@ -189,13 +210,11 @@ function ChecklistSection({
                     }}
                     onDragOver={(e) => {
                       e.preventDefault();
-                      console.log('DRAGOVER checklist idx:', idx, 'draggedIndex:', draggedChecklistIndex, 'dragOverIndex:', dragOverChecklistIndex);
                       if (dragOverChecklistIndex !== idx) {
                         setDragOverChecklistIndex(idx);
                       }
                     }}
                     onDragLeave={() => {
-                      console.log('DRAGLEAVE checklist idx:', idx);
                       setDragOverChecklistIndex(null);
                     }}
                     onDrop={(e) => {
@@ -222,22 +241,21 @@ function ChecklistSection({
                       });
                     }}
                     onDragEnd={() => {
-                      console.log('DRAGEND checklist idx:', idx);
                       setDraggedChecklistIndex(null);
                       setDragOverChecklistIndex(null);
                     }}
                     style={{
                       opacity: draggedChecklistIndex === idx ? 0.4 : 1,
-                      cursor: trip.canEdit !== false ? 'grab' : 'default',
+                      cursor: trip.canEdit !== false && !isEditing ? 'grab' : 'default',
                     }}
                   >
                     <div className="checklist-item-content">
-                      {trip.canEdit !== false && (
+                      {trip.canEdit !== false && !isEditing && (
                         <span className="checklist-grip">
                           <GripVertical size={11} />
                         </span>
                       )}
-                      <label className="flex-align checklist-item-label" style={{ cursor: trip.canEdit !== false ? 'pointer' : 'default' }}>
+                      <label className="checklist-item-label" style={{ cursor: trip.canEdit !== false ? 'pointer' : 'default' }}>
                         <input
                           type="checkbox"
                           checked={item.completed}
@@ -246,49 +264,112 @@ function ChecklistSection({
                           className="checklist-checkbox"
                           style={{ cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
                         />
-                        <span style={{
-                          fontSize: '12px',
-                          color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
-                          textDecoration: item.completed ? 'line-through' : 'none',
-                          textOverflow: 'ellipsis',
-                          overflow: 'hidden',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {item.text}
-                        </span>
+                        {isEditing ? (
+                          <textarea
+                            value={editingItemText}
+                            onChange={(e) => setEditingItemText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEditedChecklistItem(item.id);
+                              } else if (e.key === 'Escape') {
+                                setEditingItemId(null);
+                              }
+                            }}
+                            className="checklist-edit-input"
+                            autoFocus
+                            rows={1}
+                          />
+                        ) : (
+                          <span
+                            className="checklist-item-text"
+                            onDoubleClick={() => {
+                              if (trip.canEdit !== false) {
+                                setEditingItemId(item.id);
+                                setEditingItemText(item.text);
+                              }
+                            }}
+                            style={{
+                              fontSize: '12px',
+                              color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
+                              textDecoration: item.completed ? 'line-through' : 'none',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              lineHeight: '1.5'
+                            }}
+                            data-tooltip="Double-click to edit"
+                          >
+                            {item.text}
+                          </span>
+                        )}
                       </label>
                     </div>
                     {trip.canEdit !== false && (
                       <div className="checklist-item-end-actions">
-                        <span className="checklist-move-actions-desktop">
-                          <button
-                            type="button"
-                            className="mini-icon-btn checklist-move-btn"
-                            onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
-                            disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
-                            style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
-                            data-tooltip="Move Up"
-                          >
-                            <ChevronUp size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            className="mini-icon-btn checklist-move-btn"
-                            onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
-                            disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
-                            style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
-                            data-tooltip="Move Down"
-                          >
-                            <ChevronDown size={12} />
-                          </button>
-                        </span>
-                        <button
-                          type="button"
-                          className="trip-delete-btn checklist-delete-btn"
-                          onClick={() => handleDeleteManualChecklistItem(item.id)}
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              className="mini-icon-btn checklist-save-btn"
+                              onClick={() => handleSaveEditedChecklistItem(item.id)}
+                              data-tooltip="Save"
+                            >
+                              <Check size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="mini-icon-btn checklist-cancel-btn"
+                              onClick={() => setEditingItemId(null)}
+                              data-tooltip="Cancel"
+                            >
+                              <X size={12} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="checklist-move-actions-desktop">
+                              <button
+                                type="button"
+                                className="mini-icon-btn checklist-move-btn"
+                                onClick={() => handleMoveManualChecklistItem(item.id, 'up')}
+                                disabled={(activePlan.manualChecklist || []).indexOf(item) === 0}
+                                style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === 0 ? 0.3 : 1 }}
+                                data-tooltip="Move Up"
+                              >
+                                <ChevronUp size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="mini-icon-btn checklist-move-btn"
+                                onClick={() => handleMoveManualChecklistItem(item.id, 'down')}
+                                disabled={(activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1}
+                                style={{ opacity: (activePlan.manualChecklist || []).indexOf(item) === (activePlan.manualChecklist || []).length - 1 ? 0.3 : 1 }}
+                                data-tooltip="Move Down"
+                              >
+                                <ChevronDown size={12} />
+                              </button>
+                            </span>
+                            <button
+                              type="button"
+                              className="mini-icon-btn checklist-edit-btn"
+                              onClick={() => {
+                                setEditingItemId(item.id);
+                                setEditingItemText(item.text);
+                              }}
+                              data-tooltip="Edit"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              className="trip-delete-btn checklist-delete-btn"
+                              onClick={() => handleDeleteManualChecklistItem(item.id)}
+                              data-tooltip="Delete"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
