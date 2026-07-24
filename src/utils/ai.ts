@@ -215,13 +215,14 @@ ${reservationsList || 'None'}
 Checklist items the user has already added manually (do not duplicate these; complement what's missing):
 ${checklistList || 'None'}
 
-Please pay attention to essential details to make the trip complete. Keep the response concise, punchy, and avoid long-winded paragraphs. Limit the output to maximum 3-4 core categories:
-1. Booking Gaps & Ticketing: Identify missing accommodations (ignoring dates marked as not needing a hotel above), missing transit, or places requiring early reservations/tickets. If an attraction or dining spot already has a reservation listed above, include it as a done item ("- [x]") instead of omitting it, so the user can see it's already handled — do not silently drop already-reserved items.
-2. Entry & Visa Requirements: Note if visa/immigration documents are needed.
-3. Essential Prep & Gear: 3-5 high-priority packing or preparation tasks specific to these destinations.
-${enableBabyLogistics ? '4. Baby Logistics: 4-6 essential baby travel prep/packing items (stroller check-in, baby documents, food, etc.).' : ''}
+Please pay attention to essential details to make the trip complete. Keep the response concise, punchy, and avoid long-winded paragraphs. Organize the output into these core categories:
+1. Booking Gaps & Ticketing: Identify missing accommodations (ignoring dates marked as not needing a hotel above) and missing transit. Plain bullet points, no checkboxes.
+2. Attractions & Activities: For each attraction or dining spot that still needs a reservation, use "- [ ] " and state how far in advance it typically needs to be booked (e.g. "book 2-3 months ahead" for popular/timed-entry attractions, "book same-week" for casual spots) based on its typical demand. If an attraction or dining spot already has a reservation listed above, use "- [x] " to mark it done instead of omitting it, so the user can see it's already handled — do not silently drop already-reserved items. This is the ONLY section that uses "- [ ]" / "- [x]" checkbox syntax.
+3. Entry & Visa Requirements: Note if visa/immigration documents are needed. Skip any item already covered by the user's existing checklist above. Plain bullet points, no checkboxes.
+4. Essential Prep & Gear: 3-5 high-priority packing or preparation tasks specific to these destinations. Plain bullet points, no checkboxes.
+${enableBabyLogistics ? '5. Baby Logistics: 4-6 essential baby travel prep/packing items (stroller check-in, baby documents, food, etc.). Plain bullet points, no checkboxes.' : ''}
 
-Use "- [ ] " for pending/unhandled items and "- [x] " for items that are already fully booked or handled. Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
+Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
 };
 
 export class GeminiService {
