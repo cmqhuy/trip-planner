@@ -30,7 +30,7 @@ export default function ConfirmationModal({
     title.toLowerCase().includes('leave');
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay modal-overlay--above" onClick={onCancel}>
       <div className="modal-content glass-panel modal-content--sm" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>

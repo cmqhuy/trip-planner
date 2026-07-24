@@ -9,7 +9,7 @@ import {
 import type { Trip, Plan, Hotel, TransportationReservation, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
-import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
+import { buildHotelMapsLink, buildTransitMapsLink, buildMapsLink } from '../utils/api';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
 import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
@@ -161,8 +161,10 @@ export default function ReservationsSection({
 }: ReservationsSectionProps) {
   const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
   const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
+  const [editingPlaceReservationNoteId, setEditingPlaceReservationNoteId] = useState<string | null>(null);
   const [editingHotelNotesText, setEditingHotelNotesText] = useState('');
   const [editingTransitNotesText, setEditingTransitNotesText] = useState('');
+  const [editingPlaceReservationNotesText, setEditingPlaceReservationNotesText] = useState('');
   const [openTransitMapId, setOpenTransitMapId] = useState<string | null>(null);
   const [openCardOptionsMenuId, setOpenCardOptionsMenuId] = useState<string | null>(null);
 
@@ -205,10 +207,19 @@ export default function ReservationsSection({
     }
   }, [editingTransitNoteId, activePlan.transports]);
 
+  useEffect(() => {
+    if (editingPlaceReservationNoteId) {
+      const pr = (activePlan.placeReservations || []).find(p => p.id === editingPlaceReservationNoteId);
+      setEditingPlaceReservationNotesText(pr?.notes ?? '');
+    }
+  }, [editingPlaceReservationNoteId, activePlan.placeReservations]);
+
   const saveHotelNotes = (hotel: Hotel, text: string) =>
     onEditHotel({ ...hotel, notes: text.trim() || undefined });
   const saveTransportNotes = (reservationId: string, text: string) =>
     onSaveTransportNotes(reservationId, text.trim());
+  const savePlaceReservationNotes = (pr: PlaceReservation, text: string) =>
+    onEditPlaceReservation && onEditPlaceReservation({ ...pr, notes: text.trim() || undefined });
 
   const allWarnings = getReservationWarnings(trip, activePlan, daysList, formatDisplayDate);
   const hotelWarnings = allWarnings.filter(w => w.type === 'hotel');
@@ -545,14 +556,14 @@ export default function ReservationsSection({
         }
         return undefined;
       })();
-      const mapUrl = pr.address
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${pr.title} ${pr.address}`)}`
-        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pr.title)}`;
+      const linkedPlace = pr.placeId ? (resLoc?.places || []).find(p => p.id === pr.placeId) : undefined;
+      const mapUrl = linkedPlace ? (linkedPlace.mapsLink || buildMapsLink(linkedPlace.title, linkedPlace.lat, linkedPlace.lng, resLoc?.city)) : undefined;
+      const cardTypeClass = targetType === 'attraction' ? 'reservation-card--attraction' : 'reservation-card--dining';
 
       return (
         <div
           key={pr.id}
-          className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${openCardOptionsMenuId === `place-${pr.id}` ? ' dropdown-active' : ''}`}
+          className={`glass-panel reservation-card ${cardTypeClass} reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${openCardOptionsMenuId === `place-${pr.id}` ? ' dropdown-active' : ''}`}
         >
           <div
             className="reservation-card-expand"
@@ -584,13 +595,15 @@ export default function ReservationsSection({
                 <div className="catalog-allocated-days">
                   {pr.date && (
                     <span className={`catalog-day-tag${isDateActive ? ' catalog-day-tag--active' : ''}`}>
-                      {shortDate(pr.date)}{pr.time ? ` · ${pr.time}` : ''}
+                      {shortDate(pr.date)}
                     </span>
                   )}
                 </div>
-                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mini-icon-btn" data-tooltip="Open in Maps">
-                  <MapPin size={14} />
-                </a>
+                {mapUrl && (
+                  <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mini-icon-btn" data-tooltip="Open in Maps">
+                    <MapPin size={14} />
+                  </a>
+                )}
                 {trip.canEdit !== false && (
                   <div className="card-options-menu">
                     <button
@@ -656,6 +669,9 @@ export default function ReservationsSection({
                 {renderStatusIcon(pr.status)}
               </span>
             </div>
+            {pr.date && (
+              <p className="place-desc-text"><Calendar size={11} /> Date: {formatCardDate(pr.date, pr.time)}</p>
+            )}
 
             {/* Prominent Warning Badge outside collapsed section */}
             {isDeletedPlace && (
@@ -669,19 +685,47 @@ export default function ReservationsSection({
           {/* Expandable details */}
           <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
             <div>
-              <div className="card-expanded-inner" style={{ padding: '8px 12px' }}>
-                {pr.address && (
-                  <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}><MapPin size={11} /> {pr.address}</p>
+              <div className="reservation-card-expanded-content">
+                {linkedPlace ? (
+                  <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="reservation-card-field-row" style={{ color: 'inherit', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>
+                    <MapPin size={11} />
+                    <span className="place-desc-text">{linkedPlace.title}</span>
+                  </a>
+                ) : pr.address && (
+                  <div className="reservation-card-field-row">
+                    <MapPin size={11} />
+                    <span className="place-desc-text">{pr.address}</span>
+                  </div>
                 )}
-                {pr.confirmationNo && (
-                  <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}><Hash size={11} /> {pr.confirmationNo}</p>
-                )}
-                {pr.bookedThrough && (
-                  <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}>Booked through: {pr.bookedThrough}</p>
-                )}
-                {pr.notes && (
-                  <p className="place-desc-text" style={{ margin: 0 }}><FileText size={11} /> {pr.notes}</p>
-                )}
+                <div className="reservation-card-field-row">
+                  {pr.confirmationNo && (<><Hash size={11} /><span className="place-desc-text">{pr.confirmationNo}</span></>)}
+                  <span className={`reservation-status-text-badge reservation-status-badge--${(pr.status || 'Planning').toLowerCase()}`}>{pr.status || 'Planning'}</span>
+                </div>
+                <div className="reservation-card-notes-wrap">
+                  <div className="notes-box">
+                    <label className="notes-label">
+                      <FileText size={11} /> Notes
+                      {trip.canEdit !== false && editingPlaceReservationNoteId !== pr.id && (
+                        <button className="mini-icon-btn notes-edit-btn" onClick={e => { e.stopPropagation(); setEditingPlaceReservationNoteId(pr.id); setEditingHotelNoteId(null); setEditingTransitNoteId(null); setEditingPlaceReservationNotesText(pr.notes ?? ''); }} data-tooltip="Edit notes">
+                          <Edit2 size={12} />
+                        </button>
+                      )}
+                    </label>
+                    {editingPlaceReservationNoteId === pr.id ? (
+                      <div className="notes-edit-wrapper">
+                        <textarea className="notes-textarea" rows={3} value={editingPlaceReservationNotesText} onChange={e => setEditingPlaceReservationNotesText(e.target.value)} placeholder="Add notes..." />
+                        <div className="notes-actions">
+                          <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingPlaceReservationNoteId(null)}>Cancel</button>
+                          <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { savePlaceReservationNotes(pr, editingPlaceReservationNotesText); setEditingPlaceReservationNoteId(null); }}>
+                            <Check size={12} /> Save Notes
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className={`notes-text ${pr.notes ? 'has-content' : 'no-content'}`}>{pr.notes || 'No notes added yet.'}</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

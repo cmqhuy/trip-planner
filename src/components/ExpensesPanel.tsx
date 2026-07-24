@@ -397,6 +397,9 @@ export default function ExpensesPanel({
 
                       const isHotel = isLinked && item.linkedReservationType === 'hotel';
                       const isTransit = isLinked && item.linkedReservationType === 'transit';
+                      const isPlace = isLinked && item.linkedReservationType === 'place';
+                      const linkedPlaceReservation = isPlace ? placeReservations.find(x => x.id === item.linkedReservationId) : undefined;
+                      const isDining = linkedPlaceReservation?.type === 'dining';
 
                       // Resolve location(s) using shared helpers
                       const resolvedLocations = (() => {
@@ -472,18 +475,17 @@ export default function ExpensesPanel({
                             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
                               {/* Linked Tag */}
                               {isLinked && (() => {
-                                 const tagColor = isHotel ? '#10b981' : '#f59e0b';
-                                 const tagBg = isHotel ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)';
-                                 const tagBorder = isHotel ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)';
+                                 const tagHex = isHotel ? '#10b981' : isTransit ? '#f59e0b' : isPlace ? (isDining ? '#3b82f6' : '#ef4444') : '#6366f1';
+                                 const tagLabel = isHotel ? 'Hotel' : isTransit ? 'Transit' : isPlace ? (isDining ? 'Dining' : 'Attraction') : 'Linked';
                                  return (
                                    <span
                                      className="catalog-day-tag"
                                      style={{
                                        fontSize: '9px',
                                        padding: '1px 5px',
-                                       color: tagColor,
-                                       background: tagBg,
-                                       border: tagBorder,
+                                       color: tagHex,
+                                       background: hexToRgba(tagHex, 0.08),
+                                       border: `1px solid ${hexToRgba(tagHex, 0.2)}`,
                                        display: 'inline-flex',
                                        alignItems: 'center',
                                        gap: '3px',
@@ -491,7 +493,7 @@ export default function ExpensesPanel({
                                      }}
                                    >
                                      <Link size={8} />
-                                     <span>{isHotel ? 'Hotel' : 'Transit'}</span>
+                                     <span>{tagLabel}</span>
                                    </span>
                                  );
                               })()}

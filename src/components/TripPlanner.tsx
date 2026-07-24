@@ -1861,6 +1861,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
             };
           });
           return { ...p, transports: updatedTransports };
+        } else if (linkedType === 'place') {
+          const updatedPlaceReservations = (p.placeReservations || []).map(pr => {
+            if (pr.id !== linkedId) return pr;
+            return {
+              ...pr,
+              title: expenseData.title,
+              notes: expenseData.notes,
+              expenses: expenseData.lineItems
+            };
+          });
+          return { ...p, placeReservations: updatedPlaceReservations };
         }
         return p;
       });
@@ -1938,6 +1949,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
               return { ...t, expenses: [] };
             });
             return { ...p, transports: updatedTransports };
+          } else if (linkedType === 'place') {
+            const updatedPlaceReservations = (p.placeReservations || []).map(pr => {
+              if (pr.id !== linkedId) return pr;
+              return { ...pr, expenses: [] };
+            });
+            return { ...p, placeReservations: updatedPlaceReservations };
           }
           return p;
         });
@@ -2382,6 +2399,15 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const updatedPlans = trip.plans.map(p =>
       p.id === activePlan.id
         ? { ...p, transports: p.transports.map(t => t.id === transportId ? { ...t, notes } : t) }
+        : p
+    );
+    onUpdateTrip({ ...trip, plans: updatedPlans });
+  }, [trip, activePlan, onUpdateTrip]);
+
+  const handleSavePlaceReservationNotes = useCallback((reservationId: string, notes: string) => {
+    const updatedPlans = trip.plans.map(p =>
+      p.id === activePlan.id
+        ? { ...p, placeReservations: (p.placeReservations || []).map(pr => pr.id === reservationId ? { ...pr, notes } : pr) }
         : p
     );
     onUpdateTrip({ ...trip, plans: updatedPlans });
@@ -3381,6 +3407,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleOpenEditTransport={handleOpenEditTransport}
         handleSaveHotelNotes={handleSaveHotelNotes}
         handleSaveTransportNotes={handleSaveTransportNotes}
+        handleSavePlaceReservationNotes={handleSavePlaceReservationNotes}
         handleGenerateSingleDayTips={handleGenerateSingleDayTips}
         handleSaveDayTips={handleSaveDayTips}
         handleSaveBabyLogistics={handleSaveBabyLogistics}

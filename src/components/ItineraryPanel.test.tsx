@@ -157,6 +157,7 @@ describe('ItineraryPanel Component', () => {
         handleOpenEditTransport={vi.fn()}
         handleSaveHotelNotes={vi.fn()}
         handleSaveTransportNotes={vi.fn()}
+        handleSavePlaceReservationNotes={vi.fn()}
         handleGenerateSingleDayTips={vi.fn()}
         handleSaveDayTips={vi.fn()}
         handleSaveBabyLogistics={vi.fn()}

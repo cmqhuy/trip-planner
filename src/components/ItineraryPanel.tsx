@@ -103,6 +103,7 @@ interface ItineraryPanelProps {
   handleOpenEditTransport: (reservation: TransportationReservation, segmentIndex: number) => void;
   handleSaveHotelNotes: (hotelId: string, notes: string) => void;
   handleSaveTransportNotes: (transportId: string, notes: string) => void;
+  handleSavePlaceReservationNotes: (reservationId: string, notes: string) => void;
   handleGenerateSingleDayTips: (dateStr: string) => void;
   handleSaveDayTips: (dateStr: string, content: string) => void;
   handleSaveBabyLogistics: (dateStr: string, content: string) => void;
@@ -220,6 +221,7 @@ function ItineraryPanel({
   handleOpenEditTransport,
   handleSaveHotelNotes,
   handleSaveTransportNotes,
+  handleSavePlaceReservationNotes,
   handleGenerateSingleDayTips,
   handleSaveDayTips,
   handleSaveBabyLogistics,
@@ -263,6 +265,7 @@ function ItineraryPanel({
   const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
   const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
   const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
+  const [editingPlaceReservationNoteId, setEditingPlaceReservationNoteId] = useState<string | null>(null);
 
   const startEditingNotes = (place: Place) => {
     setEditingPlaceNotesId(place.id);
@@ -272,6 +275,7 @@ function ItineraryPanel({
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
   const hotelNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
   const transitNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const placeReservationNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [hoveredScheduleItemIndex, setHoveredScheduleItemIndex] = useState<number | null>(null);
   const [editingNoteItemIndex, setEditingNoteItemIndex] = useState<number | null>(null);
@@ -1716,7 +1720,7 @@ function ItineraryPanel({
               <div className="timeline-section-actions">
                 {trip.canEdit !== false && (
                   <button
-                    className="mini-icon-btn flex-align timeline-add-btn--warning"
+                    className="mini-icon-btn flex-align timeline-add-btn--danger"
                     onClick={() => onOpenAddPlaceReservation && onOpenAddPlaceReservation('attraction')}
                   >
                     <Plus size={14} /> Add Reservation
@@ -1734,21 +1738,25 @@ function ItineraryPanel({
                 <div className="section-item-list">
                   {dayPlaceReservations.map(pr => {
                     const isExpanded = expandedPlaceReservationId === pr.id;
+                    const isEditingNote = editingPlaceReservationNoteId === pr.id;
                     const isDeletedPlace = isPlaceReservationUnlinkedOrDeleted(pr.placeId, trip);
                     const iconColor = pr.type === 'attraction' ? '#ef4444' : '#3b82f6';
                     const IconComp = pr.type === 'attraction' ? Landmark : Utensils;
                     const isInSchedule = isPlaceReservationEventInSchedule(pr.id);
+                    const linkedPlace = pr.placeId ? trip.locations.flatMap(l => l.places || []).find(p => p.id === pr.placeId) : undefined;
+                    const addressText = linkedPlace ? linkedPlace.title : pr.address;
+                    const dayMapUrl = linkedPlace
+                      ? (linkedPlace.mapsLink || buildMapsLink(linkedPlace.title, linkedPlace.lat, linkedPlace.lng))
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pr.address ? `${pr.title} ${pr.address}` : pr.title)}`;
 
                     return (
-                      <div key={pr.id} className={`transport-card${isExpanded ? ' reservation-card--expanded' : ''}${openPlaceReservationMenuId === pr.id ? ' dropdown-active' : ''}`}>
+                      <div key={pr.id} className={`transport-card transport-card--${pr.type === 'attraction' ? 'attraction' : 'dining'}${isExpanded ? ' reservation-card--expanded' : ''}${openPlaceReservationMenuId === pr.id ? ' dropdown-active' : ''}`}>
                         <div className="transport-card-body" onClick={() => setExpandedPlaceReservationId && setExpandedPlaceReservationId(isExpanded ? null : pr.id)}>
                           <div className="schedule-thumb-col" onClick={e => e.stopPropagation()}>
                             <div className="transport-icon-wrapper" style={{ color: iconColor, background: 'rgba(255,255,255,0.03)' }}>
                               <IconComp size={16} />
                             </div>
-                            {pr.address && (
-                              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pr.address)}`} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link">Map</a>
-                            )}
+                            <a href={dayMapUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link">Map</a>
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1809,17 +1817,69 @@ function ItineraryPanel({
                           </div>
                         </div>
 
-                        {/* Collapsed section */}
+                        {/* Expandable details — above notes */}
                         <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
                           <div>
-                            <div className="card-expanded-inner" style={{ padding: '8px 12px' }}>
-                              {pr.address && <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}><MapPin size={11} /> {pr.address}</p>}
-                              {pr.confirmationNo && <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}><Hash size={11} /> {pr.confirmationNo}</p>}
-                              {pr.bookedThrough && <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}>Booked through: {pr.bookedThrough}</p>}
-                              {pr.notes && <p className="place-desc-text" style={{ margin: 0 }}><FileText size={11} /> {pr.notes}</p>}
+                            <div className="card-expanded-inner">
+                              {addressText && (
+                                <a
+                                  href={dayMapUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="place-desc-text"
+                                  style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: 0, color: 'inherit', textDecoration: 'none' }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> {addressText}
+                                </a>
+                              )}
+                              <div className="reservation-card-field-row">
+                                {pr.confirmationNo && (
+                                  <>
+                                    <Hash size={12} />
+                                    <span className="place-desc-text">{pr.confirmationNo}</span>
+                                  </>
+                                )}
+                                <span className={`reservation-status-text-badge reservation-status-badge--${(pr.status || 'Planning').toLowerCase()}`}>
+                                  {pr.status || 'Planning'}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
+
+                        {/* Notes — always visible */}
+                        {isEditingNote ? (
+                          <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
+                            <textarea
+                              ref={placeReservationNoteTextareaRef}
+                              defaultValue={pr.notes || ''}
+                              placeholder="Add notes..."
+                              rows={4}
+                              className="notes-textarea"
+                            />
+                            <div className="notes-actions">
+                              <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceReservationNoteId(null)}>Cancel</button>
+                              <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSavePlaceReservationNotes(pr.id, placeReservationNoteTextareaRef.current?.value ?? ''); setEditingPlaceReservationNoteId(null); }}>
+                                <Check size={10} /> Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            className="notes-text-wrapper"
+                            style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
+                            onClick={trip.canEdit !== false ? (e) => {
+                              e.stopPropagation();
+                              setEditingPlaceReservationNoteId(pr.id);
+                            } : undefined}
+                          >
+                            <div className={`notes-text ${pr.notes ? 'has-content' : 'no-content'}`}>
+                              <FileText size={13} style={{ marginTop: '2px', color: pr.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                              <span>{pr.notes || 'Add notes...'}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
