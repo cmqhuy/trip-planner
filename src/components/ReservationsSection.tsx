@@ -4,16 +4,16 @@ import {
   Edit2, Trash2, Check, Timer, X, Calendar,
   Train, Bus, Car, Anchor, Navigation, FileText,
   MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
-  Plus, Sparkles, ChevronUp, ChevronDown
+  Plus, Sparkles, ChevronUp, ChevronDown, Landmark, Utensils
 } from 'lucide-react';
-import type { Trip, Plan, Hotel, TransportationReservation, ReservationGroup, GenericReservation } from '../types';
+import type { Trip, Plan, Hotel, TransportationReservation, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { sortHotels, sortTransports } from '../utils/dateUtils';
 import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
-import { getReservationWarnings } from '../utils/reservationWarnings';
+import { getReservationWarnings, isPlaceReservationUnlinkedOrDeleted } from '../utils/reservationWarnings';
 
 interface ReservationsSectionProps {
   trip: Trip;
@@ -31,9 +31,14 @@ interface ReservationsSectionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
+  expandedPlaceReservationId?: string | null;
+  setExpandedPlaceReservationId?: (id: string | null) => void;
   onAddHotel: () => void;
   onAddTransit: () => void;
-  onImportReservationFile: (type: 'hotel' | 'transit', file: File) => void;
+  onAddPlaceReservation?: (type: 'attraction' | 'dining') => void;
+  onEditPlaceReservation?: (reservation: PlaceReservation) => void;
+  onDeletePlaceReservation?: (id: string) => void;
+  onImportReservationFile: (type: 'hotel' | 'transit' | 'attraction' | 'dining', file: File) => void;
   // Group management
   reservationGroups: ReservationGroup[];
   genericReservations: GenericReservation[];
@@ -42,6 +47,7 @@ interface ReservationsSectionProps {
   onMoveReservationGroup: (index: number, direction: 'up' | 'down') => void;
   onAddGenericReservation: (groupId: string) => void;
   onEditGenericReservation: (reservation: GenericReservation) => void;
+  onDeleteGenericReservation?: (id: string) => void;
   activeReservationGroupDropdownId: string | null;
   setActiveReservationGroupDropdownId: (id: string | null) => void;
 }
@@ -133,8 +139,13 @@ export default function ReservationsSection({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
+  expandedPlaceReservationId,
+  setExpandedPlaceReservationId,
   onAddHotel,
   onAddTransit,
+  onAddPlaceReservation,
+  onEditPlaceReservation,
+  onDeletePlaceReservation,
   onImportReservationFile,
   reservationGroups,
   genericReservations,
@@ -143,6 +154,7 @@ export default function ReservationsSection({
   onMoveReservationGroup,
   onAddGenericReservation,
   onEditGenericReservation,
+  onDeleteGenericReservation,
   activeReservationGroupDropdownId,
   setActiveReservationGroupDropdownId,
   formatDisplayDate,
@@ -156,6 +168,8 @@ export default function ReservationsSection({
 
   const hotelFileInputRef = useRef<HTMLInputElement>(null);
   const transitFileInputRef = useRef<HTMLInputElement>(null);
+  const attractionFileInputRef = useRef<HTMLInputElement>(null);
+  const diningFileInputRef = useRef<HTMLInputElement>(null);
 
   // Close card dropdowns on outside click
   useEffect(() => {
@@ -511,58 +525,256 @@ export default function ReservationsSection({
     </>
   );
 
+  const renderPlaceReservationCards = (targetType: 'attraction' | 'dining') => {
+    const items = (activePlan.placeReservations || []).filter(pr => pr.type === targetType);
+    if (items.length === 0) return <span className="subsection-subtitle">No {targetType === 'attraction' ? 'attractions' : 'dining'} booked.</span>;
+
+    return items.map(pr => {
+      const isExpanded = expandedPlaceReservationId === pr.id;
+      const isDeletedPlace = isPlaceReservationUnlinkedOrDeleted(pr.placeId, trip);
+      const iconColor = targetType === 'attraction' ? '#ef4444' : '#3b82f6';
+      const IconComp = targetType === 'attraction' ? Landmark : Utensils;
+      const isDateActive = !!selectedDateStr && pr.date === selectedDateStr;
+      const resLoc = (() => {
+        if (pr.placeId) {
+          return trip.locations.find(l => (l.places || []).some(p => p.id === pr.placeId));
+        }
+        if (pr.date && activePlan.days[pr.date]?.locationId) {
+          const locId = activePlan.days[pr.date].locationId;
+          return trip.locations.find(l => l.id === locId);
+        }
+        return undefined;
+      })();
+      const mapUrl = pr.address
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${pr.title} ${pr.address}`)}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pr.title)}`;
+
+      return (
+        <div
+          key={pr.id}
+          className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${openCardOptionsMenuId === `place-${pr.id}` ? ' dropdown-active' : ''}`}
+        >
+          <div
+            className="reservation-card-expand"
+            onClick={() => setExpandedPlaceReservationId && setExpandedPlaceReservationId(isExpanded ? null : pr.id)}
+          >
+            <div className="reservation-card-first-row">
+              <div className="reservation-card-icon-row">
+                <IconComp size={13} className="reservation-card-type-icon" style={{ color: iconColor }} />
+                {resLoc && (() => {
+                  const tagColor = resLoc.color || 'var(--accent-primary)';
+                  const hexColor = resLoc.color || '#6366f1';
+                  return (
+                    <span
+                      className="catalog-day-tag"
+                      style={{
+                        fontSize: '9px', padding: '1px 5px', color: tagColor,
+                        background: hexToRgba(hexColor, 0.08), border: `1px solid ${hexToRgba(hexColor, 0.2)}`,
+                        display: 'inline-flex', alignItems: 'center', gap: '3px', maxWidth: '120px', minWidth: 0, fontStyle: 'normal'
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {resLoc.city}
+                      </span>
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
+                <div className="catalog-allocated-days">
+                  {pr.date && (
+                    <span className={`catalog-day-tag${isDateActive ? ' catalog-day-tag--active' : ''}`}>
+                      {shortDate(pr.date)}{pr.time ? ` · ${pr.time}` : ''}
+                    </span>
+                  )}
+                </div>
+                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mini-icon-btn" data-tooltip="Open in Maps">
+                  <MapPin size={14} />
+                </a>
+                {trip.canEdit !== false && (
+                  <div className="card-options-menu">
+                    <button
+                      className="mini-icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenCardOptionsMenuId(prev => prev === `place-${pr.id}` ? null : `place-${pr.id}`);
+                      }}
+                      data-tooltip="Options"
+                    >
+                      <MoreVertical size={14} />
+                    </button>
+                    {openCardOptionsMenuId === `place-${pr.id}` && (
+                      <div className="dropdown-menu dropdown-menu--right">
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            navigator.clipboard.writeText(pr.title);
+                            setOpenCardOptionsMenuId(null);
+                          }}
+                        >
+                          <Copy size={13} /> Copy Name
+                        </button>
+                        {pr.address && (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              navigator.clipboard.writeText(pr.address!);
+                              setOpenCardOptionsMenuId(null);
+                            }}
+                          >
+                            <Copy size={13} /> Copy Address
+                          </button>
+                        )}
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            if (onEditPlaceReservation) onEditPlaceReservation(pr);
+                            setOpenCardOptionsMenuId(null);
+                          }}
+                        >
+                          <Edit2 size={13} /> Edit
+                        </button>
+                        <button
+                          className="dropdown-item danger"
+                          onClick={() => {
+                            if (onDeletePlaceReservation) onDeletePlaceReservation(pr.id);
+                            setOpenCardOptionsMenuId(null);
+                          }}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, marginTop: '4px' }}>
+              <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ minWidth: 0 }}>{pr.title}</h4>
+              <span className={`reservation-status-badge reservation-status-badge--${(pr.status || 'Planning').toLowerCase()}`} data-tooltip={pr.status || 'Planning'}>
+                {renderStatusIcon(pr.status)}
+              </span>
+            </div>
+
+            {/* Prominent Warning Badge outside collapsed section */}
+            {isDeletedPlace && (
+              <div className="reservation-warning" style={{ marginTop: '4px', marginBottom: '4px' }}>
+                <AlertTriangle size={11} style={{ flexShrink: 0 }} />
+                Linked catalog place has been deleted
+              </div>
+            )}
+          </div>
+
+          {/* Expandable details */}
+          <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
+            <div>
+              <div className="card-expanded-inner" style={{ padding: '8px 12px' }}>
+                {pr.address && (
+                  <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}><MapPin size={11} /> {pr.address}</p>
+                )}
+                {pr.confirmationNo && (
+                  <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}><Hash size={11} /> {pr.confirmationNo}</p>
+                )}
+                {pr.bookedThrough && (
+                  <p className="place-desc-text" style={{ margin: '0 0 4px 0' }}>Booked through: {pr.bookedThrough}</p>
+                )}
+                {pr.notes && (
+                  <p className="place-desc-text" style={{ margin: 0 }}><FileText size={11} /> {pr.notes}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
   const renderGenericCards = (groupId: string) => {
     const items = (genericReservations || []).filter(r => r.groupId === groupId);
     if (items.length === 0) return <span className="subsection-subtitle">No reservations added.</span>;
 
     return items.map(r => {
       const isExpanded = openCardOptionsMenuId === `generic-${r.id}`;
+      const isDateActive = !!selectedDateStr && r.date === selectedDateStr;
+      const genLoc = (() => {
+        if (r.date && activePlan.days[r.date]?.locationId) {
+          const locId = activePlan.days[r.date].locationId;
+          return trip.locations.find(l => l.id === locId);
+        }
+        return undefined;
+      })();
+
       return (
         <div
           key={r.id}
           className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' dropdown-active' : ''}`}
-          onClick={() => trip.canEdit !== false && onEditGenericReservation(r)}
-          style={{ cursor: trip.canEdit !== false ? 'pointer' : 'default' }}
         >
-          <div className="reservation-card-first-row">
-            <div className="reservation-card-icon-row">
-              {r.date && (
-                <span className="catalog-day-tag" style={{ fontSize: '9px', padding: '1px 5px' }}>
-                  {shortDate(r.date)}{r.time ? ` · ${r.time}` : ''}
-                </span>
-              )}
-            </div>
-            <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
-              {trip.canEdit !== false && (
-                <div className="card-options-menu">
-                  <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setOpenCardOptionsMenuId(prev => prev === `generic-${r.id}` ? null : `generic-${r.id}`); }} data-tooltip="Options">
-                    <MoreVertical size={14} />
-                  </button>
-                  {openCardOptionsMenuId === `generic-${r.id}` && (
-                    <div className="dropdown-menu dropdown-menu--right">
-                      <button className="dropdown-item" onClick={() => { onEditGenericReservation(r); setOpenCardOptionsMenuId(null); }}>
-                        <Edit2 size={12} /> Edit
-                      </button>
-                    </div>
+          <div className="reservation-card-expand" style={{ cursor: 'default' }}>
+            <div className="reservation-card-first-row">
+              <div className="reservation-card-icon-row">
+                <Calendar size={13} className="reservation-card-type-icon" style={{ color: 'var(--accent-primary)' }} />
+                {genLoc && (() => {
+                  const tagColor = genLoc.color || 'var(--accent-primary)';
+                  const hexColor = genLoc.color || '#6366f1';
+                  return (
+                    <span
+                      className="catalog-day-tag"
+                      style={{
+                        fontSize: '9px', padding: '1px 5px', color: tagColor,
+                        background: hexToRgba(hexColor, 0.08), border: `1px solid ${hexToRgba(hexColor, 0.2)}`,
+                        display: 'inline-flex', alignItems: 'center', gap: '3px', maxWidth: '120px', minWidth: 0, fontStyle: 'normal'
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {genLoc.city}
+                      </span>
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="reservation-card-header-right">
+                <div className="catalog-allocated-days">
+                  {r.date && (
+                    <span className={`catalog-day-tag${isDateActive ? ' catalog-day-tag--active' : ''}`}>
+                      {shortDate(r.date)}{r.time ? ` · ${r.time}` : ''}
+                    </span>
                   )}
                 </div>
-              )}
+                {trip.canEdit !== false && (
+                  <div className="card-options-menu">
+                    <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setOpenCardOptionsMenuId(prev => prev === `generic-${r.id}` ? null : `generic-${r.id}`); }} data-tooltip="Options">
+                      <MoreVertical size={14} />
+                    </button>
+                    {openCardOptionsMenuId === `generic-${r.id}` && (
+                      <div className="dropdown-menu dropdown-menu--right">
+                        <button className="dropdown-item" onClick={() => { onEditGenericReservation(r); setOpenCardOptionsMenuId(null); }}>
+                          <Edit2 size={12} /> Edit
+                        </button>
+                        <button className="dropdown-item danger" onClick={() => { onDeleteGenericReservation?.(r.id); setOpenCardOptionsMenuId(null); }}>
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+            <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ minWidth: 0 }}>{r.title}</h4>
+              <span className={`reservation-status-badge reservation-status-badge--${(r.status || 'Planning').toLowerCase()}`} data-tooltip={r.status || 'Planning'}>
+                {renderStatusIcon(r.status)}
+              </span>
+            </div>
+            {r.confirmationNo && (
+              <p className="place-desc-text"><Hash size={11} /> {r.confirmationNo}</p>
+            )}
+            {r.notes && (
+              <p className="place-desc-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <FileText size={11} /> {r.notes}
+              </p>
+            )}
           </div>
-          <div className="place-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, marginTop: '4px' }}>
-            <h4 className="catalog-place-title catalog-place-title--no-margin" style={{ minWidth: 0 }}>{r.title}</h4>
-            <span className={`reservation-status-badge reservation-status-badge--${(r.status || 'Planning').toLowerCase()}`} data-tooltip={r.status || 'Planning'}>
-              {renderStatusIcon(r.status)}
-            </span>
-          </div>
-          {r.confirmationNo && (
-            <p className="place-desc-text"><Hash size={11} /> {r.confirmationNo}</p>
-          )}
-          {r.notes && (
-            <p className="place-desc-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <FileText size={11} /> {r.notes}
-            </p>
-          )}
         </div>
       );
     });
@@ -596,7 +808,7 @@ export default function ReservationsSection({
             const isLast = groupIdx === reservationGroups.length - 1;
             const showAbove = groupIdx >= Math.max(1, reservationGroups.length - 2);
             const gColor = getGroupColor(group);
-            const isDefaultGroup = group.id === 'hotels' || group.id === 'transports';
+            const isDefaultGroup = group.id === 'hotels' || group.id === 'transports' || group.id === 'attractions' || group.id === 'dining';
 
             return (
               <div key={group.id} className="place-group-section">
@@ -617,6 +829,8 @@ export default function ReservationsSection({
                           onClick={() => {
                             if (group.id === 'hotels') onAddHotel();
                             else if (group.id === 'transports') onAddTransit();
+                            else if (group.id === 'attractions' && onAddPlaceReservation) onAddPlaceReservation('attraction');
+                            else if (group.id === 'dining' && onAddPlaceReservation) onAddPlaceReservation('dining');
                             else onAddGenericReservation(group.id);
                           }}
                           data-tooltip={`Add Reservation to ${group.name}`}
@@ -624,14 +838,16 @@ export default function ReservationsSection({
                           <Plus size={12} /> Add
                         </button>
 
-                        {/* Import button — only for hotels/transits */}
+                        {/* Import button — for all default groups */}
                         {isDefaultGroup && (
                           <>
                             <button
                               className="mini-icon-btn catalog-group-action-btn--labeled"
                               onClick={() => {
                                 if (group.id === 'hotels') hotelFileInputRef.current?.click();
-                                else transitFileInputRef.current?.click();
+                                else if (group.id === 'transports') transitFileInputRef.current?.click();
+                                else if (group.id === 'attractions') attractionFileInputRef.current?.click();
+                                else if (group.id === 'dining') diningFileInputRef.current?.click();
                               }}
                               disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode()}
                               data-tooltip={
@@ -665,6 +881,32 @@ export default function ReservationsSection({
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (file) onImportReservationFile('transit', file);
+                                  e.target.value = '';
+                                }}
+                              />
+                            )}
+                            {group.id === 'attractions' && (
+                              <input
+                                ref={attractionFileInputRef}
+                                type="file"
+                                style={{ display: 'none' }}
+                                accept="image/*,application/pdf,.eml,.txt"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) onImportReservationFile('attraction', file);
+                                  e.target.value = '';
+                                }}
+                              />
+                            )}
+                            {group.id === 'dining' && (
+                              <input
+                                ref={diningFileInputRef}
+                                type="file"
+                                style={{ display: 'none' }}
+                                accept="image/*,application/pdf,.eml,.txt"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) onImportReservationFile('dining', file);
                                   e.target.value = '';
                                 }}
                               />
@@ -730,7 +972,9 @@ export default function ReservationsSection({
                 <div className="catalog-places-list">
                   {group.id === 'hotels' && renderHotelCards()}
                   {group.id === 'transports' && renderTransitCards()}
-                  {group.id !== 'hotels' && group.id !== 'transports' && renderGenericCards(group.id)}
+                  {group.id === 'attractions' && renderPlaceReservationCards('attraction')}
+                  {group.id === 'dining' && renderPlaceReservationCards('dining')}
+                  {group.id !== 'hotels' && group.id !== 'transports' && group.id !== 'attractions' && group.id !== 'dining' && renderGenericCards(group.id)}
                 </div>
               </div>
             );

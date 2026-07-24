@@ -178,7 +178,13 @@ export interface ScheduleTransitEventItem {
   time?: string; // HH:MM — user-editable, pre-populated from segment.departureTime/arrivalTime
 }
 
-export type ScheduleItem = SchedulePlaceItem | ScheduleNoteItem | ScheduleHotelEventItem | ScheduleTransitEventItem;
+export interface SchedulePlaceReservationEventItem {
+  type: 'place-reservation-event';
+  reservationId: string;
+  time?: string; // HH:MM
+}
+
+export type ScheduleItem = SchedulePlaceItem | ScheduleNoteItem | ScheduleHotelEventItem | ScheduleTransitEventItem | SchedulePlaceReservationEventItem;
 
 export interface ExpenseGroup {
   id: string;
@@ -192,6 +198,24 @@ export interface ReservationGroup {
   name: string;
   icon: string; // Lucide icon key
   color?: string; // hex representation
+}
+
+export interface PlaceReservation {
+  id: string;
+  type: 'attraction' | 'dining';
+  placeId?: string;       // Optional linked catalog place ID
+  title: string;
+  date?: string;          // YYYY-MM-DD
+  time?: string;          // HH:MM
+  address?: string;
+  lat?: number;
+  lng?: number;
+  confirmationNo?: string;
+  bookedThrough?: string;
+  notes?: string;
+  status?: 'Confirmed' | 'Planning' | 'Canceled';
+  attachments?: Attachment[];
+  expenses?: ExpenseLine[];
 }
 
 export interface GenericReservation {
@@ -212,8 +236,8 @@ export interface ExpenseItem {
   notes?: string;
   date?: string; // YYYY-MM-DD, optional/custom
   groupId: string; // Links to ExpenseGroup.id
-  linkedReservationId?: string; // Links to Hotel.id or TransportationReservation.id
-  linkedReservationType?: 'hotel' | 'transit';
+  linkedReservationId?: string; // Links to Hotel.id, TransportationReservation.id, or PlaceReservation.id
+  linkedReservationType?: 'hotel' | 'transit' | 'place' | 'generic';
   lineItems: ExpenseLine[];
 }
 
@@ -237,6 +261,7 @@ export interface Plan {
   days: { [dateStr: string]: PlanDay };
   hotels: Hotel[];
   transports: TransportationReservation[];
+  placeReservations?: PlaceReservation[];
   manualChecklist?: { id: string; text: string; completed: boolean; }[];
   expenseGroups?: ExpenseGroup[];
   expenses?: ExpenseItem[];

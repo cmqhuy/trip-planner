@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { Building, Car, Plane, Landmark, Utensils, Coffee, ShoppingBag, Ticket, CreditCard, DollarSign } from 'lucide-react';
-import type { Hotel, TransportationReservation } from '../types';
+import type { Hotel, TransportationReservation, PlaceReservation } from '../types';
 
 export const EXPENSE_ICONS = [
   { value: 'building', label: 'Hotels / Lodging', emoji: '🏨' },
@@ -39,7 +39,8 @@ export interface ExpenseReservationDates {
 export const getExpenseReservationDates = (
   item: { date?: string; linkedReservationId?: string; linkedReservationType?: string },
   hotels: Hotel[],
-  transports: TransportationReservation[]
+  transports: TransportationReservation[],
+  placeReservations: PlaceReservation[] = []
 ): ExpenseReservationDates => {
   if (item.linkedReservationId) {
     if (item.linkedReservationType === 'hotel') {
@@ -54,6 +55,11 @@ export const getExpenseReservationDates = (
           startDate: t.segments[0].departureDate,
           endDate: t.segments[t.segments.length - 1].arrivalDate
         };
+      }
+    } else if (item.linkedReservationType === 'place') {
+      const pr = placeReservations.find(x => x.id === item.linkedReservationId);
+      if (pr) {
+        return { startDate: pr.date, endDate: pr.date };
       }
     }
   }

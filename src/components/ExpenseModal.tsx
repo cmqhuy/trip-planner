@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation, ExternalLink } from 'lucide-react';
-import type { ExpenseGroup, ExpenseItem, ExpenseLine, Hotel, TransportationReservation } from '../types';
+import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation, ExternalLink, Landmark, Utensils } from 'lucide-react';
+import type { ExpenseGroup, ExpenseItem, ExpenseLine, Hotel, TransportationReservation, PlaceReservation } from '../types';
 import ExpensesSection from './ExpensesSection';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
 
@@ -12,6 +12,7 @@ interface ExpenseModalProps {
   expenseGroups: ExpenseGroup[];
   hotels: Hotel[];
   transports: TransportationReservation[];
+  placeReservations?: PlaceReservation[];
   onSave: (data: {
     title: string;
     notes: string;
@@ -41,6 +42,7 @@ export default function ExpenseModal({
   expenseGroups,
   hotels,
   transports,
+  placeReservations = [],
   onSave,
   onDelete,
   onOpenReservation
@@ -74,11 +76,14 @@ export default function ExpenseModal({
 
   let linkedHotel: Hotel | undefined;
   let linkedTransport: TransportationReservation | undefined;
+  let linkedPlaceReservation: PlaceReservation | undefined;
   if (isLinked) {
     if (linkedType === 'hotel') {
       linkedHotel = hotels.find(h => h.id === linkedId);
     } else if (linkedType === 'transit') {
       linkedTransport = transports.find(t => t.id === linkedId);
+    } else if (linkedType === 'place') {
+      linkedPlaceReservation = placeReservations.find(p => p.id === linkedId);
     }
   }
 
@@ -164,6 +169,12 @@ export default function ExpenseModal({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
                     <TransportTypeIcon type={linkedTransport.type} size={12} className="flex-shrink-0" />
                     <span>Transit: {getTransportSubtitle(linkedTransport)}</span>
+                  </div>
+                )}
+                {linkedPlaceReservation && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
+                    {linkedPlaceReservation.type === 'attraction' ? <Landmark size={12} className="flex-shrink-0" style={{ color: '#ef4444' }} /> : <Utensils size={12} className="flex-shrink-0" style={{ color: '#3b82f6' }} />}
+                    <span>Reservation: {linkedPlaceReservation.title} {linkedPlaceReservation.date ? `(${linkedPlaceReservation.date})` : ''}</span>
                   </div>
                 )}
                 {onOpenReservation && (

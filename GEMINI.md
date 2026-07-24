@@ -208,7 +208,13 @@ File sizes as of the last audit. Read these before adding features — these are
 
 **State ref duplication in App.tsx**: `tripsRef`, `googleTokenRef`, `googleFolderIdRef`, `activeTripIdRef`, `syncTimestampsRef` mirror their `useState` counterparts. This is intentional — sync callbacks need the latest value without re-registering effects. Don't remove these refs.
 
-**Style reuse**: When a new component resembles an existing one, identify the exact CSS classes and copy them verbatim — do not create new rules for an identical visual pattern.
+**Style Reuse & Pattern Inspection Rule**:
+
+> **CRITICAL**: BEFORE writing code for any new component, modal, dialog, form, or section, you MUST inspect existing reference implementations (`HotelModal.tsx`, `TransportModal.tsx`, `ReservationsSection.tsx`, `index.css`) line-by-line first.
+
+1. **Modal & Form Alignment**: Always copy exact form layout patterns (`.form-row` 2-column grid, `.place-form-label`, mandatory `*` indicators, `<RotateCcw />` undo buttons, portal dropdowns via `createPortal`). Never write simplified custom layouts or omit standard form controls.
+2. **Drive Attachments & Sub-Sections**: Sub-sections (such as Attachments or Expenses) must reuse the exact established JSX, CSS classes, tooltips, and drive modal flows (`useDriveAttachments`, `removePrompt`, `ShareTripModal`, `ConfirmationModal`).
+3. **Prop Routing & State Preservation**: When refactoring or extracting parent components (such as accordion containers), systematically trace and forward all state props (e.g. `selectedDateStr`, `activeDayStr`) to ensure active day highlighting and UI indicators remain 100% intact.
 
 | Purpose | Context | CSS classes |
 |---------|---------|-------------|

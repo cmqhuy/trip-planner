@@ -1716,6 +1716,105 @@ IMPORTANT INSTRUCTIONS:
     }
     return [];
   }
+
+  static buildPlaceReservationDetailsFromFilesPrompt(): string {
+    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of an attraction ticket, museum pass, dining reservation, or restaurant booking confirmation. Extract the reservation details from these files and return them as JSON.
+For fields other than address, lat, and lng, return only the fields you can confidently identify from the files (leave uncertain fields as empty strings). For address, lat, and lng: if they are not explicitly mentioned or clear in the files, search your knowledge base or infer the place's correct street address, latitude, and longitude based on the title and city/region.
+Set type to "attraction" if it is an attraction, museum, tour, or activity ticket; set type to "dining" if it is a restaurant, cafe, or food reservation.
+Extract all cost and expense line items associated with this booking under expenses.`;
+  }
+
+  static async generatePlaceReservationDetailsFromFiles(
+    fileContents: { base64: string; mimeType: string }[],
+    apiKey: string,
+    model = 'gemini-2.5-flash'
+  ): Promise<{
+    title?: string; type?: 'attraction' | 'dining'; address?: string; date?: string; time?: string;
+    confirmationNo?: string; notes?: string; bookedThrough?: string; price?: number; currency?: string; lat?: number; lng?: number;
+    expenses?: { description: string; price: number; currency: string; paid: boolean; }[];
+  }> {
+    const totalBase64Size = fileContents.reduce((sum, f) => sum + f.base64.length, 0);
+    if (totalBase64Size > 10 * 1024 * 1024) {
+      throw new Error('Total file size exceeds 10MB. Please reduce file size before using AI fill.');
+    }
+    const parts: any[] = [{ text: GeminiService.buildPlaceReservationDetailsFromFilesPrompt() }];
+    for (const f of fileContents) {
+      parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+    }
+    const response = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                title: { type: 'STRING' },
+                type: { type: 'STRING', enum: ['attraction', 'dining'] },
+                address: { type: 'STRING' },
+                date: { type: 'STRING' },
+                time: { type: 'STRING' },
+                confirmationNo: { type: 'STRING' },
+                notes: { type: 'STRING' },
+                bookedThrough: { type: 'STRING' },
+                price: { type: 'NUMBER' },
+                currency: { type: 'STRING' },
+                lat: { type: 'NUMBER' },
+                lng: { type: 'NUMBER' },
+                expenses: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      description: { type: 'STRING' },
+                      price: { type: 'NUMBER' },
+                      currency: { type: 'STRING' },
+                      paid: { type: 'BOOLEAN' }
+                    },
+                    required: ['description', 'price', 'currency', 'paid']
+                  }
+                }
+              }
+            }
+          }
+        })
+      }
+    );
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error (Status ${response.status}): ${errText}`);
+    }
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) throw new Error('Gemini API returned an empty response.');
+    return JSON.parse(resultText);
+  }
+
+  static async generatePlaceReservationDetailsFromFilesWithRotation(
+    fileContents: { base64: string; mimeType: string }[],
+    model?: string
+  ): Promise<{
+    title?: string; type?: 'attraction' | 'dining'; address?: string; date?: string; time?: string;
+    confirmationNo?: string; notes?: string; bookedThrough?: string; price?: number; currency?: string; lat?: number; lng?: number;
+    expenses?: { description: string; price: number; currency: string; paid: boolean; }[];
+  }> {
+    const keys = this.getApiKeys().filter(k => k.trim());
+    if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
+    const selectedModel = model || this.getSelectedModel();
+    let lastError: any = null;
+    for (const key of keys) {
+      try {
+        return await this.generatePlaceReservationDetailsFromFiles(fileContents, key, selectedModel);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('All configured API keys failed to execute.');
+  }
 }
 
 export const _testHelpers = {

@@ -55,7 +55,7 @@ export default function ReservationGroupModal({
   };
 
   const selectedIconObj = EXPENSE_ICONS.find(item => item.value === icon) || EXPENSE_ICONS[9];
-  const isDefaultGroup = group ? (group.id === 'hotels' || group.id === 'transports') : false;
+  const isDefaultGroup = group ? (group.id === 'hotels' || group.id === 'transports' || group.id === 'attractions' || group.id === 'dining') : false;
 
   return (
     <div className="modal-overlay" onClick={onClose}>

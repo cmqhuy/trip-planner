@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation } from '../types';
+import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
+import PlaceReservationModal from './PlaceReservationModal';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
   ...day,
@@ -40,7 +41,7 @@ import { Navigation, BookOpen, Clock, Loader2 } from 'lucide-react';
 import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS, DEFAULT_RESERVATION_GROUPS, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, getLocIcon, getFormattedLocationName } from '../utils/api';
 import { getDaysDiff, shiftTripDates, getTodayDateString } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
-import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
+import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { aiRequestQueue } from '../utils/aiRequestQueue';
 import { runAiCall } from '../utils/runAiCall';
 import { getOrCreateTripFileFolder, uploadFile } from '../utils/googleDrive';
@@ -386,6 +387,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [deleteHotelData, setDeleteHotelData] = useState<Hotel | null>(null);
   const [expandedHotelId, setExpandedHotelId] = useState<string | null>(null);
   const [expandedTransitId, setExpandedTransitId] = useState<string | null>(null);
+
+  // Place Reservation Modal (Attraction / Dining)
+  const [showPlaceReservationModal, setShowPlaceReservationModal] = useState(false);
+  const [editingPlaceReservation, setEditingPlaceReservation] = useState<PlaceReservation | null>(null);
+  const [placeReservationDefaultType, setPlaceReservationDefaultType] = useState<'attraction' | 'dining'>('attraction');
+  const [expandedPlaceReservationId, setExpandedPlaceReservationId] = useState<string | null>(null);
 
   // Reservation Import States
   const [isImportingReservationFile, setIsImportingReservationFile] = useState(false);
@@ -1662,7 +1669,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     });
   }, [activePlan.id, activeDayStr, onUpdateTrip]);
 
-  const handleAddReservationEventToSchedule = useCallback((item: ScheduleHotelEventItem | ScheduleTransitEventItem, insertAtIndex?: number) => {
+  const handleAddReservationEventToSchedule = useCallback((item: ScheduleHotelEventItem | ScheduleTransitEventItem | SchedulePlaceReservationEventItem, insertAtIndex?: number) => {
     onUpdateTrip(prevTrip => {
       const updatedPlans = prevTrip.plans.map(p => {
         if (p.id !== activePlan.id) return p;
@@ -2185,23 +2192,106 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setShowGenericReservationModal(false);
   }, [editingGenericReservation, targetGenericReservationGroupId, activePlan, trip, onUpdateTrip]);
 
-  const handleDeleteGenericReservation = useCallback(() => {
-    if (!editingGenericReservation) return;
+  const handleDeleteGenericReservation = useCallback((id?: string) => {
+    const targetId = id || editingGenericReservation?.id;
+    if (!targetId) return;
+    const targetRes = (activePlan.genericReservations || []).find(r => r.id === targetId) || editingGenericReservation;
     setConfirmModal({
       title: 'Delete Reservation',
-      message: `Are you sure you want to delete "${editingGenericReservation.title}"?`,
+      message: `Are you sure you want to delete "${targetRes?.title || 'this reservation'}"?`,
       confirmText: 'Delete',
       onConfirm: () => {
         const updatedPlans = trip.plans.map(p => {
           if (p.id !== activePlan.id) return p;
-          return { ...p, genericReservations: (p.genericReservations || []).filter(r => r.id !== editingGenericReservation.id) };
+          return { ...p, genericReservations: (p.genericReservations || []).filter(r => r.id !== targetId) };
         });
         onUpdateTrip({ ...trip, plans: updatedPlans });
-        setEditingGenericReservation(null);
-        setShowGenericReservationModal(false);
+        if (editingGenericReservation?.id === targetId) {
+          setEditingGenericReservation(null);
+          setShowGenericReservationModal(false);
+        }
       }
     });
   }, [editingGenericReservation, activePlan, trip, onUpdateTrip]);
+
+  // --- Place Reservation (Attraction & Dining) handlers ---
+
+  const handleAddPlaceReservation = useCallback((type: 'attraction' | 'dining') => {
+    setEditingPlaceReservation(null);
+    setPlaceReservationDefaultType(type);
+    setShowPlaceReservationModal(true);
+  }, []);
+
+  const handleEditPlaceReservation = useCallback((reservation: PlaceReservation) => {
+    setEditingPlaceReservation(reservation);
+    setPlaceReservationDefaultType(reservation.type);
+    setShowPlaceReservationModal(true);
+  }, []);
+
+  const handleSavePlaceReservation = useCallback((data: Omit<PlaceReservation, 'id'>) => {
+    let resId = editingPlaceReservation?.id;
+    if (!resId || resId === 'imported-draft') {
+      resId = `pres-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    }
+
+    const updatedPlans = trip.plans.map(p => {
+      if (p.id !== activePlan.id) return p;
+      const current = [...(p.placeReservations || [])];
+      const existingIdx = current.findIndex(r => r.id === resId);
+      const updatedRes: PlaceReservation = { id: resId!, ...data };
+      if (existingIdx !== -1) {
+        current[existingIdx] = updatedRes;
+      } else {
+        current.push(updatedRes);
+      }
+      return { ...p, placeReservations: current };
+    });
+
+    // Title sync with catalog place
+    let updatedLocations = trip.locations;
+    if (data.placeId) {
+      updatedLocations = trip.locations.map(loc => ({
+        ...loc,
+        places: loc.places.map(place => {
+          if (place.id === data.placeId && place.title !== data.title) {
+            return { ...place, title: data.title };
+          }
+          return place;
+        })
+      }));
+    }
+
+    onUpdateTrip({ ...trip, locations: updatedLocations, plans: updatedPlans });
+    setEditingPlaceReservation(null);
+    setShowPlaceReservationModal(false);
+  }, [editingPlaceReservation, activePlan, trip, onUpdateTrip]);
+
+  const handleDeletePlaceReservation = useCallback(() => {
+    if (!editingPlaceReservation) return;
+    setConfirmModal({
+      title: 'Delete Reservation',
+      message: `Are you sure you want to delete "${editingPlaceReservation.title}"?`,
+      confirmText: 'Delete',
+      onConfirm: () => {
+        const id = editingPlaceReservation.id;
+        const updatedPlans = trip.plans.map(p => {
+          if (p.id !== activePlan.id) return p;
+          const filteredReservations = (p.placeReservations || []).filter(r => r.id !== id);
+          const updatedDays = { ...p.days };
+          Object.keys(updatedDays).forEach(d => {
+            const day = updatedDays[d];
+            if (!day) return;
+            const newSchedule = (day.scheduleItems || []).filter(item => !(item.type === 'place-reservation-event' && (item as SchedulePlaceReservationEventItem).reservationId === id));
+            updatedDays[d] = updateDayItems(day, newSchedule);
+          });
+          return { ...p, placeReservations: filteredReservations, days: updatedDays };
+        });
+        onUpdateTrip({ ...trip, plans: updatedPlans });
+        setEditingPlaceReservation(null);
+        setShowPlaceReservationModal(false);
+      }
+    });
+  }, [editingPlaceReservation, activePlan, trip, onUpdateTrip]);
 
   const handleSaveEditTrip = (name: string, startDate: string, endDate: string) => {
     if (!name.trim() || !startDate || !endDate) return;
@@ -2428,9 +2518,20 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     onUpdateTrip({ ...trip, plans: updatedPlans });
   };
 
-  const handleImportReservationFile = async (type: 'hotel' | 'transit', file: File) => {
+  const handleImportReservationFile = async (type: 'hotel' | 'transit' | 'attraction' | 'dining', file: File) => {
+    if (!GeminiService.isAiEnabled()) {
+      showApiKeyMissingModal();
+      return;
+    }
+
+    if (GeminiService.isManualMode()) {
+      showAlert('Manual AI Mode', AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE);
+      return;
+    }
+
     setIsImportingReservationFile(true);
-    setImportingReservationMessage('Reading file...');
+    setImportingReservationMessage('Preparing file for import...');
+
     try {
       const fileData = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
         const reader = new FileReader();
@@ -2461,7 +2562,48 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
       setImportingReservationMessage('AI working in progress...');
 
-      if (type === 'hotel') {
+      if (type === 'attraction' || type === 'dining') {
+        const result = await GeminiService.generatePlaceReservationDetailsFromFilesWithRotation([fileData]);
+
+        let finalLat = result.lat;
+        let finalLng = result.lng;
+        if (result.address && finalLat === undefined && finalLng === undefined) {
+          try {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(result.address)}&format=json&limit=1`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+            clearTimeout(timeout);
+            const data = await res.json();
+            if (data[0]) {
+              finalLat = parseFloat(data[0].lat);
+              finalLng = parseFloat(data[0].lon);
+            }
+          } catch (e) {
+            console.error('Geocoding fallback failed:', e);
+          }
+        }
+
+        const draftPlaceReservation: PlaceReservation = {
+          id: 'imported-draft',
+          type,
+          title: result.title || file.name.substring(0, file.name.lastIndexOf('.')) || (type === 'attraction' ? 'Imported Attraction' : 'Imported Dining'),
+          date: result.date || activeDayStr || daysList[0] || '',
+          time: result.time || '',
+          address: result.address,
+          lat: finalLat,
+          lng: finalLng,
+          confirmationNo: result.confirmationNo,
+          bookedThrough: result.bookedThrough,
+          expenses: GeminiService.parseExtractedExpenses(result, 'expense-import'),
+          notes: result.notes,
+          status: 'Planning',
+          attachments: attachment ? [attachment] : []
+        };
+        setEditingPlaceReservation(draftPlaceReservation);
+        setPlaceReservationDefaultType(type);
+        setShowPlaceReservationModal(true);
+      } else if (type === 'hotel') {
         const result = await GeminiService.generateHotelDetailsFromFilesWithRotation([fileData]);
         
         let finalLat = result.lat;
@@ -3074,6 +3216,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setHideAllocatedPlaces={setHideAllocatedPlaces}
         activePlaceId={activePlaceId}
         setActivePlaceId={setActivePlaceId}
+        onPlaceClick={(id) => {
+          setExpandedLeftSection('catalog');
+          setActivePlaceId(id);
+        }}
         placeAllocatedDaysMap={placeAllocatedDaysMap}
         getCachedFormattedDisplayDate={formatDisplayDate}
         activeDayStr={activeDayStr}
@@ -3133,8 +3279,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setExpandedHotelId={setExpandedHotelId}
         expandedTransitId={expandedTransitId}
         setExpandedTransitId={setExpandedTransitId}
+        expandedPlaceReservationId={expandedPlaceReservationId}
+        setExpandedPlaceReservationId={setExpandedPlaceReservationId}
         onAddHotel={() => { setEditingHotel(null); setShowHotelModal(true); }}
         onAddTransit={() => { setEditingTransport(null); setShowTransportModal(true); }}
+        onAddPlaceReservation={handleAddPlaceReservation}
+        onEditPlaceReservation={handleEditPlaceReservation}
+        onDeletePlaceReservation={handleDeletePlaceReservation}
         onImportReservationFile={handleImportReservationFile}
         reservationGroups={activePlan.reservationGroups || DEFAULT_RESERVATION_GROUPS}
         genericReservations={activePlan.genericReservations || []}
@@ -3143,6 +3294,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onMoveReservationGroup={handleMoveReservationGroup}
         onAddGenericReservation={handleAddGenericReservation}
         onEditGenericReservation={handleEditGenericReservation}
+        onDeleteGenericReservation={handleDeleteGenericReservation}
         activeReservationGroupDropdownId={activeReservationGroupDropdownId}
         setActiveReservationGroupDropdownId={setActiveReservationGroupDropdownId}
         onAddExpense={handleAddExpense}
@@ -3172,6 +3324,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         formatDisplayDate={formatDisplayDate}
         getHotelsForDay={getHotelsForDay}
         getTransportsForDay={getTransportsForDay}
+        onOpenAddPlaceReservation={handleAddPlaceReservation}
+        onOpenEditPlaceReservation={handleEditPlaceReservation}
+        onDeletePlaceReservation={handleDeletePlaceReservation}
+        expandedPlaceReservationId={expandedPlaceReservationId}
+        setExpandedPlaceReservationId={setExpandedPlaceReservationId}
         scheduledPlaces={scheduledPlaces}
         displayScheduledPlaces={displayScheduledPlaces}
         activePlaceId={activePlaceId}
@@ -3625,6 +3782,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           expenseGroups={activePlan.expenseGroups || []}
           hotels={activePlan.hotels || []}
           transports={activePlan.transports || []}
+          placeReservations={activePlan.placeReservations || []}
           onSave={handleSaveExpense}
           onDelete={editingExpense && (editingExpense.id || editingExpense.linkedReservationId) ? handleDeleteExpense : undefined}
           onOpenReservation={editingExpense?.linkedReservationId ? (() => {
@@ -3638,6 +3796,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
             } else if (linkedType === 'transit') {
               const transport = (activePlan.transports || []).find(t => t.id === linkedId);
               if (transport) handleOpenEditTransport(transport, 0);
+            } else if (linkedType === 'place') {
+              const pres = (activePlan.placeReservations || []).find(p => p.id === linkedId);
+              if (pres) handleEditPlaceReservation(pres);
             }
           }) : undefined}
         />
@@ -3671,6 +3832,27 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           groupName={(activePlan.reservationGroups || DEFAULT_RESERVATION_GROUPS).find(g => g.id === targetGenericReservationGroupId)?.name || 'Reservation'}
           onSave={handleSaveGenericReservation}
           onDelete={editingGenericReservation ? handleDeleteGenericReservation : undefined}
+        />
+      )}
+
+      {showPlaceReservationModal && (
+        <PlaceReservationModal
+          isOpen={showPlaceReservationModal}
+          onClose={() => { setShowPlaceReservationModal(false); setEditingPlaceReservation(null); }}
+          reservation={editingPlaceReservation}
+          defaultType={placeReservationDefaultType}
+          locations={trip.locations}
+          onSave={handleSavePlaceReservation}
+          onDelete={editingPlaceReservation && editingPlaceReservation.id && editingPlaceReservation.id !== 'imported-draft' ? handleDeletePlaceReservation : undefined}
+          defaultDate={activeDayStr}
+          googleToken={googleToken}
+          tripPlannerFolderId={googleFolderId}
+          tripName={trip.id}
+          tripFilesFolderId={trip.filesFolderId}
+          onFileFolderCreated={(folderId: string) => onUpdateTrip(t => ({ ...t, filesFolderId: folderId }))}
+          isOwner={trip.isOwner !== false}
+          tripDriveFileId={trip.driveFileId}
+          trip={trip}
         />
       )}
     </div>

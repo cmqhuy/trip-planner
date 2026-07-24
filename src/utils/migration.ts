@@ -1,9 +1,9 @@
 import type { Trip, ScheduleItem } from '../types';
-import { DEFAULT_EXPENSE_GROUPS } from './api';
+import { DEFAULT_EXPENSE_GROUPS, DEFAULT_RESERVATION_GROUPS } from './api';
 
 // Bump whenever a new migration step is added.
 // Trips already at this version are returned as-is (cheap no-op).
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 // v0 → v1: build scheduleItems from placeIds + scheduleNotes
 function applyV0toV1(trip: any): any {
@@ -183,6 +183,34 @@ function applyV6toV7(trip: any): any {
   return { ...trip, plans };
 }
 
+// v7 → v8: ensure placeReservations array and attractions/dining groups exist on every plan
+function applyV7toV8(trip: any): any {
+  const plans = (trip.plans || []).map((plan: any) => {
+    const placeReservations = plan.placeReservations || [];
+
+    // Ensure default reservation groups exist
+    const reservationGroups = plan.reservationGroups ? [...plan.reservationGroups] : [...DEFAULT_RESERVATION_GROUPS];
+    ['hotels', 'transports', 'attractions', 'dining'].forEach(defId => {
+      if (!reservationGroups.some(g => g.id === defId)) {
+        const def = DEFAULT_RESERVATION_GROUPS.find(d => d.id === defId);
+        if (def) reservationGroups.push(def);
+      }
+    });
+
+    // Ensure default expense groups exist
+    const expenseGroups = plan.expenseGroups ? [...plan.expenseGroups] : [...DEFAULT_EXPENSE_GROUPS];
+    ['hotels', 'transports', 'attractions', 'dining'].forEach(defId => {
+      if (!expenseGroups.some(g => g.id === defId)) {
+        const def = DEFAULT_EXPENSE_GROUPS.find(d => d.id === defId);
+        if (def) expenseGroups.push(def);
+      }
+    });
+
+    return { ...plan, placeReservations, reservationGroups, expenseGroups };
+  });
+  return { ...trip, plans };
+}
+
 export function migrateTrips(rawTrips: any[]): Trip[] {
   return rawTrips.map((trip: any): Trip => {
     if (trip.schemaVersion === CURRENT_SCHEMA_VERSION) return trip as Trip;
@@ -195,6 +223,7 @@ export function migrateTrips(rawTrips: any[]): Trip[] {
     if ((t.schemaVersion ?? 0) < 5) t = applyV4toV5(t);
     if ((t.schemaVersion ?? 0) < 6) t = applyV5toV6(t);
     if ((t.schemaVersion ?? 0) < 7) t = applyV6toV7(t);
+    if ((t.schemaVersion ?? 0) < 8) t = applyV7toV8(t);
 
     return { ...t, schemaVersion: CURRENT_SCHEMA_VERSION };
   });

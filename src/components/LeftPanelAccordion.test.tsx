@@ -52,6 +52,7 @@ describe('LeftPanelAccordion Component', () => {
         setHideAllocatedPlaces={vi.fn()}
         activePlaceId={undefined}
         setActivePlaceId={vi.fn()}
+        onPlaceClick={vi.fn()}
         placeAllocatedDaysMap={new Map()}
         getCachedFormattedDisplayDate={(d) => d}
         activeDayStr="2026-07-01"

@@ -3,8 +3,14 @@ import type { Trip, Plan } from '../types';
 export interface ReservationWarning {
   id: string;
   message: string;
-  type: 'hotel' | 'transit';
+  type: 'hotel' | 'transit' | 'place';
   dateStr?: string;
+}
+
+export function isPlaceReservationUnlinkedOrDeleted(placeId: string | undefined, trip?: Trip): boolean {
+  if (!placeId || !trip) return false;
+  const allPlaces = trip.locations.flatMap(l => l.places);
+  return !allPlaces.some(p => p.id === placeId);
 }
 
 /**

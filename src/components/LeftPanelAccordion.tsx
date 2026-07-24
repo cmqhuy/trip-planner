@@ -1,15 +1,15 @@
-import { BookOpen, CheckSquare, Building, Sparkles, AlertTriangle, Receipt } from 'lucide-react';
-import type { Trip, Plan, Location, Place, PlaceGroup, Hotel, TransportationReservation, ReservationGroup, GenericReservation } from '../types';
+import { BookOpen, CheckSquare, Building, AlertTriangle, Receipt, Sparkles } from 'lucide-react';
+import type { Trip, Plan, Location, Place, Hotel, TransportationReservation, PlaceGroup, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
 import ReservationsSection from './ReservationsSection';
-import TipsSection from './TipsSection';
 import ExpensesPanel from './ExpensesPanel';
+import TipsSection from './TipsSection';
 
 interface LeftPanelAccordionProps {
   activeMobileTab: 'catalog' | 'itinerary' | 'map';
   expandedLeftSection: 'catalog' | 'checklist' | 'reservations' | 'expenses' | 'tips';
-  setExpandedLeftSection: (section: 'catalog' | 'checklist' | 'reservations' | 'expenses' | 'tips') => void;
+  setExpandedLeftSection: (sec: 'catalog' | 'checklist' | 'reservations' | 'expenses' | 'tips') => void;
   trip: Trip;
   catalogLocation: Location | undefined;
   selectedCatalogLocId: string;
@@ -18,6 +18,7 @@ interface LeftPanelAccordionProps {
   setHideAllocatedPlaces: (hide: boolean) => void;
   activePlaceId: string | undefined;
   setActivePlaceId: (id: string | undefined) => void;
+  onPlaceClick: (placeId: string) => void;
   placeAllocatedDaysMap: Map<string, string[]>;
   getCachedFormattedDisplayDate: (dateStr: string) => string;
   activeDayStr: string;
@@ -74,9 +75,14 @@ interface LeftPanelAccordionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
+  expandedPlaceReservationId?: string | null;
+  setExpandedPlaceReservationId?: (id: string | null) => void;
   onAddHotel: () => void;
   onAddTransit: () => void;
-  onImportReservationFile: (type: 'hotel' | 'transit', file: File) => void;
+  onAddPlaceReservation?: (type: 'attraction' | 'dining') => void;
+  onEditPlaceReservation?: (reservation: PlaceReservation) => void;
+  onDeletePlaceReservation?: (id: string) => void;
+  onImportReservationFile: (type: 'hotel' | 'transit' | 'attraction' | 'dining', file: File) => void;
   // Reservation group management
   reservationGroups: ReservationGroup[];
   genericReservations: GenericReservation[];
@@ -85,6 +91,7 @@ interface LeftPanelAccordionProps {
   onMoveReservationGroup: (index: number, direction: 'up' | 'down') => void;
   onAddGenericReservation: (groupId: string) => void;
   onEditGenericReservation: (reservation: GenericReservation) => void;
+  onDeleteGenericReservation?: (id: string) => void;
   activeReservationGroupDropdownId: string | null;
   setActiveReservationGroupDropdownId: (id: string | null) => void;
 
@@ -110,6 +117,7 @@ export default function LeftPanelAccordion({
   setHideAllocatedPlaces,
   activePlaceId,
   setActivePlaceId,
+  onPlaceClick,
   placeAllocatedDaysMap,
   getCachedFormattedDisplayDate,
   activeDayStr,
@@ -166,8 +174,13 @@ export default function LeftPanelAccordion({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
+  expandedPlaceReservationId,
+  setExpandedPlaceReservationId,
   onAddHotel,
   onAddTransit,
+  onAddPlaceReservation,
+  onEditPlaceReservation,
+  onDeletePlaceReservation,
   onImportReservationFile,
   reservationGroups,
   genericReservations,
@@ -176,9 +189,9 @@ export default function LeftPanelAccordion({
   onMoveReservationGroup,
   onAddGenericReservation,
   onEditGenericReservation,
+  onDeleteGenericReservation,
   activeReservationGroupDropdownId,
   setActiveReservationGroupDropdownId,
-
   onAddExpense,
   onEditExpense,
   onAddExpenseGroup,
@@ -194,7 +207,7 @@ export default function LeftPanelAccordion({
       <div className={`accordion-section ${expandedLeftSection === 'catalog' ? 'expanded' : 'collapsed'}`}>
         <div 
           className="accordion-header flex-between"
-          onClick={() => setExpandedLeftSection('catalog')}
+          onClick={() => setExpandedLeftSection(expandedLeftSection === 'catalog' ? 'reservations' : 'catalog')}
         >
           <span className="flex-align accordion-section-title">
             <BookOpen size={16} className="text-accent" />
@@ -329,10 +342,7 @@ export default function LeftPanelAccordion({
             activePlan={activePlan}
             daysList={daysList}
             selectedDateStr={activeDayStr}
-            onPlaceClick={(id) => {
-              setExpandedLeftSection('catalog');
-              setActivePlaceId(id);
-            }}
+            onPlaceClick={onPlaceClick}
             formatDisplayDate={formatDisplayDate}
             onEditHotel={onEditHotel}
             onDeleteHotel={onDeleteHotel}
@@ -343,8 +353,13 @@ export default function LeftPanelAccordion({
             setExpandedHotelId={setExpandedHotelId}
             expandedTransitId={expandedTransitId}
             setExpandedTransitId={setExpandedTransitId}
+            expandedPlaceReservationId={expandedPlaceReservationId}
+            setExpandedPlaceReservationId={setExpandedPlaceReservationId}
             onAddHotel={onAddHotel}
             onAddTransit={onAddTransit}
+            onAddPlaceReservation={onAddPlaceReservation}
+            onEditPlaceReservation={onEditPlaceReservation}
+            onDeletePlaceReservation={onDeletePlaceReservation}
             onImportReservationFile={onImportReservationFile}
             reservationGroups={reservationGroups}
             genericReservations={genericReservations}
@@ -353,6 +368,7 @@ export default function LeftPanelAccordion({
             onMoveReservationGroup={onMoveReservationGroup}
             onAddGenericReservation={onAddGenericReservation}
             onEditGenericReservation={onEditGenericReservation}
+            onDeleteGenericReservation={onDeleteGenericReservation}
             activeReservationGroupDropdownId={activeReservationGroupDropdownId}
             setActiveReservationGroupDropdownId={setActiveReservationGroupDropdownId}
           />

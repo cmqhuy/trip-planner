@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Plus, MoreVertical, ChevronUp, ChevronDown, Edit2, Link } from 'lucide-react';
-import type { Trip, Plan, ExpenseGroup, ExpenseItem, Hotel, TransportationReservation } from '../types';
+import type { Trip, Plan, ExpenseGroup, ExpenseItem, Hotel, TransportationReservation, PlaceReservation } from '../types';
 import { getExpenseGroupIcon, getExpenseReservationDates } from '../utils/expenseUtils';
 import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
 import { compareCurrencies } from '../utils/currencies';
@@ -59,6 +59,7 @@ export default function ExpensesPanel({
   // Pull virtual reservation expenses
   const hotels: Hotel[] = activePlan.hotels || [];
   const transports: TransportationReservation[] = activePlan.transports || [];
+  const placeReservations: PlaceReservation[] = activePlan.placeReservations || [];
 
   // Helper to format transport summary name
   const getTransportTitle = (r: TransportationReservation) => {
@@ -92,13 +93,25 @@ export default function ExpensesPanel({
     lineItems: t.expenses || []
   }));
 
+  const placeVirtualExpenses: ExpenseItem[] = placeReservations.map(pr => ({
+    id: pr.id,
+    title: pr.title,
+    notes: pr.notes,
+    date: pr.date,
+    groupId: pr.type === 'attraction' ? 'attractions' : 'dining',
+    linkedReservationId: pr.id,
+    linkedReservationType: 'place',
+    lineItems: pr.expenses || []
+  }));
+
   const manualExpenses: ExpenseItem[] = activePlan.expenses || [];
 
   // All merged expenses
   const allMergedExpenses = [
     ...manualExpenses,
     ...hotelVirtualExpenses,
-    ...transitVirtualExpenses
+    ...transitVirtualExpenses,
+    ...placeVirtualExpenses
   ];
 
   // Calculate totals
@@ -152,6 +165,9 @@ export default function ExpensesPanel({
         if (t && t.segments && t.segments.length > 0) {
           return t.segments[0].departureDate || '';
         }
+      } else if (item.linkedReservationType === 'place') {
+        const pr = placeReservations.find(x => x.id === item.linkedReservationId);
+        if (pr) return pr.date || '';
       }
     }
     return '';
