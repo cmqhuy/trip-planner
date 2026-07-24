@@ -171,6 +171,59 @@ const getDayOfWeek = (dateStr: string): string => {
   }
 };
 
+export interface TripChecklistInfo {
+  name: string;
+  startDate: string;
+  endDate: string;
+  locations: { city: string; country: string }[];
+  hotels: { name: string; checkInDate: string; checkOutDate: string }[];
+  noHotelDates: string[];
+  transports: { type: string; departureLocationName: string; arrivalLocationName: string; departureDate: string }[];
+  places: { title: string; reservationDetails?: string }[];
+  reservations: { group: string; title: string; date?: string; status?: string; confirmationNo?: string }[];
+  checklist: { text: string; completed: boolean }[];
+}
+
+const buildTripChecklistPromptText = (tripInfo: TripChecklistInfo, enableBabyLogistics = false): string => {
+  const locationsList = tripInfo.locations.map(l => `- ${l.city}, ${l.country}`).join('\n');
+  const hotelsList = tripInfo.hotels.map(h => `- ${h.name} (${h.checkInDate} to ${h.checkOutDate})`).join('\n');
+  const noHotelDatesList = tripInfo.noHotelDates.join(', ');
+  const transportsList = tripInfo.transports.map(t => `- ${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate}`).join('\n');
+  const placesList = tripInfo.places.map(p => `- ${p.title} (Reservation info: ${p.reservationDetails || 'None'})`).join('\n');
+  const reservationsList = tripInfo.reservations.map(r => `- [${r.group}] ${r.title}${r.date ? ` (${r.date})` : ''}${r.status ? ` — ${r.status}` : ''}${r.confirmationNo ? ` — Confirmation: ${r.confirmationNo}` : ''}`).join('\n');
+  const checklistList = tripInfo.checklist.map(c => `- [${c.completed ? 'x' : ' '}] ${c.text}`).join('\n');
+
+  return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
+You are a professional travel checklist planner. Generate a concise, high-priority preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
+
+Locations to visit:
+${locationsList || 'None'}
+
+Accommodations booked:
+${hotelsList || 'None'}
+${noHotelDatesList ? `Dates intentionally without a hotel (do NOT flag these as booking gaps): ${noHotelDatesList}` : ''}
+
+Transportation scheduled:
+${transportsList || 'None'}
+
+Scheduled places of interest:
+${placesList || 'None'}
+
+Existing reservations across all trip reservation groups (Hotels, Transit, Attractions, Dining, and any custom groups):
+${reservationsList || 'None'}
+
+Checklist items the user has already added manually (do not duplicate these; complement what's missing):
+${checklistList || 'None'}
+
+Please pay attention to essential details to make the trip complete. Keep the response concise, punchy, and avoid long-winded paragraphs. Limit the output to maximum 3-4 core categories:
+1. Booking Gaps & Ticketing: Identify missing accommodations (ignoring dates marked as not needing a hotel above), missing transit, or places requiring early reservations/tickets. If an attraction or dining spot already has a reservation listed above, include it as a done item ("- [x]") instead of omitting it, so the user can see it's already handled — do not silently drop already-reserved items.
+2. Entry & Visa Requirements: Note if visa/immigration documents are needed.
+3. Essential Prep & Gear: 3-5 high-priority packing or preparation tasks specific to these destinations.
+${enableBabyLogistics ? '4. Baby Logistics: 4-6 essential baby travel prep/packing items (stroller check-in, baby documents, food, etc.).' : ''}
+
+Use "- [ ] " for pending/unhandled items and "- [x] " for items that are already fully booked or handled. Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
+};
+
 export class GeminiService {
   /**
    * Gets preference for syncing AI settings to Google Drive.
@@ -834,90 +887,22 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
   }
 
   static buildTripChecklistPrompt(
-    tripInfo: {
-      name: string;
-      startDate: string;
-      endDate: string;
-      locations: { city: string; country: string }[];
-      hotels: { name: string; checkInDate: string; checkOutDate: string }[];
-      transports: { type: string; departureLocationName: string; arrivalLocationName: string; departureDate: string }[];
-      places: { title: string; reservationDetails?: string }[];
-    },
+    tripInfo: TripChecklistInfo,
     enableBabyLogistics = false
   ): string {
-    const locationsList = tripInfo.locations.map(l => `- ${l.city}, ${l.country}`).join('\n');
-    const hotelsList = tripInfo.hotels.map(h => `- ${h.name} (${h.checkInDate} to ${h.checkOutDate})`).join('\n');
-    const transportsList = tripInfo.transports.map(t => `- ${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate}`).join('\n');
-    const placesList = tripInfo.places.map(p => `- ${p.title} (Reservation info: ${p.reservationDetails || 'None'})`).join('\n');
-
-    return `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
-You are a professional travel checklist planner. Generate a concise, high-priority preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
-
-Locations to visit:
-${locationsList || 'None'}
-
-Accommodations booked:
-${hotelsList || 'None'}
-
-Transportation scheduled:
-${transportsList || 'None'}
-
-Scheduled places of interest:
-${placesList || 'None'}
-
-Please pay attention to essential details to make the trip complete. Keep the response concise, punchy, and avoid long-winded paragraphs. Limit the output to maximum 3-4 core categories:
-1. Booking Gaps & Ticketing: Identify missing accommodations, missing transit, or places requiring early reservations/tickets.
-2. Entry & Visa Requirements: Note if visa/immigration documents are needed.
-3. Essential Prep & Gear: 3-5 high-priority packing or preparation tasks specific to these destinations.
-${enableBabyLogistics ? '4. Baby Logistics: 4-6 essential baby travel prep/packing items (stroller check-in, baby documents, food, etc.).' : ''}
-
-Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
+    return buildTripChecklistPromptText(tripInfo, enableBabyLogistics);
   }
 
   /**
    * Generates checklist for the trip.
    */
   static async generateTripChecklist(
-    tripInfo: {
-      name: string;
-      startDate: string;
-      endDate: string;
-      locations: { city: string; country: string }[];
-      hotels: { name: string; checkInDate: string; checkOutDate: string }[];
-      transports: { type: string; departureLocationName: string; arrivalLocationName: string; departureDate: string }[];
-      places: { title: string; reservationDetails?: string }[];
-    },
+    tripInfo: TripChecklistInfo,
     apiKey: string,
     model = 'gemini-2.5-flash',
     enableBabyLogistics = false
   ): Promise<string> {
-    const locationsList = tripInfo.locations.map(l => `- ${l.city}, ${l.country}`).join('\n');
-    const hotelsList = tripInfo.hotels.map(h => `- ${h.name} (${h.checkInDate} to ${h.checkOutDate})`).join('\n');
-    const transportsList = tripInfo.transports.map(t => `- ${t.type.toUpperCase()}: ${t.departureLocationName} -> ${t.arrivalLocationName} on ${t.departureDate}`).join('\n');
-    const placesList = tripInfo.places.map(p => `- ${p.title} (Reservation info: ${p.reservationDetails || 'None'})`).join('\n');
-
-    const promptText = `Today's date is ${new Date().toISOString().split('T')[0]}. Use your most up-to-date knowledge as of this date.
-You are a professional travel checklist planner. Generate a concise, high-priority preparation checklist (in Markdown format) for a trip named "${tripInfo.name}" starting on ${tripInfo.startDate} and ending on ${tripInfo.endDate}.
-
-Locations to visit:
-${locationsList || 'None'}
-
-Accommodations booked:
-${hotelsList || 'None'}
-
-Transportation scheduled:
-${transportsList || 'None'}
-
-Scheduled places of interest:
-${placesList || 'None'}
-
-Please pay attention to essential details to make the trip complete. Keep the response concise, punchy, and avoid long-winded paragraphs. Limit the output to maximum 3-4 core categories:
-1. Booking Gaps & Ticketing: Identify missing accommodations (if there are gaps between ${tripInfo.startDate} and ${tripInfo.endDate} with no hotel booked), missing transit, or places requiring early reservations/tickets.
-2. Entry & Visa Requirements: Note if visa/immigration documents are needed.
-3. Essential Prep & Gear: 3-5 high-priority packing or preparation tasks specific to these destinations.
-4. ${enableBabyLogistics ? 'Baby Logistics: 4-6 essential baby travel prep/packing items (stroller check-in, baby documents, food, etc.).' : ''}
-
-Keep each bullet point short (1-2 sentences max). Do NOT write introductory or concluding remarks. Output ONLY raw Markdown.`;
+    const promptText = buildTripChecklistPromptText(tripInfo, enableBabyLogistics);
 
     const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -946,15 +931,7 @@ Keep each bullet point short (1-2 sentences max). Do NOT write introductory or c
    * Generates checklist rotating through API keys.
    */
   static async generateTripChecklistWithRotation(
-    tripInfo: {
-      name: string;
-      startDate: string;
-      endDate: string;
-      locations: { city: string; country: string }[];
-      hotels: { name: string; checkInDate: string; checkOutDate: string }[];
-      transports: { type: string; departureLocationName: string; arrivalLocationName: string; departureDate: string }[];
-      places: { title: string; reservationDetails?: string }[];
-    },
+    tripInfo: TripChecklistInfo,
     enableBabyLogistics = false,
     model?: string
   ): Promise<string> {

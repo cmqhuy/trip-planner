@@ -330,7 +330,7 @@ export default function PlaceReservationModal({
             {isDeletedPlace && (
               <div className="reservation-warning" style={{ marginBottom: '16px' }}>
                 <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-                <span>Linked catalog place has been deleted</span>
+                <span>Linked place deleted</span>
               </div>
             )}
 

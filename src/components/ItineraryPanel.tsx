@@ -1768,7 +1768,7 @@ function ItineraryPanel({
                             {/* Prominent warning badge outside collapsed area */}
                             {isDeletedPlace && (
                               <div className="reservation-warning" style={{ marginTop: '2px', marginBottom: '2px' }}>
-                                <AlertTriangle size={11} style={{ flexShrink: 0 }} /> Linked catalog place deleted
+                                <AlertTriangle size={11} style={{ flexShrink: 0 }} /> Linked place deleted
                               </div>
                             )}
                             <p className="place-desc-text"><Calendar size={11} /> {formatCardDate(pr.date || activeDayStr, pr.time)}</p>

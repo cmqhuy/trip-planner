@@ -692,7 +692,7 @@ export default function ReservationsSection({
             {isDeletedPlace && (
               <div className="reservation-warning" style={{ marginTop: '4px', marginBottom: '4px' }}>
                 <AlertTriangle size={11} style={{ flexShrink: 0 }} />
-                Linked catalog place has been deleted
+                Linked place deleted
               </div>
             )}
           </div>

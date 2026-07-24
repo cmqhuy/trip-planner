@@ -2956,6 +2956,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const allScheduledPlaceIds = new Set<string>();
     Object.values(activePlan.days).forEach(day => { day.placeIds.forEach(pid => allScheduledPlaceIds.add(pid)); });
     const placesWithReservations: { title: string; reservationDetails?: string }[] = [];
+    const planLocationIds = new Set(Object.values(activePlan.days).map(day => day.locationId).filter((id): id is string => !!id));
     trip.locations.forEach(loc => {
       loc.places.forEach(p => {
         if (allScheduledPlaceIds.has(p.id)) {
@@ -2963,14 +2964,38 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         }
       });
     });
+
+    // Consolidated list of every reservation across every reservation group (hotels, transports, attractions, dining, custom groups)
+    const reservationGroups = activePlan.reservationGroups || DEFAULT_RESERVATION_GROUPS;
+    const allReservations: { group: string; title: string; date?: string; status?: string; confirmationNo?: string }[] = [];
+    reservationGroups.forEach(g => {
+      if (g.id === 'hotels') {
+        activePlan.hotels.forEach(h => allReservations.push({ group: g.name, title: h.name, date: `${h.checkInDate} to ${h.checkOutDate}`, status: h.status, confirmationNo: h.confirmationNo }));
+      } else if (g.id === 'transports') {
+        activePlan.transports.forEach(t => t.segments.forEach(s => allReservations.push({ group: g.name, title: `${t.type.toUpperCase()}: ${s.departureLocationName} -> ${s.arrivalLocationName}`, date: s.departureDate, status: t.status, confirmationNo: t.confirmationNo })));
+      } else if (g.id === 'attractions' || g.id === 'dining') {
+        (activePlan.placeReservations || []).filter(pr => pr.type === (g.id === 'attractions' ? 'attraction' : 'dining')).forEach(pr => allReservations.push({ group: g.name, title: pr.title, date: pr.date, status: pr.status, confirmationNo: pr.confirmationNo }));
+      } else {
+        (activePlan.genericReservations || []).filter(r => r.groupId === g.id).forEach(r => allReservations.push({ group: g.name, title: r.title, date: r.date, status: r.status, confirmationNo: r.confirmationNo }));
+      }
+    });
+
+    // Days in the plan explicitly marked as not needing a hotel
+    const noHotelDates = Object.values(activePlan.days).filter(d => d.noHotel).map(d => d.dateStr).sort();
+
+    const checklist = (activePlan.manualChecklist || []).map(c => ({ text: c.text, completed: c.completed }));
+
     const tripInfo = {
       name: trip.name, startDate: trip.startDate, endDate: trip.endDate,
-      locations: trip.locations.map(l => ({ city: l.city, country: l.country })),
+      locations: trip.locations.filter(l => planLocationIds.has(l.id)).map(l => ({ city: l.city, country: l.country })),
       hotels: activePlan.hotels.filter(h => h.status !== 'Canceled').map(h => ({ name: h.name, checkInDate: h.checkInDate, checkOutDate: h.checkOutDate })),
+      noHotelDates,
       transports: activePlan.transports.filter(t => t.status !== 'Canceled').flatMap(t =>
         t.segments.map(s => ({ type: t.type, departureLocationName: s.departureLocationName, arrivalLocationName: s.arrivalLocationName, departureDate: s.departureDate }))
       ),
-      places: placesWithReservations
+      places: placesWithReservations,
+      reservations: allReservations,
+      checklist
     };
     const enableBabyLogistics = !trip.disabledDayFields?.includes('baby_logistics');
 
