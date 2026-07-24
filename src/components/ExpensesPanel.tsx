@@ -18,6 +18,9 @@ const shortDate = (d: string) => {
   return new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
+const isValidDateStr = (d?: string): d is string =>
+  !!d && !isNaN(new Date(d + 'T00:00').getTime());
+
 interface ExpensesPanelProps {
   trip: Trip;
   activePlan: Plan;
@@ -392,7 +395,7 @@ export default function ExpensesPanel({
                       const isLinked = !!item.linkedReservationId;
                       const unpaid = (item.lineItems || []).filter(l => !l.paid).length;
 
-                      const { startDate, endDate } = getExpenseReservationDates(item, hotels, transports);
+                      const { startDate, endDate } = getExpenseReservationDates(item, hotels, transports, placeReservations);
                       const isInRange = !!activeDayStr && startDate && endDate && activeDayStr >= startDate && activeDayStr <= endDate;
 
                       const isHotel = isLinked && item.linkedReservationType === 'hotel';
@@ -546,7 +549,7 @@ export default function ExpensesPanel({
                             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                               {/* Date Tags */}
                               {(() => {
-                                if (!startDate) return null;
+                                if (!isValidDateStr(startDate)) return null;
 
                                 if (isHotel) {
                                   return (
@@ -554,7 +557,7 @@ export default function ExpensesPanel({
                                       <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
                                         {shortDate(startDate)}
                                       </span>
-                                      {endDate && (
+                                      {isValidDateStr(endDate) && (
                                         <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
                                           {shortDate(endDate)}
                                         </span>
@@ -567,7 +570,7 @@ export default function ExpensesPanel({
                                       <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
                                         {shortDate(startDate)}
                                       </span>
-                                      {endDate && startDate !== endDate && (
+                                      {isValidDateStr(endDate) && startDate !== endDate && (
                                         <span className={`catalog-day-tag${isInRange ? ' catalog-day-tag--active' : ''}`}>
                                           {shortDate(endDate)}
                                         </span>

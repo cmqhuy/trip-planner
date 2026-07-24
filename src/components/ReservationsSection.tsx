@@ -116,6 +116,9 @@ const hexToRgba = (hex: string, alpha: number) => {
 const shortDate = (d: string) =>
   new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+const isValidDateStr = (d?: string): d is string =>
+  !!d && !isNaN(new Date(d + 'T00:00').getTime());
+
 const getGroupColor = (group: ReservationGroup) => {
   if (group.color) return group.color;
   if (group.id === 'hotels') return '#10b981';
@@ -162,9 +165,12 @@ export default function ReservationsSection({
   const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
   const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
   const [editingPlaceReservationNoteId, setEditingPlaceReservationNoteId] = useState<string | null>(null);
+  const [editingGenericReservationNoteId, setEditingGenericReservationNoteId] = useState<string | null>(null);
   const [editingHotelNotesText, setEditingHotelNotesText] = useState('');
   const [editingTransitNotesText, setEditingTransitNotesText] = useState('');
   const [editingPlaceReservationNotesText, setEditingPlaceReservationNotesText] = useState('');
+  const [editingGenericReservationNotesText, setEditingGenericReservationNotesText] = useState('');
+  const [expandedGenericReservationId, setExpandedGenericReservationId] = useState<string | null>(null);
   const [openTransitMapId, setOpenTransitMapId] = useState<string | null>(null);
   const [openCardOptionsMenuId, setOpenCardOptionsMenuId] = useState<string | null>(null);
 
@@ -214,12 +220,21 @@ export default function ReservationsSection({
     }
   }, [editingPlaceReservationNoteId, activePlan.placeReservations]);
 
+  useEffect(() => {
+    if (editingGenericReservationNoteId) {
+      const r = (genericReservations || []).find(g => g.id === editingGenericReservationNoteId);
+      setEditingGenericReservationNotesText(r?.notes ?? '');
+    }
+  }, [editingGenericReservationNoteId, genericReservations]);
+
   const saveHotelNotes = (hotel: Hotel, text: string) =>
     onEditHotel({ ...hotel, notes: text.trim() || undefined });
   const saveTransportNotes = (reservationId: string, text: string) =>
     onSaveTransportNotes(reservationId, text.trim());
   const savePlaceReservationNotes = (pr: PlaceReservation, text: string) =>
     onEditPlaceReservation && onEditPlaceReservation({ ...pr, notes: text.trim() || undefined });
+  const saveGenericReservationNotes = (r: GenericReservation, text: string) =>
+    onEditGenericReservation({ ...r, notes: text.trim() || undefined });
 
   const allWarnings = getReservationWarnings(trip, activePlan, daysList, formatDisplayDate);
   const hotelWarnings = allWarnings.filter(w => w.type === 'hotel');
@@ -593,7 +608,7 @@ export default function ReservationsSection({
               </div>
               <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
                 <div className="catalog-allocated-days">
-                  {pr.date && (
+                  {isValidDateStr(pr.date) && (
                     <span className={`catalog-day-tag${isDateActive ? ' catalog-day-tag--active' : ''}`}>
                       {shortDate(pr.date)}
                     </span>
@@ -669,7 +684,7 @@ export default function ReservationsSection({
                 {renderStatusIcon(pr.status)}
               </span>
             </div>
-            {pr.date && (
+            {isValidDateStr(pr.date) && (
               <p className="place-desc-text"><Calendar size={11} /> Date: {formatCardDate(pr.date, pr.time)}</p>
             )}
 
@@ -739,7 +754,7 @@ export default function ReservationsSection({
     if (items.length === 0) return <span className="subsection-subtitle">No reservations added.</span>;
 
     return items.map(r => {
-      const isExpanded = openCardOptionsMenuId === `generic-${r.id}`;
+      const isExpanded = expandedGenericReservationId === r.id;
       const isDateActive = !!selectedDateStr && r.date === selectedDateStr;
       const genLoc = (() => {
         if (r.date && activePlan.days[r.date]?.locationId) {
@@ -752,9 +767,12 @@ export default function ReservationsSection({
       return (
         <div
           key={r.id}
-          className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' dropdown-active' : ''}`}
+          className={`glass-panel reservation-card reservation-card--expandable${isExpanded ? ' reservation-card--expanded' : ''}${openCardOptionsMenuId === `generic-${r.id}` ? ' dropdown-active' : ''}`}
         >
-          <div className="reservation-card-expand" style={{ cursor: 'default' }}>
+          <div
+            className="reservation-card-expand"
+            onClick={() => setExpandedGenericReservationId(isExpanded ? null : r.id)}
+          >
             <div className="reservation-card-first-row">
               <div className="reservation-card-icon-row">
                 <Calendar size={13} className="reservation-card-type-icon" style={{ color: 'var(--accent-primary)' }} />
@@ -777,11 +795,11 @@ export default function ReservationsSection({
                   );
                 })()}
               </div>
-              <div className="reservation-card-header-right">
+              <div className="reservation-card-header-right" onClick={e => e.stopPropagation()}>
                 <div className="catalog-allocated-days">
-                  {r.date && (
+                  {isValidDateStr(r.date) && (
                     <span className={`catalog-day-tag${isDateActive ? ' catalog-day-tag--active' : ''}`}>
-                      {shortDate(r.date)}{r.time ? ` · ${r.time}` : ''}
+                      {shortDate(r.date)}
                     </span>
                   )}
                 </div>
@@ -810,14 +828,46 @@ export default function ReservationsSection({
                 {renderStatusIcon(r.status)}
               </span>
             </div>
-            {r.confirmationNo && (
-              <p className="place-desc-text"><Hash size={11} /> {r.confirmationNo}</p>
+            {isValidDateStr(r.date) && (
+              <p className="place-desc-text"><Calendar size={11} /> Date: {formatCardDate(r.date, r.time)}</p>
             )}
-            {r.notes && (
-              <p className="place-desc-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                <FileText size={11} /> {r.notes}
-              </p>
-            )}
+          </div>
+
+          {/* Expandable details */}
+          <div className={`card-expandable-wrapper${isExpanded ? ' is-expanded' : ''}`}>
+            <div>
+              <div className="reservation-card-expanded-content">
+                <div className="reservation-card-field-row">
+                  {r.confirmationNo && (<><Hash size={11} /><span className="place-desc-text">{r.confirmationNo}</span></>)}
+                  <span className={`reservation-status-text-badge reservation-status-badge--${(r.status || 'Planning').toLowerCase()}`}>{r.status || 'Planning'}</span>
+                </div>
+                <div className="reservation-card-notes-wrap">
+                  <div className="notes-box">
+                    <label className="notes-label">
+                      <FileText size={11} /> Notes
+                      {trip.canEdit !== false && editingGenericReservationNoteId !== r.id && (
+                        <button className="mini-icon-btn notes-edit-btn" onClick={e => { e.stopPropagation(); setEditingGenericReservationNoteId(r.id); setEditingGenericReservationNotesText(r.notes ?? ''); }} data-tooltip="Edit notes">
+                          <Edit2 size={12} />
+                        </button>
+                      )}
+                    </label>
+                    {editingGenericReservationNoteId === r.id ? (
+                      <div className="notes-edit-wrapper">
+                        <textarea className="notes-textarea" rows={3} value={editingGenericReservationNotesText} onChange={e => setEditingGenericReservationNotesText(e.target.value)} placeholder="Add notes..." />
+                        <div className="notes-actions">
+                          <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingGenericReservationNoteId(null)}>Cancel</button>
+                          <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveGenericReservationNotes(r, editingGenericReservationNotesText); setEditingGenericReservationNoteId(null); }}>
+                            <Check size={12} /> Save Notes
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className={`notes-text ${r.notes ? 'has-content' : 'no-content'}`}>{r.notes || 'No notes added yet.'}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       );

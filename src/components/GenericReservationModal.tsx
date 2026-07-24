@@ -5,7 +5,11 @@ import type { GenericReservation } from '../types';
 
 type ReservationStatus = 'Confirmed' | 'Planning' | 'Canceled';
 
-const STATUS_OPTIONS: ReservationStatus[] = ['Confirmed', 'Planning', 'Canceled'];
+const STATUS_OPTIONS: { value: ReservationStatus; Icon: typeof Check }[] = [
+  { value: 'Confirmed', Icon: Check },
+  { value: 'Planning', Icon: Timer },
+  { value: 'Canceled', Icon: X },
+];
 
 interface GenericReservationModalProps {
   isOpen: boolean;
@@ -72,11 +76,9 @@ export default function GenericReservationModal({
     setStatusOpen(true);
   };
 
-  const statusColor = status === 'Confirmed' ? '#10b981' : status === 'Canceled' ? '#ef4444' : 'var(--text-secondary)';
-
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
+      <div className="modal-content glass-panel scrollable" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{reservation ? 'Edit Reservation Details' : 'Add Reservation Details'}</h3>
           <button className="modal-close" onClick={onClose}>
@@ -85,6 +87,7 @@ export default function GenericReservationModal({
         </div>
 
         <form onSubmit={handleSubmit}>
+          <div className="modal-scroll-body">
           <div className="form-group">
             <label>Title *</label>
             <input
@@ -97,36 +100,29 @@ export default function GenericReservationModal({
             />
           </div>
 
-          <div className="form-row" style={{ marginTop: '14px' }}>
-            <div className="form-group flex-1">
-              <label>Status</label>
+          <div className="form-group" style={{ marginTop: '14px' }}>
+            <label>Status</label>
+            <div className="combo-wrapper">
               <button
-                type="button"
                 ref={statusTriggerRef}
-                className="loc-select-trigger combo-trigger"
+                type="button"
+                className="combo-trigger"
                 onClick={openStatusDropdown}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid var(--border-glass)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  color: 'var(--text-primary)',
-                  marginTop: '6px'
-                }}
               >
-                <div className="combo-trigger-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {status === 'Confirmed' ? <Check size={13} style={{ color: statusColor }} /> : <Timer size={13} style={{ color: statusColor }} />}
-                  <span style={{ color: statusColor }}>{status}</span>
-                </div>
+                <span className="combo-trigger-content">
+                  {(() => {
+                    const opt = STATUS_OPTIONS.find(s => s.value === status);
+                    const Icon = opt?.Icon || Check;
+                    return <Icon size={14} />;
+                  })()}
+                  {status}
+                </span>
                 <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
               </button>
             </div>
+          </div>
 
+          <div className="form-row" style={{ marginTop: '14px' }}>
             <div className="form-group flex-1">
               <label>Date</label>
               <input
@@ -137,7 +133,7 @@ export default function GenericReservationModal({
               />
             </div>
 
-            <div className="form-group" style={{ width: '110px' }}>
+            <div className="form-group flex-1">
               <label>Time</label>
               <input
                 type="time"
@@ -178,6 +174,7 @@ export default function GenericReservationModal({
               rows={3}
             />
           </div>
+          </div>
 
           <div className="modal-actions" style={{ marginTop: '24px' }}>
             {reservation && onDelete && (
@@ -192,7 +189,7 @@ export default function GenericReservationModal({
             )}
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary">
-              {reservation ? 'Save Changes' : 'Add Reservation'}
+              {reservation ? `Save Reservation` : 'Add Reservation'}
             </button>
           </div>
         </form>
@@ -204,16 +201,16 @@ export default function GenericReservationModal({
           <div
             className="combo-dropdown--portal"
             style={{ top: statusPos.top, left: statusPos.left, width: statusPos.width, zIndex: 10000 }}
+            onClick={e => e.stopPropagation()}
           >
-            {STATUS_OPTIONS.map(s => (
+            {STATUS_OPTIONS.map(({ value, Icon }) => (
               <button
-                key={s}
+                key={value}
                 type="button"
-                className={`combo-option${status === s ? ' selected' : ''}`}
-                onClick={() => { setStatus(s); setStatusOpen(false); }}
+                className={`combo-option${status === value ? ' selected' : ''}`}
+                onClick={() => { setStatus(value); setStatusOpen(false); }}
               >
-                {s === 'Confirmed' ? <Check size={13} /> : <Timer size={13} />}
-                {s}
+                <Icon size={14} /> {value}
               </button>
             ))}
           </div>

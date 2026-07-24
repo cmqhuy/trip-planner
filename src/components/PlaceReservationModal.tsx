@@ -13,6 +13,9 @@ import { DEFAULT_PLACE_GROUPS } from '../utils/api';
 
 type ReservationStatus = 'Confirmed' | 'Planning' | 'Canceled';
 
+const shortDate = (d: string) =>
+  new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
 const STATUS_OPTIONS: { value: ReservationStatus; Icon: any }[] = [
   { value: 'Confirmed', Icon: Check },
   { value: 'Planning', Icon: Timer },
@@ -322,6 +325,7 @@ export default function PlaceReservationModal({
           </div>
 
           <form onSubmit={handleSubmit}>
+            <div className="modal-scroll-body">
             {/* Prominent Warning Banner for Deleted Linked Place */}
             {isDeletedPlace && (
               <div className="reservation-warning" style={{ marginBottom: '16px' }}>
@@ -437,7 +441,7 @@ export default function PlaceReservationModal({
                         </button>
                         {filteredCatalogPlaces.map(({ place: cp, locationName }) => {
                           const allocatedDates = placeAllocatedDaysMap.get(cp.id) || [];
-                          const dateSub = allocatedDates.length > 0 ? `${allocatedDates.join(', ')} · ` : '';
+                          const dateSub = allocatedDates.length > 0 ? `${allocatedDates.map(shortDate).join(', ')} · ` : '';
                           return (
                             <button
                               key={cp.id}
@@ -723,6 +727,7 @@ export default function PlaceReservationModal({
                 {aiError && <p className="form-error-text">{aiError}</p>}
               </div>
             )}
+            </div>
 
             {/* Modal Actions */}
             <div className="modal-actions modal-actions--between" style={{ marginTop: '24px' }}>
@@ -738,7 +743,7 @@ export default function PlaceReservationModal({
               <div className="modal-actions-right">
                 <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
                 <button type="submit" className="btn-primary">
-                  {reservation ? 'Save Changes' : 'Add Reservation'}
+                  {reservation ? `Save ${type === 'attraction' ? 'Attractions' : 'Dining'}` : 'Add Reservation'}
                 </button>
               </div>
             </div>
