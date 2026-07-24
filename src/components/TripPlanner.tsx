@@ -1692,7 +1692,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         if (!day) return p;
         const items = [...(day.scheduleItems ?? [])];
         const it = items[itemIndex];
-        if (!it || (it.type !== 'hotel-event' && it.type !== 'transit-event')) return p;
+        if (!it || (it.type !== 'hotel-event' && it.type !== 'transit-event' && it.type !== 'place-reservation-event')) return p;
         items[itemIndex] = { ...it, time };
         return { ...p, days: { ...p.days, [activeDayStr]: updateDayItems(day, items) } };
       });
