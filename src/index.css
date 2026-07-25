@@ -1179,14 +1179,16 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   display: flex;
   flex-direction: column;
 }
+/* !important overrides the `.timeline-card { border-radius: 12px !important }` reset below;
+   without it the seam corners stay rounded. */
 .timeline-card.timeline-card--merged-top {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
   border-bottom: none;
 }
 .timeline-card.timeline-card--merged-bottom {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
   border-top: none;
 }
 /* Per-card elevation would cast a shadow across the internal seam — drop it so the unit
