@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
+import { mergedUnitRange } from '../utils/scheduleMerge';
 import PlaceReservationModal from './PlaceReservationModal';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
@@ -928,15 +929,18 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
         const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
-        const draggedItem = currentItems[draggedDayPlaceIndex];
+        // A merged place-reservation + place pair moves as one block, and drops always
+        // snap to a whole unit's edge — never between the two halves of a merged card.
+        const [uStart, uEnd] = mergedUnitRange(currentItems, draggedDayPlaceIndex, p.placeReservations);
+        // Dropping onto its own unit is a no-op.
+        if (targetIndex >= uStart && targetIndex <= uEnd) return p;
 
-        let destIndex = targetIndex;
-        if (position === 'bottom') destIndex = targetIndex + 1;
+        const [tStart, tEnd] = mergedUnitRange(currentItems, targetIndex, p.placeReservations);
+        let destIndex = position === 'bottom' ? tEnd + 1 : tStart;
 
-        currentItems.splice(draggedDayPlaceIndex, 1);
-        let insertIndex = destIndex;
-        if (draggedDayPlaceIndex < destIndex) insertIndex = destIndex - 1;
-        currentItems.splice(insertIndex, 0, draggedItem);
+        const block = currentItems.splice(uStart, uEnd - uStart + 1);
+        if (destIndex > uStart) destIndex -= block.length;
+        currentItems.splice(destIndex, 0, ...block);
 
         return {
           ...p,
@@ -1544,9 +1548,21 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const updatedPlans = trip.plans.map(p => {
       if (p.id === activePlan.id) {
         const currentItems = [...(p.days[activeDayStr]?.scheduleItems || [])];
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= currentItems.length) return p;
-        [currentItems[index], currentItems[targetIndex]] = [currentItems[targetIndex], currentItems[index]];
+        // Move the whole merged unit past the neighbouring unit (each may be 1 or 2 items).
+        const [uStart, uEnd] = mergedUnitRange(currentItems, index, p.placeReservations);
+        const blockLen = uEnd - uStart + 1;
+        const block = currentItems.slice(uStart, uEnd + 1);
+        if (direction === 'up') {
+          if (uStart === 0) return p;
+          const [prevStart] = mergedUnitRange(currentItems, uStart - 1, p.placeReservations);
+          currentItems.splice(uStart, blockLen);
+          currentItems.splice(prevStart, 0, ...block);
+        } else {
+          if (uEnd === currentItems.length - 1) return p;
+          const [, nextEnd] = mergedUnitRange(currentItems, uEnd + 1, p.placeReservations);
+          currentItems.splice(uStart, blockLen);
+          currentItems.splice(nextEnd - blockLen + 1, 0, ...block);
+        }
         return {
           ...p,
           days: { ...p.days, [activeDayStr]: updateDayItems(p.days[activeDayStr]!, currentItems) }
@@ -1677,7 +1693,16 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         const day = p.days[activeDayStr];
         if (!day) return p;
         const current = day.scheduleItems ?? [];
-        const idx = insertAtIndex ?? current.length;
+        let idx = insertAtIndex ?? current.length;
+        // Default placement: a place reservation whose linked place is already on this
+        // day slots in directly above that place so the two render as one merged card.
+        if (insertAtIndex === undefined && item.type === 'place-reservation-event') {
+          const res = (p.placeReservations || []).find(r => r.id === item.reservationId);
+          if (res?.placeId) {
+            const placeIdx = current.findIndex(it => it.type === 'place' && it.placeId === res.placeId);
+            if (placeIdx !== -1) idx = placeIdx;
+          }
+        }
         const newItems = [...current.slice(0, idx), item, ...current.slice(idx)];
         return { ...p, days: { ...p.days, [activeDayStr]: updateDayItems(day, newItems) } };
       });

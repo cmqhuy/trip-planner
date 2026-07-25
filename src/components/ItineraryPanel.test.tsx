@@ -210,4 +210,145 @@ describe('ItineraryPanel Component', () => {
     // Scheduled places
     expect(screen.getByText('Eiffel Tower')).toBeInTheDocument();
   });
+
+  it('renders a reservation + linked place as one merged cell with a squared, borderless seam', () => {
+    const reservation = {
+      id: 'res-eiffel',
+      type: 'attraction' as const,
+      placeId: 'place-eiffel',
+      title: 'Eiffel Tower Reservation',
+      date: '2026-07-01',
+      time: '09:00',
+    };
+    const planWithRes = {
+      ...mockTrip.plans[0],
+      placeReservations: [reservation],
+    };
+    const scheduleItems = [
+      { type: 'place-reservation-event' as const, reservationId: 'res-eiffel', time: '09:00' },
+      { type: 'place' as const, placeId: 'place-eiffel' },
+    ];
+
+    const { container } = render(
+      <ItineraryPanel
+        trip={mockTrip}
+        activePlan={planWithRes}
+        activePlanId="plan-main"
+        setActivePlanId={vi.fn()}
+        activeDayStr="2026-07-01"
+        setActiveDayStr={vi.fn()}
+        activeDay={mockTrip.plans[0].days['2026-07-01']}
+        activeDayLocation={mockTrip.locations[0]}
+        catalogLocation={mockTrip.locations[0]}
+        daysList={['2026-07-01', '2026-07-02', '2026-07-03']}
+        activeMobileTab="itinerary"
+        isGoogleSignedIn={false}
+        onShareTrip={vi.fn()}
+        formatDisplayDate={(d) => d}
+        getHotelsForDay={() => []}
+        getTransportsForDay={() => []}
+        scheduledPlaces={mockTrip.locations[0].places}
+        displayScheduledPlaces={mockTrip.locations[0].places}
+        activePlaceId={undefined}
+        setActivePlaceId={vi.fn()}
+        placeGeneratingIds={new Set()}
+        placeQuery=""
+        setPlaceQuery={vi.fn()}
+        placeSuggestions={[]}
+        isSearchingPlace={false}
+        draggedPlaceId={null}
+        draggedDayPlaceIndex={null}
+        setDraggedDayPlaceIndex={vi.fn()}
+        dragOverDayPlaceIndex={null}
+        setDragOverDayPlaceIndex={vi.fn()}
+        dragOverDayPlacePosition="top"
+        setDragOverDayPlacePosition={vi.fn()}
+        setShowEditTripModal={vi.fn()}
+        setShowTripAiConfigModal={vi.fn()}
+        setShowHotelModal={vi.fn()}
+        setShowTransportModal={vi.fn()}
+        setShowAddLocationModal={vi.fn()}
+        setAddLocationForDay={vi.fn()}
+        setShowDayOptionsMenu={vi.fn()}
+        showDayOptionsMenu={false}
+        setShowMoveDayModal={vi.fn()}
+        setShowSwapDaysModal={vi.fn()}
+        setShowAiGenerateDaysModal={vi.fn()}
+        setShowCustomPlaceModal={vi.fn()}
+        setAutoScheduleOnActiveDay={vi.fn()}
+        setEditingPlace={vi.fn()}
+        setAiGeneratePlaces={vi.fn()}
+        setAiGenerateCity={vi.fn()}
+        setAiGenerateCountry={vi.fn()}
+        setShowAiGenerateModal={vi.fn()}
+        isRenamingPlan={false}
+        setIsRenamingPlan={vi.fn()}
+        editPlanName=""
+        setEditPlanName={vi.fn()}
+        handleRenamePlan={vi.fn()}
+        handleDeletePlan={vi.fn()}
+        handleMovePlan={vi.fn()}
+        showPlanMenu={false}
+        setShowPlanMenu={vi.fn()}
+        setShowNewPlanModal={vi.fn()}
+        handleSetDayLocation={vi.fn()}
+        handleDeleteHotel={vi.fn()}
+        handleDeleteTransportation={vi.fn()}
+        handleOpenEditHotel={vi.fn()}
+        handleOpenEditTransport={vi.fn()}
+        handleSaveHotelNotes={vi.fn()}
+        handleSaveTransportNotes={vi.fn()}
+        handleSavePlaceReservationNotes={vi.fn()}
+        handleGenerateSingleDayTips={vi.fn()}
+        handleSaveDayTips={vi.fn()}
+        handleSaveBabyLogistics={vi.fn()}
+        handleSaveSuggestedReservations={vi.fn()}
+        handleClearDay={vi.fn()}
+        handleAddPlaceFromDayTimeline={vi.fn()}
+        handleOpenAddPlaceAtIndex={vi.fn()}
+        handleDayPlaceDragStart={vi.fn()}
+        handleDayPlaceDrop={vi.fn()}
+        handleCatalogPlaceDropOnTimeline={vi.fn()}
+        scheduleItems={scheduleItems}
+        handleMoveScheduleItem={vi.fn()}
+        handleAddReservationEventToSchedule={vi.fn()}
+        handleUpdateScheduleItemTime={vi.fn()}
+        handleRemovePlaceFromDay={vi.fn()}
+        handleAddScheduleNote={vi.fn()}
+        handleUpdateScheduleNote={vi.fn()}
+        handleDeleteScheduleNote={vi.fn()}
+        handleAddPlaceToDay={vi.fn()}
+        handleAddAiSuggestionToCatalog={vi.fn()}
+        handleOpenEditPlace={vi.fn()}
+        handleGenerateSinglePlaceAiDetails={vi.fn()}
+        savePlaceNotes={vi.fn()}
+        activeTimelinePlaceDropdownKey={null}
+        setActiveTimelinePlaceDropdownKey={vi.fn()}
+        daysGeneratingDates={new Set()}
+        daysTabsNavRef={{ current: null }}
+        lastScrollLeft={{ current: 0 }}
+        searchDropdownRef={{ current: null }}
+        expandedHotelId={null}
+        setExpandedHotelId={vi.fn()}
+        expandedTransitId={null}
+        setExpandedTransitId={vi.fn()}
+      />
+    );
+
+    // Both halves render inside a single merged container.
+    const cell = container.querySelector('.schedule-merged-cell');
+    expect(cell).not.toBeNull();
+
+    // The reservation (top) and the place (bottom) each carry the seam-squaring classes,
+    // so no rounded corner appears where they meet.
+    const top = container.querySelector('.timeline-card--merged-top');
+    const bottom = container.querySelector('.timeline-card--merged-bottom');
+    expect(top).not.toBeNull();
+    expect(bottom).not.toBeNull();
+    // The pair lives inside the one cell (moves/hovers/selects as a unit).
+    expect(cell!.contains(top)).toBe(true);
+    expect(cell!.contains(bottom)).toBe(true);
+
+    expect(screen.getAllByText('Eiffel Tower Reservation').length).toBeGreaterThan(0);
+  });
 });

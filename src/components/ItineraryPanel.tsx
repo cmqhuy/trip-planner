@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
+import { computeMergePartners } from '../utils/scheduleMerge';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { isPlaceReservationUnlinkedOrDeleted } from '../utils/reservationWarnings';
 import { getOptimizedImageUrl } from '../utils/image';
@@ -390,6 +391,20 @@ function ItineraryPanel({
   const isPlaceReservationEventInSchedule = (reservationId: string) =>
     scheduleItems.some(i => i.type === 'place-reservation-event' && (i as SchedulePlaceReservationEventItem).reservationId === reservationId);
 
+  // A place-reservation-event and its linked place render as one merged card when adjacent.
+  // `mergePartners[i]` is the paired index, or -1. Reordering/dragging treats the pair as a unit.
+  const mergePartners = computeMergePartners(scheduleItems, activePlan.placeReservations);
+  const sameMergeUnit = (a: number, b: number) => a === b || mergePartners[a] === b;
+  // Drops onto a merged card snap to the whole unit's edge — hovering the top half of a
+  // merged pair drops above the unit, the bottom half drops below it (never between the two).
+  const clampMergePosition = (idx: number, pos: 'top' | 'bottom'): 'top' | 'bottom' => {
+    const p = mergePartners[idx];
+    if (p === -1) return pos;
+    if (p === idx + 1) return 'top';
+    if (p === idx - 1) return 'bottom';
+    return pos;
+  };
+
   const renderAddSlot = (insertAtIndex: number, canEdit: boolean) => {
     if (!canEdit) return null;
     const isVisible = hoveredScheduleItemIndex === insertAtIndex || hoveredScheduleItemIndex === insertAtIndex - 1;
@@ -680,11 +695,11 @@ function ItineraryPanel({
     },
     onDragEnd: () => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); },
     onDragOver: (e: React.DragEvent) => {
-      if (draggedDayPlaceIndex === idx) return;
+      if (draggedDayPlaceIndex !== null && sameMergeUnit(draggedDayPlaceIndex, idx)) return;
       if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
       e.preventDefault();
       const rect = e.currentTarget.getBoundingClientRect();
-      const position = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
+      const position = clampMergePosition(idx, (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom');
       if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
         setDragOverDayPlaceIndex(idx);
         setDragOverDayPlacePosition(position);
@@ -854,7 +869,7 @@ function ItineraryPanel({
     );
   };
 
-  const renderPlaceReservationEventCard = (item: SchedulePlaceReservationEventItem, idx: number, isFirst: boolean, isLast: boolean, canEdit: boolean) => {
+  const renderPlaceReservationEventCard = (item: SchedulePlaceReservationEventItem, idx: number, isFirst: boolean, isLast: boolean, canEdit: boolean, mergeClass = '', linkedPlaceId?: string) => {
     const reservation = (activePlan.placeReservations || []).find(r => r.id === item.reservationId);
     const isMismatch = reservation && reservation.date && reservation.date !== activeDayStr;
     const dropdownKey = `place-reservation-event-${item.reservationId}-${idx}`;
@@ -867,8 +882,12 @@ function ItineraryPanel({
 
     return (
       <div
-        className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
-        onClick={e => e.stopPropagation()}
+        className={`timeline-card glass-panel timeline-place-card${mergeClass}${linkedPlaceId ? ' timeline-card--merge-clickable' : ''} ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        onClick={e => {
+          e.stopPropagation();
+          // When merged, clicking either half toggles the linked place's expanded state.
+          if (linkedPlaceId) setActivePlaceId(activePlaceId === linkedPlaceId ? undefined : linkedPlaceId);
+        }}
         {...(canEdit ? renderReservationEventDragHandlers(idx) : {})}
       >
         <div className="timeline-dot" style={{ backgroundColor: typeColor, color: '#ffffff' }}>
@@ -911,6 +930,140 @@ function ItineraryPanel({
             )}
           </div>
         )}
+      </div>
+    );
+  };
+
+  // The scheduled place card body (the inner .timeline-card). Extracted so a merged unit can
+  // render it and the reservation card side-by-side inside one container.
+  const renderScheduledPlaceCard = (place: Place, placeNumber: number, idx: number, isFirst: boolean, isLast: boolean, canEdit: boolean, mergeClass = '') => {
+    const dropdownKey = `${place.id}-${idx}`;
+    const mobileDropdownKey = `${place.id}-${idx}-mobile`;
+    return (
+      <div
+        className={`timeline-card glass-panel timeline-place-card${mergeClass} ${activePlaceId === place.id ? 'timeline-place-card--active' : ''} ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        data-place-id={place.id}
+        draggable={canEdit}
+        onDragStart={(e) => {
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(idx));
+          }
+          setTimeout(() => {
+            handleDayPlaceDragStart(idx);
+          }, 0);
+        }}
+        onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
+        onDragOver={(e) => {
+          if (draggedDayPlaceIndex !== null && sameMergeUnit(draggedDayPlaceIndex, idx)) return;
+          if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
+          e.preventDefault();
+          const rect = e.currentTarget.getBoundingClientRect();
+          const position = clampMergePosition(idx, (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom');
+          if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
+            setDragOverDayPlaceIndex(idx);
+            setDragOverDayPlacePosition(position);
+          }
+        }}
+        onDrop={(e) => {
+          e.stopPropagation();
+          if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
+          else if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
+          setDragOverDayPlaceIndex(null);
+        }}
+        onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
+      >
+        <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }}>
+          {getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
+        </div>
+
+        <div className="card-header-row">
+          <div className="timeline-card-content" style={{ cursor: 'grab' }}>
+            <div className="timeline-place-number">
+              {placeNumber}
+            </div>
+
+            <div className="schedule-thumb-col">
+              {place.photoUrl ? (
+                <div className="place-card-thumb-container"><img src={getOptimizedImageUrl(place.photoUrl, 80)} alt="" loading="lazy" decoding="async" /></div>
+              ) : (
+                <div className="place-card-thumb-container"><MapPin size={16} className="text-muted" /></div>
+              )}
+              <a href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link" onClick={(e) => e.stopPropagation()}>Map</a>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="place-title-row">
+                <h4 className="place-title-text">{place.title}</h4>
+              </div>
+              <p className="place-desc-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
+              {editingPlaceNotesId === place.id ? (
+                <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
+                  <textarea ref={placeNotesTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
+                  <div className="notes-actions">
+                    <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
+                    <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place.id, placeNotesTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }} style={{ gap: '4px' }}><Check size={10} /> Save</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="notes-text-wrapper" style={{ marginTop: '4px', paddingRight: canEdit ? '22px' : '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
+                  <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
+                    <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <span>{place.notes || 'Add notes...'}</span>
+                  </div>
+                  {canEdit && (
+                    <button className="mini-icon-btn notes-edit-btn place-note-edit-abs" onClick={(e) => { e.stopPropagation(); startEditingNotes(place); }} data-tooltip="Edit Note"><Edit2 size={12} /></button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {canEdit && (
+            <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
+              <div className="place-card-move-buttons">
+                <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
+                <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
+              </div>
+              <div className="timeline-place-dropdown-container">
+                <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
+                {activeTimelinePlaceDropdownKey === dropdownKey && (
+                  <div className="dropdown-menu dropdown-menu-above">
+                    <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(place.title); setActiveTimelinePlaceDropdownKey(null); }}><Copy size={12} /> Copy Name</button>
+                    <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
+                    <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile dropdown */}
+        {canEdit && (
+          <div className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`} onClick={e => e.stopPropagation()}>
+            <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
+            {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
+              <div className="dropdown-menu">
+                <button className="dropdown-item" disabled={isFirst} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
+                <button className="dropdown-item" disabled={isLast} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(place.title); setActiveTimelinePlaceDropdownKey(null); }}><Copy size={12} /> Copy Name</button>
+                <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
+                <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Expand Details if selected */}
+        <div className={`card-expandable-wrapper${activePlaceId === place.id ? ' is-expanded' : ''}`}>
+          <div>
+            <div className="card-expanded-section" onClick={e => e.stopPropagation()}>
+              {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
+              <AiDetailsView place={place} onGenerate={() => handleGenerateSinglePlaceAiDetails(place.id)} canEdit={canEdit} isGenerating={placeGeneratingIds.has(place.id)} layoutMode="adaptive-2-col" customAiFields={trip.customAiFields} disabledPlaceFields={trip.disabledPlaceFields} fieldIcons={trip.fieldIcons} placeFieldsOrder={trip.placeFieldsOrder} />
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -2337,8 +2490,72 @@ function ItineraryPanel({
                 return (
                   <>
                     {scheduleItems.map((item, idx) => {
+                      // Merge info: a place-reservation-event and its linked place adjacent to
+                      // each other render as one seamless unit and reorder together.
+                      const partner = mergePartners[idx];
+                      const isMergedTop = partner !== -1 && partner === idx + 1;
+                      const isMergedBottom = partner !== -1 && partner === idx - 1;
                       const isFirst = idx === 0;
                       const isLast = idx === scheduleItems.length - 1;
+                      const addSlot = renderAddSlot(idx, canEdit);
+
+                      // The bottom half of a merged pair is rendered together with its top half
+                      // (its place number is already assigned there), so skip it entirely here.
+                      if (isMergedBottom) return null;
+
+                      // A merged pair renders as one seamless cell: both halves inside a single
+                      // container (one flex child, so no negative margins) with a borderless seam.
+                      if (isMergedTop) {
+                        const bottomIdx = idx + 1;
+                        const bottomItem = scheduleItems[bottomIdx];
+                        const unitFirst = idx === 0;
+                        const unitLast = bottomIdx === scheduleItems.length - 1;
+                        // Linked place id shared by both halves (for the reservation half's click-to-expand).
+                        const unitPlaceId = item.type === 'place'
+                          ? (item as SchedulePlaceItem).placeId
+                          : bottomItem.type === 'place' ? (bottomItem as SchedulePlaceItem).placeId : undefined;
+                        const mergeActive = !!unitPlaceId && activePlaceId === unitPlaceId;
+                        const mergeHover = hoveredScheduleItemIndex !== null && sameMergeUnit(idx, hoveredScheduleItemIndex);
+                        const stateClass = (mergeActive ? ' timeline-card--merge-active' : '') + (mergeHover ? ' timeline-card--merge-hover' : '');
+                        const findPlace = (placeId: string) => {
+                          for (const loc of trip.locations) {
+                            const found = loc.places.find(p => p.id === placeId);
+                            if (found) return found;
+                          }
+                          return undefined;
+                        };
+                        const renderHalf = (halfItem: ScheduleItem, halfIdx: number, edgeClass: string) => {
+                          if (halfItem.type === 'place-reservation-event') {
+                            return renderPlaceReservationEventCard(halfItem as SchedulePlaceReservationEventItem, halfIdx, unitFirst, unitLast, canEdit, edgeClass + stateClass, unitPlaceId);
+                          }
+                          const pl = findPlace((halfItem as SchedulePlaceItem).placeId);
+                          if (!pl) return null;
+                          const num = ++placeCount;
+                          return renderScheduledPlaceCard(pl, num, halfIdx, unitFirst, unitLast, canEdit, edgeClass + stateClass);
+                        };
+                        const dragIndicator = (di: number) => dragOverDayPlaceIndex === di && (
+                          <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                        );
+                        return (
+                          <React.Fragment key={`merge-${idx}`}>
+                            {addSlot}
+                            <div
+                              className="schedule-merged-cell"
+                              onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
+                              onMouseLeave={scheduleHideItem}
+                            >
+                              <div style={{ position: 'relative' }}>
+                                {dragIndicator(idx)}
+                                {renderHalf(item, idx, ' timeline-card--merged-top')}
+                              </div>
+                              <div style={{ position: 'relative' }}>
+                                {dragIndicator(bottomIdx)}
+                                {renderHalf(bottomItem, bottomIdx, ' timeline-card--merged-bottom')}
+                              </div>
+                            </div>
+                          </React.Fragment>
+                        );
+                      }
 
                       if (item.type === 'note') {
                         const note = item as ScheduleNoteItem;
@@ -2401,7 +2618,7 @@ function ItineraryPanel({
                         const placeResItem = item as SchedulePlaceReservationEventItem;
                         return (
                           <React.Fragment key={`place-reservation-event-${placeResItem.reservationId}-${idx}`}>
-                            {renderAddSlot(idx, canEdit)}
+                            {addSlot}
                             <div
                               style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
                               onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
@@ -2416,7 +2633,7 @@ function ItineraryPanel({
                         );
                       }
 
-                      // Place item
+                      // Place item (non-merged)
                       const placeItem = item as SchedulePlaceItem;
                       const placeNumber = ++placeCount;
                       let place: Place | undefined;
@@ -2426,12 +2643,9 @@ function ItineraryPanel({
                       }
                       if (!place) return null;
 
-                      const dropdownKey = `${place.id}-${idx}`;
-                      const mobileDropdownKey = `${place.id}-${idx}-mobile`;
-
                       return (
                         <React.Fragment key={`place-${place.id}-${idx}`}>
-                          {renderAddSlot(idx, canEdit)}
+                          {addSlot}
                           <div
                             style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
                             onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
@@ -2440,131 +2654,7 @@ function ItineraryPanel({
                             {dragOverDayPlaceIndex === idx && (
                               <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
                             )}
-                            <div
-                              className={`timeline-card glass-panel timeline-place-card ${activePlaceId === place.id ? 'timeline-place-card--active' : ''} ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
-                              data-place-id={place.id}
-                              draggable={canEdit}
-                              onDragStart={(e) => {
-                                if (e.dataTransfer) {
-                                  e.dataTransfer.effectAllowed = 'move';
-                                  e.dataTransfer.setData('text/plain', String(idx));
-                                }
-                                setTimeout(() => {
-                                  handleDayPlaceDragStart(idx);
-                                }, 0);
-                              }}
-                              onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
-                              onDragOver={(e) => {
-                                if (draggedDayPlaceIndex === idx) return;
-                                if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
-                                e.preventDefault();
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const position = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
-                                if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
-                                  setDragOverDayPlaceIndex(idx);
-                                  setDragOverDayPlacePosition(position);
-                                }
-                              }}
-                              onDrop={(e) => {
-                                e.stopPropagation();
-                                if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
-                                else if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
-                                setDragOverDayPlaceIndex(null);
-                              }}
-                              onClick={() => setActivePlaceId(activePlaceId === place!.id ? undefined : place!.id)}
-                            >
-                              <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.color || '#6b7280' }}>
-                                {getCategoryIconComponent((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place!.placeGroupId)?.icon || 'map-pin', 12, undefined, { color: '#ffffff' })}
-                              </div>
-
-                              <div className="card-header-row">
-                                <div className="timeline-card-content" style={{ cursor: 'grab' }}>
-                                  <div className="timeline-place-number">
-                                    {placeNumber}
-                                  </div>
-
-                                  <div className="schedule-thumb-col">
-                                    {place.photoUrl ? (
-                                      <div className="place-card-thumb-container"><img src={getOptimizedImageUrl(place.photoUrl, 80)} alt="" loading="lazy" decoding="async" /></div>
-                                    ) : (
-                                      <div className="place-card-thumb-container"><MapPin size={16} className="text-muted" /></div>
-                                    )}
-                                    <a href={place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, activeDayLocation?.city || catalogLocation?.city)} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link" onClick={(e) => e.stopPropagation()}>Map</a>
-                                  </div>
-
-                                  <div className="flex-1 min-w-0">
-                                    <div className="place-title-row">
-                                      <h4 className="place-title-text">{place.title}</h4>
-                                    </div>
-                                    <p className="place-desc-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
-                                    {editingPlaceNotesId === place.id ? (
-                                      <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                                        <textarea ref={placeNotesTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
-                                        <div className="notes-actions">
-                                          <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
-                                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place!.id, placeNotesTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }} style={{ gap: '4px' }}><Check size={10} /> Save</button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="notes-text-wrapper" style={{ marginTop: '4px', paddingRight: canEdit ? '22px' : '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place!); } : undefined}>
-                                        <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
-                                          <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                                          <span>{place.notes || 'Add notes...'}</span>
-                                        </div>
-                                        {canEdit && (
-                                          <button className="mini-icon-btn notes-edit-btn place-note-edit-abs" onClick={(e) => { e.stopPropagation(); startEditingNotes(place!); }} data-tooltip="Edit Note"><Edit2 size={12} /></button>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {canEdit && (
-                                  <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
-                                    <div className="place-card-move-buttons">
-                                      <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
-                                      <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
-                                    </div>
-                                    <div className="timeline-place-dropdown-container">
-                                      <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
-                                      {activeTimelinePlaceDropdownKey === dropdownKey && (
-                                        <div className="dropdown-menu dropdown-menu-above">
-                                          <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(place!.title); setActiveTimelinePlaceDropdownKey(null); }}><Copy size={12} /> Copy Name</button>
-                                          <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
-                                          <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Mobile dropdown */}
-                              {canEdit && (
-                                <div className={`day-place-dropdown-container-mobile ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`} onClick={e => e.stopPropagation()}>
-                                  <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
-                                  {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
-                                    <div className="dropdown-menu">
-                                      <button className="dropdown-item" disabled={isFirst} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
-                                      <button className="dropdown-item" disabled={isLast} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
-                                      <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(place!.title); setActiveTimelinePlaceDropdownKey(null); }}><Copy size={12} /> Copy Name</button>
-                                      <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place!); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
-                                      <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Expand Details if selected */}
-                              <div className={`card-expandable-wrapper${activePlaceId === place.id ? ' is-expanded' : ''}`}>
-                                <div>
-                                  <div className="card-expanded-section" onClick={e => e.stopPropagation()}>
-                                    {place.description && <p style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.3, textTransform: 'none' }}>{place.description}</p>}
-                                    <AiDetailsView place={place} onGenerate={() => handleGenerateSinglePlaceAiDetails(place!.id)} canEdit={canEdit} isGenerating={placeGeneratingIds.has(place.id)} layoutMode="adaptive-2-col" customAiFields={trip.customAiFields} disabledPlaceFields={trip.disabledPlaceFields} fieldIcons={trip.fieldIcons} placeFieldsOrder={trip.placeFieldsOrder} />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                            {renderScheduledPlaceCard(place, placeNumber, idx, isFirst, isLast, canEdit)}
                           </div>
                         </React.Fragment>
                       );

@@ -1171,6 +1171,49 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   border-color: rgba(99, 102, 241, 0.65);
 }
 
+/* Merged unit: a place-reservation-event and its linked place rendered as one seamless cell.
+   Both halves live inside .schedule-merged-cell (a single flex child of .day-timeline, so it
+   takes the normal 16px gap to its neighbours and needs no negative margins). Internally the
+   two card bodies stack flush with a squared, borderless seam. */
+.schedule-merged-cell {
+  display: flex;
+  flex-direction: column;
+}
+.timeline-card.timeline-card--merged-top {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
+}
+.timeline-card.timeline-card--merged-bottom {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+}
+/* Per-card elevation would cast a shadow across the internal seam — drop it so the unit
+   reads as one surface; hover/active are conveyed by the shared outline below. */
+.timeline-card--merged-top,
+.timeline-card--merged-bottom,
+.timeline-card--merged-top:hover,
+.timeline-card--merged-bottom:hover {
+  box-shadow: none;
+}
+/* The whole unit responds to hover and selection together (both halves get these). */
+.timeline-card--merge-hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(30, 41, 59, 0.60);
+}
+.timeline-card--merge-active {
+  border-color: var(--accent-primary);
+}
+/* Expanded + hovered together — mirrors .timeline-place-card--active:hover so the merged
+   unit's border matches a normal selected-and-hovered card. */
+.timeline-card--merge-active.timeline-card--merge-hover {
+  border-color: rgba(99, 102, 241, 0.65);
+}
+.timeline-card--merge-clickable {
+  cursor: pointer;
+}
+
 /* Day Transports */
 .transport-card {
   padding: 14px 18px;
