@@ -392,7 +392,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [showPlaceReservationModal, setShowPlaceReservationModal] = useState(false);
   const [editingPlaceReservation, setEditingPlaceReservation] = useState<PlaceReservation | null>(null);
   const [placeReservationDefaultType, setPlaceReservationDefaultType] = useState<'attraction' | 'dining'>('attraction');
-  const [expandedPlaceReservationId, setExpandedPlaceReservationId] = useState<string | null>(null);
+  const [expandedAttractionReservationId, setExpandedAttractionReservationId] = useState<string | null>(null);
+  const [expandedDiningReservationId, setExpandedDiningReservationId] = useState<string | null>(null);
 
   // Reservation Import States
   const [isImportingReservationFile, setIsImportingReservationFile] = useState(false);
@@ -3330,8 +3331,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setExpandedHotelId={setExpandedHotelId}
         expandedTransitId={expandedTransitId}
         setExpandedTransitId={setExpandedTransitId}
-        expandedPlaceReservationId={expandedPlaceReservationId}
-        setExpandedPlaceReservationId={setExpandedPlaceReservationId}
+        expandedAttractionReservationId={expandedAttractionReservationId}
+        setExpandedAttractionReservationId={setExpandedAttractionReservationId}
+        expandedDiningReservationId={expandedDiningReservationId}
+        setExpandedDiningReservationId={setExpandedDiningReservationId}
         onAddHotel={() => { setEditingHotel(null); setShowHotelModal(true); }}
         onAddTransit={() => { setEditingTransport(null); setShowTransportModal(true); }}
         onAddPlaceReservation={handleAddPlaceReservation}
@@ -3378,8 +3381,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onOpenAddPlaceReservation={handleAddPlaceReservation}
         onOpenEditPlaceReservation={handleEditPlaceReservation}
         onDeletePlaceReservation={handleDeletePlaceReservation}
-        expandedPlaceReservationId={expandedPlaceReservationId}
-        setExpandedPlaceReservationId={setExpandedPlaceReservationId}
+        expandedAttractionReservationId={expandedAttractionReservationId}
+        setExpandedAttractionReservationId={setExpandedAttractionReservationId}
+        expandedDiningReservationId={expandedDiningReservationId}
+        setExpandedDiningReservationId={setExpandedDiningReservationId}
         scheduledPlaces={scheduledPlaces}
         displayScheduledPlaces={displayScheduledPlaces}
         activePlaceId={activePlaceId}

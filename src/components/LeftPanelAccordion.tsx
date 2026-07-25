@@ -75,8 +75,10 @@ interface LeftPanelAccordionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
-  expandedPlaceReservationId?: string | null;
-  setExpandedPlaceReservationId?: (id: string | null) => void;
+  expandedAttractionReservationId?: string | null;
+  setExpandedAttractionReservationId?: (id: string | null) => void;
+  expandedDiningReservationId?: string | null;
+  setExpandedDiningReservationId?: (id: string | null) => void;
   onAddHotel: () => void;
   onAddTransit: () => void;
   onAddPlaceReservation?: (type: 'attraction' | 'dining') => void;
@@ -174,8 +176,10 @@ export default function LeftPanelAccordion({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
-  expandedPlaceReservationId,
-  setExpandedPlaceReservationId,
+  expandedAttractionReservationId,
+  setExpandedAttractionReservationId,
+  expandedDiningReservationId,
+  setExpandedDiningReservationId,
   onAddHotel,
   onAddTransit,
   onAddPlaceReservation,
@@ -353,8 +357,10 @@ export default function LeftPanelAccordion({
             setExpandedHotelId={setExpandedHotelId}
             expandedTransitId={expandedTransitId}
             setExpandedTransitId={setExpandedTransitId}
-            expandedPlaceReservationId={expandedPlaceReservationId}
-            setExpandedPlaceReservationId={setExpandedPlaceReservationId}
+            expandedAttractionReservationId={expandedAttractionReservationId}
+            setExpandedAttractionReservationId={setExpandedAttractionReservationId}
+            expandedDiningReservationId={expandedDiningReservationId}
+            setExpandedDiningReservationId={setExpandedDiningReservationId}
             onAddHotel={onAddHotel}
             onAddTransit={onAddTransit}
             onAddPlaceReservation={onAddPlaceReservation}

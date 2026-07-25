@@ -50,8 +50,10 @@ interface ItineraryPanelProps {
   onOpenAddPlaceReservation?: (type: 'attraction' | 'dining') => void;
   onOpenEditPlaceReservation?: (reservation: PlaceReservation) => void;
   onDeletePlaceReservation?: (id: string) => void;
-  expandedPlaceReservationId?: string | null;
-  setExpandedPlaceReservationId?: (id: string | null) => void;
+  expandedAttractionReservationId?: string | null;
+  setExpandedAttractionReservationId?: (id: string | null) => void;
+  expandedDiningReservationId?: string | null;
+  setExpandedDiningReservationId?: (id: string | null) => void;
   scheduledPlaces: Place[];
   displayScheduledPlaces: Place[];
   activePlaceId: string | undefined;
@@ -168,8 +170,10 @@ function ItineraryPanel({
   onOpenAddPlaceReservation,
   onOpenEditPlaceReservation,
   onDeletePlaceReservation,
-  expandedPlaceReservationId,
-  setExpandedPlaceReservationId,
+  expandedAttractionReservationId,
+  setExpandedAttractionReservationId,
+  expandedDiningReservationId,
+  setExpandedDiningReservationId,
   scheduledPlaces,
   displayScheduledPlaces,
   activePlaceId,
@@ -1737,7 +1741,9 @@ function ItineraryPanel({
               return (
                 <div className="section-item-list">
                   {dayPlaceReservations.map(pr => {
-                    const isExpanded = expandedPlaceReservationId === pr.id;
+                    const expandedResId = pr.type === 'dining' ? expandedDiningReservationId : expandedAttractionReservationId;
+                    const setExpandedResId = pr.type === 'dining' ? setExpandedDiningReservationId : setExpandedAttractionReservationId;
+                    const isExpanded = expandedResId === pr.id;
                     const isEditingNote = editingPlaceReservationNoteId === pr.id;
                     const isDeletedPlace = isPlaceReservationUnlinkedOrDeleted(pr.placeId, trip);
                     const iconColor = pr.type === 'attraction' ? '#ef4444' : '#3b82f6';
@@ -1751,7 +1757,7 @@ function ItineraryPanel({
 
                     return (
                       <div key={pr.id} className={`transport-card transport-card--${pr.type === 'attraction' ? 'attraction' : 'dining'}${isExpanded ? ' reservation-card--expanded' : ''}${openPlaceReservationMenuId === pr.id ? ' dropdown-active' : ''}`}>
-                        <div className="transport-card-body" onClick={() => setExpandedPlaceReservationId && setExpandedPlaceReservationId(isExpanded ? null : pr.id)}>
+                        <div className="transport-card-body" onClick={() => setExpandedResId && setExpandedResId(isExpanded ? null : pr.id)}>
                           <div className="schedule-thumb-col" onClick={e => e.stopPropagation()}>
                             <div className="transport-icon-wrapper" style={{ color: iconColor, background: 'rgba(255,255,255,0.03)' }}>
                               <IconComp size={16} />
@@ -1765,13 +1771,13 @@ function ItineraryPanel({
                                 {renderStatusIcon(pr.status)}
                               </span>
                             </div>
+                            <p className="place-desc-text"><Calendar size={11} /> {formatCardDate(pr.date || activeDayStr, pr.time)}</p>
                             {/* Prominent warning badge outside collapsed area */}
                             {isDeletedPlace && (
-                              <div className="reservation-warning" style={{ marginTop: '2px', marginBottom: '2px' }}>
+                              <div className="reservation-warning" style={{ marginTop: '2px', marginBottom: '2px', display: 'inline-flex' }}>
                                 <AlertTriangle size={11} style={{ flexShrink: 0 }} /> Linked place deleted
                               </div>
                             )}
-                            <p className="place-desc-text"><Calendar size={11} /> {formatCardDate(pr.date || activeDayStr, pr.time)}</p>
                             {trip.canEdit !== false && !isInSchedule && (
                               <div className="reservation-add-to-schedule-row" onClick={e => e.stopPropagation()}>
                                 <button
@@ -1784,7 +1790,7 @@ function ItineraryPanel({
                             )}
                           </div>
                           <div className="transport-card-right-actions" onClick={e => e.stopPropagation()}>
-                            <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedPlaceReservationId && setExpandedPlaceReservationId(isExpanded ? null : pr.id)} />
+                            <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedResId && setExpandedResId(isExpanded ? null : pr.id)} />
                             <div className="card-options-menu">
                               <button
                                 className="mini-icon-btn"

@@ -31,8 +31,10 @@ interface ReservationsSectionProps {
   setExpandedHotelId: (id: string | null) => void;
   expandedTransitId: string | null;
   setExpandedTransitId: (id: string | null) => void;
-  expandedPlaceReservationId?: string | null;
-  setExpandedPlaceReservationId?: (id: string | null) => void;
+  expandedAttractionReservationId?: string | null;
+  setExpandedAttractionReservationId?: (id: string | null) => void;
+  expandedDiningReservationId?: string | null;
+  setExpandedDiningReservationId?: (id: string | null) => void;
   onAddHotel: () => void;
   onAddTransit: () => void;
   onAddPlaceReservation?: (type: 'attraction' | 'dining') => void;
@@ -142,8 +144,10 @@ export default function ReservationsSection({
   setExpandedHotelId,
   expandedTransitId,
   setExpandedTransitId,
-  expandedPlaceReservationId,
-  setExpandedPlaceReservationId,
+  expandedAttractionReservationId,
+  setExpandedAttractionReservationId,
+  expandedDiningReservationId,
+  setExpandedDiningReservationId,
   onAddHotel,
   onAddTransit,
   onAddPlaceReservation,
@@ -555,8 +559,11 @@ export default function ReservationsSection({
     const items = (activePlan.placeReservations || []).filter(pr => pr.type === targetType);
     if (items.length === 0) return <span className="subsection-subtitle">No {targetType === 'attraction' ? 'attractions' : 'dining'} booked.</span>;
 
+    const expandedId = targetType === 'dining' ? expandedDiningReservationId : expandedAttractionReservationId;
+    const setExpandedId = targetType === 'dining' ? setExpandedDiningReservationId : setExpandedAttractionReservationId;
+
     return items.map(pr => {
-      const isExpanded = expandedPlaceReservationId === pr.id;
+      const isExpanded = expandedId === pr.id;
       const isDeletedPlace = isPlaceReservationUnlinkedOrDeleted(pr.placeId, trip);
       const iconColor = targetType === 'attraction' ? '#ef4444' : '#3b82f6';
       const IconComp = targetType === 'attraction' ? Landmark : Utensils;
@@ -582,7 +589,7 @@ export default function ReservationsSection({
         >
           <div
             className="reservation-card-expand"
-            onClick={() => setExpandedPlaceReservationId && setExpandedPlaceReservationId(isExpanded ? null : pr.id)}
+            onClick={() => setExpandedId && setExpandedId(isExpanded ? null : pr.id)}
           >
             <div className="reservation-card-first-row">
               <div className="reservation-card-icon-row">
