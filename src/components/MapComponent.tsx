@@ -160,10 +160,23 @@ function MapComponent({
       maxZoom: 20
     }).addTo(map);
 
-    // Listen to map clicks to support pin dropping
+    // Listen to map clicks to support pin dropping, and to deselect the active place when the
+    // user clicks the empty map (outside any marker — marker clicks don't propagate here).
     map.on('click', (e: L.LeafletMouseEvent) => {
       if (onMapClickRef.current) {
         onMapClickRef.current(e.latlng.lat, e.latlng.lng);
+      }
+      onPlaceSelectRef.current?.(undefined);
+    });
+
+    // When a place marker's popup opens, wire its close (X) button to also clear the selection,
+    // so closing the popup deselects the marker and removes any temporary preview place.
+    map.on('popupopen', (e: L.PopupEvent) => {
+      const source = e.popup as unknown as { _source?: { _isPlaceMarker?: boolean } };
+      if (!source._source?._isPlaceMarker) return;
+      const closeBtn = e.popup.getElement()?.querySelector('.leaflet-popup-close-button');
+      if (closeBtn) {
+        L.DomEvent.on(closeBtn as HTMLElement, 'click', () => onPlaceSelectRef.current?.(undefined));
       }
     });
 
@@ -327,6 +340,7 @@ function MapComponent({
             </div>
           </div>
         `);
+      (marker as unknown as { _isPlaceMarker: boolean })._isPlaceMarker = true;
 
       markerGroup.addLayer(marker);
     });
@@ -405,6 +419,7 @@ function MapComponent({
             </div>
           </div>
         `);
+      (marker as unknown as { _isPlaceMarker: boolean })._isPlaceMarker = true;
 
       markerGroup.addLayer(marker);
 
