@@ -6,6 +6,7 @@ import { buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../util
 
 interface MapComponentProps {
   places: Place[];
+  shadowPlaces?: Place[];
   activePlaceId?: string;
   placeGroups: PlaceGroup[];
   onMapClick?: (lat: number, lng: number) => void;
@@ -64,6 +65,17 @@ const serializeTransports = (transportsList: FlatTransportationSegment[]) => {
   }));
 };
 
+// Category SVG icons keyed by PlaceGroup.icon — shared by the full and shadow marker renderers
+const placeSvgMap: Record<string, string> = {
+  'landmark': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><path d="m12 2-10 9h20z"/><path d="M12 11v7"/></svg>`,
+  'utensils': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
+  'shopping-bag': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+  'camera': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+  'map-pin': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  'heart': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>`
+};
+const getPlaceSvgIcon = (iconKey?: string) => placeSvgMap[iconKey || ''] || placeSvgMap['map-pin'];
+
 const getStatusColor = (status?: string) => {
   const s = status || 'Planning';
   return s === 'Confirmed' ? '#4ade80' : '#facc15';
@@ -86,11 +98,12 @@ const getTransitSvgIcon = (type: string) => {
   }
 };
 
-function MapComponent({ 
-  places, 
-  activePlaceId, 
-  placeGroups, 
-  onMapClick, 
+function MapComponent({
+  places,
+  shadowPlaces = [],
+  activePlaceId,
+  placeGroups,
+  onMapClick,
   previewMarker,
   onPlaceSelect,
   activeMobileTab,
@@ -123,6 +136,10 @@ function MapComponent({
   const prevActiveMobileTabRef = useRef<string>(activeMobileTab);
   const prevHotelsSerializedRef = useRef<string>('');
   const prevTransportsSerializedRef = useRef<string>('');
+  const prevShadowPlacesSerializedRef = useRef<string>('');
+  // Bounds of the highlighted (scheduled/selected-day) markers only — used for auto-fit so
+  // dimmed shadow markers never influence the zoom.
+  const scheduledBoundsRef = useRef<[number, number][]>([]);
 
   // Initialize Map
   useEffect(() => {
@@ -159,9 +176,15 @@ function MapComponent({
     const initFitTimer = setTimeout(() => {
       if (!mapInstance.current || !markerGroupRef.current) return;
       map.invalidateSize({ animate: false });
-      const bounds = markerGroupRef.current.getBounds();
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+      // Prefer the scheduled/selected-day bounds so first load zooms to the day's places, not the
+      // whole city; fall back to all markers (incl. dimmed shadow markers) when nothing is scheduled.
+      if (scheduledBoundsRef.current.length > 0) {
+        map.fitBounds(L.latLngBounds(scheduledBoundsRef.current), { padding: [60, 60], maxZoom: 16 });
+      } else {
+        const bounds = markerGroupRef.current.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+        }
       }
       hasInitialFitRef.current = true;
     }, 300);
@@ -181,6 +204,7 @@ function MapComponent({
       prevPreviewMarkerSerializedRef.current = '';
       prevHotelsSerializedRef.current = '';
       prevTransportsSerializedRef.current = '';
+      prevShadowPlacesSerializedRef.current = '';
     };
   }, []);
 
@@ -220,6 +244,7 @@ function MapComponent({
     const previewMarkerSerialized = JSON.stringify(previewMarker);
     const hotelsSerialized = JSON.stringify(serializeHotels(hotels));
     const transportsSerialized = JSON.stringify(serializeTransports(transports));
+    const shadowPlacesSerialized = JSON.stringify(serializePlaces(shadowPlaces));
 
     // Determine what changed
     const placesChanged = placesSerialized !== prevPlacesSerializedRef.current;
@@ -228,8 +253,9 @@ function MapComponent({
     const previewMarkerChanged = previewMarkerSerialized !== prevPreviewMarkerSerializedRef.current;
     const hotelsChanged = hotelsSerialized !== prevHotelsSerializedRef.current;
     const transportsChanged = transportsSerialized !== prevTransportsSerializedRef.current;
+    const shadowPlacesChanged = shadowPlacesSerialized !== prevShadowPlacesSerializedRef.current;
 
-    const needsMarkerUpdate = placesChanged || groupsChanged || activePlaceChanged || previewMarkerChanged || hotelsChanged || transportsChanged;
+    const needsMarkerUpdate = placesChanged || groupsChanged || activePlaceChanged || previewMarkerChanged || hotelsChanged || transportsChanged || shadowPlacesChanged;
 
     if (!needsMarkerUpdate) {
       // Nothing affecting markers or view focus has changed, skip to avoid resetting zoom/pan and closing popups
@@ -251,6 +277,60 @@ function MapComponent({
       }
     }
 
+    // Render dimmed "shadow" markers for the location's other places (not scheduled on the selected
+    // day). They are drawn first with a negative zIndexOffset so highlighted markers sit above them,
+    // and are intentionally NOT added to latlngs/boundsLatLngs — they are never connected by the
+    // route line nor included in the auto-fit/zoom.
+    shadowPlaces.forEach(place => {
+      if (isNaN(place.lat) || isNaN(place.lng)) return;
+      const group = placeGroups.find(g => g.id === place.placeGroupId);
+      const groupColor = group?.color || '#6366f1';
+      const svgIcon = getPlaceSvgIcon(group?.icon);
+
+      const icon = L.divIcon({
+        className: 'custom-map-marker-container',
+        html: `
+          <div style="
+            width: 26px;
+            height: 26px;
+            background: ${groupColor};
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            opacity: 0.4;
+          ">
+            ${svgIcon}
+          </div>
+        `,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        popupAnchor: [0, -13]
+      });
+
+      const mapsLink = place.mapsLink || buildMapsLink(place.title, place.lat, place.lng, placeCity[place.id]);
+
+      const marker = L.marker([place.lat, place.lng], { icon, zIndexOffset: -1000 })
+        .on('click', () => {
+          if (onPlaceSelectRef.current) {
+            onPlaceSelectRef.current(place.id);
+          }
+        })
+        .bindPopup(`
+          <div class="map-popup-card">
+            <h4 style="margin-top:0;">${place.title}</h4>
+            <p style="margin-bottom: 6px; font-size:11px; color:#94a3b8; line-height:1.3;">${place.description || 'No description available.'}</p>
+            <div style="display: flex; gap: 8px; margin-top: 8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+              <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" style="font-size:10px; text-decoration:none; color:#818cf8; font-weight:600; display:inline-block;">Google Maps</a>
+            </div>
+          </div>
+        `);
+
+      markerGroup.addLayer(marker);
+    });
+
     places.forEach((place, index) => {
       latlngs.push([place.lat, place.lng]);
 
@@ -258,15 +338,7 @@ function MapComponent({
       const group = placeGroups.find(g => g.id === place.placeGroupId);
       const groupColor = group?.color || '#6366f1';
 
-      const svgMap: Record<string, string> = {
-        'landmark': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><path d="m12 2-10 9h20z"/><path d="M12 11v7"/></svg>`,
-        'utensils': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
-        'shopping-bag': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
-        'camera': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
-        'map-pin': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
-        'heart': `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>`
-      };
-      const svgIcon = svgMap[group?.icon || ''] || svgMap['map-pin'];
+      const svgIcon = getPlaceSvgIcon(group?.icon);
 
       // Styled marker showing sequence number and category color
       const icon = L.divIcon({
@@ -691,6 +763,10 @@ function MapComponent({
       }
     });
 
+    // Remember the highlighted-only bounds so the initial-fit timer and Scenario B fit to the
+    // selected day's places, never the dimmed shadow markers.
+    scheduledBoundsRef.current = boundsLatLngs;
+
     // Smart Map View Adjustments (zoom/pan) - Only run when the focus/day changes to avoid map snapping
     if (!previewMarker) {
       map.invalidateSize({ animate: false });
@@ -724,7 +800,17 @@ function MapComponent({
             mapInstance.current.invalidateSize({ animate: false });
             mapInstance.current.fitBounds(L.latLngBounds(boundsLatLngs), { padding: [60, 60], maxZoom: 16 });
           } else {
-            mapInstance.current.setView([20, 0], 2);
+            // Nothing scheduled on this day — fall back to the shadow markers so the location stays
+            // in view rather than snapping out to the whole world.
+            const shadowLatLngs = shadowPlaces
+              .filter(p => !isNaN(p.lat) && !isNaN(p.lng))
+              .map(p => [p.lat, p.lng] as [number, number]);
+            if (shadowLatLngs.length > 0) {
+              mapInstance.current.invalidateSize({ animate: false });
+              mapInstance.current.fitBounds(L.latLngBounds(shadowLatLngs), { padding: [60, 60], maxZoom: 16 });
+            } else {
+              mapInstance.current.setView([20, 0], 2);
+            }
           }
         };
         if (hasInitialFitRef.current) {
@@ -744,8 +830,9 @@ function MapComponent({
     prevPreviewMarkerSerializedRef.current = previewMarkerSerialized;
     prevHotelsSerializedRef.current = hotelsSerialized;
     prevTransportsSerializedRef.current = transportsSerialized;
+    prevShadowPlacesSerializedRef.current = shadowPlacesSerialized;
 
-  }, [places, activePlaceId, placeGroups, previewMarker, hotels, transports]);
+  }, [places, shadowPlaces, activePlaceId, placeGroups, previewMarker, hotels, transports]);
 
   return (
     <div 

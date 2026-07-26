@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import LocationSelect from './LocationSelect';
 import {
   MapPin, Plus, Edit2, ChevronUp, ChevronDown,
-  Clock, FileText, Sparkles, MoreVertical, Check, RefreshCw, ExternalLink
+  Clock, FileText, Sparkles, MoreVertical, Check, RefreshCw, ExternalLink, Eye, EyeOff
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
 import { DEFAULT_PLACE_GROUPS, buildMapsLink } from '../utils/api';
@@ -38,6 +38,8 @@ interface CatalogSectionProps {
   handlePlaceDropOnPlace: (targetPlaceId: string, groupId: string, position: 'top' | 'bottom') => void;
   handleMoveCatalogPlace: (placeId: string, direction: 'up' | 'down') => void;
   handleMoveGroupOrder: (index: number, direction: 'up' | 'down') => void;
+  hiddenMapGroupIds: string[];
+  onToggleGroupMapVisibility: (groupId: string) => void;
   startEditingGroup: (group: PlaceGroup) => void;
   setShowGroupModal: (show: boolean) => void;
   setAiGeneratePlaces: (places: Place[]) => void;
@@ -87,6 +89,8 @@ function CatalogSection({
   handlePlaceDropOnPlace,
   handleMoveCatalogPlace,
   handleMoveGroupOrder,
+  hiddenMapGroupIds,
+  onToggleGroupMapVisibility,
   startEditingGroup,
   setShowGroupModal,
   setAiGeneratePlaces,
@@ -349,6 +353,18 @@ function CatalogSection({
                               }}
                             >
                               <Edit2 size={12} /> Edit Group
+                            </button>
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleGroupMapVisibility(group.id);
+                                setActiveGroupDropdownId(null);
+                              }}
+                            >
+                              {hiddenMapGroupIds.includes(group.id)
+                                ? <><Eye size={12} /> Show on map</>
+                                : <><EyeOff size={12} /> Hide on map</>}
                             </button>
                           </div>
                         );

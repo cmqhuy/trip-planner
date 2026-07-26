@@ -283,6 +283,7 @@ export interface Trip {
   locations: Location[];
   plans: Plan[];
   placeGroups: PlaceGroup[]; // Trip-level categorized lists / place groups
+  hiddenMapGroupIds?: string[]; // placeGroup ids hidden from the map's background/shadow layer (default: all visible)
   schemaVersion?: number;    // Incremented when the data model changes; used to skip no-op migrations
   updatedAt?: number;        // Timestamp of last modification
   driveFileId?: string;      // Google Drive file ID

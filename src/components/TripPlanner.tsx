@@ -1827,6 +1827,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     });
   }, [trip, onUpdateTrip]);
 
+  // Toggle a place group's visibility in the map's background/shadow layer (persisted on the trip)
+  const handleToggleGroupMapVisibility = useCallback((groupId: string) => {
+    const hidden = new Set(trip.hiddenMapGroupIds ?? []);
+    if (hidden.has(groupId)) {
+      hidden.delete(groupId);
+    } else {
+      hidden.add(groupId);
+    }
+    onUpdateTrip({ ...trip, hiddenMapGroupIds: [...hidden] });
+  }, [trip, onUpdateTrip]);
+
   // ==========================================
   // EXPENSES CRUD HANDLERS
   // ==========================================
@@ -3240,6 +3251,19 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     return list;
   }, [scheduledPlaces, selectedCatalogPlace, isSelectedPlaceScheduledOnActiveDay, aiSuggestedPlaces]);
 
+  // Background "shadow" markers: all other places of the current location, dimmed and unconnected.
+  // Excludes places already shown as highlighted/scheduled markers and places in hidden groups.
+  const shadowPlaces = useMemo(() => {
+    if (!catalogLocation) return [] as Place[];
+    const hidden = new Set(trip.hiddenMapGroupIds ?? []);
+    const shownIds = new Set(displayScheduledPlaces.map(p => p.id));
+    return catalogLocation.places.filter(p => {
+      if (shownIds.has(p.id)) return false;
+      if (isNaN(p.lat) || isNaN(p.lng)) return false;
+      return !hidden.has(p.placeGroupId || 'new');
+    });
+  }, [catalogLocation, displayScheduledPlaces, trip.hiddenMapGroupIds]);
+
   // Scroll selected place into view in the Day Schedule timeline
   useEffect(() => {
     if (activePlaceId) {
@@ -3321,6 +3345,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handlePlaceDropOnPlace={handlePlaceDropOnPlace}
         handleMoveCatalogPlace={handleMoveCatalogPlace}
         handleMoveGroupOrder={handleMoveGroupOrder}
+        hiddenMapGroupIds={trip.hiddenMapGroupIds ?? []}
+        onToggleGroupMapVisibility={handleToggleGroupMapVisibility}
         startEditingGroup={startEditingGroup}
         setShowGroupModal={setShowGroupModal}
         setAiGeneratePlaces={setAiGeneratePlaces}
@@ -3505,8 +3531,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       
       {/* RIGHT PANEL: Interactive Leaflet Map */}
       <div className={`map-panel ${activeMobileTab === 'map' ? 'mobile-active' : ''}`}>
-        <MapComponent 
-          places={displayScheduledPlaces} 
+        <MapComponent
+          places={displayScheduledPlaces}
+          shadowPlaces={shadowPlaces}
           activePlaceId={activePlaceId}
           placeGroups={trip.placeGroups || DEFAULT_PLACE_GROUPS}
           onMapClick={handleMapClick}

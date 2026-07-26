@@ -40,6 +40,8 @@ interface LeftPanelAccordionProps {
   handlePlaceDropOnPlace: (targetPlaceId: string, groupId: string, position: 'top' | 'bottom') => void;
   handleMoveCatalogPlace: (placeId: string, direction: 'up' | 'down') => void;
   handleMoveGroupOrder: (index: number, direction: 'up' | 'down') => void;
+  hiddenMapGroupIds: string[];
+  onToggleGroupMapVisibility: (groupId: string) => void;
   startEditingGroup: (group: PlaceGroup) => void;
   setShowGroupModal: (show: boolean) => void;
   setAiGeneratePlaces: (places: Place[]) => void;
@@ -141,6 +143,8 @@ export default function LeftPanelAccordion({
   handlePlaceDropOnPlace,
   handleMoveCatalogPlace,
   handleMoveGroupOrder,
+  hiddenMapGroupIds,
+  onToggleGroupMapVisibility,
   startEditingGroup,
   setShowGroupModal,
   setAiGeneratePlaces,
@@ -253,6 +257,8 @@ export default function LeftPanelAccordion({
             handlePlaceDropOnPlace={handlePlaceDropOnPlace}
             handleMoveCatalogPlace={handleMoveCatalogPlace}
             handleMoveGroupOrder={handleMoveGroupOrder}
+            hiddenMapGroupIds={hiddenMapGroupIds}
+            onToggleGroupMapVisibility={onToggleGroupMapVisibility}
             startEditingGroup={startEditingGroup}
             setShowGroupModal={setShowGroupModal}
             setAiGeneratePlaces={setAiGeneratePlaces}
