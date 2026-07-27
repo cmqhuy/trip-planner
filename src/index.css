@@ -29,6 +29,18 @@
   --color-danger: #ef4444; /* Rose */
   --color-info: #0ea5e9; /* Sky */
 
+  /* Per-reservation-type accent colors — defined once, used by card hover/expanded
+     borders, status/type badges, and type icons. `*-rgb` is the channel triple for
+     rgba() tints; the solid is the brighter expanded-border color. */
+  --type-hotel-rgb: 16, 185, 129;      /* emerald */
+  --type-hotel: #4ade80;
+  --type-transit-rgb: 245, 158, 11;    /* amber */
+  --type-transit: #fb923c;
+  --type-attraction-rgb: 239, 68, 68;  /* red */
+  --type-attraction: #f87171;
+  --type-dining-rgb: 59, 130, 246;     /* blue */
+  --type-dining: #60a5fa;
+
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
@@ -1229,34 +1241,34 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 }
 
 .transport-card:hover {
-  border-color: rgba(245, 158, 11, 0.35) !important;
-  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1);
+  border-color: rgba(var(--type-transit-rgb), 0.35) !important;
+  box-shadow: 0 6px 16px rgba(var(--type-transit-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
 .transport-card.reservation-card--expanded:hover {
-  border-color: rgba(245, 158, 11, 0.65) !important;
-  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1);
+  border-color: rgba(var(--type-transit-rgb), 0.65) !important;
+  box-shadow: 0 6px 16px rgba(var(--type-transit-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
 
 .transport-card.transport-card--attraction:hover {
-  border-color: rgba(239, 68, 68, 0.35) !important;
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.1);
+  border-color: rgba(var(--type-attraction-rgb), 0.35) !important;
+  box-shadow: 0 6px 16px rgba(var(--type-attraction-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
 .transport-card.transport-card--dining:hover {
-  border-color: rgba(59, 130, 246, 0.35) !important;
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.1);
+  border-color: rgba(var(--type-dining-rgb), 0.35) !important;
+  box-shadow: 0 6px 16px rgba(var(--type-dining-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
 .transport-card.transport-card--attraction.reservation-card--expanded:hover {
-  border-color: rgba(239, 68, 68, 0.65) !important;
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.1);
+  border-color: rgba(var(--type-attraction-rgb), 0.65) !important;
+  box-shadow: 0 6px 16px rgba(var(--type-attraction-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
 .transport-card.transport-card--dining.reservation-card--expanded:hover {
-  border-color: rgba(59, 130, 246, 0.65) !important;
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.1);
+  border-color: rgba(var(--type-dining-rgb), 0.65) !important;
+  box-shadow: 0 6px 16px rgba(var(--type-dining-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
 
@@ -4241,26 +4253,26 @@ div.google-auth-avatar-desktop {
 .reservation-card { padding: 8px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease; position: relative; z-index: 0; }
 .reservation-card:hover { border-color: rgba(255, 255, 255, 0.15); background: rgba(30, 41, 59, 0.35); z-index: 10; }
 .reservation-card--hotel { background: rgba(30, 41, 59, 0.45); }
-.reservation-card--hotel:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1); }
+.reservation-card--hotel:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-hotel-rgb), 0.35); box-shadow: 0 6px 16px rgba(var(--type-hotel-rgb), 0.1); }
 .reservation-card--transit { background: rgba(30, 41, 59, 0.45); }
-.reservation-card--transit:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(245, 158, 11, 0.35); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1); }
+.reservation-card--transit:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-transit-rgb), 0.35); box-shadow: 0 6px 16px rgba(var(--type-transit-rgb), 0.1); }
 .reservation-card--attraction { background: rgba(30, 41, 59, 0.45); }
-.reservation-card--attraction:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(239, 68, 68, 0.35); box-shadow: 0 6px 16px rgba(239, 68, 68, 0.1); }
+.reservation-card--attraction:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-attraction-rgb), 0.35); box-shadow: 0 6px 16px rgba(var(--type-attraction-rgb), 0.1); }
 .reservation-card--dining { background: rgba(30, 41, 59, 0.45); }
-.reservation-card--dining:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(59, 130, 246, 0.35); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.1); }
-.reservation-card--hotel.reservation-card--expanded { border-color: #4ade80; box-shadow: none; }
-.reservation-card--transit.reservation-card--expanded { border-color: #fb923c; box-shadow: none; }
-.reservation-card--attraction.reservation-card--expanded { border-color: #f87171; box-shadow: none; }
-.reservation-card--dining.reservation-card--expanded { border-color: #60a5fa; box-shadow: none; }
-.hotel-card.reservation-card--expanded { box-shadow: none; border-color: #4ade80; }
-.transport-card.reservation-card--expanded { box-shadow: none; border-color: #fb923c; }
-.transport-card.transport-card--attraction.reservation-card--expanded { box-shadow: none; border-color: #f87171; }
-.transport-card.transport-card--dining.reservation-card--expanded { box-shadow: none; border-color: #60a5fa; }
-.reservation-card--hotel.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(16, 185, 129, 0.65); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1); }
-.reservation-card--transit.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(245, 158, 11, 0.65); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.1); }
-.reservation-card--attraction.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(239, 68, 68, 0.65); box-shadow: 0 6px 16px rgba(239, 68, 68, 0.1); }
-.reservation-card--dining.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(59, 130, 246, 0.65); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.1); }
-.hotel-card.reservation-card--expanded:hover { border-color: rgba(16, 185, 129, 0.65) !important; background: rgba(30, 41, 59, 0.60); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1); }
+.reservation-card--dining:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-dining-rgb), 0.35); box-shadow: 0 6px 16px rgba(var(--type-dining-rgb), 0.1); }
+.reservation-card--hotel.reservation-card--expanded { border-color: var(--type-hotel); box-shadow: none; }
+.reservation-card--transit.reservation-card--expanded { border-color: var(--type-transit); box-shadow: none; }
+.reservation-card--attraction.reservation-card--expanded { border-color: var(--type-attraction); box-shadow: none; }
+.reservation-card--dining.reservation-card--expanded { border-color: var(--type-dining); box-shadow: none; }
+.hotel-card.reservation-card--expanded { box-shadow: none; border-color: var(--type-hotel); }
+.transport-card.reservation-card--expanded { box-shadow: none; border-color: var(--type-transit); }
+.transport-card.transport-card--attraction.reservation-card--expanded { box-shadow: none; border-color: var(--type-attraction); }
+.transport-card.transport-card--dining.reservation-card--expanded { box-shadow: none; border-color: var(--type-dining); }
+.reservation-card--hotel.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-hotel-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-hotel-rgb), 0.1); }
+.reservation-card--transit.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-transit-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-transit-rgb), 0.1); }
+.reservation-card--attraction.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-attraction-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-attraction-rgb), 0.1); }
+.reservation-card--dining.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-dining-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-dining-rgb), 0.1); }
+.hotel-card.reservation-card--expanded:hover { border-color: rgba(var(--type-hotel-rgb), 0.65) !important; background: rgba(30, 41, 59, 0.60); box-shadow: 0 6px 16px rgba(var(--type-hotel-rgb), 0.1); }
 .reservation-card--clickable { cursor: pointer; }
 .reservation-card-title { font-size: 12px; color: var(--text-primary); }
 .reservation-card-meta { font-size: 10px; color: var(--text-secondary); display: block; margin-top: 2px; }
