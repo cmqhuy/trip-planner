@@ -212,22 +212,40 @@ File sizes as of the last audit. Read these before adding features — these are
 
 > **CRITICAL**: BEFORE writing code for any new component, modal, dialog, form, or section, you MUST inspect existing reference implementations (`HotelModal.tsx`, `TransportModal.tsx`, `ReservationsSection.tsx`, `index.css`) line-by-line first.
 
-1. **Modal & Form Alignment**: Always copy exact form layout patterns (`.form-row` 2-column grid, `.place-form-label`, mandatory `*` indicators, `<RotateCcw />` undo buttons, portal dropdowns via `createPortal`). Never write simplified custom layouts or omit standard form controls.
-2. **Drive Attachments & Sub-Sections**: Sub-sections (such as Attachments or Expenses) must reuse the exact established JSX, CSS classes, tooltips, and drive modal flows (`useDriveAttachments`, `removePrompt`, `ShareTripModal`, `ConfirmationModal`).
+1. **Prefer the shared components below** over re-implementing a modal shell, notes editor, attachments block, combo box, undo button, or manual-prompt flow. See "Shared Controls" for the canonical list.
+2. **Modal & Form Alignment**: Always copy exact form layout patterns (`.form-row` 2-column grid, `.place-form-label`, mandatory `*` indicators, `<UndoButton />` / `undoButton()` undo affordance, portal combos via `<ComboBox>`). Never write simplified custom layouts or omit standard form controls.
 3. **Prop Routing & State Preservation**: When refactoring or extracting parent components (such as accordion containers), systematically trace and forward all state props (e.g. `selectedDateStr`, `activeDayStr`) to ensure active day highlighting and UI indicators remain 100% intact.
 
-| Purpose | Context | CSS classes |
+| Purpose | Context | CSS classes / component |
 |---------|---------|-------------|
 | Card title | Catalog | `.catalog-place-title` |
 | Card title | Day view | `.place-title-text` |
 | Secondary text | Catalog | `.catalog-place-desc` |
 | Secondary text | Day view | `.place-desc-text` |
 | Date tags | Catalog / Reservations | `.catalog-allocated-days` / `.catalog-day-tag` / `.catalog-day-tag--active` |
-| Notes (view+edit) | Catalog | `.catalog-notes-box`, `.catalog-notes-label`, `.catalog-notes-textarea`, `.catalog-notes-actions` |
-| Notes (view) | Day view | `.place-note-wrapper` |
-| Notes (edit) | Day view | `.place-notes-btn-wrapper`, `.place-notes-textarea`, `.place-notes-actions` |
+| Notes (all surfaces) | Everywhere | Use **`<InlineNotes>`** — do not re-implement. It emits the canonical `.notes-box` / `.notes-label` / `.notes-textarea` / `.notes-actions` / `.notes-text` / `.notes-text-wrapper` markup. `layout="card"` for catalog + left-panel reservations; `layout="compact"` for day-view cards. |
 | Expand/collapse wrapper | All cards | `.card-expandable-wrapper` + `.is-expanded` on the wrapper |
 | Expand/collapse chevron | All cards | `<ChevronDown className={`expand-chevron${open ? ' is-open' : ''}`} />` |
+
+---
+
+## Shared Controls (reuse these — do not re-implement)
+
+| Concern | Use | Notes |
+|---|---|---|
+| Inline notes editor | `InlineNotes` (`src/components/InlineNotes.tsx`) | Self-managed draft state + `onSave(text)`; `layout` = `card`/`compact`; `onEditingChange` for drag-disable. |
+| Reservation attachments | `useReservationAttachments` (`src/utils/useReservationAttachments.ts`) + `<AttachmentsSection>` | Hook wraps `useDriveAttachments` + shared AI file-fill (base64 upload/extract) + `aiError`/`showAccessError`/`isAiFilling` and the three-mode gating. Component renders the section + remove/access/share sub-modals. Pass `generateFromFiles` + `applyResult`. |
+| Expense line items | `ExpensesSection` (`src/components/ExpensesSection.tsx`) | `expenses` + `onChange`. Owns the currency combo. |
+| Modal shell | `Modal` (`src/components/Modal.tsx`) | Overlay + `.modal-content glass-panel scrollable` + header. **Always scrollable — never hand-roll the overlay/header again.** `maxWidth` prop for width. |
+| Selection combo box | `ComboBox` (`src/components/ComboBox.tsx`) | Portal-based, outside-click dismiss, `options: {value,label,icon?,iconColor?}`. Use for status/type/etc. (Searchable timezone + bespoke catalog-place + linked expense-group combos remain custom.) |
+| Reservation status options | `STATUS_OPTIONS` (`src/constants/reservations.ts`) | Shared `{value,label,icon}` list + `ReservationStatus` type. |
+| Undo / restore button | `undoButton(current, saved, onRestore)` (`src/components/UndoButton.tsx`) | Import `as undoBtn`; returns null when unchanged. |
+| Manual-mode AI prompt | `useManualPrompt` (`src/utils/useManualPrompt.tsx`) | Returns `{ showManualPrompt, manualPromptModal }`; pass `showManualPrompt` to `runAiCall`, render `{manualPromptModal}`. |
+| Geocoding | `geocodeAddress(address)` (`src/utils/api.ts`) | OSM Nominatim, 5s timeout. |
+
+**AI file-fill prompts** (`ai.ts`): the three `build*DetailsFromFilesPrompt` methods share the intro sentence via `fileUploadIntro(subject)` but keep their own type-specific extraction rules and examples. Preserve that split when adding a new one.
+
+**Modal adoption is incremental**: `Modal`, `ComboBox`, and `InlineNotes` are adopted across the reservation-family modals and surfaces; remaining modals should migrate to `Modal` the same mechanical way (replace the overlay/header wrapper, drop the `X` import) when next touched.
 
 ---
 
@@ -256,6 +274,17 @@ Glassmorphism dark theme. Key CSS variables from `index.css`:
 | `--border-glass` | `rgba(255, 255, 255, 0.08)` |
 
 **Glassmorphism rule**: `background: rgba(255,255,255,0.03)`, `border: 1px solid rgba(255,255,255,0.08)`, `backdrop-filter: blur(12px)`.
+
+**Per-reservation-type colors** — defined once in `:root`; use these for anything that represents a reservation *type* (card hover/expanded borders, type badges, type icons). Do **not** re-type the raw hex/rgba, and do **not** reuse the generic semantic colors (`--color-danger` etc.) for type meaning.
+
+| Type | Token (solid) | Channel triple (for rgba tints) |
+|---|---|---|
+| Hotel | `--type-hotel` (`#4ade80`) | `--type-hotel-rgb` (`16, 185, 129`) |
+| Transit | `--type-transit` (`#fb923c`) | `--type-transit-rgb` (`245, 158, 11`) |
+| Attraction | `--type-attraction` (`#f87171`) | `--type-attraction-rgb` (`239, 68, 68`) |
+| Dining | `--type-dining` (`#60a5fa`) | `--type-dining-rgb` (`59, 130, 246`) |
+
+Tint usage: `rgba(var(--type-hotel-rgb), 0.35)`. Solid border: `border-color: var(--type-hotel)`.
 
 ### Shared Layout Classes
 
