@@ -41,6 +41,9 @@
   --type-dining-rgb: 59, 130, 246;     /* blue */
   --type-dining: #60a5fa;
 
+  /* Shared card hover transition (catalog / timeline / transport / reservation cards). */
+  --card-transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
@@ -796,7 +799,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   border-radius: 8px;
   background: rgba(30, 41, 59, 0.45);
   border: 1px solid var(--border-glass);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+  transition: var(--card-transition);
   cursor: grab;
 }
 
@@ -1167,7 +1170,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+  transition: var(--card-transition);
 }
 
 .timeline-place-card--active {
@@ -1237,7 +1240,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+  transition: var(--card-transition);
 }
 
 .transport-card:hover {
@@ -1331,7 +1334,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+  transition: var(--card-transition);
 }
 
 .hotel-card:hover {
@@ -2790,7 +2793,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .ai-day-assistant-card {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-radius: 12px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+  transition: var(--card-transition);
   padding: 12px 14px;
   margin: 0;
   background: rgba(30, 41, 59, 0.45);
@@ -4243,7 +4246,7 @@ div.google-auth-avatar-desktop {
 
 /* ReservationsSection */
 .reservations-inner { display: flex; flex-direction: column; }
-.reservation-card { padding: 8px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease; position: relative; z-index: 0; }
+.reservation-card { padding: 8px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: var(--card-transition); position: relative; z-index: 0; }
 .reservation-card:hover { border-color: rgba(255, 255, 255, 0.15); background: rgba(30, 41, 59, 0.35); z-index: 10; }
 .reservation-card--hotel { background: rgba(30, 41, 59, 0.45); }
 .reservation-card--hotel:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-hotel-rgb), 0.35); box-shadow: 0 6px 16px rgba(var(--type-hotel-rgb), 0.1); }
