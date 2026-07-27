@@ -3518,6 +3518,16 @@ div.google-auth-avatar-desktop {
   .transport-card {
     padding: 8px !important;
   }
+  /* Pull the reservation card's chevron/options panel flush into the top-right
+     corner so it matches the place card's mobile options button, which is
+     absolutely pinned at top:0 right:0 (ignoring padding). These cards carry a
+     global 14px 16px padding override (see the unified overrides block), so the
+     panel must offset the full 16px right / 14px top padding to sit flush. */
+  .hotel-card-right-actions,
+  .transport-card-right-actions {
+    margin-top: -8px;
+    margin-right: -16px;
+  }
   .reservation-card-expand,
   .reservation-card-expanded-content {
     padding: 8px !important;
@@ -3617,7 +3627,9 @@ div.google-auth-avatar-desktop {
     min-height: 32px !important;
   }
   .catalog-place-card .mini-icon-btn,
-  .timeline-card .mini-icon-btn {
+  .timeline-card .mini-icon-btn,
+  .hotel-card .mini-icon-btn,
+  .transport-card .mini-icon-btn {
     min-width: 32px !important;
     min-height: 32px !important;
   }
