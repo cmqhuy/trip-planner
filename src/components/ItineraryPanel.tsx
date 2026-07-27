@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
+import { InlineNotes } from './InlineNotes';
 import { computeMergePartners } from '../utils/scheduleMerge';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { isPlaceReservationUnlinkedOrDeleted } from '../utils/reservationWarnings';
@@ -267,23 +268,12 @@ function ItineraryPanel({
   onToggleNoHotel,
 }: ItineraryPanelProps) {
 
+  // Tracks which schedule place card is editing its notes, so the card can
+  // disable drag while notes are being edited (see draggable below). Driven by
+  // InlineNotes.onEditingChange — no textarea refs needed.
   const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
-  const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
-  const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
-  const [editingPlaceReservationNoteId, setEditingPlaceReservationNoteId] = useState<string | null>(null);
 
-  const startEditingNotes = (place: Place) => {
-    setEditingPlaceNotesId(place.id);
-  };
-
-  const placeNotesTextareaRef = useRef<HTMLTextAreaElement>(null);
-  // Separate ref for the mobile full-width notes editor (dual-rendered alongside
-  // the inline desktop editor); each slot's Save reads its own textarea.
-  const placeNotesMobileTextareaRef = useRef<HTMLTextAreaElement>(null);
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const hotelNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const transitNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const placeReservationNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [hoveredScheduleItemIndex, setHoveredScheduleItemIndex] = useState<number | null>(null);
   const [editingNoteItemIndex, setEditingNoteItemIndex] = useState<number | null>(null);
@@ -1008,22 +998,13 @@ function ItineraryPanel({
               {/* Inline notes slot (desktop): hidden on mobile in favor of the
                   full-width card-level slot below. */}
               <div className="place-notes-slot place-notes-slot--inline">
-                {editingPlaceNotesId === place.id ? (
-                  <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                    <textarea ref={placeNotesTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
-                    <div className="notes-actions">
-                      <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
-                      <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place.id, placeNotesTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }}><Check size={10} /> Save</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="notes-text-wrapper" style={{ marginTop: '4px', paddingRight: '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
-                    <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
-                      <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                      <span>{place.notes || 'Add notes...'}</span>
-                    </div>
-                  </div>
-                )}
+                <InlineNotes
+                  value={place.notes}
+                  canEdit={canEdit}
+                  layout="compact"
+                  onSave={(text) => savePlaceNotes(place.id, text)}
+                  onEditingChange={(e) => setEditingPlaceNotesId(e ? place.id : null)}
+                />
               </div>
             </div>
           </div>
@@ -1053,26 +1034,13 @@ function ItineraryPanel({
             reservation card), instead of being indented inside the thumbnail
             column. Hidden on desktop; the inline slot above is hidden on mobile. */}
         <div className="place-notes-slot place-notes-slot--mobile">
-          {editingPlaceNotesId === place.id ? (
-            <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-              <textarea ref={placeNotesMobileTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
-              <div className="notes-actions">
-                <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
-                <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place.id, placeNotesMobileTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }}><Check size={10} /> Save</button>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="notes-text-wrapper"
-              style={{ marginTop: '4px', paddingRight: '0', cursor: canEdit ? 'pointer' : undefined }}
-              onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}
-            >
-              <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
-                <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                <span>{place.notes || 'Add notes...'}</span>
-              </div>
-            </div>
-          )}
+          <InlineNotes
+            value={place.notes}
+            canEdit={canEdit}
+            layout="compact"
+            onSave={(text) => savePlaceNotes(place.id, text)}
+            onEditingChange={(e) => setEditingPlaceNotesId(e ? place.id : null)}
+          />
         </div>
 
         {/* Mobile dropdown */}
@@ -1477,7 +1445,6 @@ function ItineraryPanel({
               {sortHotels(getHotelsForDay(activeDayStr))
                 .map(h => {
                   const isExpanded = expandedHotelId === h.id;
-                  const isEditingNote = editingHotelNoteId === h.id;
                 return (
                   <div key={h.id} className={`hotel-card${isExpanded ? ' reservation-card--expanded' : ''}${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
@@ -1584,38 +1551,13 @@ function ItineraryPanel({
                     </div>
 
                     {/* Notes — always visible */}
-                    {isEditingNote ? (
-                      <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                        <textarea
-                          ref={hotelNoteTextareaRef}
-                          defaultValue={h.notes || ''}
-                          placeholder="Add notes..."
-                          rows={4}
-                          className="notes-textarea"
-                        />
-                        <div className="notes-actions">
-                          <button className="btn-secondary place-notes-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
-                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveHotelNotes(h.id, hotelNoteTextareaRef.current?.value ?? ''); setEditingHotelNoteId(null); }}>
-                            <Check size={10} /> Save
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="notes-text-wrapper"
-                        style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
-                        onClick={trip.canEdit !== false ? (e) => {
-                          e.stopPropagation();
-                          setEditingHotelNoteId(h.id);
-                          setEditingTransitNoteId(null);
-                        } : undefined}
-                      >
-                        <div className={`notes-text ${h.notes ? 'has-content' : 'no-content'}`}>
-                          <FileText size={13} style={{ marginTop: '2px', color: h.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                          <span>{h.notes || 'Add notes...'}</span>
-                        </div>
-                      </div>
-                    )}
+                    <InlineNotes
+                      value={h.notes}
+                      canEdit={trip.canEdit !== false}
+                      layout="compact"
+                      onSave={(text) => handleSaveHotelNotes(h.id, text)}
+                      reserveActionSpace
+                    />
                   </div>
                 );
               })}
@@ -1701,7 +1643,6 @@ function ItineraryPanel({
                   const isDeparture = t.departureDate === activeDayStr;
                   const isArrival = t.arrivalDate === activeDayStr;
                   const isExpanded = expandedTransitId === t.id;
-                  const isEditingNote = editingTransitNoteId === t.id;
                 const transitName = t.reservationName || `${t.departureLocationName} → ${t.arrivalLocationName}`;
                 const carrierLine = [t.carrier, t.transitCode].filter(Boolean).join(' · ');
                 const depTzLabel = t.departureTimezone ? ` (${formatTzOffset(t.departureTimezone)})` : '';
@@ -1866,38 +1807,13 @@ function ItineraryPanel({
                     </div>
 
                     {/* Notes — always visible */}
-                    {isEditingNote ? (
-                      <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                        <textarea
-                          ref={transitNoteTextareaRef}
-                          defaultValue={t.notes || ''}
-                          placeholder="Add notes..."
-                          rows={4}
-                          className="notes-textarea"
-                        />
-                        <div className="notes-actions">
-                          <button className="btn-secondary place-notes-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                          <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSaveTransportNotes(t.reservationId, transitNoteTextareaRef.current?.value ?? ''); setEditingTransitNoteId(null); }}>
-                            <Check size={10} /> Save
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="notes-text-wrapper"
-                        style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
-                        onClick={trip.canEdit !== false ? (e) => {
-                          e.stopPropagation();
-                          setEditingTransitNoteId(t.id);
-                          setEditingHotelNoteId(null);
-                        } : undefined}
-                      >
-                        <div className={`notes-text ${t.notes ? 'has-content' : 'no-content'}`}>
-                          <FileText size={13} style={{ marginTop: '2px', color: t.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                          <span>{t.notes || 'Add notes...'}</span>
-                        </div>
-                      </div>
-                    )}
+                    <InlineNotes
+                      value={t.notes}
+                      canEdit={trip.canEdit !== false}
+                      layout="compact"
+                      onSave={(text) => handleSaveTransportNotes(t.reservationId, text)}
+                      reserveActionSpace
+                    />
                   </div>
                 );
               })}
@@ -1933,7 +1849,6 @@ function ItineraryPanel({
                     const expandedResId = pr.type === 'dining' ? expandedDiningReservationId : expandedAttractionReservationId;
                     const setExpandedResId = pr.type === 'dining' ? setExpandedDiningReservationId : setExpandedAttractionReservationId;
                     const isExpanded = expandedResId === pr.id;
-                    const isEditingNote = editingPlaceReservationNoteId === pr.id;
                     const isDeletedPlace = isPlaceReservationUnlinkedOrDeleted(pr.placeId, trip);
                     const iconColor = pr.type === 'attraction' ? '#ef4444' : '#3b82f6';
                     const IconComp = pr.type === 'attraction' ? Landmark : Utensils;
@@ -2044,37 +1959,13 @@ function ItineraryPanel({
                         </div>
 
                         {/* Notes — always visible */}
-                        {isEditingNote ? (
-                          <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                            <textarea
-                              ref={placeReservationNoteTextareaRef}
-                              defaultValue={pr.notes || ''}
-                              placeholder="Add notes..."
-                              rows={4}
-                              className="notes-textarea"
-                            />
-                            <div className="notes-actions">
-                              <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceReservationNoteId(null)}>Cancel</button>
-                              <button className="btn-primary flex-align place-notes-btn" onClick={() => { handleSavePlaceReservationNotes(pr.id, placeReservationNoteTextareaRef.current?.value ?? ''); setEditingPlaceReservationNoteId(null); }}>
-                                <Check size={10} /> Save
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div
-                            className="notes-text-wrapper"
-                            style={{ marginTop: '0', paddingRight: trip.canEdit !== false ? '22px' : '0', cursor: trip.canEdit !== false ? 'pointer' : undefined }}
-                            onClick={trip.canEdit !== false ? (e) => {
-                              e.stopPropagation();
-                              setEditingPlaceReservationNoteId(pr.id);
-                            } : undefined}
-                          >
-                            <div className={`notes-text ${pr.notes ? 'has-content' : 'no-content'}`}>
-                              <FileText size={13} style={{ marginTop: '2px', color: pr.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                              <span>{pr.notes || 'Add notes...'}</span>
-                            </div>
-                          </div>
-                        )}
+                        <InlineNotes
+                          value={pr.notes}
+                          canEdit={trip.canEdit !== false}
+                          layout="compact"
+                          onSave={(text) => handleSavePlaceReservationNotes(pr.id, text)}
+                          reserveActionSpace
+                        />
                       </div>
                     );
                   })}

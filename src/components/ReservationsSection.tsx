@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Plane, Building, AlertTriangle, MapPin, Hash,
   Edit2, Trash2, Check, Timer, X, Calendar,
-  Train, Bus, Car, Anchor, Navigation, FileText,
+  Train, Bus, Car, Anchor, Navigation,
   MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
   Plus, Sparkles, ChevronUp, ChevronDown, Landmark, Utensils
 } from 'lucide-react';
+import { InlineNotes } from './InlineNotes';
 import type { Trip, Plan, Hotel, TransportationReservation, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
@@ -166,14 +167,6 @@ export default function ReservationsSection({
   setActiveReservationGroupDropdownId,
   formatDisplayDate,
 }: ReservationsSectionProps) {
-  const [editingHotelNoteId, setEditingHotelNoteId] = useState<string | null>(null);
-  const [editingTransitNoteId, setEditingTransitNoteId] = useState<string | null>(null);
-  const [editingPlaceReservationNoteId, setEditingPlaceReservationNoteId] = useState<string | null>(null);
-  const [editingGenericReservationNoteId, setEditingGenericReservationNoteId] = useState<string | null>(null);
-  const [editingHotelNotesText, setEditingHotelNotesText] = useState('');
-  const [editingTransitNotesText, setEditingTransitNotesText] = useState('');
-  const [editingPlaceReservationNotesText, setEditingPlaceReservationNotesText] = useState('');
-  const [editingGenericReservationNotesText, setEditingGenericReservationNotesText] = useState('');
   const [expandedGenericReservationId, setExpandedGenericReservationId] = useState<string | null>(null);
   const [openTransitMapId, setOpenTransitMapId] = useState<string | null>(null);
   const [openCardOptionsMenuId, setOpenCardOptionsMenuId] = useState<string | null>(null);
@@ -202,34 +195,6 @@ export default function ReservationsSection({
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [setActiveReservationGroupDropdownId]);
-
-  useEffect(() => {
-    if (editingHotelNoteId) {
-      const h = activePlan.hotels.find(h => h.id === editingHotelNoteId);
-      setEditingHotelNotesText(h?.notes ?? '');
-    }
-  }, [editingHotelNoteId, activePlan.hotels]);
-
-  useEffect(() => {
-    if (editingTransitNoteId) {
-      const reservation = activePlan.transports.find(r => r.id === editingTransitNoteId);
-      setEditingTransitNotesText(reservation?.notes ?? '');
-    }
-  }, [editingTransitNoteId, activePlan.transports]);
-
-  useEffect(() => {
-    if (editingPlaceReservationNoteId) {
-      const pr = (activePlan.placeReservations || []).find(p => p.id === editingPlaceReservationNoteId);
-      setEditingPlaceReservationNotesText(pr?.notes ?? '');
-    }
-  }, [editingPlaceReservationNoteId, activePlan.placeReservations]);
-
-  useEffect(() => {
-    if (editingGenericReservationNoteId) {
-      const r = (genericReservations || []).find(g => g.id === editingGenericReservationNoteId);
-      setEditingGenericReservationNotesText(r?.notes ?? '');
-    }
-  }, [editingGenericReservationNoteId, genericReservations]);
 
   const saveHotelNotes = (hotel: Hotel, text: string) =>
     onEditHotel({ ...hotel, notes: text.trim() || undefined });
@@ -344,29 +309,12 @@ export default function ReservationsSection({
                     <span className={`reservation-status-text-badge reservation-status-badge--${(h.status || 'Planning').toLowerCase()}`}>{h.status || 'Planning'}</span>
                   </div>
                   <div className="reservation-card-notes-wrap">
-                    <div className="notes-box">
-                      <label className="notes-label">
-                        <FileText size={11} /> Notes
-                        {trip.canEdit !== false && editingHotelNoteId !== h.id && (
-                          <button className="mini-icon-btn notes-edit-btn" onClick={e => { e.stopPropagation(); setEditingHotelNoteId(h.id); setEditingTransitNoteId(null); setEditingHotelNotesText(h.notes ?? ''); }} data-tooltip="Edit notes">
-                            <Edit2 size={12} />
-                          </button>
-                        )}
-                      </label>
-                      {editingHotelNoteId === h.id ? (
-                        <div className="notes-edit-wrapper">
-                          <textarea className="notes-textarea" rows={3} value={editingHotelNotesText} onChange={e => setEditingHotelNotesText(e.target.value)} placeholder="Add notes..." />
-                          <div className="notes-actions">
-                            <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingHotelNoteId(null)}>Cancel</button>
-                            <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveHotelNotes(h, editingHotelNotesText); setEditingHotelNoteId(null); }}>
-                              <Check size={12} /> Save Notes
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className={`notes-text ${h.notes ? 'has-content' : 'no-content'}`}>{h.notes || 'No notes added yet.'}</span>
-                      )}
-                    </div>
+                    <InlineNotes
+                      value={h.notes}
+                      canEdit={trip.canEdit !== false}
+                      onSave={(text) => saveHotelNotes(h, text)}
+                      layout="card"
+                    />
                   </div>
                 </div>
               </div>
@@ -519,29 +467,12 @@ export default function ReservationsSection({
                     <span className="place-desc-text">Arrival: {t.arrivalAddress || t.arrivalLocationName}</span>
                   </a>
                   <div className="reservation-card-notes-wrap">
-                    <div className="notes-box">
-                      <label className="notes-label">
-                        <FileText size={11} /> Notes
-                        {trip.canEdit !== false && editingTransitNoteId !== t.reservationId && (
-                          <button className="mini-icon-btn notes-edit-btn" onClick={e => { e.stopPropagation(); setEditingTransitNoteId(t.reservationId); setEditingHotelNoteId(null); setEditingTransitNotesText(t.notes ?? ''); }} data-tooltip="Edit notes">
-                            <Edit2 size={12} />
-                          </button>
-                        )}
-                      </label>
-                      {editingTransitNoteId === t.reservationId ? (
-                        <div className="notes-edit-wrapper">
-                          <textarea className="notes-textarea" rows={3} value={editingTransitNotesText} onChange={e => setEditingTransitNotesText(e.target.value)} placeholder="Add notes..." />
-                          <div className="notes-actions">
-                            <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingTransitNoteId(null)}>Cancel</button>
-                            <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveTransportNotes(t.reservationId, editingTransitNotesText); setEditingTransitNoteId(null); }}>
-                              <Check size={12} /> Save Notes
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className={`notes-text ${t.notes ? 'has-content' : 'no-content'}`}>{t.notes || 'No notes added yet.'}</span>
-                      )}
-                    </div>
+                    <InlineNotes
+                      value={t.notes}
+                      canEdit={trip.canEdit !== false}
+                      onSave={(text) => saveTransportNotes(t.reservationId, text)}
+                      layout="card"
+                    />
                   </div>
                 </div>
               </div>
@@ -724,29 +655,12 @@ export default function ReservationsSection({
                   <span className={`reservation-status-text-badge reservation-status-badge--${(pr.status || 'Planning').toLowerCase()}`}>{pr.status || 'Planning'}</span>
                 </div>
                 <div className="reservation-card-notes-wrap">
-                  <div className="notes-box">
-                    <label className="notes-label">
-                      <FileText size={11} /> Notes
-                      {trip.canEdit !== false && editingPlaceReservationNoteId !== pr.id && (
-                        <button className="mini-icon-btn notes-edit-btn" onClick={e => { e.stopPropagation(); setEditingPlaceReservationNoteId(pr.id); setEditingHotelNoteId(null); setEditingTransitNoteId(null); setEditingPlaceReservationNotesText(pr.notes ?? ''); }} data-tooltip="Edit notes">
-                          <Edit2 size={12} />
-                        </button>
-                      )}
-                    </label>
-                    {editingPlaceReservationNoteId === pr.id ? (
-                      <div className="notes-edit-wrapper">
-                        <textarea className="notes-textarea" rows={3} value={editingPlaceReservationNotesText} onChange={e => setEditingPlaceReservationNotesText(e.target.value)} placeholder="Add notes..." />
-                        <div className="notes-actions">
-                          <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingPlaceReservationNoteId(null)}>Cancel</button>
-                          <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { savePlaceReservationNotes(pr, editingPlaceReservationNotesText); setEditingPlaceReservationNoteId(null); }}>
-                            <Check size={12} /> Save Notes
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className={`notes-text ${pr.notes ? 'has-content' : 'no-content'}`}>{pr.notes || 'No notes added yet.'}</span>
-                    )}
-                  </div>
+                  <InlineNotes
+                    value={pr.notes}
+                    canEdit={trip.canEdit !== false}
+                    onSave={(text) => savePlaceReservationNotes(pr, text)}
+                    layout="card"
+                  />
                 </div>
               </div>
             </div>
@@ -849,29 +763,12 @@ export default function ReservationsSection({
                   <span className={`reservation-status-text-badge reservation-status-badge--${(r.status || 'Planning').toLowerCase()}`}>{r.status || 'Planning'}</span>
                 </div>
                 <div className="reservation-card-notes-wrap">
-                  <div className="notes-box">
-                    <label className="notes-label">
-                      <FileText size={11} /> Notes
-                      {trip.canEdit !== false && editingGenericReservationNoteId !== r.id && (
-                        <button className="mini-icon-btn notes-edit-btn" onClick={e => { e.stopPropagation(); setEditingGenericReservationNoteId(r.id); setEditingGenericReservationNotesText(r.notes ?? ''); }} data-tooltip="Edit notes">
-                          <Edit2 size={12} />
-                        </button>
-                      )}
-                    </label>
-                    {editingGenericReservationNoteId === r.id ? (
-                      <div className="notes-edit-wrapper">
-                        <textarea className="notes-textarea" rows={3} value={editingGenericReservationNotesText} onChange={e => setEditingGenericReservationNotesText(e.target.value)} placeholder="Add notes..." />
-                        <div className="notes-actions">
-                          <button className="btn-secondary catalog-place-action-btn" onClick={() => setEditingGenericReservationNoteId(null)}>Cancel</button>
-                          <button className="btn-primary flex-align catalog-place-action-btn" onClick={() => { saveGenericReservationNotes(r, editingGenericReservationNotesText); setEditingGenericReservationNoteId(null); }}>
-                            <Check size={12} /> Save Notes
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className={`notes-text ${r.notes ? 'has-content' : 'no-content'}`}>{r.notes || 'No notes added yet.'}</span>
-                    )}
-                  </div>
+                  <InlineNotes
+                    value={r.notes}
+                    canEdit={trip.canEdit !== false}
+                    onSave={(text) => saveGenericReservationNotes(r, text)}
+                    layout="card"
+                  />
                 </div>
               </div>
             </div>

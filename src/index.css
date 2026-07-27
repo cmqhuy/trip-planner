@@ -4710,6 +4710,22 @@ input[type="number"] { -moz-appearance: textfield; }
   position: relative;
 }
 
+.notes-text-wrapper.is-clickable {
+  cursor: pointer;
+}
+
+/* Reserve room on the right so day-view reservation notes clear the card's
+   overlapping options (···) menu. */
+.notes-text-wrapper--pad-action {
+  padding-right: 22px;
+}
+
+/* Leading icon in the compact read view: don't shrink, align with first line. */
+.notes-text > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
 /* Place-card notes: the full-width mobile slot is mobile-only (see the max-width
    media query, which hides the inline slot and reveals this instead). */
 .place-notes-slot--mobile {

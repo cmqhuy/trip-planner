@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import LocationSelect from './LocationSelect';
+import { InlineNotes } from './InlineNotes';
 import {
   MapPin, Plus, Edit2, ChevronUp, ChevronDown,
-  Clock, FileText, Sparkles, MoreVertical, Check, RefreshCw, ExternalLink, Eye, EyeOff
+  Clock, Sparkles, MoreVertical, RefreshCw, ExternalLink, Eye, EyeOff
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, PlaceGroup } from '../types';
 import { DEFAULT_PLACE_GROUPS, buildMapsLink } from '../utils/api';
@@ -110,13 +111,6 @@ function CatalogSection({
   onAiSuggestPlaces
 }: CatalogSectionProps) {
   const [activePlaceDropdownId, setActivePlaceDropdownId] = useState<string | null>(null);
-  const [editingPlaceNotesId, setEditingPlaceNotesId] = useState<string | null>(null);
-  const [localNotes, setLocalNotes] = useState('');
-
-  const startEditingNotes = (place: Place) => {
-    setEditingPlaceNotesId(place.id);
-    setLocalNotes(place.notes || '');
-  };
 
   const aiSuggestionsRef = useRef<HTMLDivElement>(null);
 
@@ -592,54 +586,12 @@ function CatalogSection({
                             {place.description && <p className="catalog-place-desc">{place.description}</p>}
 
                             {/* Notes Field (Shared at Trip level) */}
-                            <div className="notes-box">
-                              <label className="notes-label">
-                                <FileText size={11} /> Notes
-                                {trip.canEdit !== false && editingPlaceNotesId !== place.id && (
-                                  <button
-                                    className="mini-icon-btn notes-edit-btn"
-                                    onClick={() => startEditingNotes(place)}
-                                    data-tooltip="Edit Note"
-                                    aria-label="Edit Note"
-                                  >
-                                    <Edit2 size={12} />
-                                  </button>
-                                )}
-                              </label>
-
-                              {editingPlaceNotesId === place.id && trip.canEdit !== false ? (
-                                <div className="notes-edit-wrapper">
-                                  <textarea
-                                    value={localNotes}
-                                    onChange={(e) => setLocalNotes(e.target.value)}
-                                    placeholder="Add notes..."
-                                    rows={3}
-                                    className="notes-textarea"
-                                  />
-                                  <div className="notes-actions">
-                                    <button
-                                      className="btn-secondary catalog-place-action-btn"
-                                      onClick={() => setEditingPlaceNotesId(null)}
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      className="btn-primary flex-align catalog-place-action-btn"
-                                      onClick={() => {
-                                        savePlaceNotes(place.id, localNotes);
-                                        setEditingPlaceNotesId(null);
-                                      }}
-                                    >
-                                      <Check size={12} /> Save Notes
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
-                                  {place.notes || 'No notes added yet.'}
-                                </span>
-                              )}
-                            </div>
+                            <InlineNotes
+                              value={place.notes}
+                              canEdit={trip.canEdit !== false}
+                              onSave={(text) => savePlaceNotes(place.id, text)}
+                              layout="card"
+                            />
 
                             {/* Actions */}
                             <div className="catalog-place-actions-row">
