@@ -238,6 +238,7 @@ File sizes as of the last audit. Read these before adding features — these are
 | Expense line items | `ExpensesSection` (`src/components/ExpensesSection.tsx`) | `expenses` + `onChange`. Owns the currency combo. |
 | Modal shell | `Modal` (`src/components/Modal.tsx`) | Overlay + `.modal-content glass-panel scrollable` + header. **Always scrollable — never hand-roll the overlay/header again.** `maxWidth` prop for width. |
 | Selection combo box | `ComboBox` (`src/components/ComboBox.tsx`) | Portal-based, outside-click dismiss, `options: {value,label,icon?,iconColor?}`. Use for status/type/etc. (Searchable timezone + bespoke catalog-place + linked expense-group combos remain custom.) |
+| Place auto-populate search | `PlaceSearchBox` (`src/components/PlaceSearchBox.tsx`) | Debounced place-near-location search + Google-Maps-link paste + suggestions + outside-click. Pass `catalogLocation` + `onSelect`; `onQueryChange` to mirror the query. (Transport dep/arr panels + Location city search remain custom.) |
 | Reservation status options | `STATUS_OPTIONS` (`src/constants/reservations.ts`) | Shared `{value,label,icon}` list + `ReservationStatus` type. |
 | Undo / restore button | `undoButton(current, saved, onRestore)` (`src/components/UndoButton.tsx`) | Import `as undoBtn`; returns null when unchanged. |
 | Manual-mode AI prompt | `useManualPrompt` (`src/utils/useManualPrompt.tsx`) | Returns `{ showManualPrompt, manualPromptModal }`; pass `showManualPrompt` to `runAiCall`, render `{manualPromptModal}`. |
