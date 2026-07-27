@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Trash2, ChevronDown } from 'lucide-react';
+import { Trash2, ChevronDown } from 'lucide-react';
 import type { ExpenseGroup } from '../types';
+import Modal from './Modal';
 import { EXPENSE_ICONS, getExpenseGroupIcon } from '../utils/expenseUtils';
 import ColorPalette from './ColorPalette';
 
@@ -50,14 +51,7 @@ export default function ExpenseGroupModal({
   const isDefaultGroup = group ? (group.id === 'hotels' || group.id === 'transports' || group.id === 'attractions' || group.id === 'dining') : false;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{group ? 'Edit Expense Group' : 'Create Expense Group'}</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+    <Modal title={group ? 'Edit Expense Group' : 'Create Expense Group'} onClose={onClose}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Group Name</label>
@@ -183,7 +177,6 @@ export default function ExpenseGroupModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

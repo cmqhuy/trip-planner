@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { GenericReservation } from '../types';
+import Modal from './Modal';
 import { ComboBox } from './ComboBox';
 import { STATUS_OPTIONS, type ReservationStatus } from '../constants/reservations';
 
@@ -59,15 +60,7 @@ export default function GenericReservationModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel scrollable" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{reservation ? 'Edit Reservation Details' : 'Add Reservation Details'}</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal title={reservation ? 'Edit Reservation Details' : 'Add Reservation Details'} onClose={onClose}>
         <form onSubmit={handleSubmit}>
           <div className="modal-scroll-body">
           <div className="form-group">
@@ -158,7 +151,6 @@ export default function GenericReservationModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

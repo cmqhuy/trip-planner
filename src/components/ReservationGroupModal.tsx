@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Trash2, ChevronDown } from 'lucide-react';
+import { Trash2, ChevronDown } from 'lucide-react';
 import type { ReservationGroup } from '../types';
+import Modal from './Modal';
 import { EXPENSE_ICONS, getExpenseGroupIcon } from '../utils/expenseUtils';
 import ColorPalette from './ColorPalette';
 
@@ -58,14 +59,7 @@ export default function ReservationGroupModal({
   const isDefaultGroup = group ? (group.id === 'hotels' || group.id === 'transports' || group.id === 'attractions' || group.id === 'dining') : false;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{group ? 'Edit Reservation Group' : 'Create Reservation Group'}</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+    <Modal title={group ? 'Edit Reservation Group' : 'Create Reservation Group'} onClose={onClose}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Group Name</label>
@@ -191,7 +185,6 @@ export default function ReservationGroupModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

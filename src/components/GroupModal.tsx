@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { PlaceGroup } from '../types';
+import Modal from './Modal';
 import GroupFormFields from './GroupFormFields';
 
 interface GroupModalProps {
@@ -41,14 +42,7 @@ export default function GroupModal({ isOpen, onClose, group, onSave, onDelete }:
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{group ? 'Edit Group' : 'Create Group'}</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+    <Modal title={group ? 'Edit Group' : 'Create Group'} onClose={onClose}>
         <form onSubmit={handleSubmit}>
           <GroupFormFields 
             name={name} 
@@ -80,7 +74,6 @@ export default function GroupModal({ isOpen, onClose, group, onSave, onDelete }:
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
