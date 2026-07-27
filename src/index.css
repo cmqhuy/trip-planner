@@ -3022,7 +3022,7 @@ input[type="checkbox"].checklist-checkbox { width: 14px; height: 14px; margin: 2
 .reservation-add-to-schedule-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .reservation-add-to-schedule-btn { font-size: 10px; padding: 2px 6px; height: 20px; display: flex; align-items: center; gap: 3px; }
 .place-title-text { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
-.place-desc-text { font-size: 13px; color: var(--text-secondary); }
+.place-desc-text { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; }
 .place-notes-btn-wrapper { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .place-notes-textarea { padding: 6px; font-size: 12.5px; width: 100%; background: var(--bg-dark); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; text-transform: none; }
 .place-notes-actions { display: flex; gap: 6px; align-self: flex-end; }

@@ -996,7 +996,7 @@ function ItineraryPanel({
               <div className="place-title-row">
                 <h4 className="place-title-text">{place.title}</h4>
               </div>
-              <p className="place-desc-text">{place.description ? place.description.substring(0, 50) + '...' : 'Attraction'}</p>
+              <p className="place-desc-text">{place.description || 'Attraction'}</p>
               {editingPlaceNotesId === place.id ? (
                 <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
                   <textarea ref={placeNotesTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
