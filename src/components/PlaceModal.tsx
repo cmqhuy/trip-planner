@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { Search, Trash2, Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trash2, Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
 import Modal from './Modal';
 import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
-import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, fetchWikipediaData } from '../utils/api';
+import { buildMapsLink, fetchWikipediaData } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
+import PlaceSearchBox from './PlaceSearchBox';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { runAiCall } from '../utils/runAiCall';
 import { useManualPrompt } from '../utils/useManualPrompt';
@@ -52,12 +53,9 @@ export default function PlaceModal({
   const [aiError, setAiError] = useState<string | null>(null);
   const [suggestedMarkers, setSuggestedMarkers] = useState<SuggestedMarker[]>([]);
 
-  // Search auto-populate states
+  // Search query mirror (read by the "Fill with AI" button; the search box itself
+  // is <PlaceSearchBox>).
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const searchTimeoutRef = useRef<any>(null);
 
   // AI quick-fill states
   const [isAiQuickFilling, setIsAiQuickFilling] = useState(false);
@@ -69,7 +67,6 @@ export default function PlaceModal({
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
-      setSuggestions([]);
       setAiError(null);
       setIsAiGenerating(false);
       setAiQuickFillError(null);
@@ -112,61 +109,6 @@ export default function PlaceModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Handle auto-populate suggestions search with debounce
-  useEffect(() => {
-    setSearchError(null);
-    if (!searchQuery.trim() || searchQuery.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
-    const { isGoogleMapsUrl } = parseGoogleMapsUrl(searchQuery);
-    if (isGoogleMapsUrl) {
-      setIsSearching(true);
-      fetchPlaceFromGoogleMapsUrl(searchQuery, catalogLocation ?? undefined).then(({ place, error }) => {
-        setIsSearching(false);
-        if (error || !place) {
-          setSearchError(error ?? 'Could not extract place info from this link.');
-          return;
-        }
-        setTitle(place.title);
-        setDescription(place.description || '');
-        setOpeningHours(place.openingHours || '');
-        setLat(place.lat.toString());
-        setLng(place.lng.toString());
-        setMapsLink(place.mapsLink || searchQuery);
-        setPhotoUrl(place.photoUrl || '');
-        setNotes(place.notes || '');
-        setSearchQuery('');
-        setSuggestions([]);
-      });
-      return;
-    }
-
-    if (!catalogLocation) {
-      setSuggestions([]);
-      return;
-    }
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const results = await searchPlacesNearLocation(searchQuery, catalogLocation);
-        setSuggestions(results);
-      } catch (err) {
-        console.error('Failed to search places:', err);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 500);
-
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
-  }, [searchQuery, catalogLocation]);
-
   if (!isOpen) return null;
 
 
@@ -207,8 +149,6 @@ export default function PlaceModal({
           probe.src = aiResult.photoUrl;
         }
         setMapsLink(buildMapsLink(aiResult.title, aiResult.lat, aiResult.lng, city));
-        setSearchQuery('');
-        setSuggestions([]);
       },
       onError: (err) => setAiQuickFillError(err.message || 'Failed to generate place info with AI.'),
       onLoadingChange: setIsAiQuickFilling,
@@ -306,51 +246,20 @@ export default function PlaceModal({
               <span className="ai-error-text">{aiQuickFillError}</span>
             </div>
           )}
-          <div className="modal-search-container">
-            <Search size={14} className="modal-search-icon" />
-            <input
-              type="text"
-              placeholder="Type to search, or paste a Google Maps link..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="modal-search-input"
-            />
-            {isSearching && (
-              <div className="modal-search-loader">Searching...</div>
-            )}
-            {suggestions.length > 0 && (
-              <div className="modal-suggestions-panel">
-                {suggestions.map((sug) => (
-                  <div
-                    key={sug.id}
-                    className="modal-suggestion-item"
-                    onClick={() => {
-                      setTitle(sug.title);
-                      setDescription(sug.description || '');
-                      setOpeningHours(sug.openingHours || '');
-                      setLat(sug.lat.toString());
-                      setLng(sug.lng.toString());
-                      setMapsLink(sug.mapsLink || buildMapsLink(sug.title, sug.lat, sug.lng, catalogLocation?.city));
-                      setPhotoUrl(sug.photoUrl || '');
-                      setNotes(sug.notes || '');
-                      setSearchQuery('');
-                      setSuggestions([]);
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <div className="modal-suggestion-name">{sug.title}</div>
-                    <div className="modal-suggestion-desc">
-                      {sug.description}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {searchError && (
-            <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{searchError}</div>
-          )}
+          <PlaceSearchBox
+            catalogLocation={catalogLocation ?? undefined}
+            onQueryChange={setSearchQuery}
+            onSelect={(p, ctx) => {
+              setTitle(p.title);
+              setDescription(p.description || '');
+              setOpeningHours(p.openingHours || '');
+              setLat(p.lat.toString());
+              setLng(p.lng.toString());
+              setMapsLink(p.mapsLink || ctx.sourceUrl || buildMapsLink(p.title, p.lat, p.lng, catalogLocation?.city));
+              setPhotoUrl(p.photoUrl || '');
+              setNotes(p.notes || '');
+            }}
+          />
         </div>
 
         <form onSubmit={handleSubmit}>

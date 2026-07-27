@@ -4130,7 +4130,9 @@ div.google-auth-avatar-desktop {
 .modal-search-input { padding-left: 32px !important; padding-right: 12px; }
 .modal-search-loader { position: absolute; right: 10px; top: 12px; font-size: 10px; color: var(--text-muted); }
 .modal-suggestions-panel { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-panel); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border-glass); border-radius: 6px; margin-top: 6px; max-height: 150px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg); }
-.modal-suggestion-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 12px; text-transform: none; }
+.modal-suggestion-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 12px; text-transform: none; background: transparent; transition: background 0.15s ease; }
+.modal-suggestion-item:hover { background: rgba(255,255,255,0.05); }
+.modal-search-error { font-size: 11px; color: var(--color-danger); margin-top: 4px; }
 .modal-suggestion-name { font-weight: 600; color: var(--text-primary); }
 .modal-suggestion-desc { font-size: 10px; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 .modal-actions--between { justify-content: space-between; align-items: center; }

@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, RefreshCw, Trash2, MapPin, Search } from 'lucide-react';
-import type { Hotel, Location, Place, ExpenseLine } from '../types';
+import { Sparkles, RefreshCw, Trash2, MapPin } from 'lucide-react';
+import type { Hotel, Location, ExpenseLine } from '../types';
 import Modal from './Modal';
 import ExpensesSection from './ExpensesSection';
 import AttachmentsSection from './AttachmentsSection';
+import PlaceSearchBox from './PlaceSearchBox';
 import { undoButton as undoBtn } from './UndoButton';
 import { ComboBox } from './ComboBox';
 import { STATUS_OPTIONS } from '../constants/reservations';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import MapPicker from './MapPicker';
 import { useReservationAttachments } from '../utils/useReservationAttachments';
-import { parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation, geocodeAddress } from '../utils/api';
+import { geocodeAddress } from '../utils/api';
 
 interface HotelModalProps {
   isOpen: boolean;
@@ -71,13 +72,6 @@ export default function HotelModal({
   const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
 
   const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
-
-  // Auto-populate states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<(Omit<Place, 'placeGroupId'> & { address?: string })[]>([]);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const autofillInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,79 +149,9 @@ export default function HotelModal({
       setAiError(null);
       setRemovePrompt(null);
       setShowAccessError(false);
-      setSearchQuery('');
-      setSuggestions([]);
-      setSearchError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
-
-  // Handle auto-populate suggestions search with debounce
-  useEffect(() => {
-    if (searchError) {
-      setSearchError(null);
-    }
-    if (!searchQuery.trim() || searchQuery.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
-    const { isGoogleMapsUrl } = parseGoogleMapsUrl(searchQuery);
-    if (isGoogleMapsUrl) {
-      setIsSearching(true);
-      fetchPlaceFromGoogleMapsUrl(searchQuery, catalogLocation ?? undefined).then(({ place, error }) => {
-        setIsSearching(false);
-        if (error || !place) {
-          setSearchError(error ?? 'Could not extract place info from this link.');
-          return;
-        }
-        setName(place.title);
-        setAddress(place.address || place.description || '');
-        if (place.lat != null) setLat(place.lat.toString());
-        if (place.lng != null) setLng(place.lng.toString());
-        setSearchQuery('');
-        setSuggestions([]);
-      });
-      return;
-    }
-
-    if (!catalogLocation) {
-      setSuggestions([]);
-      return;
-    }
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const results = await searchPlacesNearLocation(searchQuery, catalogLocation);
-        setSuggestions(results);
-      } catch (err) {
-        console.error('Failed to search hotels:', err);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 500);
-
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
-  }, [searchQuery, catalogLocation]);
-
-  // Click outside to close suggestions
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      const searchInput = document.getElementById('hotel-search-input');
-      const suggestionsPanel = document.querySelector('.modal-suggestions-panel');
-      if (!searchInput?.contains(target) && !suggestionsPanel?.contains(target)) {
-        setSuggestions([]);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
 
   const handleCheckInChange = (val: string) => {
     setCheckInDate(val);
@@ -305,47 +229,15 @@ export default function HotelModal({
                 />
               </div>
             </div>
-            <div className="modal-search-container" id="hotel-search-input">
-              <Search size={14} className="modal-search-icon" />
-              <input
-                type="text"
-                placeholder="Type to search, or paste a Google Maps link..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="modal-search-input"
-              />
-              {isSearching && (
-                <div className="modal-search-loader">Searching...</div>
-              )}
-              {suggestions.length > 0 && (
-                <div className="modal-suggestions-panel">
-                  {suggestions.map((sug) => (
-                    <div
-                      key={sug.id}
-                      className="modal-suggestion-item"
-                      onClick={() => {
-                        setName(sug.title);
-                        setAddress(sug.address || sug.description || '');
-                        if (sug.lat != null) setLat(sug.lat.toString());
-                        if (sug.lng != null) setLng(sug.lng.toString());
-                        setSearchQuery('');
-                        setSuggestions([]);
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div className="modal-suggestion-name">{sug.title}</div>
-                      <div className="modal-suggestion-desc">
-                        {sug.address || sug.description}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            {searchError && (
-              <div style={{ fontSize: '11px', color: 'var(--color-danger, #ef4444)', marginTop: '4px' }}>{searchError}</div>
-            )}
+            <PlaceSearchBox
+              catalogLocation={catalogLocation}
+              onSelect={(p) => {
+                setName(p.title);
+                setAddress(p.address || p.description || '');
+                if (p.lat != null) setLat(p.lat.toString());
+                if (p.lng != null) setLng(p.lng.toString());
+              }}
+            />
           </div>
 
           <form onSubmit={handleSubmit}>
