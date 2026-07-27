@@ -552,7 +552,7 @@ function ItineraryPanel({
       <div
         className={`timeline-card glass-panel schedule-note-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         onClick={e => e.stopPropagation()}
-        draggable={canEdit}
+        draggable={canEdit && !isEditingThis}
         onDragStart={(e) => {
           if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
@@ -943,7 +943,7 @@ function ItineraryPanel({
       <div
         className={`timeline-card glass-panel timeline-place-card${mergeClass} ${activePlaceId === place.id ? 'timeline-place-card--active' : ''} ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         data-place-id={place.id}
-        draggable={canEdit}
+        draggable={canEdit && editingPlaceNotesId !== place.id}
         onDragStart={(e) => {
           if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
@@ -1006,14 +1006,11 @@ function ItineraryPanel({
                   </div>
                 </div>
               ) : (
-                <div className="notes-text-wrapper" style={{ marginTop: '4px', paddingRight: canEdit ? '22px' : '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
+                <div className="notes-text-wrapper" style={{ marginTop: '4px', paddingRight: '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
                   <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
                     <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
                     <span>{place.notes || 'Add notes...'}</span>
                   </div>
-                  {canEdit && (
-                    <button className="mini-icon-btn notes-edit-btn place-note-edit-abs" onClick={(e) => { e.stopPropagation(); startEditingNotes(place); }} data-tooltip="Edit Note"><Edit2 size={12} /></button>
-                  )}
                 </div>
               )}
             </div>
