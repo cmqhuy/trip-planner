@@ -5,7 +5,7 @@ import {
   Calendar, Layers, Check, Timer, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building, Hash,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
-  ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy, ArrowUpDown, Landmark, Utensils
+  ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy, ArrowUpDown, Landmark, Utensils, Clock
 } from 'lucide-react';
 import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
@@ -277,6 +277,9 @@ function ItineraryPanel({
   };
 
   const placeNotesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  // Separate ref for the mobile full-width notes editor (dual-rendered alongside
+  // the inline desktop editor); each slot's Save reads its own textarea.
+  const placeNotesMobileTextareaRef = useRef<HTMLTextAreaElement>(null);
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
   const hotelNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
   const transitNoteTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -996,23 +999,32 @@ function ItineraryPanel({
               <div className="place-title-row">
                 <h4 className="place-title-text">{place.title}</h4>
               </div>
-              <p className="place-desc-text">{place.description || 'Attraction'}</p>
-              {editingPlaceNotesId === place.id ? (
-                <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
-                  <textarea ref={placeNotesTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
-                  <div className="notes-actions">
-                    <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
-                    <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place.id, placeNotesTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }} style={{ gap: '4px' }}><Check size={10} /> Save</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="notes-text-wrapper" style={{ marginTop: '4px', paddingRight: '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
-                  <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
-                    <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-                    <span>{place.notes || 'Add notes...'}</span>
-                  </div>
+              {place.openingHours && (
+                <div className="place-card-hours">
+                  <Clock size={10} /> <span>{place.openingHours}</span>
                 </div>
               )}
+              <p className="place-desc-text">{place.description || 'Attraction'}</p>
+              {/* Inline notes slot (desktop): hidden on mobile in favor of the
+                  full-width card-level slot below. */}
+              <div className="place-notes-slot place-notes-slot--inline">
+                {editingPlaceNotesId === place.id ? (
+                  <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
+                    <textarea ref={placeNotesTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
+                    <div className="notes-actions">
+                      <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
+                      <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place.id, placeNotesTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }}><Check size={10} /> Save</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="notes-text-wrapper" style={{ marginTop: '4px', paddingRight: '0', cursor: canEdit ? 'pointer' : undefined }} onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}>
+                    <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
+                      <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                      <span>{place.notes || 'Add notes...'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1031,6 +1043,33 @@ function ItineraryPanel({
                     <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile-only full-width notes slot — a card-level sibling so both the
+            view and the editor span the full card content width (like the
+            reservation card), instead of being indented inside the thumbnail
+            column. Hidden on desktop; the inline slot above is hidden on mobile. */}
+        <div className="place-notes-slot place-notes-slot--mobile">
+          {editingPlaceNotesId === place.id ? (
+            <div className="notes-edit-wrapper" onClick={e => e.stopPropagation()}>
+              <textarea ref={placeNotesMobileTextareaRef} defaultValue={place.notes || ''} placeholder="Add notes..." rows={4} className="notes-textarea" />
+              <div className="notes-actions">
+                <button className="btn-secondary place-notes-btn" onClick={() => setEditingPlaceNotesId(null)}>Cancel</button>
+                <button className="btn-primary flex-align place-notes-btn" onClick={() => { savePlaceNotes(place.id, placeNotesMobileTextareaRef.current?.value ?? ''); setEditingPlaceNotesId(null); }}><Check size={10} /> Save</button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="notes-text-wrapper"
+              style={{ marginTop: '4px', paddingRight: '0', cursor: canEdit ? 'pointer' : undefined }}
+              onClick={canEdit ? (e) => { e.stopPropagation(); startEditingNotes(place); } : undefined}
+            >
+              <div className={`notes-text ${place.notes ? 'has-content' : 'no-content'}`}>
+                <FileText size={13} style={{ marginTop: '2px', color: place.notes ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                <span>{place.notes || 'Add notes...'}</span>
               </div>
             </div>
           )}

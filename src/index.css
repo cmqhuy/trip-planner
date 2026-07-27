@@ -3026,7 +3026,7 @@ input[type="checkbox"].checklist-checkbox { width: 14px; height: 14px; margin: 2
 .place-notes-btn-wrapper { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .place-notes-textarea { padding: 6px; font-size: 12.5px; width: 100%; background: var(--bg-dark); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; text-transform: none; }
 .place-notes-actions { display: flex; gap: 6px; align-self: flex-end; }
-.place-notes-btn { padding: 2px 6px; font-size: 10px; }
+.place-notes-btn { padding: 2px 6px; font-size: 10px; gap: 4px; }
 .place-note-edit-abs { position: absolute; top: 0; right: 0; }
 .place-expanded-desc { color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; text-transform: none; }
 .card-expanded-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: default; width: 100%; }
@@ -3552,6 +3552,20 @@ div.google-auth-avatar-desktop {
   /* Hide the schedule sequence number badge on place cards in mobile */
   .timeline-place-number {
     display: none !important;
+  }
+  /* Place card: allow the description to wrap to 2 lines (1 line on desktop) */
+  .timeline-card[data-place-id] .place-desc-text {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  /* Place card notes: swap the indented inline slot for the full-width,
+     card-level slot so both view and editor span both edges like the
+     reservation card. */
+  .place-notes-slot--inline {
+    display: none !important;
+  }
+  .place-notes-slot--mobile {
+    display: block !important;
   }
   .schedule-add-slot {
     display: none !important;
@@ -4694,6 +4708,12 @@ input[type="number"] { -moz-appearance: textfield; }
 .notes-text-wrapper {
   margin-top: 4px;
   position: relative;
+}
+
+/* Place-card notes: the full-width mobile slot is mobile-only (see the max-width
+   media query, which hides the inline slot and reveals this instead). */
+.place-notes-slot--mobile {
+  display: none;
 }
 
 .notes-text {
