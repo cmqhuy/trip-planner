@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Sparkles, RefreshCw, Trash2, ChevronDown, MapPin, Search } from 'lucide-react';
+import { X, Sparkles, RefreshCw, Trash2, MapPin, Search } from 'lucide-react';
 import type { Hotel, Location, Place, ExpenseLine } from '../types';
 import ExpensesSection from './ExpensesSection';
 import AttachmentsSection from './AttachmentsSection';
 import { undoButton as undoBtn } from './UndoButton';
+import { ComboBox } from './ComboBox';
 import { STATUS_OPTIONS } from '../constants/reservations';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import MapPicker from './MapPicker';
@@ -70,8 +70,6 @@ export default function HotelModal({
   const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
 
   const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
-  const [statusOpen, setStatusOpen] = useState(false);
-  const [statusPos, setStatusPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Auto-populate states
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +79,6 @@ export default function HotelModal({
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const autofillInputRef = useRef<HTMLInputElement>(null);
-  const statusTriggerRef = useRef<HTMLButtonElement>(null);
 
   const applyAiResult = async (result: any) => {
     if (result.name) setName(result.name);
@@ -156,7 +153,6 @@ export default function HotelModal({
       setSavedValues(initial);
       setAiError(null);
       setRemovePrompt(null);
-      setStatusOpen(false);
       setShowAccessError(false);
       setSearchQuery('');
       setSuggestions([]);
@@ -499,44 +495,7 @@ export default function HotelModal({
                     <span className="label-text">Status</span>
                     {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
                   </label>
-                  <div className="combo-wrapper">
-                    <button
-                      ref={statusTriggerRef}
-                      type="button"
-                      className="combo-trigger"
-                      onClick={() => {
-                        if (!statusOpen && statusTriggerRef.current) {
-                          const r = statusTriggerRef.current.getBoundingClientRect();
-                          setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                        }
-                        setStatusOpen(o => !o);
-                      }}
-                    >
-                      <span className="combo-trigger-content">
-                        {(() => { const S = STATUS_OPTIONS.find(o => o.value === status); return S ? <S.Icon size={13} /> : null; })()}
-                        {status}
-                      </span>
-                      <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
-                    </button>
-                  </div>
-                  {statusOpen && statusPos && createPortal(
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
-                      <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
-                        {STATUS_OPTIONS.map(({ value: s, Icon: StatusIcon }) => (
-                          <button
-                            key={s}
-                            type="button"
-                            className={`combo-option${s === status ? ' selected' : ''}`}
-                            onClick={() => { setStatus(s); setStatusOpen(false); }}
-                          >
-                            <StatusIcon size={13} />{s}
-                          </button>
-                        ))}
-                      </div>
-                    </>,
-                    document.body
-                  )}
+                  <ComboBox value={status} options={STATUS_OPTIONS} onChange={setStatus} />
                 </div>
 
 

@@ -5,6 +5,7 @@ import type { PlaceReservation, Location, Place, ExpenseLine, Trip } from '../ty
 import ExpensesSection from './ExpensesSection';
 import AttachmentsSection from './AttachmentsSection';
 import { undoButton as undoBtn } from './UndoButton';
+import { ComboBox, type ComboOption } from './ComboBox';
 import { STATUS_OPTIONS } from '../constants/reservations';
 import { useReservationAttachments } from '../utils/useReservationAttachments';
 import { isPlaceReservationUnlinkedOrDeleted } from '../utils/reservationWarnings';
@@ -12,6 +13,11 @@ import { GeminiService } from '../utils/ai';
 import { DEFAULT_PLACE_GROUPS } from '../utils/api';
 
 type ReservationStatus = 'Confirmed' | 'Planning' | 'Canceled';
+
+const TYPE_OPTIONS: ComboOption<PlaceReservation['type']>[] = [
+  { value: 'attraction', label: 'Attraction', icon: Landmark, iconColor: '#ef4444' },
+  { value: 'dining', label: 'Dining', icon: Utensils, iconColor: '#3b82f6' },
+];
 
 const shortDate = (d: string) =>
   new Date(d + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -82,17 +88,9 @@ export default function PlaceReservationModal({
     notes: string;
   } | null>(null);
 
-  // Dropdown states & refs for portal placement
-  const [typeOpen, setTypeOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
+  // Catalog-place picker (bespoke searchable combo) state & refs
   const [placePickerOpen, setPlacePickerOpen] = useState(false);
-
-  const typeTriggerRef = useRef<HTMLButtonElement>(null);
-  const statusTriggerRef = useRef<HTMLButtonElement>(null);
   const placeTriggerRef = useRef<HTMLButtonElement>(null);
-
-  const [typePos, setTypePos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [statusPos, setStatusPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [placePos, setPlacePos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Drive attachments + AI file-fill
@@ -295,48 +293,13 @@ export default function PlaceReservationModal({
                   <span className="label-text">Reservation Type</span>
                   {undoBtn(type, savedValues?.type, () => setType(savedValues!.type))}
                 </label>
-                <div className="combo-wrapper">
-                  <button
-                    ref={typeTriggerRef}
-                    type="button"
-                    className="combo-trigger"
-                    onClick={() => {
-                      if (!typeOpen && typeTriggerRef.current) {
-                        const r = typeTriggerRef.current.getBoundingClientRect();
-                        setTypePos({ top: r.bottom + 4, left: r.left, width: r.width });
-                      }
-                      setTypeOpen(o => !o);
-                    }}
-                  >
-                    <span className="combo-trigger-content">
-                      {type === 'attraction' ? <Landmark size={14} style={{ color: '#ef4444' }} /> : <Utensils size={14} style={{ color: '#3b82f6' }} />}
-                      {type === 'attraction' ? 'Attraction' : 'Dining'}
-                    </span>
-                    <ChevronDown size={14} className={`expand-chevron${typeOpen ? ' is-open' : ''}`} />
-                  </button>
-                </div>
-                {typeOpen && typePos && createPortal(
-                  <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setTypeOpen(false)} />
-                    <div className="combo-dropdown--portal" style={{ top: typePos.top, left: typePos.left, width: Math.max(typePos.width, 160) }} onClick={e => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className={`combo-option${type === 'attraction' ? ' selected' : ''}`}
-                        onClick={() => { setType('attraction'); setTypeOpen(false); }}
-                      >
-                        <Landmark size={14} style={{ color: '#ef4444' }} /> Attraction
-                      </button>
-                      <button
-                        type="button"
-                        className={`combo-option${type === 'dining' ? ' selected' : ''}`}
-                        onClick={() => { setType('dining'); setTypeOpen(false); }}
-                      >
-                        <Utensils size={14} style={{ color: '#3b82f6' }} /> Dining
-                      </button>
-                    </div>
-                  </>,
-                  document.body
-                )}
+                <ComboBox
+                  value={type}
+                  options={TYPE_OPTIONS}
+                  onChange={setType}
+                  iconSize={14}
+                  minWidth={160}
+                />
               </div>
 
               {/* Linked Catalog Place (Searchable Dropdown) */}
@@ -440,47 +403,7 @@ export default function PlaceReservationModal({
                   <span className="label-text">Status</span>
                   {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
                 </label>
-                <div className="combo-wrapper">
-                  <button
-                    ref={statusTriggerRef}
-                    type="button"
-                    className="combo-trigger"
-                    onClick={() => {
-                      if (!statusOpen && statusTriggerRef.current) {
-                        const r = statusTriggerRef.current.getBoundingClientRect();
-                        setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                      }
-                      setStatusOpen(o => !o);
-                    }}
-                  >
-                    <span className="combo-trigger-content">
-                      {(() => {
-                        const Icon = STATUS_OPTIONS.find(s => s.value === status)?.Icon;
-                        return Icon ? <Icon size={14} /> : null;
-                      })()}
-                      {status}
-                    </span>
-                    <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
-                  </button>
-                </div>
-                {statusOpen && statusPos && createPortal(
-                  <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
-                    <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
-                      {STATUS_OPTIONS.map(({ value, Icon }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={`combo-option${status === value ? ' selected' : ''}`}
-                          onClick={() => { setStatus(value); setStatusOpen(false); }}
-                        >
-                          <Icon size={14} /> {value}
-                        </button>
-                      ))}
-                    </div>
-                  </>,
-                  document.body
-                )}
+                <ComboBox value={status} options={STATUS_OPTIONS} onChange={setStatus} iconSize={14} />
               </div>
             </div>
 

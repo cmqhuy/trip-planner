@@ -8,6 +8,7 @@ import type { TransportationReservation, Location, Place, ExpenseLine } from '..
 import ExpensesSection from './ExpensesSection';
 import AttachmentsSection from './AttachmentsSection';
 import { undoButton as undoBtn } from './UndoButton';
+import { ComboBox, type ComboOption } from './ComboBox';
 import { STATUS_OPTIONS } from '../constants/reservations';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { lookupTimezone, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation, geocodeAddress } from '../utils/api';
@@ -54,13 +55,13 @@ interface TransportModalProps {
   catalogLocation?: Location;
 }
 
-const TRANSPORT_TYPES: { value: TransportationReservation['type']; label: string; Icon: React.ElementType }[] = [
-  { value: 'flight', label: 'Flight', Icon: Plane },
-  { value: 'train', label: 'Train', Icon: Train },
-  { value: 'bus', label: 'Bus', Icon: Bus },
-  { value: 'car', label: 'Car Rental / Drive', Icon: Car },
-  { value: 'ferry', label: 'Ferry', Icon: Anchor },
-  { value: 'other', label: 'Other', Icon: Navigation },
+const TRANSPORT_TYPES: ComboOption<TransportationReservation['type']>[] = [
+  { value: 'flight', label: 'Flight', icon: Plane },
+  { value: 'train', label: 'Train', icon: Train },
+  { value: 'bus', label: 'Bus', icon: Bus },
+  { value: 'car', label: 'Car Rental / Drive', icon: Car },
+  { value: 'ferry', label: 'Ferry', icon: Anchor },
+  { value: 'other', label: 'Other', icon: Navigation },
 ];
 
 type ReservationSavedValues = {
@@ -124,9 +125,6 @@ export default function TransportModal({
   const [segmentErrors, setSegmentErrors] = useState<Record<number, string[]>>({});
 
   // Dropdown state
-  const [typeOpen, setTypeOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
-  const [statusPos, setStatusPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const [depTzOpen, setDepTzOpen] = useState(false);
   const [depTzSearch, setDepTzSearch] = useState('');
   const [depTzPos, setDepTzPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -147,10 +145,8 @@ export default function TransportModal({
   const [arrSearchError, setArrSearchError] = useState<string | null>(null);
 
   const autofillInputRef = useRef<HTMLInputElement>(null);
-  const typeRef = useRef<HTMLDivElement>(null);
   const depTzTriggerRef = useRef<HTMLButtonElement>(null);
   const arrTzTriggerRef = useRef<HTMLButtonElement>(null);
-  const statusTriggerRef = useRef<HTMLButtonElement>(null);
   const depSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const arrSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -220,10 +216,8 @@ export default function TransportModal({
     setAiError(null);
     setRemovePrompt(null);
     setSegmentErrors({});
-    setTypeOpen(false);
     setDepTzOpen(false);
     setArrTzOpen(false);
-    setStatusOpen(false);
     setShowAccessError(false);
     setDepSuggestions([]);
     setDepSuggestionsField(null);
@@ -447,15 +441,6 @@ export default function TransportModal({
     };
   }, [seg.arrLoc, seg.arrAddress, catalogLocation, activeSegmentIndex]);
 
-  useEffect(() => {
-    if (!typeOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!typeRef.current?.contains(e.target as Node)) setTypeOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [typeOpen]);
-
   const addSegment = () => {
     const prev = segments[segments.length - 1];
     const newSeg = makeEmptySegment(effectiveDefaultDate, browserTz, prev);
@@ -645,8 +630,6 @@ export default function TransportModal({
 
   const filteredDepTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(depTzSearch.toLowerCase()));
   const filteredArrTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(arrTzSearch.toLowerCase()));
-  const selectedTypeObj = TRANSPORT_TYPES.find(t => t.value === type) ?? TRANSPORT_TYPES[0];
-
 
   if (!isOpen) return null;
 
@@ -717,24 +700,7 @@ export default function TransportModal({
 
                   <div className="form-group">
                     <label><span className="label-text">Type</span></label>
-                    <div className="combo-wrapper" ref={typeRef}>
-                      <button type="button" className="combo-trigger" onClick={() => setTypeOpen(o => !o)}>
-                        <span className="combo-trigger-content">
-                          <selectedTypeObj.Icon size={14} />
-                          {selectedTypeObj.label}
-                        </span>
-                        <ChevronDown size={14} className={`expand-chevron${typeOpen ? ' is-open' : ''}`} />
-                      </button>
-                      {typeOpen && (
-                        <div className="combo-dropdown">
-                          {TRANSPORT_TYPES.map(opt => (
-                            <button key={opt.value} type="button" className={`combo-option${type === opt.value ? ' selected' : ''}`} onClick={() => { setType(opt.value); setTypeOpen(false); }}>
-                              <opt.Icon size={14} />{opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <ComboBox value={type} options={TRANSPORT_TYPES} onChange={setType} iconSize={14} />
                   </div>
                 </div>
 
@@ -762,39 +728,7 @@ export default function TransportModal({
                       <span className="label-text">Status</span>
                       {undoBtn(status, savedValues?.status, () => setStatus(savedValues!.status))}
                     </label>
-                    <div className="combo-wrapper">
-                      <button
-                        ref={statusTriggerRef}
-                        type="button"
-                        className="combo-trigger"
-                        onClick={() => {
-                          if (!statusOpen && statusTriggerRef.current) {
-                            const r = statusTriggerRef.current.getBoundingClientRect();
-                            setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
-                          }
-                          setStatusOpen(o => !o);
-                        }}
-                      >
-                        <span className="combo-trigger-content">
-                          {(() => { const S = STATUS_OPTIONS.find(o => o.value === status); return S ? <S.Icon size={13} /> : null; })()}
-                          {status}
-                        </span>
-                        <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
-                      </button>
-                    </div>
-                    {statusOpen && statusPos && createPortal(
-                      <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
-                        <div className="combo-dropdown--portal" style={{ top: statusPos.top, left: statusPos.left, width: Math.max(statusPos.width, 150) }} onClick={e => e.stopPropagation()}>
-                          {STATUS_OPTIONS.map(({ value: s, Icon: StatusIcon }) => (
-                            <button key={s} type="button" className={`combo-option${s === status ? ' selected' : ''}`} onClick={() => { setStatus(s); setStatusOpen(false); }}>
-                              <StatusIcon size={13} />{s}
-                            </button>
-                          ))}
-                        </div>
-                      </>,
-                      document.body
-                    )}
+                    <ComboBox value={status} options={STATUS_OPTIONS} onChange={setStatus} />
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Trash2, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Trash2 } from 'lucide-react';
 import type { GenericReservation } from '../types';
+import { ComboBox } from './ComboBox';
 import { STATUS_OPTIONS, type ReservationStatus } from '../constants/reservations';
 
 interface GenericReservationModalProps {
@@ -29,10 +29,6 @@ export default function GenericReservationModal({
   const [bookedThrough, setBookedThrough] = useState('');
   const [notes, setNotes] = useState('');
 
-  const [statusOpen, setStatusOpen] = useState(false);
-  const [statusPos, setStatusPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const statusTriggerRef = useRef<HTMLButtonElement>(null);
-
   useEffect(() => {
     if (isOpen) {
       setTitle(reservation?.title || '');
@@ -42,7 +38,6 @@ export default function GenericReservationModal({
       setConfirmationNo(reservation?.confirmationNo || '');
       setBookedThrough(reservation?.bookedThrough || '');
       setNotes(reservation?.notes || '');
-      setStatusOpen(false);
     }
   }, [isOpen, reservation]);
 
@@ -61,12 +56,6 @@ export default function GenericReservationModal({
       notes: notes.trim() || undefined,
     });
     onClose();
-  };
-
-  const openStatusDropdown = () => {
-    const r = statusTriggerRef.current!.getBoundingClientRect();
-    setStatusPos({ top: r.bottom + 4, left: r.left, width: r.width });
-    setStatusOpen(true);
   };
 
   return (
@@ -95,23 +84,7 @@ export default function GenericReservationModal({
 
           <div className="form-group" style={{ marginTop: '14px' }}>
             <label>Status</label>
-            <div className="combo-wrapper">
-              <button
-                ref={statusTriggerRef}
-                type="button"
-                className="combo-trigger"
-                onClick={openStatusDropdown}
-              >
-                <span className="combo-trigger-content">
-                  {(() => {
-                    const Icon = STATUS_OPTIONS.find(s => s.value === status)?.Icon;
-                    return Icon ? <Icon size={14} /> : null;
-                  })()}
-                  {status}
-                </span>
-                <ChevronDown size={14} className={`expand-chevron${statusOpen ? ' is-open' : ''}`} />
-              </button>
-            </div>
+            <ComboBox value={status} options={STATUS_OPTIONS} onChange={setStatus} iconSize={14} />
           </div>
 
           <div className="form-row" style={{ marginTop: '14px' }}>
@@ -186,29 +159,6 @@ export default function GenericReservationModal({
           </div>
         </form>
       </div>
-
-      {statusOpen && statusPos && createPortal(
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setStatusOpen(false)} />
-          <div
-            className="combo-dropdown--portal"
-            style={{ top: statusPos.top, left: statusPos.left, width: statusPos.width, zIndex: 10000 }}
-            onClick={e => e.stopPropagation()}
-          >
-            {STATUS_OPTIONS.map(({ value, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                className={`combo-option${status === value ? ' selected' : ''}`}
-                onClick={() => { setStatus(value); setStatusOpen(false); }}
-              >
-                <Icon size={14} /> {value}
-              </button>
-            ))}
-          </div>
-        </>,
-        document.body
-      )}
     </div>
   );
 }
