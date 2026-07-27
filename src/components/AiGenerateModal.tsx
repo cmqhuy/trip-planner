@@ -4,7 +4,7 @@ import type { Place } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { runAiCall } from '../utils/runAiCall';
 import FunGeneratingLoader from './FunGeneratingLoader';
-import ManualAiPromptModal from './ManualAiPromptModal';
+import { useManualPrompt } from '../utils/useManualPrompt';
 
 interface AiGenerateModalProps {
   isOpen: boolean;
@@ -33,7 +33,7 @@ export default function AiGenerateModal({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState('');
-  const [pendingPrompt, setPendingPrompt] = useState<{ title: string; promptText: string; responseFormat: 'json' | 'markdown'; onResponse: (t: string) => void; onCancel: () => void } | null>(null);
+  const { showManualPrompt, manualPromptModal } = useManualPrompt();
 
   const isAiEnabled = GeminiService.isAiEnabled();
 
@@ -76,15 +76,6 @@ export default function AiGenerateModal({
     }
     setSelectedIds(next);
   };
-
-  const showManualPrompt = (title: string, prompt: string, format: 'json' | 'markdown'): Promise<string | null> =>
-    new Promise(resolve => {
-      setPendingPrompt({
-        title, promptText: prompt, responseFormat: format,
-        onResponse: t => { setPendingPrompt(null); resolve(t); },
-        onCancel: () => { setPendingPrompt(null); resolve(null); }
-      });
-    });
 
   const handleGenerate = async () => {
     if (selectedIds.size === 0) return;
@@ -258,16 +249,7 @@ export default function AiGenerateModal({
       </div>
     </div>
 
-    {pendingPrompt && (
-      <ManualAiPromptModal
-        isOpen={true}
-        title={pendingPrompt.title}
-        promptText={pendingPrompt.promptText}
-        responseFormat={pendingPrompt.responseFormat}
-        onResponse={pendingPrompt.onResponse}
-        onCancel={pendingPrompt.onCancel}
-      />
-    )}
+    {manualPromptModal}
   </>
   );
 }

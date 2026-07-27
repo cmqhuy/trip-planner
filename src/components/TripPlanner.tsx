@@ -47,7 +47,7 @@ import { aiRequestQueue } from '../utils/aiRequestQueue';
 import { runAiCall } from '../utils/runAiCall';
 import { getOrCreateTripFileFolder, uploadFile } from '../utils/googleDrive';
 import AiGenerateModal from './AiGenerateModal';
-import ManualAiPromptModal from './ManualAiPromptModal';
+import { useManualPrompt } from '../utils/useManualPrompt';
 
 
 // Extracted Modals
@@ -528,27 +528,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   // Local Essentials generation states
   const [generatingLocalEssentials, setGeneratingLocalEssentials] = useState(false);
 
-  // Manual AI prompt modal state
-  const [pendingManualAiPrompt, setPendingManualAiPrompt] = useState<{
-    title: string;
-    promptText: string;
-    responseFormat: 'json' | 'markdown';
-    onResponse: (text: string) => void;
-    onCancel: () => void;
-  } | null>(null);
+  // Manual AI prompt modal (shared hook)
+  const { showManualPrompt: showManualAiPrompt, manualPromptModal } = useManualPrompt();
 
   useEffect(() => {
     aiRequestQueue.setMaxConcurrent(GeminiService.getMaxConcurrentRequests());
   }, []);
-
-  const showManualAiPrompt = (title: string, promptText: string, responseFormat: 'json' | 'markdown'): Promise<string | null> =>
-    new Promise(resolve => {
-      setPendingManualAiPrompt({
-        title, promptText, responseFormat,
-        onResponse: text => { setPendingManualAiPrompt(null); resolve(text); },
-        onCancel: () => { setPendingManualAiPrompt(null); resolve(null); }
-      });
-    });
 
   // Trigger search on place query changes (Day timeline inline search)
   useEffect(() => {
@@ -3572,16 +3557,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       </div>
 
       {/* Manual AI prompt modal */}
-      {pendingManualAiPrompt && (
-        <ManualAiPromptModal
-          isOpen={true}
-          title={pendingManualAiPrompt.title}
-          promptText={pendingManualAiPrompt.promptText}
-          responseFormat={pendingManualAiPrompt.responseFormat}
-          onResponse={pendingManualAiPrompt.onResponse}
-          onCancel={pendingManualAiPrompt.onCancel}
-        />
-      )}
+      {manualPromptModal}
 
       {/* ----------------------------------------------------
           MODALS & DIALOGS

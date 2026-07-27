@@ -3,9 +3,9 @@ import { X, Search, Trash2, Sparkles, RefreshCw, AlertTriangle } from 'lucide-re
 import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
 import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, fetchWikipediaData } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
-import ManualAiPromptModal from './ManualAiPromptModal';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { runAiCall } from '../utils/runAiCall';
+import { useManualPrompt } from '../utils/useManualPrompt';
 
 interface PlaceModalProps {
   isOpen: boolean;
@@ -62,11 +62,8 @@ export default function PlaceModal({
   const [isAiQuickFilling, setIsAiQuickFilling] = useState(false);
   const [aiQuickFillError, setAiQuickFillError] = useState<string | null>(null);
 
-  // Manual AI prompt state
-  const [pendingManualPrompt, setPendingManualPrompt] = useState<{
-    title: string; promptText: string; responseFormat: 'json' | 'markdown';
-    onResponse: (text: string) => void; onCancel: () => void;
-  } | null>(null);
+  // Manual AI prompt flow (shared hook)
+  const { showManualPrompt, manualPromptModal } = useManualPrompt();
 
   useEffect(() => {
     if (isOpen) {
@@ -171,14 +168,6 @@ export default function PlaceModal({
 
   if (!isOpen) return null;
 
-  const showManualPrompt = (promptTitle: string, prompt: string, format: 'json' | 'markdown'): Promise<string | null> =>
-    new Promise(resolve => {
-      setPendingManualPrompt({
-        title: promptTitle, promptText: prompt, responseFormat: format,
-        onResponse: t => { setPendingManualPrompt(null); resolve(t); },
-        onCancel: () => { setPendingManualPrompt(null); resolve(null); }
-      });
-    });
 
   const handleAiQuickFill = async () => {
     const inputQuery = title.trim() || searchQuery.trim();
@@ -443,16 +432,7 @@ export default function PlaceModal({
         </form>
       </div>
     </div>
-    {pendingManualPrompt && (
-      <ManualAiPromptModal
-        isOpen
-        title={pendingManualPrompt.title}
-        promptText={pendingManualPrompt.promptText}
-        responseFormat={pendingManualPrompt.responseFormat}
-        onResponse={pendingManualPrompt.onResponse}
-        onCancel={pendingManualPrompt.onCancel}
-      />
-    )}
+    {manualPromptModal}
     </>
   );
 }
