@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  X, Sparkles, Plus, Trash2, AlertCircle, Edit2, ChevronUp, ChevronDown, GripVertical,
+  Sparkles, Plus, Trash2, AlertCircle, Edit2, ChevronUp, ChevronDown, GripVertical,
   Calendar, CalendarCheck, Ticket, Compass, HelpCircle, MapPin, Info, Smile, Camera, Utensils,
   ShoppingBag, Coffee, DollarSign, BookOpen, Clock, Baby,
   Sparkle, Wand2, Brain, Bot, Activity, TrendingUp, Flame, Gem, Sun, Heart, Globe, Languages, Map
 } from 'lucide-react';
 import type { Trip } from '../types';
+import Modal from './Modal';
 import { AI_DETAIL_FIELDS, DEFAULT_AI_ICONS } from '../utils/ai';
 
 // Mapping string to Lucide component
@@ -392,21 +393,12 @@ export default function TripAiConfigModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content glass-panel scrollable modal-content--560"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h3 className="modal-header-title">
-            <Sparkles size={18} className="text-accent" />
-            Trip AI Config Settings
-          </h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal
+      title={<><Sparkles size={18} className="text-accent" /> Trip AI Config Settings</>}
+      titleClassName="modal-header-title"
+      onClose={onClose}
+      className="modal-content--560"
+    >
         <form onSubmit={handleSubmit}>
           <div className="modal-scroll-body modal-scroll-body--mt4">
             <p className="modal-body-intro modal-body-intro--mb20">
@@ -781,7 +773,6 @@ export default function TripAiConfigModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

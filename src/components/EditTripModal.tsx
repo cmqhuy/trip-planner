@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import Modal from './Modal';
 import type { Trip } from '../types';
 import { getDaysDiff, shiftDateString } from '../utils/dateUtils';
 
@@ -47,14 +47,7 @@ export default function EditTripModal({ isOpen, onClose, trip, onSave }: EditTri
   const isShorter = newDuration < currentDuration;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Edit Trip Details</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+    <Modal title="Edit Trip Details" onClose={onClose} maxWidth={400}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="edit-trip-name">Trip Name</label>
@@ -122,7 +115,6 @@ export default function EditTripModal({ isOpen, onClose, trip, onSave }: EditTri
             <button type="submit" className="btn-primary">Save</button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

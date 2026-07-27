@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2, ChevronDown, MapPin, AlertTriangle, Landmark, Utensils, Search } from 'lucide-react';
+import { Trash2, ChevronDown, MapPin, AlertTriangle, Landmark, Utensils, Search } from 'lucide-react';
 import type { PlaceReservation, Location, Place, ExpenseLine, Trip } from '../types';
+import Modal from './Modal';
 import ExpensesSection from './ExpensesSection';
 import AttachmentsSection from './AttachmentsSection';
 import { undoButton as undoBtn } from './UndoButton';
@@ -268,13 +269,11 @@ export default function PlaceReservationModal({
   };
 
   return (
-    <>
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content glass-panel scrollable" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>{reservation ? 'Edit Reservation Details' : `Add ${type === 'attraction' ? 'Attraction' : 'Dining'} Reservation`}</h3>
-            <button className="modal-close" onClick={onClose}><X size={20} /></button>
-          </div>
+    <Modal
+      title={reservation ? 'Edit Reservation Details' : `Add ${type === 'attraction' ? 'Attraction' : 'Dining'} Reservation`}
+      onClose={onClose}
+      maxWidth={640}
+    >
 
           <form onSubmit={handleSubmit}>
             <div className="modal-scroll-body">
@@ -521,8 +520,6 @@ export default function PlaceReservationModal({
               </div>
             </div>
           </form>
-        </div>
-      </div>
-    </>
+    </Modal>
   );
 }

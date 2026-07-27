@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
+import Modal from './Modal';
 import { searchLocation } from '../utils/api';
 
 interface AddLocationModalProps {
@@ -53,14 +54,7 @@ export default function AddLocationModal({ isOpen, onClose, onSelect, title }: A
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{title}</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+    <Modal title={title} onClose={onClose}>
         <div className="form-group form-group--relative">
           <label htmlFor="search-city-location">Search City / Location</label>
           <div className="modal-search-container">
@@ -99,7 +93,6 @@ export default function AddLocationModal({ isOpen, onClose, onSelect, title }: A
         <div className="modal-actions modal-actions--mt40">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

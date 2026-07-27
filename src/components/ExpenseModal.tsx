@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation, ExternalLink, Landmark, Utensils } from 'lucide-react';
+import { Trash2, Calendar, AlertTriangle, Building, Car, ChevronDown, Plane, Train, Bus, Anchor, Navigation, ExternalLink, Landmark, Utensils } from 'lucide-react';
 import type { ExpenseGroup, ExpenseItem, ExpenseLine, Hotel, TransportationReservation, PlaceReservation } from '../types';
+import Modal from './Modal';
 import ExpensesSection from './ExpensesSection';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
 
@@ -123,17 +124,12 @@ export default function ExpenseModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel scrollable" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>
-            {isLinked ? 'Linked Expense' : (expense && expense.id) ? 'Edit Expense Details' : 'Add Expense Details'}
-          </h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
+    <>
+    <Modal
+      title={isLinked ? 'Linked Expense' : (expense && expense.id) ? 'Edit Expense Details' : 'Add Expense Details'}
+      onClose={onClose}
+      maxWidth={560}
+    >
         <form onSubmit={handleSubmit}>
           <div className="modal-scroll-body">
             {isLinked && (
@@ -288,7 +284,7 @@ export default function ExpenseModal({
             </button>
           </div>
         </form>
-      </div>
+    </Modal>
 
       {groupDropdownOpen && groupDropdownPos && createPortal(<>
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }} onClick={() => setGroupDropdownOpen(false)} />
@@ -309,6 +305,6 @@ export default function ExpenseModal({
           ))}
         </div>
       </>, document.body)}
-    </div>
+    </>
   );
 }

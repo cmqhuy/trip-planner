@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, RefreshCw, Trash2, MapPin, Search } from 'lucide-react';
+import { Sparkles, RefreshCw, Trash2, MapPin, Search } from 'lucide-react';
 import type { Hotel, Location, Place, ExpenseLine } from '../types';
+import Modal from './Modal';
 import ExpensesSection from './ExpensesSection';
 import AttachmentsSection from './AttachmentsSection';
 import { undoButton as undoBtn } from './UndoButton';
@@ -262,14 +263,7 @@ export default function HotelModal({
 
 
   return (
-    <>
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content glass-panel scrollable" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>{editingHotel ? 'Edit Hotel Details' : 'Add Hotel Details'}</h3>
-            <button className="modal-close" onClick={onClose}><X size={20} /></button>
-          </div>
-
+    <Modal title={editingHotel ? 'Edit Hotel Details' : 'Add Hotel Details'} onClose={onClose} maxWidth={860}>
           {/* Suggestions Search / Auto-Populate */}
           <div className="modal-autofill-panel">
             <div className="flex-between">
@@ -591,8 +585,6 @@ export default function HotelModal({
               </div>
             </div>
           </form>
-        </div>
-      </div>
-    </>
+    </Modal>
   );
 }

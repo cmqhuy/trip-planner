@@ -12,6 +12,10 @@ interface ModalProps {
   className?: string;
   /** Set false to disable dismiss-on-overlay-click (e.g. destructive flows). */
   closeOnOverlayClick?: boolean;
+  /** Optional class on the header `<h3>` (e.g. `modal-header-title` for icon + text). */
+  titleClassName?: string;
+  /** Hide the ✕ close button (e.g. while a blocking operation runs). */
+  hideClose?: boolean;
 }
 
 /**
@@ -29,6 +33,8 @@ export default function Modal({
   maxWidth,
   className = '',
   closeOnOverlayClick = true,
+  titleClassName,
+  hideClose = false,
 }: ModalProps) {
   return (
     <div className="modal-overlay" onClick={closeOnOverlayClick ? onClose : undefined}>
@@ -38,8 +44,10 @@ export default function Modal({
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3>{title}</h3>
-          <button type="button" className="modal-close" onClick={onClose}><X size={20} /></button>
+          <h3 className={titleClassName}>{title}</h3>
+          {!hideClose && (
+            <button type="button" className="modal-close" onClick={onClose}><X size={20} /></button>
+          )}
         </div>
         {children}
       </div>

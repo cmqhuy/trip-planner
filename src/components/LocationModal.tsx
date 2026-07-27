@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Trash2 } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
+import Modal from './Modal';
 import type { Location } from '../types';
 import { searchLocation, getLocIcon, getFormattedLocationName } from '../utils/api';
 import LocationFormFields from './LocationFormFields';
@@ -125,15 +126,7 @@ export default function LocationModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-content--md glass-panel scrollable" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Edit Location</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal title="Edit Location" onClose={onClose} className="modal-content--md">
         {/* Auto-Populate suggestions search */}
         <div className="modal-autofill-panel">
           <label>Auto-Populate Details</label>
@@ -229,7 +222,6 @@ export default function LocationModal({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

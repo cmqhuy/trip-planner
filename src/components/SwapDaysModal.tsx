@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import Modal from './Modal';
 
 interface DayOption {
   value: string;
@@ -66,15 +67,8 @@ export default function SwapDaysModal({
   const selectedOption = daysOptions.find(opt => opt.value === targetDate);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Swap Days</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-        
+    <Modal title="Swap Days" onClose={onClose} maxWidth={400}>
+
         <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'none' }}>
           Swap all scheduled places, notes, and AI daily tips of <strong>{activeDayLabel}</strong> with another day.
         </div>
@@ -143,7 +137,6 @@ export default function SwapDaysModal({
             Swap Days
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

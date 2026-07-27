@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { X, Trash2, Archive, Link } from 'lucide-react';
+import { Trash2, Archive, Link } from 'lucide-react';
 import type { Hotel, TransportationReservation } from '../types';
+import Modal from './Modal';
 import { deleteFileFromDrive, renameFolderInDrive } from '../utils/googleDrive';
 
 interface Props {
@@ -55,13 +56,7 @@ export default function DeleteReservationModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-content glass-panel" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{title}</h3>
-          <button className="modal-close" onClick={onCancel}><X size={20} /></button>
-        </div>
-
+    <Modal title={title} onClose={onCancel} maxWidth={420}>
         {isMultiSegment && deleteChoice === null ? (
           <>
             <p className="modal-body-text">
@@ -149,7 +144,6 @@ export default function DeleteReservationModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

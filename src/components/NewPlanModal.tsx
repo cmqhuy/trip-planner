@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import Modal from './Modal';
 
 interface NewPlanModalProps {
   isOpen: boolean;
@@ -26,14 +26,7 @@ export default function NewPlanModal({ isOpen, onClose, onSave }: NewPlanModalPr
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Create Plan / Version</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+    <Modal title="Create Plan / Version" onClose={onClose}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="new-plan-name">Plan Name</label>
@@ -52,7 +45,6 @@ export default function NewPlanModal({ isOpen, onClose, onSave }: NewPlanModalPr
             <button type="submit" className="btn-primary">Create Plan</button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
+  ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
   Sparkles, RefreshCw, Trash2, MapPin, Plus,
 } from 'lucide-react';
 import type { TransportationReservation, Location, Place, ExpenseLine } from '../types';
+import Modal from './Modal';
 import ExpensesSection from './ExpensesSection';
 import AttachmentsSection from './AttachmentsSection';
 import { undoButton as undoBtn } from './UndoButton';
@@ -634,18 +635,7 @@ export default function TransportModal({
   if (!isOpen) return null;
 
   return (
-    <>
-      <div className="modal-overlay" onClick={onClose}>
-        <div
-          className="modal-content glass-panel scrollable"
-          style={{ maxWidth: '900px' }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="modal-header">
-            <h3>{editingTransport ? 'Edit Transit Details' : 'Add Transit Details'}</h3>
-            <button className="modal-close" onClick={onClose}><X size={20} /></button>
-          </div>
-
+    <Modal title={editingTransport ? 'Edit Transit Details' : 'Add Transit Details'} onClose={onClose} maxWidth={900}>
           <div className="modal-autofill-panel">
             <div className="flex-between">
               <label>Auto-Populate Details</label>
@@ -1202,8 +1192,6 @@ export default function TransportModal({
               </div>
             </div>
           </form>
-        </div>
-      </div>
-    </>
+    </Modal>
   );
 }

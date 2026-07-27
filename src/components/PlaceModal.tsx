@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Trash2, Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Search, Trash2, Sparkles, RefreshCw, AlertTriangle } from 'lucide-react';
+import Modal from './Modal';
 import type { Place, PlaceGroup, Location, SuggestedMarker } from '../types';
 import { searchPlacesNearLocation, buildMapsLink, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, fetchWikipediaData } from '../utils/api';
 import PlaceFormFields from './PlaceFormFields';
@@ -269,15 +270,7 @@ export default function PlaceModal({
 
   return (
     <>
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel scrollable place-modal-content" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{isEdit ? 'Edit Place Details' : 'Add Place'}</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal title={isEdit ? 'Edit Place Details' : 'Add Place'} onClose={onClose} className="place-modal-content">
         {/* Suggestions Search / Auto-Populate */}
         <div className="modal-autofill-panel">
           <div className="flex-between">
@@ -430,8 +423,7 @@ export default function PlaceModal({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
     {manualPromptModal}
     </>
   );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Key, RefreshCw, CheckCircle2, XCircle, Plus, Trash2, Bot, BotOff } from 'lucide-react';
+import { Sparkles, Key, RefreshCw, CheckCircle2, XCircle, Plus, Trash2, Bot, BotOff } from 'lucide-react';
+import Modal from './Modal';
 import { GeminiService } from '../utils/ai';
 import type { AiMode } from '../utils/ai';
 
@@ -72,21 +73,12 @@ export default function AiSettingsModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content glass-panel modal-content--md scrollable"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h3 className="modal-header-title">
-            <Sparkles size={18} className="text-accent" />
-            AI Settings
-          </h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal
+      title={<><Sparkles size={18} className="text-accent" /> AI Settings</>}
+      titleClassName="modal-header-title"
+      onClose={onClose}
+      className="modal-content--md"
+    >
         <div className="modal-scroll-body modal-scroll-body--mt12">
           <p className="modal-body-intro modal-body-intro--mb16">
             Choose how AI features work.
@@ -304,7 +296,6 @@ export default function AiSettingsModal({
             Save Settings
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

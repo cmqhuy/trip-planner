@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
+import { Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
+import Modal from './Modal';
 import type { Place } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { runAiCall } from '../utils/runAiCall';
@@ -127,23 +128,14 @@ export default function AiGenerateModal({
 
   return (
     <>
-    <div className="modal-overlay" onClick={generating ? undefined : onClose}>
-      <div
-        className="modal-content glass-panel modal-content--lg"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h3 className="modal-header-title">
-            <Sparkles size={18} className="text-accent" />
-            AI Place Tips Generator
-          </h3>
-          {!generating && (
-            <button className="modal-close" onClick={onClose}>
-              <X size={20} />
-            </button>
-          )}
-        </div>
-
+    <Modal
+      title={<><Sparkles size={18} className="text-accent" /> AI Place Tips Generator</>}
+      titleClassName="modal-header-title"
+      onClose={onClose}
+      className="modal-content--lg"
+      closeOnOverlayClick={!generating}
+      hideClose={generating}
+    >
         <div className="modal-scroll-body modal-scroll-body--mt12">
           {generating ? (
             <FunGeneratingLoader title="Generating Travel Guide" message={progressMsg} />
@@ -246,8 +238,7 @@ export default function AiGenerateModal({
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
 
     {manualPromptModal}
   </>

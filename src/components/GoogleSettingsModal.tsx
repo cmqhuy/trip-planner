@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Key, ShieldAlert } from 'lucide-react';
+import { Key, ShieldAlert } from 'lucide-react';
+import Modal from './Modal';
 import { DEFAULT_CLIENT_ID, DEFAULT_API_KEY } from '../utils/googleDrive';
 
 interface GoogleSettingsModalProps {
@@ -41,18 +42,12 @@ export default function GoogleSettingsModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel modal-content--md" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 className="modal-header-title">
-            <Key size={18} className="text-accent" />
-            Google Integration Settings
-          </h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal
+      title={<><Key size={18} className="text-accent" /> Google Integration Settings</>}
+      titleClassName="modal-header-title"
+      onClose={onClose}
+      className="modal-content--md"
+    >
         <form onSubmit={handleSubmit} className="google-settings-form">
           <div className="form-group">
             <label htmlFor="google-client-id-input">OAuth Client ID</label>
@@ -112,7 +107,6 @@ export default function GoogleSettingsModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
