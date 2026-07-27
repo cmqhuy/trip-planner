@@ -2,24 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronDown, Plane, Train, Bus, Car, Anchor, Navigation,
-  Sparkles, RefreshCw, RotateCcw, Paperclip, Trash2, MapPin, ExternalLink, Share2, Pencil, Check, Plus, Timer,
+  Sparkles, RefreshCw, Trash2, MapPin, Plus,
 } from 'lucide-react';
 import type { TransportationReservation, Location, Place, ExpenseLine } from '../types';
 import ExpensesSection from './ExpensesSection';
+import AttachmentsSection from './AttachmentsSection';
+import { undoButton as undoBtn } from './UndoButton';
+import { STATUS_OPTIONS } from '../constants/reservations';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
-import { lookupTimezone, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation } from '../utils/api';
+import { lookupTimezone, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation, geocodeAddress } from '../utils/api';
 import DualMapPicker from './DualMapPicker';
-import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
-import { useDriveAttachments } from '../utils/useDriveAttachments';
+import { useReservationAttachments } from '../utils/useReservationAttachments';
 import { ALL_TIMEZONES, getBrowserTimezone, formatTimezoneLabel } from '../utils/timezones';
-import ConfirmationModal from './ConfirmationModal';
-import ShareTripModal from './ShareTripModal';
-
-const STATUS_OPTIONS = [
-  { value: 'Confirmed' as const, Icon: Check },
-  { value: 'Planning' as const, Icon: Timer },
-  { value: 'Canceled' as const, Icon: X },
-];
 
 interface SegmentFormState {
   id: string;
@@ -68,19 +62,6 @@ const TRANSPORT_TYPES: { value: TransportationReservation['type']; label: string
   { value: 'ferry', label: 'Ferry', Icon: Anchor },
   { value: 'other', label: 'Other', Icon: Navigation },
 ];
-
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
-    clearTimeout(timeout);
-    const data = await res.json();
-    if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-    return null;
-  } catch { return null; }
-}
 
 type ReservationSavedValues = {
   transitName: string;
@@ -142,13 +123,6 @@ export default function TransportModal({
   // Validation errors per segment: { [segIdx]: ['depLoc', 'arrDate', ...] }
   const [segmentErrors, setSegmentErrors] = useState<Record<number, string[]>>({});
 
-  // UI state
-  const [isAiFilling, setIsAiFilling] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [showAccessError, setShowAccessError] = useState(false);
-  const [showShareFolder, setShowShareFolder] = useState(false);
-  const [editingChip, setEditingChip] = useState<{ fileId: string; value: string } | null>(null);
-
   // Dropdown state
   const [typeOpen, setTypeOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -172,7 +146,6 @@ export default function TransportModal({
   const [isArrSearching, setIsArrSearching] = useState(false);
   const [arrSearchError, setArrSearchError] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const autofillInputRef = useRef<HTMLInputElement>(null);
   const typeRef = useRef<HTMLDivElement>(null);
   const depTzTriggerRef = useRef<HTMLButtonElement>(null);
@@ -181,15 +154,17 @@ export default function TransportModal({
   const depSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const arrSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const {
-    attachedFiles, setAttachments, uploadingCount, removePrompt, setRemovePrompt,
-    handleFileSelect, handleRemoveChip, confirmRemoveChip, renameAttachment,
-  } = useDriveAttachments({
+  // applyAiResult depends on updateSegment/segments defined below, so the hook
+  // reaches it through a ref updated each render (avoids a temporal-dead-zone
+  // reference at the hook call).
+  const applyAiResultRef = useRef<(result: any) => Promise<void>>(async () => {});
+  const attach = useReservationAttachments({
     googleToken, tripPlannerFolderId, tripName, tripFilesFolderId, onFileFolderCreated,
     initialAttachments: editingTransport?.attachments ?? [],
-    onSetAiError: setAiError,
-    onAccessError: () => setShowAccessError(true),
+    generateFromFiles: (files) => GeminiService.generateTransitDetailsFromFilesWithRotation(files),
+    applyResult: (result) => applyAiResultRef.current(result),
   });
+  const { attachedFiles, setAttachments, setRemovePrompt, setAiError, setShowAccessError, uploadingCount, isAiFilling, handleAutofillFileSelect } = attach;
 
   // Active segment shortcut
   const seg = segments[activeSegmentIndex] ?? segments[0];
@@ -250,8 +225,6 @@ export default function TransportModal({
     setArrTzOpen(false);
     setStatusOpen(false);
     setShowAccessError(false);
-    setShowShareFolder(false);
-    setEditingChip(null);
     setDepSuggestions([]);
     setDepSuggestionsField(null);
     setDepSearchError(null);
@@ -667,73 +640,8 @@ export default function TransportModal({
       updateSegment(currentIdx, patch);
     }
   };
-
-  const handleAiFill = async () => {
-    if (!googleToken || attachedFiles.length === 0) return;
-    if (!GeminiService.isAiEnabled() || GeminiService.isManualMode()) return;
-    setIsAiFilling(true);
-    setAiError(null);
-    try {
-      const fileContents = await Promise.all(
-        attachedFiles.map(f => fetchFileContentFromDrive(googleToken!, f.fileId))
-      );
-      const result = await GeminiService.generateTransitDetailsFromFilesWithRotation(fileContents);
-      await applyAiResult(result);
-    } catch (err: any) {
-      setAiError(err.message || 'AI fill failed.');
-    } finally {
-      setIsAiFilling(false);
-    }
-  };
-
-  const handleAutofillFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    e.target.value = '';
-    const file = files[0];
-    setIsAiFilling(true);
-    setAiError(null);
-    try {
-      const fileData = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-          const result = reader.result as string;
-          const commaIdx = result.indexOf(',');
-          resolve({ base64: commaIdx > -1 ? result.substring(commaIdx + 1) : result, mimeType: file.type || 'application/octet-stream' });
-        };
-        reader.onerror = () => reject(new Error('Failed to read file locally.'));
-      });
-
-      if (googleToken) {
-        let folderId = tripFilesFolderId;
-        if (!folderId && tripPlannerFolderId && tripName) {
-          folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-          onFileFolderCreated?.(folderId);
-        }
-        if (folderId) {
-          const fileId = await uploadFile(googleToken, folderId, file);
-          setAttachments(prev => [...prev, { name: file.name, filename: file.name, fileId }]);
-        }
-      }
-
-      const result = await GeminiService.generateTransitDetailsFromFilesWithRotation([fileData]);
-      await applyAiResult(result);
-    } catch (err: any) {
-      setAiError(err.message || 'AI autofill failed.');
-    } finally {
-      setIsAiFilling(false);
-    }
-  };
-
-  const undoBtn = (current: string, saved: string | undefined, onRestore: () => void) => {
-    if (saved === undefined || current === saved) return null;
-    return (
-      <button type="button" className="undo-btn" onClick={onRestore} data-tooltip="Restore original value">
-        <RotateCcw size={11} />
-      </button>
-    );
-  };
+  // Keep the ref the attachments hook reads pointed at the latest closure.
+  useEffect(() => { applyAiResultRef.current = applyAiResult; });
 
   const filteredDepTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(depTzSearch.toLowerCase()));
   const filteredArrTz = ALL_TIMEZONES.filter(tz => tz.toLowerCase().includes(arrTzSearch.toLowerCase()));
@@ -1334,103 +1242,15 @@ export default function TransportModal({
                     onChange={setExpenses}
                   />
 
-                  {googleToken && (
-                    <div className="attachment-section">
-                      <div className="attachment-header-row">
-                        <span className="attachment-section-label">Attachments</span>
-                        <div className="attachment-header-actions">
-                          {attachedFiles.length > 0 && (
-                            <button
-                              type="button"
-                              className="modal-ai-fill-btn modal-ai-fill-btn--inline"
-                              onClick={handleAiFill}
-                              disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
-                              data-tooltip={
-                                !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
-                                GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
-                                undefined
-                              }
-                              data-tooltip-position="bottom"
-                            >
-                              {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
-                              {isAiFilling ? 'Generating…' : 'Fill Details with AI'}
-                            </button>
-                          )}
-                          <button type="button" className="mini-icon-btn flex-align" onClick={() => fileInputRef.current?.click()} disabled={uploadingCount > 0}>
-                            <Paperclip size={13} />
-                            {uploadingCount > 0 ? 'Uploading…' : 'Attach Files'}
-                          </button>
-                        </div>
-                      </div>
-                      {isOwner && tripDriveFileId && (
-                        <p className="attachment-share-notice">
-                          For shared users to access attachments, share the trip folder with them.
-                          {tripFilesFolderId && (
-                            <button type="button" className="attachment-share-btn" onClick={() => setShowShareFolder(true)}>
-                              <Share2 size={11} /> Share Folder
-                            </button>
-                          )}
-                        </p>
-                      )}
-                      <input ref={fileInputRef} type="file" multiple accept="image/*,application/pdf,.eml,.txt" className="visually-hidden" onChange={handleFileSelect} />
-                      {attachedFiles.length > 0 && (
-                        <div className="attachment-chip-list">
-                          {attachedFiles.map(f => (
-                            <span key={f.fileId} className="attachment-chip">
-                              {editingChip?.fileId === f.fileId ? (
-                                <>
-                                  <input
-                                    className="attachment-chip-edit-input"
-                                    value={editingChip.value}
-                                    onChange={e => setEditingChip({ fileId: f.fileId, value: e.target.value })}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }
-                                      if (e.key === 'Escape') setEditingChip(null);
-                                    }}
-                                    autoFocus
-                                  />
-                                  <button
-                                    type="button"
-                                    className="attachment-chip-action"
-                                    onClick={() => { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }}
-                                    data-tooltip="Save name"
-                                  >
-                                    <Check size={10} />
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <a
-                                    href={`https://drive.google.com/file/d/${f.fileId}/view`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="attachment-chip-name"
-                                    data-tooltip={f.filename && f.filename !== f.name ? f.filename : 'Open file'}
-                                  >
-                                    <ExternalLink size={10} />
-                                    <span className="attachment-chip-filename">{f.name}</span>
-                                  </a>
-                                  <button
-                                    type="button"
-                                    className="attachment-chip-action"
-                                    onClick={() => setEditingChip({ fileId: f.fileId, value: f.name })}
-                                    data-tooltip="Rename file"
-                                  >
-                                    <Pencil size={10} />
-                                  </button>
-                                  <button type="button" className="attachment-chip-remove" onClick={() => handleRemoveChip(f)} data-tooltip="Remove file">
-                                    <X size={10} />
-                                  </button>
-                                </>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {aiError && <p className="form-error-text">{aiError}</p>}
-                    </div>
-                  )}
-                  {!googleToken && aiError && <p className="form-error-text">{aiError}</p>}
+                  <AttachmentsSection
+                    attach={attach}
+                    googleToken={googleToken}
+                    isOwner={isOwner}
+                    tripDriveFileId={tripDriveFileId}
+                    tripName={tripName}
+                    tripFilesFolderId={tripFilesFolderId}
+                  />
+                  {!googleToken && attach.aiError && <p className="form-error-text">{attach.aiError}</p>}
                 </div>
               </div>
 
@@ -1450,43 +1270,6 @@ export default function TransportModal({
           </form>
         </div>
       </div>
-
-      {showShareFolder && googleToken && tripFilesFolderId && (
-        <ShareTripModal
-          accessToken={googleToken}
-          folderId={tripFilesFolderId}
-          folderDisplayName={tripName ? `${tripName}_files` : tripFilesFolderId}
-          onClose={() => setShowShareFolder(false)}
-        />
-      )}
-
-      {showAccessError && (
-        <ConfirmationModal
-          isOpen={true}
-          isAlert={true}
-          title="Cannot Upload File"
-          message="You don't have write access to this trip's folder. Please ask the trip owner to share the trip folder with you."
-          onConfirm={() => setShowAccessError(false)}
-          onCancel={() => setShowAccessError(false)}
-        />
-      )}
-
-      {removePrompt && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setRemovePrompt(null)}>
-          <div className="modal-content glass-panel" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Remove File</h3>
-              <button className="modal-close" onClick={() => setRemovePrompt(null)}><X size={20} /></button>
-            </div>
-            <p className="modal-body-text">What should happen to <strong>{removePrompt.name}</strong> on Google Drive?</p>
-            <div className="modal-actions modal-actions--column">
-              <button className="btn-danger" onClick={() => confirmRemoveChip('delete')}><Trash2 size={14} /> Delete from Drive</button>
-              <button className="btn-secondary" onClick={() => confirmRemoveChip('archive')}>Archive on Drive (rename with [Archived])</button>
-              <button className="btn-secondary" onClick={() => confirmRemoveChip('keep')}>Keep on Drive, remove link only</button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

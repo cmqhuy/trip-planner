@@ -1,15 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2, ChevronDown, Check, Timer } from 'lucide-react';
+import { X, Trash2, ChevronDown } from 'lucide-react';
 import type { GenericReservation } from '../types';
-
-type ReservationStatus = 'Confirmed' | 'Planning' | 'Canceled';
-
-const STATUS_OPTIONS: { value: ReservationStatus; Icon: typeof Check }[] = [
-  { value: 'Confirmed', Icon: Check },
-  { value: 'Planning', Icon: Timer },
-  { value: 'Canceled', Icon: X },
-];
+import { STATUS_OPTIONS, type ReservationStatus } from '../constants/reservations';
 
 interface GenericReservationModalProps {
   isOpen: boolean;
@@ -111,9 +104,8 @@ export default function GenericReservationModal({
               >
                 <span className="combo-trigger-content">
                   {(() => {
-                    const opt = STATUS_OPTIONS.find(s => s.value === status);
-                    const Icon = opt?.Icon || Check;
-                    return <Icon size={14} />;
+                    const Icon = STATUS_OPTIONS.find(s => s.value === status)?.Icon;
+                    return Icon ? <Icon size={14} /> : null;
                   })()}
                   {status}
                 </span>

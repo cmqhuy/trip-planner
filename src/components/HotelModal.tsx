@@ -1,21 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Sparkles, RotateCcw, RefreshCw, Paperclip, Trash2, ChevronDown, MapPin, ExternalLink, Share2, Pencil, Check, Timer, Search } from 'lucide-react';
-import ConfirmationModal from './ConfirmationModal';
-import ShareTripModal from './ShareTripModal';
+import { X, Sparkles, RefreshCw, Trash2, ChevronDown, MapPin, Search } from 'lucide-react';
 import type { Hotel, Location, Place, ExpenseLine } from '../types';
 import ExpensesSection from './ExpensesSection';
+import AttachmentsSection from './AttachmentsSection';
+import { undoButton as undoBtn } from './UndoButton';
+import { STATUS_OPTIONS } from '../constants/reservations';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import MapPicker from './MapPicker';
-import { fetchFileContentFromDrive, uploadFile, getOrCreateTripFileFolder } from '../utils/googleDrive';
-import { useDriveAttachments } from '../utils/useDriveAttachments';
-import { parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation } from '../utils/api';
-
-const STATUS_OPTIONS = [
-  { value: 'Confirmed' as const, Icon: Check },
-  { value: 'Planning' as const, Icon: Timer },
-  { value: 'Canceled' as const, Icon: X },
-];
+import { useReservationAttachments } from '../utils/useReservationAttachments';
+import { parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation, geocodeAddress } from '../utils/api';
 
 interface HotelModalProps {
   isOpen: boolean;
@@ -41,19 +35,6 @@ type SavedValues = {
   bookedThrough: string; lat: string; lng: string;
   status: 'Confirmed' | 'Planning' | 'Canceled';
 };
-
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
-    clearTimeout(timeout);
-    const data = await res.json();
-    if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-    return null;
-  } catch { return null; }
-}
 
 export default function HotelModal({
   isOpen,
@@ -85,12 +66,7 @@ export default function HotelModal({
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [notes, setNotes] = useState('');
-  const [isAiFilling, setIsAiFilling] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
   const [savedValues, setSavedValues] = useState<SavedValues | null>(null);
-  const [showAccessError, setShowAccessError] = useState(false);
-  const [showShareFolder, setShowShareFolder] = useState(false);
-  const [editingChip, setEditingChip] = useState<{ fileId: string; value: string } | null>(null);
   const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
 
   const [status, setStatus] = useState<'Confirmed' | 'Planning' | 'Canceled'>('Confirmed');
@@ -104,30 +80,47 @@ export default function HotelModal({
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const autofillInputRef = useRef<HTMLInputElement>(null);
   const statusTriggerRef = useRef<HTMLButtonElement>(null);
 
-  const {
-    attachedFiles,
-    setAttachments,
-    uploadingCount,
-    removePrompt,
-    setRemovePrompt,
-    handleFileSelect,
-    handleRemoveChip,
-    confirmRemoveChip,
-    renameAttachment,
-  } = useDriveAttachments({
+  const applyAiResult = async (result: any) => {
+    if (result.name) setName(result.name);
+    if (result.address) setAddress(result.address);
+    if (result.checkInDate) setCheckInDate(result.checkInDate);
+    if (result.checkInTime) setCheckInTime(result.checkInTime);
+    if (result.checkOutDate) setCheckOutDate(result.checkOutDate);
+    if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
+    if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
+    if (result.bookedThrough) setBookedThrough(result.bookedThrough);
+    const parsed = GeminiService.parseExtractedExpenses(result, 'expense-autofill');
+    if (parsed.length > 0) {
+      setExpenses(prev => {
+        const filtered = parsed.filter(ne => !prev.some(pe => pe.description === ne.description && pe.price === ne.price));
+        return [...prev, ...filtered];
+      });
+    }
+    if (result.notes) setNotes(result.notes);
+    const fillAddress = result.address || address;
+    if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
+      const coords = await geocodeAddress(fillAddress);
+      if (coords) { setLat(coords.lat.toFixed(6)); setLng(coords.lng.toFixed(6)); }
+    } else {
+      if (result.lat != null) setLat(String(result.lat));
+      if (result.lng != null) setLng(String(result.lng));
+    }
+  };
+
+  const attach = useReservationAttachments({
     googleToken,
     tripPlannerFolderId,
     tripName,
     tripFilesFolderId,
     onFileFolderCreated,
     initialAttachments: editingHotel?.attachments ?? [],
-    onSetAiError: setAiError,
-    onAccessError: () => setShowAccessError(true),
+    generateFromFiles: (files) => GeminiService.generateHotelDetailsFromFilesWithRotation(files),
+    applyResult: applyAiResult,
   });
+  const { attachedFiles, setAttachments, setRemovePrompt, setAiError, setShowAccessError, uploadingCount, isAiFilling, handleAutofillFileSelect } = attach;
 
   useEffect(() => {
     if (isOpen) {
@@ -165,8 +158,6 @@ export default function HotelModal({
       setRemovePrompt(null);
       setStatusOpen(false);
       setShowAccessError(false);
-      setShowShareFolder(false);
-      setEditingChip(null);
       setSearchQuery('');
       setSuggestions([]);
       setSearchError(null);
@@ -268,107 +259,6 @@ export default function HotelModal({
       status,
     });
     onClose();
-  };
-
-  const applyAiResult = async (result: any) => {
-    if (result.name) setName(result.name);
-    if (result.address) setAddress(result.address);
-    if (result.checkInDate) setCheckInDate(result.checkInDate);
-    if (result.checkInTime) setCheckInTime(result.checkInTime);
-    if (result.checkOutDate) setCheckOutDate(result.checkOutDate);
-    if (result.checkOutTime) setCheckOutTime(result.checkOutTime);
-    if (result.confirmationNo) setConfirmationNo(result.confirmationNo);
-    if (result.bookedThrough) setBookedThrough(result.bookedThrough);
-    const parsed = GeminiService.parseExtractedExpenses(result, 'expense-autofill');
-    if (parsed.length > 0) {
-      setExpenses(prev => {
-        const filtered = parsed.filter(ne => !prev.some(pe => pe.description === ne.description && pe.price === ne.price));
-        return [...prev, ...filtered];
-      });
-    }
-    if (result.notes) setNotes(result.notes);
-    const fillAddress = result.address || address;
-    if (fillAddress && !result.lat && !result.lng && !lat && !lng) {
-      const coords = await geocodeAddress(fillAddress);
-      if (coords) { setLat(coords.lat.toFixed(6)); setLng(coords.lng.toFixed(6)); }
-    } else {
-      if (result.lat != null) setLat(String(result.lat));
-      if (result.lng != null) setLng(String(result.lng));
-    }
-  };
-
-  const handleAiFill = async () => {
-    if (!googleToken || attachedFiles.length === 0) return;
-    if (!GeminiService.isAiEnabled() || GeminiService.isManualMode()) return;
-    setIsAiFilling(true);
-    setAiError(null);
-    try {
-      const fileContents = await Promise.all(
-        attachedFiles.map(f => fetchFileContentFromDrive(googleToken!, f.fileId))
-      );
-      const result = await GeminiService.generateHotelDetailsFromFilesWithRotation(fileContents);
-      await applyAiResult(result);
-    } catch (err: any) {
-      setAiError(err.message || 'AI fill failed.');
-    } finally {
-      setIsAiFilling(false);
-    }
-  };
-
-  const handleAutofillFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    e.target.value = '';
-
-    const file = files[0];
-    setIsAiFilling(true);
-    setAiError(null);
-
-    try {
-      // 1. Read file locally as base64
-      const fileData = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-          const result = reader.result as string;
-          const commaIdx = result.indexOf(',');
-          const base64 = commaIdx > -1 ? result.substring(commaIdx + 1) : result;
-          resolve({ base64, mimeType: file.type || 'application/octet-stream' });
-        };
-        reader.onerror = () => reject(new Error('Failed to read file locally.'));
-      });
-
-      // 2. Upload file to Drive if googleToken is present
-      if (googleToken) {
-        let folderId = tripFilesFolderId;
-        if (!folderId && tripPlannerFolderId && tripName) {
-          folderId = await getOrCreateTripFileFolder(googleToken, tripPlannerFolderId, tripName);
-          onFileFolderCreated?.(folderId);
-        }
-        if (folderId) {
-          const fileId = await uploadFile(googleToken, folderId, file);
-          const newAttachment = { name: file.name, filename: file.name, fileId };
-          setAttachments(prev => [...prev, newAttachment]);
-        }
-      }
-
-      // 3. Extract details using AI
-      const result = await GeminiService.generateHotelDetailsFromFilesWithRotation([fileData]);
-      await applyAiResult(result);
-    } catch (err: any) {
-      setAiError(err.message || 'AI autofill failed.');
-    } finally {
-      setIsAiFilling(false);
-    }
-  };
-
-  const undoBtn = (current: string, saved: string | undefined, onRestore: () => void) => {
-    if (saved === undefined || current === saved) return null;
-    return (
-      <button type="button" className="undo-btn" onClick={onRestore} data-tooltip="Restore original value">
-        <RotateCcw size={11} />
-      </button>
-    );
   };
 
   if (!isOpen) return null;
@@ -717,119 +607,14 @@ export default function HotelModal({
                 />
 
                 {/* File Attachments (only when Google signed in) */}
-                {googleToken && (
-                  <div className="attachment-section">
-                    <div className="attachment-header-row">
-                      <span className="attachment-section-label">Attachments</span>
-                      <div className="attachment-header-actions">
-                        {attachedFiles.length > 0 && (
-                          <button
-                            type="button"
-                            className="modal-ai-fill-btn modal-ai-fill-btn--inline"
-                            onClick={handleAiFill}
-                            disabled={isAiFilling || !GeminiService.isAiEnabled() || GeminiService.isManualMode()}
-                            data-tooltip={
-                              !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
-                              GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
-                              undefined
-                            }
-                            data-tooltip-position="bottom"
-                          >
-                            {isAiFilling ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
-                            {isAiFilling ? 'Generating…' : 'Fill Details with AI'}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="mini-icon-btn flex-align"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingCount > 0}
-                        >
-                          <Paperclip size={13} />
-                          {uploadingCount > 0 ? `Uploading…` : 'Attach Files'}
-                        </button>
-                      </div>
-                    </div>
-                    {isOwner && tripDriveFileId && (
-                      <p className="attachment-share-notice">
-                        For shared users to access attachments, share the trip folder with them.
-                        {tripFilesFolderId && (
-                          <button type="button" className="attachment-share-btn" onClick={() => setShowShareFolder(true)}>
-                            <Share2 size={11} /> Share Folder
-                          </button>
-                        )}
-                      </p>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,application/pdf,.eml,.txt"
-                      className="visually-hidden"
-                      onChange={handleFileSelect}
-                    />
-                    {attachedFiles.length > 0 && (
-                      <div className="attachment-chip-list">
-                        {attachedFiles.map(f => (
-                          <span key={f.fileId} className="attachment-chip">
-                            {editingChip?.fileId === f.fileId ? (
-                              <>
-                                <input
-                                  className="attachment-chip-edit-input"
-                                  value={editingChip.value}
-                                  onChange={e => setEditingChip({ fileId: f.fileId, value: e.target.value })}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }
-                                    if (e.key === 'Escape') setEditingChip(null);
-                                  }}
-                                  autoFocus
-                                />
-                                <button
-                                  type="button"
-                                  className="attachment-chip-action"
-                                  onClick={() => { renameAttachment(f.fileId, editingChip.value.trim() || (f.filename ?? f.name)); setEditingChip(null); }}
-                                  data-tooltip="Save name"
-                                >
-                                  <Check size={10} />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <a
-                                  href={`https://drive.google.com/file/d/${f.fileId}/view`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="attachment-chip-name"
-                                  data-tooltip={f.filename && f.filename !== f.name ? f.filename : 'Open file'}
-                                >
-                                  <ExternalLink size={10} />
-                                  <span className="attachment-chip-filename">{f.name}</span>
-                                </a>
-                                <button
-                                  type="button"
-                                  className="attachment-chip-action"
-                                  onClick={() => setEditingChip({ fileId: f.fileId, value: f.name })}
-                                  data-tooltip="Rename file"
-                                >
-                                  <Pencil size={10} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="attachment-chip-remove"
-                                  onClick={() => handleRemoveChip(f)}
-                                  data-tooltip="Remove file"
-                                >
-                                  <X size={10} />
-                                </button>
-                              </>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {aiError && <p className="form-error-text">{aiError}</p>}
-                  </div>
-                )}
+                <AttachmentsSection
+                  attach={attach}
+                  googleToken={googleToken}
+                  isOwner={isOwner}
+                  tripDriveFileId={tripDriveFileId}
+                  tripName={tripName}
+                  tripFilesFolderId={tripFilesFolderId}
+                />
               </div>
 
             </div>
@@ -849,50 +634,6 @@ export default function HotelModal({
           </form>
         </div>
       </div>
-
-      {showShareFolder && googleToken && tripFilesFolderId && (
-        <ShareTripModal
-          accessToken={googleToken}
-          folderId={tripFilesFolderId}
-          folderDisplayName={tripName ? `${tripName}_files` : tripFilesFolderId}
-          onClose={() => setShowShareFolder(false)}
-        />
-      )}
-
-      {showAccessError && (
-        <ConfirmationModal
-          isOpen={true}
-          isAlert={true}
-          title="Cannot Upload File"
-          message="You don't have write access to this trip's folder. Please ask the trip owner to share the trip folder with you."
-          onConfirm={() => setShowAccessError(false)}
-          onCancel={() => setShowAccessError(false)}
-        />
-      )}
-
-      {/* Remove file prompt */}
-      {removePrompt && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setRemovePrompt(null)}>
-          <div className="modal-content glass-panel" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Remove File</h3>
-              <button className="modal-close" onClick={() => setRemovePrompt(null)}><X size={20} /></button>
-            </div>
-            <p className="modal-body-text">What should happen to <strong>{removePrompt.name}</strong> on Google Drive?</p>
-            <div className="modal-actions modal-actions--column">
-              <button className="btn-danger" onClick={() => confirmRemoveChip('delete')}>
-                <Trash2 size={14} /> Delete from Drive
-              </button>
-              <button className="btn-secondary" onClick={() => confirmRemoveChip('archive')}>
-                Archive on Drive (rename with [Archived])
-              </button>
-              <button className="btn-secondary" onClick={() => confirmRemoveChip('keep')}>
-                Keep on Drive, remove link only
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

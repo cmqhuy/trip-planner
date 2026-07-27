@@ -1,6 +1,12 @@
 
 import type { ExpenseLine } from '../types';
 
+// Shared prompt fragment for reservation file-extraction: the intro sentence is
+// identical across hotel/transit/place prompts. Each build*FromFilesPrompt keeps
+// its own type-specific extraction rules and examples verbatim.
+const fileUploadIntro = (subject: string) =>
+  `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of ${subject}.`;
+
 export const DEFAULT_AI_ICONS = [
   'Sparkles', 'Sparkle', 'Wand2', 'Brain', 'Bot',
   'Calendar', 'Ticket', 'Compass', 'AlertCircle', 'HelpCircle',
@@ -1343,7 +1349,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
   // ── File-based reservation auto-fill ─────────────────────────────────────
 
   static buildHotelDetailsFromFilesPrompt(): string {
-    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a hotel reservation or booking confirmation. Extract the hotel details from these files and return them as JSON. For fields other than address, lat, and lng, return only the fields you can confidently identify from the files (leave uncertain fields as empty strings; do not guess or invent information not clearly visible). For address, lat, and lng: if they are not explicitly mentioned or clear in the files, you must search your knowledge base or infer the hotel's correct street address, latitude, and longitude based on the hotel name and city/region, and fill them in.
+    return `${fileUploadIntro('a hotel reservation or booking confirmation')} Extract the hotel details from these files and return them as JSON. For fields other than address, lat, and lng, return only the fields you can confidently identify from the files (leave uncertain fields as empty strings; do not guess or invent information not clearly visible). For address, lat, and lng: if they are not explicitly mentioned or clear in the files, you must search your knowledge base or infer the hotel's correct street address, latitude, and longitude based on the hotel name and city/region, and fill them in.
 
 Additionally, extract all cost and expense line items associated with this reservation (e.g., room rate, taxes, resort fees, cleaning fees, parking fees, or total paid/due amount). For each expense item, extract:
 - description: A brief description of what the charge is for
@@ -1353,7 +1359,7 @@ Additionally, extract all cost and expense line items associated with this reser
   }
 
   static buildTransitDetailsFromFilesPrompt(): string {
-    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of a flight ticket, train booking, or other transit reservation. Extract the transit details from these files and return them as JSON matching the schema.
+    return `${fileUploadIntro('a flight ticket, train booking, or other transit reservation')} Extract the transit details from these files and return them as JSON matching the schema.
 
 IMPORTANT INSTRUCTIONS:
 1. MULTIPLE SEGMENTS: If the reservation contains multiple segments/legs (e.g. connecting flights, multi-stop train journeys, or round trips), extract ALL segments and list them in order under the "segments" array. If there is only one segment, place it in the "segments" array as a single element. Also fill in the top-level departure/arrival fields using the details of the first segment (or overall summary) for compatibility.
@@ -1696,7 +1702,7 @@ IMPORTANT INSTRUCTIONS:
   }
 
   static buildPlaceReservationDetailsFromFilesPrompt(): string {
-    return `You are a travel assistant. The user has uploaded one or more files (photos, PDFs, or email screenshots) of an attraction ticket, museum pass, dining reservation, or restaurant booking confirmation. Extract the reservation details from these files and return them as JSON.
+    return `${fileUploadIntro('an attraction ticket, museum pass, dining reservation, or restaurant booking confirmation')} Extract the reservation details from these files and return them as JSON.
 For fields other than address, lat, and lng, return only the fields you can confidently identify from the files (leave uncertain fields as empty strings). For address, lat, and lng: if they are not explicitly mentioned or clear in the files, search your knowledge base or infer the place's correct street address, latitude, and longitude based on the title and city/region.
 Set type to "attraction" if it is an attraction, museum, tour, or activity ticket; set type to "dining" if it is a restaurant, cafe, or food reservation.
 Extract all cost and expense line items associated with this booking under expenses.`;

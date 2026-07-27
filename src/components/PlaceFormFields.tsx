@@ -1,7 +1,8 @@
-import { Sparkles, RefreshCw, AlertTriangle, HelpCircle, RotateCcw, MapPin } from 'lucide-react';
+import { Sparkles, RefreshCw, AlertTriangle, HelpCircle, MapPin } from 'lucide-react';
 import ImagePreview from './ImagePreview';
 import CategoryGroupSelect from './CategoryGroupSelect';
 import MapPicker from './MapPicker';
+import { undoButton as undoBtn } from './UndoButton';
 import type { PlaceGroup } from '../types';
 import { GeminiService, getOrderedPlaceFields, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { FIELD_ICONS_MAP, getIconColor } from './TripAiConfigModal';
@@ -96,19 +97,6 @@ export default function PlaceFormFields({
     return ` (Last updated: ${new Date(timestamp).toLocaleDateString()})`;
   };
 
-  const undoBtn = (currentVal: string, savedVal: string | undefined, onRestore: () => void) => {
-    if (!savedValues || savedVal === undefined || currentVal === savedVal) return null;
-    return (
-      <button
-        type="button"
-        onClick={onRestore}
-        data-tooltip="Restore saved value"
-        className="undo-btn"
-      >
-        <RotateCcw size={11} />
-      </button>
-    );
-  };
 
   const orderedFields = getOrderedPlaceFields(customAiFields, disabledPlaceFields, placeFieldsOrder);
 

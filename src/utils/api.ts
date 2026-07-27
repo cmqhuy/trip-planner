@@ -1,5 +1,23 @@
 import type { Location, Place, PlaceGroup, ExpenseGroup, ReservationGroup } from '../types';
 
+/**
+ * Geocode a free-text address to coordinates via OSM Nominatim.
+ * Returns null on no match, network failure, or the 5s timeout.
+ * Shared by HotelModal and TransportModal (previously duplicated in both).
+ */
+export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'en' } });
+    clearTimeout(timeout);
+    const data = await res.json();
+    if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    return null;
+  } catch { return null; }
+}
+
 // Standard place groups template for new locations
 export const DEFAULT_PLACE_GROUPS: PlaceGroup[] = [
   { id: 'attractions', name: 'Attractions', color: '#ef4444', icon: 'landmark' }, // Red
