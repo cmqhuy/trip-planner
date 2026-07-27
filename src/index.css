@@ -3527,7 +3527,10 @@ div.google-auth-avatar-desktop {
     min-height: 0 !important;
     padding: 2px 4px !important;
   }
-  .reservation-card {
+  /* Expandable cards carry their padding on the inner .reservation-card-expand
+     (see above); the outer card stays at 0 like desktop. Only apply outer
+     padding to non-expandable reservation cards to avoid doubling the inset. */
+  .reservation-card:not(.reservation-card--expandable) {
     padding: 8px !important;
   }
   .reservation-card .card-options-menu:last-child {
@@ -3535,6 +3538,10 @@ div.google-auth-avatar-desktop {
   }
   .day-timeline {
     gap: 16px !important;
+  }
+  /* Hide the schedule sequence number badge on place cards in mobile */
+  .timeline-place-number {
+    display: none !important;
   }
   .schedule-add-slot {
     display: none !important;
