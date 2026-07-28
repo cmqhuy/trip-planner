@@ -44,6 +44,10 @@
   /* Shared card hover transition (catalog / timeline / transport / reservation cards). */
   --card-transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 
+  /* Shared glassmorphic dropdown/combo surface (single source for bg + shadow). */
+  --dropdown-bg: rgba(15, 23, 42, 0.9);
+  --dropdown-shadow: var(--shadow-lg), 0 0 15px rgba(0, 0, 0, 0.5);
+
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
@@ -2570,12 +2574,12 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   top: 100%;
   right: 0;
   margin-top: 4px;
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--dropdown-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-glass);
   border-radius: 8px;
-  box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5);
+  box-shadow: var(--dropdown-shadow);
   z-index: 100;
   min-width: 140px;
   display: flex;
@@ -3276,7 +3280,7 @@ div.google-auth-avatar-desktop {
     position: absolute !important;
     top: calc(100% + 8px) !important;
     right: 0 !important;
-    background: rgba(15, 23, 42, 0.95) !important;
+    background: var(--dropdown-bg) !important;
     backdrop-filter: blur(16px) !important;
     border: 1px solid var(--border-glass) !important;
     border-radius: 12px !important;
@@ -3285,7 +3289,7 @@ div.google-auth-avatar-desktop {
     flex-direction: column !important;
     gap: 8px !important;
     z-index: 1200 !important;
-    box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5) !important;
+    box-shadow: var(--dropdown-shadow) !important;
   }
   .dropdown-user-info {
     display: flex;
@@ -4235,7 +4239,7 @@ div.google-auth-avatar-desktop {
 .combo-divider { height: 1px; background: var(--border-glass); margin: 4px 0; }
 .combo-add-new { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--accent-primary); background: transparent; transition: all 0.15s ease; border-top: 1px solid var(--border-glass); margin-top: 4px; }
 .combo-add-new-label { font-weight: 600; }
-.combo-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; min-width: 100%; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5); }
+.combo-dropdown { position: absolute; top: calc(100% + 4px); right: 0; z-index: 999; min-width: 100%; background: var(--dropdown-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; max-height: 200px; overflow-y: auto; padding: 4px; box-shadow: var(--dropdown-shadow); }
 .combo-trigger { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); font-size: 12px; min-height: 32px; text-align: left; cursor: pointer; }
 /* Inside modal form bodies, combo triggers match input height */
 .modal-scroll-body .combo-trigger { padding: 10px 14px; font-size: 14px; min-height: unset; border-radius: 8px; }
@@ -4561,8 +4565,8 @@ div.google-auth-avatar-desktop {
 
 /* ===== TransportModal timezone combo box ===== */
 .combo-dropdown--tz { min-width: 220px; max-height: 260px; overflow: hidden; display: flex; flex-direction: column; }
-.combo-dropdown--tz-portal { position: fixed; z-index: 10000; background: rgba(15,23,42,0.97); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; box-shadow: var(--shadow-lg), 0 0 20px rgba(0,0,0,0.6); display: flex; flex-direction: column; max-height: 240px; }
-.combo-dropdown--portal { position: fixed; z-index: 10000; background: rgba(15,23,42,0.97); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; box-shadow: var(--shadow-lg), 0 0 20px rgba(0,0,0,0.6); overflow-y: auto; max-height: 200px; padding: 4px; }
+.combo-dropdown--tz-portal { position: fixed; z-index: 10000; background: var(--dropdown-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; box-shadow: var(--dropdown-shadow); display: flex; flex-direction: column; max-height: 240px; }
+.combo-dropdown--portal { position: fixed; z-index: 10000; background: var(--dropdown-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border-glass); border-radius: 6px; box-shadow: var(--dropdown-shadow); overflow-y: auto; max-height: 200px; padding: 4px; }
 .tz-search-wrapper { padding: 4px; border-bottom: 1px solid var(--border-glass); flex-shrink: 0; }
 .tz-search-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-radius: 4px; padding: 4px 8px; font-size: 12px; color: var(--text-primary); outline: none; }
 .tz-search-input::placeholder { color: var(--text-muted); }
