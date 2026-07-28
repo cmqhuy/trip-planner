@@ -620,8 +620,8 @@ function ItineraryPanel({
           {canEdit && !isEditingThis && (
             <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
               <div className="place-card-move-buttons">
-                <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
-                <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
+                <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} data-tooltip="Move Up"><ChevronUp size={12} /></button>
+                <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} data-tooltip="Move Down"><ChevronDown size={12} /></button>
               </div>
               <div className="timeline-place-dropdown-container">
                 <button
@@ -656,10 +656,10 @@ function ItineraryPanel({
             </button>
             {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
               <div className="dropdown-menu">
-                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}>
+                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }}>
                   <ChevronUp size={12} /> Move Up
                 </button>
-                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}>
+                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }}>
                   <ChevronDown size={12} /> Move Down
                 </button>
                 <button className="dropdown-item" onClick={e => { e.stopPropagation(); setEditingNoteItemIndex(idx); setActiveTimelinePlaceDropdownKey(null); }}>
@@ -724,8 +724,8 @@ function ItineraryPanel({
   const renderReservationEventMoveButtons = (idx: number, isFirst: boolean, isLast: boolean, dropdownKey: string, label: string) => (
     <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
       <div className="place-card-move-buttons">
-        <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
-        <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
+        <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} data-tooltip="Move Up"><ChevronUp size={12} /></button>
+        <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} data-tooltip="Move Down"><ChevronDown size={12} /></button>
       </div>
       <div className="timeline-place-dropdown-container">
         <button className="mini-icon-btn" onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip={`${label} Options`}><MoreVertical size={14} /></button>
@@ -783,8 +783,8 @@ function ItineraryPanel({
             <button className="mini-icon-btn" onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Hotel Event Options"><MoreVertical size={14} /></button>
             {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
               <div className="dropdown-menu">
-                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
-                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronUp size={12} /> Move Up</button>
+                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronDown size={12} /> Move Down</button>
                 <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
               </div>
             )}
@@ -851,8 +851,8 @@ function ItineraryPanel({
             <button className="mini-icon-btn" onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Transit Event Options"><MoreVertical size={14} /></button>
             {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
               <div className="dropdown-menu">
-                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
-                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronUp size={12} /> Move Up</button>
+                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronDown size={12} /> Move Down</button>
                 <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
               </div>
             )}
@@ -916,8 +916,8 @@ function ItineraryPanel({
             <button className="mini-icon-btn" onClick={e => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Reservation Event Options"><MoreVertical size={14} /></button>
             {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
               <div className="dropdown-menu">
-                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
-                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                <button className="dropdown-item" disabled={isFirst} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronUp size={12} /> Move Up</button>
+                <button className="dropdown-item" disabled={isLast} onClick={e => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronDown size={12} /> Move Down</button>
                 <button className="dropdown-item danger" onClick={e => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>
               </div>
             )}
@@ -1012,8 +1012,8 @@ function ItineraryPanel({
           {canEdit && (
             <div className="day-place-actions-desktop" onClick={e => e.stopPropagation()}>
               <div className="place-card-move-buttons">
-                <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} style={{ opacity: isFirst ? 0.3 : 1 }} data-tooltip="Move Up"><ChevronUp size={12} /></button>
-                <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} style={{ opacity: isLast ? 0.3 : 1 }} data-tooltip="Move Down"><ChevronDown size={12} /></button>
+                <button className="mini-icon-btn" disabled={isFirst} onClick={() => handleMoveScheduleItem(idx, 'up')} data-tooltip="Move Up"><ChevronUp size={12} /></button>
+                <button className="mini-icon-btn" disabled={isLast} onClick={() => handleMoveScheduleItem(idx, 'down')} data-tooltip="Move Down"><ChevronDown size={12} /></button>
               </div>
               <div className="timeline-place-dropdown-container">
                 <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === dropdownKey ? null : dropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
@@ -1049,8 +1049,8 @@ function ItineraryPanel({
             <button className="mini-icon-btn" onClick={(e) => { e.stopPropagation(); setActiveTimelinePlaceDropdownKey(activeTimelinePlaceDropdownKey === mobileDropdownKey ? null : mobileDropdownKey); }} data-tooltip="Place Options"><MoreVertical size={14} /></button>
             {activeTimelinePlaceDropdownKey === mobileDropdownKey && (
               <div className="dropdown-menu">
-                <button className="dropdown-item" disabled={isFirst} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /> Move Up</button>
-                <button className="dropdown-item" disabled={isLast} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }} style={{ opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /> Move Down</button>
+                <button className="dropdown-item" disabled={isFirst} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'up'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronUp size={12} /> Move Up</button>
+                <button className="dropdown-item" disabled={isLast} onClick={(e) => { e.stopPropagation(); handleMoveScheduleItem(idx, 'down'); setActiveTimelinePlaceDropdownKey(null); }}><ChevronDown size={12} /> Move Down</button>
                 <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(place.title); setActiveTimelinePlaceDropdownKey(null); }}><Copy size={12} /> Copy Name</button>
                 <button className="dropdown-item" data-tooltip="Edit Place" onClick={(e) => { e.stopPropagation(); handleOpenEditPlace(place); setActiveTimelinePlaceDropdownKey(null); }}><Edit2 size={12} /> Edit Place</button>
                 <button className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); handleRemovePlaceFromDay(idx); setActiveTimelinePlaceDropdownKey(null); }}><Trash2 size={12} /> Remove from Day</button>

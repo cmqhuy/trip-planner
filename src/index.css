@@ -3847,6 +3847,7 @@ div.google-auth-avatar-desktop {
   align-items: center !important;
   justify-content: center !important;
 }
+.place-card-move-buttons button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 @media (max-width: 768px) {
   .place-card-move-buttons button {
