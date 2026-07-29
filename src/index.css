@@ -3835,6 +3835,13 @@ div.google-auth-avatar-desktop {
 }
 
 /* Place Card Move Buttons */
+/* ── Standardized card action button groups ──────────────────────────────
+   Two canonical layouts for the little icon-button clusters on cards:
+   - .card-actions-stack : vertical (move up/down, expand, options stacked)
+   - .card-actions-row   : horizontal (map / options / date tags in a row)
+   Fill either with .mini-icon-btn buttons and a .card-options-menu for the
+   ⋮ dropdown. `.place-card-move-buttons` is the legacy alias for the stack. */
+.card-actions-stack,
 .place-card-move-buttons {
   display: flex;
   flex-direction: column;
@@ -3843,6 +3850,7 @@ div.google-auth-avatar-desktop {
   flex-shrink: 0;
 }
 
+.card-actions-stack button,
 .place-card-move-buttons button {
   padding: 2px !important;
   width: 20px !important;
@@ -3851,7 +3859,17 @@ div.google-auth-avatar-desktop {
   align-items: center !important;
   justify-content: center !important;
 }
+.card-actions-stack button:disabled,
 .place-card-move-buttons button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.card-actions-row,
+.reservation-card-header-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 
 @media (max-width: 768px) {
   .place-card-move-buttons button {
@@ -4344,8 +4362,6 @@ div.google-auth-avatar-desktop {
 .catalog-day-tag--active { background: rgba(99,102,241,0.35); color: #ffffff; border-color: var(--accent-primary); }
 
 /* Reservation card right column (date tags + chevron) */
-.reservation-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-
 /* Desktop/mobile visibility for reservation card actions */
 .reservation-card-actions-desktop { display: flex; gap: 6px; }
 .reservation-card-mobile-menu { display: none; position: relative; }

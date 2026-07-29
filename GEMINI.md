@@ -297,8 +297,11 @@ Tint usage: `rgba(var(--type-hotel-rgb), 0.35)`. Solid border: `border-color: va
 
 **Place cards** (catalog and itinerary):
 - `.place-card-thumb-container` — fixed `40×40px` photo/placeholder wrapper
-- `.place-card-move-buttons` — vertical up/down reorder controls
 - For `<select>` dropdowns, use `.catalog-location-select` or `.tips-location-select`; set `backgroundColor` (not `background`) to avoid hiding the browser-rendered chevron.
+
+**Card action button groups** — the little icon-button clusters on cards use two canonical containers (fill either with `.mini-icon-btn` buttons + a `.card-options-menu` for the ⋮ dropdown):
+- `.card-actions-stack` — vertical (move up/down, expand, options stacked). `.place-card-move-buttons` is the legacy alias.
+- `.card-actions-row` — horizontal (map / options / date tags in a row). `.reservation-card-header-right` is grouped into it.
 
 **Dialogs / forms**:
 - `.modal-field-title` / `.modal-field-details` — field label and description
