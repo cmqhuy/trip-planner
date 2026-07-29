@@ -815,8 +815,6 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   border-color: rgba(99, 102, 241, 0.35);
   background: rgba(30, 41, 59, 0.60);
   box-shadow: 0 6px 16px rgba(99, 102, 241, 0.1);
-  position: relative;
-  z-index: 2;
 }
 .catalog-place-card.catalog-place-card--active:hover {
   border-color: rgba(99, 102, 241, 0.65);
@@ -4998,6 +4996,20 @@ input[type="number"] { -moz-appearance: textfield; }
 .expense-item.drag-over {
   border-color: var(--accent-primary);
   background: rgba(99, 102, 241, 0.08);
+}
+
+/* Left-panel cards (catalog place, reservation, expense) lift above their
+   siblings on hover so the hover shadow/border isn't clipped by the next card.
+   Single source for this behavior across all three. */
+.catalog-place-card,
+.reservation-card,
+.expense-item {
+  position: relative;
+}
+.catalog-place-card:hover,
+.reservation-card:hover,
+.expense-item:hover {
+  z-index: 10;
 }
 
 .expense-item-grip {
