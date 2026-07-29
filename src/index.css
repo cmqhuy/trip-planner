@@ -3381,7 +3381,7 @@ div.google-auth-avatar-desktop {
     /* spacing matches desktop */
   }
   .catalog-place-card {
-    padding: 8px !important;
+    padding: 12px !important;
   }
   .place-card-header {
     gap: 8px !important;
@@ -3527,7 +3527,7 @@ div.google-auth-avatar-desktop {
   }
   .reservation-card-expand,
   .reservation-card-expanded-content {
-    padding: 8px !important;
+    padding: 12px !important;
   }
   .transport-card .timeline-place-map-link {
     height: 18px !important;
@@ -3538,10 +3538,14 @@ div.google-auth-avatar-desktop {
      (see above); the outer card stays at 0 like desktop. Only apply outer
      padding to non-expandable reservation cards to avoid doubling the inset. */
   .reservation-card:not(.reservation-card--expandable) {
-    padding: 8px !important;
+    padding: 12px !important;
   }
-  .reservation-card .card-options-menu:last-child {
-    margin-right: -2px;
+  /* Pin the reservation card's top-right action cluster (date tags / map / ⋮)
+     flush to the corner, matching the place card's absolutely-pinned ⋮ so both
+     have the same visual top/right inset. Offsets the 12px card padding. */
+  .reservation-card .reservation-card-header-right {
+    margin-top: -12px;
+    margin-right: -12px;
   }
   .day-timeline {
     gap: 16px !important;
@@ -4259,7 +4263,7 @@ div.google-auth-avatar-desktop {
 
 /* ReservationsSection */
 .reservations-inner { display: flex; flex-direction: column; }
-.reservation-card { padding: 8px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: var(--card-transition); position: relative; z-index: 0; }
+.reservation-card { padding: 12px; border-radius: 8px; background: rgba(30, 41, 59, 0.2); border: 1px solid var(--border-glass); transition: var(--card-transition); position: relative; z-index: 0; }
 .reservation-card:hover { border-color: rgba(255, 255, 255, 0.15); background: rgba(30, 41, 59, 0.35); z-index: 10; }
 .reservation-card--hotel { background: rgba(30, 41, 59, 0.45); }
 .reservation-card--hotel:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-hotel-rgb), 0.35); box-shadow: 0 6px 16px rgba(var(--type-hotel-rgb), 0.1); }
@@ -4332,7 +4336,7 @@ div.google-auth-avatar-desktop {
 
 /* Expandable reservation card */
 .reservation-card--expandable { padding: 0; overflow: hidden; }
-.reservation-card-expand { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; cursor: pointer; }
+.reservation-card-expand { display: flex; flex-direction: column; gap: 3px; padding: 12px; cursor: pointer; }
 .reservation-card-expand:hover { background: rgba(255,255,255,0.03); }
 .reservation-card-expand-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .reservation-card-icon-row { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; }
@@ -4343,7 +4347,7 @@ div.google-auth-avatar-desktop {
 .reservation-card-field-row { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-secondary); }
 .reservation-card-field-row svg { color: var(--text-muted); flex-shrink: 0; }
 .reservation-card-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin: 0; }
-.reservation-card-expanded-content { border-top: 1px solid var(--border-glass); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.reservation-card-expanded-content { border-top: 1px solid var(--border-glass); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
 .reservation-card-notes { font-size: 11px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
 .reservation-card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
@@ -4966,7 +4970,7 @@ input[type="number"] { -moz-appearance: textfield; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-glass);
   border-radius: 6px;
