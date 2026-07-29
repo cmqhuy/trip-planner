@@ -1373,16 +1373,6 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   align-self: flex-start;
 }
 
-.hotel-card-right-actions,
-.transport-card-right-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  margin-left: 4px;
-}
-
 /* Right Panel: Map Container */
 .map-panel {
   flex: 1.2;
@@ -3041,7 +3031,7 @@ input[type="checkbox"].checklist-checkbox { width: 14px; height: 14px; margin: 2
 .note-edit-textarea { width: 100%; padding: 6px 8px; font-size: 12.5px; background: var(--bg-dark); border: 1px solid var(--accent-primary); border-radius: 6px; color: var(--text-primary); text-transform: none; line-height: 1.5; box-sizing: border-box; }
 .note-edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
 .note-edit-btn { padding: 2px 8px; font-size: 10px; }
-.section-item-list { display: flex; flex-direction: column; gap: 8px; }
+.section-item-list { display: flex; flex-direction: column; gap: 16px; }
 .hotel-text-col { margin-left: 10px; }
 .hotel-name-text { font-size: 13px; font-weight: 600; }
 .hotel-address-text { font-size: 11px; color: var(--text-secondary); }
@@ -3531,8 +3521,7 @@ div.google-auth-avatar-desktop {
      absolutely pinned at top:0 right:0 (ignoring padding). These cards carry a
      global 14px 16px padding override (see the unified overrides block), so the
      panel must offset the full 16px right / 14px top padding to sit flush. */
-  .hotel-card-right-actions,
-  .transport-card-right-actions {
+  .card-actions-stack--pinned {
     margin-top: -8px;
     margin-right: -16px;
   }
@@ -3848,8 +3837,9 @@ div.google-auth-avatar-desktop {
   flex-shrink: 0;
 }
 
-.card-actions-stack button,
-.place-card-move-buttons button {
+/* Compact 20x20 sizing for the move up/down chevrons only (direct children, so
+   an .card-options-menu dropdown nested in the stack keeps normal button sizes). */
+.place-card-move-buttons > button {
   padding: 2px !important;
   width: 20px !important;
   height: 20px !important;
@@ -3857,8 +3847,10 @@ div.google-auth-avatar-desktop {
   align-items: center !important;
   justify-content: center !important;
 }
-.card-actions-stack button:disabled,
-.place-card-move-buttons button:disabled { opacity: 0.3; cursor: not-allowed; }
+.place-card-move-buttons > button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Day-view action stack pinned toward the card's top-right corner. */
+.card-actions-stack--pinned { margin-left: 4px; }
 
 .card-actions-row,
 .reservation-card-header-right {
@@ -3870,7 +3862,7 @@ div.google-auth-avatar-desktop {
 }
 
 @media (max-width: 768px) {
-  .place-card-move-buttons button {
+  .place-card-move-buttons > button {
     width: 32px !important;
     height: 32px !important;
   }

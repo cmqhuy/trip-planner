@@ -1487,8 +1487,10 @@ function ItineraryPanel({
                           </div>
                         )}
                       </div>
-                      <div className="hotel-card-right-actions" onClick={e => e.stopPropagation()}>
-                        <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedHotelId(isExpanded ? null : h.id)} />
+                      <div className="card-actions-stack card-actions-stack--pinned" onClick={e => e.stopPropagation()}>
+                        <button type="button" className="mini-icon-btn" onClick={() => setExpandedHotelId(isExpanded ? null : h.id)} data-tooltip={isExpanded ? 'Collapse' : 'Expand'}>
+                          <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} />
+                        </button>
                         <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
@@ -1721,8 +1723,10 @@ function ItineraryPanel({
                           </div>
                         </div>
                       </div>
-                      <div className="transport-card-right-actions" onClick={e => e.stopPropagation()}>
-                        <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedTransitId(isExpanded ? null : t.id)} />
+                      <div className="card-actions-stack card-actions-stack--pinned" onClick={e => e.stopPropagation()}>
+                        <button type="button" className="mini-icon-btn" onClick={() => setExpandedTransitId(isExpanded ? null : t.id)} data-tooltip={isExpanded ? 'Collapse' : 'Expand'}>
+                          <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} />
+                        </button>
                         <div className="card-options-menu">
                           <button
                             className="mini-icon-btn"
@@ -1893,8 +1897,10 @@ function ItineraryPanel({
                               </div>
                             )}
                           </div>
-                          <div className="transport-card-right-actions" onClick={e => e.stopPropagation()}>
-                            <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} onClick={() => setExpandedResId && setExpandedResId(isExpanded ? null : pr.id)} />
+                          <div className="card-actions-stack card-actions-stack--pinned" onClick={e => e.stopPropagation()}>
+                            <button type="button" className="mini-icon-btn" onClick={() => setExpandedResId && setExpandedResId(isExpanded ? null : pr.id)} data-tooltip={isExpanded ? 'Collapse' : 'Expand'}>
+                              <ChevronDown size={14} className={`expand-chevron${isExpanded ? ' is-open' : ''}`} />
+                            </button>
                             <div className="card-options-menu">
                               <button
                                 className="mini-icon-btn"
