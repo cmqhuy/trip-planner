@@ -113,9 +113,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       if (searchDropdownRef.current && !searchDropdownRef.current.contains(target)) {
         setPlaceSuggestions([]);
       }
-      if (!target.closest('.group-dropdown-container')) {
-        setActiveGroupDropdownId(null);
-      }
       if (!target.closest('.plan-dropdown-container')) {
         setShowPlanMenu(false);
       }
@@ -364,7 +361,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [editPlanName, setEditPlanName] = useState('');
 
   // Dropdown states
-  const [activeGroupDropdownId, setActiveGroupDropdownId] = useState<string | null>(null);
   const [showPlanMenu, setShowPlanMenu] = useState(false);
   const [showDayOptionsMenu, setShowDayOptionsMenu] = useState(false);
   const [activeTimelinePlaceDropdownKey, setActiveTimelinePlaceDropdownKey] = useState<string | null>(null);
@@ -499,12 +495,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
   const [showExpenseGroupModal, setShowExpenseGroupModal] = useState(false);
   const [editingExpenseGroup, setEditingExpenseGroup] = useState<ExpenseGroup | null>(null);
-  const [activeExpenseGroupDropdownId, setActiveExpenseGroupDropdownId] = useState<string | null>(null);
 
   // Reservation Group and GenericReservation states
   const [showReservationGroupModal, setShowReservationGroupModal] = useState(false);
   const [editingReservationGroup, setEditingReservationGroup] = useState<ReservationGroup | null>(null);
-  const [activeReservationGroupDropdownId, setActiveReservationGroupDropdownId] = useState<string | null>(null);
   const [showGenericReservationModal, setShowGenericReservationModal] = useState(false);
   const [editingGenericReservation, setEditingGenericReservation] = useState<GenericReservation | null>(null);
   const [targetGenericReservationGroupId, setTargetGenericReservationGroupId] = useState<string | null>(null);
@@ -3342,8 +3336,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setShowCustomPlaceModal={setShowCustomPlaceModal}
         setAutoScheduleOnActiveDay={setAutoScheduleOnActiveDay}
         savePlaceNotes={savePlaceNotes}
-        activeGroupDropdownId={activeGroupDropdownId}
-        setActiveGroupDropdownId={setActiveGroupDropdownId}
         aiSuggestedPlaces={aiSuggestedPlaces}
         isLoadingAiSuggestions={isLoadingAiSuggestions}
         aiSuggestionsLocId={aiSuggestionsLocId}
@@ -3385,15 +3377,11 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         onAddGenericReservation={handleAddGenericReservation}
         onEditGenericReservation={handleEditGenericReservation}
         onDeleteGenericReservation={handleDeleteGenericReservation}
-        activeReservationGroupDropdownId={activeReservationGroupDropdownId}
-        setActiveReservationGroupDropdownId={setActiveReservationGroupDropdownId}
         onAddExpense={handleAddExpense}
         onEditExpense={handleEditExpense}
         onAddExpenseGroup={handleAddExpenseGroup}
         onEditExpenseGroup={handleEditExpenseGroup}
         onMoveExpenseGroup={handleMoveExpenseGroup}
-        activeExpenseGroupDropdownId={activeExpenseGroupDropdownId}
-        setActiveExpenseGroupDropdownId={setActiveExpenseGroupDropdownId}
       />
 
       {/* MIDDLE PANEL: Day-to-Day timeline */}

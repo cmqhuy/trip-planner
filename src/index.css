@@ -2890,6 +2890,9 @@ input[type="checkbox"].checklist-checkbox { width: 14px; height: 14px; margin: 2
 .catalog-hide-allocated-label { font-size: 11px; color: var(--text-secondary); cursor: pointer; user-select: none; gap: 4px; }
 .catalog-add-group-btn { color: var(--accent-secondary); padding: 4px 8px; gap: 4px; font-size: 11px; }
 .group-dropdown-container { position: relative; display: inline-block; }
+/* Group options menus sit inside cards that create backdrop-filter stacking
+   contexts; lift the panel above sibling group content. */
+.group-dropdown-container .dropdown-menu { z-index: 1100; }
 .catalog-group-action-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 6px; flex-shrink: 0; }
 .catalog-group-action-btn--labeled { display: flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 8px; flex-shrink: 0; }
 .catalog-group-ai-btn { color: #a5b4fc; }
@@ -3735,6 +3738,7 @@ div.google-auth-avatar-desktop {
   align-items: center;
   gap: 6px;
 }
+.timeline-section-actions--wide { gap: 12px; }
 
 /* Shared Card Thumbnails */
 .place-card-thumb-container {

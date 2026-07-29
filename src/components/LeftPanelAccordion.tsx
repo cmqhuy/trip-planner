@@ -52,8 +52,6 @@ interface LeftPanelAccordionProps {
   setShowCustomPlaceModal: (show: boolean) => void;
   setAutoScheduleOnActiveDay: (auto: boolean) => void;
   savePlaceNotes: (placeId: string, notes: string) => void;
-  activeGroupDropdownId: string | null;
-  setActiveGroupDropdownId: (id: string | null) => void;
   aiSuggestedPlaces: Place[];
   isLoadingAiSuggestions: boolean;
   aiSuggestionsLocId: string | null;
@@ -96,8 +94,6 @@ interface LeftPanelAccordionProps {
   onAddGenericReservation: (groupId: string) => void;
   onEditGenericReservation: (reservation: GenericReservation) => void;
   onDeleteGenericReservation?: (id: string) => void;
-  activeReservationGroupDropdownId: string | null;
-  setActiveReservationGroupDropdownId: (id: string | null) => void;
 
   // Expenses actions passed down
   onAddExpense: (groupId: string) => void;
@@ -105,8 +101,6 @@ interface LeftPanelAccordionProps {
   onAddExpenseGroup: () => void;
   onEditExpenseGroup: (group: any) => void;
   onMoveExpenseGroup: (index: number, direction: 'up' | 'down') => void;
-  activeExpenseGroupDropdownId: string | null;
-  setActiveExpenseGroupDropdownId: (id: string | null) => void;
 }
 
 export default function LeftPanelAccordion({
@@ -155,8 +149,6 @@ export default function LeftPanelAccordion({
   setShowCustomPlaceModal,
   setAutoScheduleOnActiveDay,
   savePlaceNotes,
-  activeGroupDropdownId,
-  setActiveGroupDropdownId,
   aiSuggestedPlaces = [],
   isLoadingAiSuggestions = false,
   aiSuggestionsLocId = null,
@@ -198,15 +190,11 @@ export default function LeftPanelAccordion({
   onAddGenericReservation,
   onEditGenericReservation,
   onDeleteGenericReservation,
-  activeReservationGroupDropdownId,
-  setActiveReservationGroupDropdownId,
   onAddExpense,
   onEditExpense,
   onAddExpenseGroup,
   onEditExpenseGroup,
   onMoveExpenseGroup,
-  activeExpenseGroupDropdownId,
-  setActiveExpenseGroupDropdownId
 }: LeftPanelAccordionProps) {
   return (
     <div className={`catalog-panel left-panel-accordion ${activeMobileTab === 'catalog' ? 'mobile-active' : ''}`}>
@@ -269,8 +257,6 @@ export default function LeftPanelAccordion({
             setShowCustomPlaceModal={setShowCustomPlaceModal}
             setAutoScheduleOnActiveDay={setAutoScheduleOnActiveDay}
             savePlaceNotes={savePlaceNotes}
-            activeGroupDropdownId={activeGroupDropdownId}
-            setActiveGroupDropdownId={setActiveGroupDropdownId}
             aiSuggestedPlaces={aiSuggestedPlaces}
             isLoadingAiSuggestions={isLoadingAiSuggestions}
             aiSuggestionsLocId={aiSuggestionsLocId}
@@ -381,8 +367,6 @@ export default function LeftPanelAccordion({
             onAddGenericReservation={onAddGenericReservation}
             onEditGenericReservation={onEditGenericReservation}
             onDeleteGenericReservation={onDeleteGenericReservation}
-            activeReservationGroupDropdownId={activeReservationGroupDropdownId}
-            setActiveReservationGroupDropdownId={setActiveReservationGroupDropdownId}
           />
         )}
       </div>
@@ -408,8 +392,6 @@ export default function LeftPanelAccordion({
             onAddExpenseGroup={onAddExpenseGroup}
             onEditExpenseGroup={onEditExpenseGroup}
             onMoveExpenseGroup={onMoveExpenseGroup}
-            activeGroupDropdownId={activeExpenseGroupDropdownId}
-            setActiveGroupDropdownId={setActiveExpenseGroupDropdownId}
             activeDayStr={activeDayStr}
           />
         )}

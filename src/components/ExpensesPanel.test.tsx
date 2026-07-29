@@ -143,8 +143,6 @@ describe('ExpensesPanel Component', () => {
         onAddExpenseGroup={vi.fn()}
         onEditExpenseGroup={vi.fn()}
         onMoveExpenseGroup={vi.fn()}
-        activeGroupDropdownId={null}
-        setActiveGroupDropdownId={vi.fn()}
         activeDayStr="2026-07-01"
       />
     );
@@ -189,8 +187,6 @@ describe('ExpensesPanel Component', () => {
         onAddExpenseGroup={vi.fn()}
         onEditExpenseGroup={vi.fn()}
         onMoveExpenseGroup={vi.fn()}
-        activeGroupDropdownId={null}
-        setActiveGroupDropdownId={vi.fn()}
         activeDayStr="2026-07-01"
       />
     );
@@ -229,8 +225,6 @@ describe('ExpensesPanel Component', () => {
         onAddExpenseGroup={vi.fn()}
         onEditExpenseGroup={vi.fn()}
         onMoveExpenseGroup={vi.fn()}
-        activeGroupDropdownId={null}
-        setActiveGroupDropdownId={vi.fn()}
         activeDayStr="2026-07-01"
       />
     );

@@ -10,6 +10,7 @@ import {
 import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { InlineNotes } from './InlineNotes';
+import SectionHeader from './SectionHeader';
 import { computeMergePartners } from '../utils/scheduleMerge';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { isPlaceReservationUnlinkedOrDeleted } from '../utils/reservationWarnings';
@@ -1385,29 +1386,28 @@ function ItineraryPanel({
 
           {/* 2. Hotel reservations overlapping this day */}
           <div className="timeline-section">
-            <div className="timeline-section-header">
-              <div className="timeline-section-title-row">
-                <h4 className="timeline-section-title"><Building size={16} /> Hotels</h4>
-              </div>
-              <div className="timeline-section-actions" style={{ gap: '12px' }}>
-                {trip.canEdit !== false && (
-                  <>
-                    <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', gap: '5px', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!activePlan.days[activeDayStr]?.noHotel}
-                        onChange={(e) => onToggleNoHotel?.(activeDayStr, e.target.checked)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      No Hotel Needed
-                    </label>
-                    <button className="mini-icon-btn flex-align timeline-add-btn--success" onClick={() => setShowHotelModal(true)}>
-                      <Plus size={14} /> Add Hotel
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
+            <SectionHeader
+              variant="section"
+              glyph={<Building size={16} />}
+              title="Hotels"
+              actionsClassName="timeline-section-actions--wide"
+              actions={trip.canEdit !== false && (
+                <>
+                  <label className="flex-align" style={{ fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', gap: '5px', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!activePlan.days[activeDayStr]?.noHotel}
+                      onChange={(e) => onToggleNoHotel?.(activeDayStr, e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    No Hotel Needed
+                  </label>
+                  <button className="mini-icon-btn flex-align timeline-add-btn--success" onClick={() => setShowHotelModal(true)}>
+                    <Plus size={14} /> Add Hotel
+                  </button>
+                </>
+              )}
+            />
 
             {(() => {
               const dayHotels = getHotelsForDay(activeDayStr).filter(h => h.status !== 'Canceled');
@@ -1568,18 +1568,16 @@ function ItineraryPanel({
 
           {/* 3. Transportation Schedule */}
           <div className="timeline-section">
-            <div className="timeline-section-header">
-              <div className="timeline-section-title-row">
-                <h4 className="timeline-section-title"><Plane size={16} /> Transits & Flights</h4>
-              </div>
-              <div className="timeline-section-actions">
-                {trip.canEdit !== false && (
-                  <button className="mini-icon-btn flex-align timeline-add-btn--warning" onClick={() => setShowTransportModal(true)}>
-                    <Plus size={14} /> Add Transit
-                  </button>
-                )}
-              </div>
-            </div>
+            <SectionHeader
+              variant="section"
+              glyph={<Plane size={16} />}
+              title="Transits & Flights"
+              actions={trip.canEdit !== false && (
+                <button className="mini-icon-btn flex-align timeline-add-btn--warning" onClick={() => setShowTransportModal(true)}>
+                  <Plus size={14} /> Add Transit
+                </button>
+              )}
+            />
 
             {(() => {
               const activeIndex = daysList.indexOf(activeDayStr);
@@ -1826,21 +1824,19 @@ function ItineraryPanel({
 
           {/* 4. Attractions & Dining Reservations */}
           <div className="timeline-section">
-            <div className="timeline-section-header">
-              <div className="timeline-section-title-row">
-                <h4 className="timeline-section-title"><Landmark size={16} /> Reservations</h4>
-              </div>
-              <div className="timeline-section-actions">
-                {trip.canEdit !== false && (
-                  <button
-                    className="mini-icon-btn flex-align timeline-add-btn--danger"
-                    onClick={() => onOpenAddPlaceReservation && onOpenAddPlaceReservation('attraction')}
-                  >
-                    <Plus size={14} /> Add Reservation
-                  </button>
-                )}
-              </div>
-            </div>
+            <SectionHeader
+              variant="section"
+              glyph={<Landmark size={16} />}
+              title="Reservations"
+              actions={trip.canEdit !== false && (
+                <button
+                  className="mini-icon-btn flex-align timeline-add-btn--danger"
+                  onClick={() => onOpenAddPlaceReservation && onOpenAddPlaceReservation('attraction')}
+                >
+                  <Plus size={14} /> Add Reservation
+                </button>
+              )}
+            />
 
             {(() => {
               const dayPlaceReservations = (activePlan.placeReservations || []).filter(pr => pr.date === activeDayStr);
@@ -1982,57 +1978,52 @@ function ItineraryPanel({
 
           {/* AI Day Assistant (Daily Tips & Baby Logistics) */}
           <div className="timeline-section">
-            <div className="timeline-section-header ai-day-assistant-header">
-              <div className="timeline-section-title-row">
-                <h4 className="timeline-section-title">
-                  <Sparkles size={16} className="text-accent" />
-                  AI Day Assistant
-                </h4>
-              </div>
-              
-              <div className="timeline-section-actions">
-                {(() => {
-                  const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
-                  const isSuggestedReservationsEnabled = !trip.disabledDayFields?.includes('suggested_reservations');
-                  const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
-                  const isAnyDayFieldEnabled = isDailyTipsEnabled || isSuggestedReservationsEnabled || isBabyLogisticsEnabled;
-                  const hasExistingContent = !!(activeDay?.aiDetails?.daily_tips || activeDay?.aiDetails?.suggested_reservations || activeDay?.aiDetails?.baby_logistics);
-                  return (
-                    <>
-                      {trip.canEdit !== false && (
-                        <button
-                          className="mini-icon-btn flex-align ai-insights-btn"
-                          onClick={() => {
-                            if (isAnyDayFieldEnabled) {
-                              handleGenerateSingleDayTips(activeDayStr);
-                            }
-                          }}
-                          disabled={daysGeneratingDates.has(activeDayStr) || !isAnyDayFieldEnabled}
-                          data-tooltip={!isAnyDayFieldEnabled ? 'Enable at least one day-level AI field in Settings first' : (hasExistingContent ? 'Regenerate Tips' : 'Generate Tips')}
-                        >
-                          {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />}
-                          {hasExistingContent ? 'Regenerate Tips' : 'Generate Tips'}
-                        </button>
-                      )}
-                      {trip.canEdit !== false && (
-                        <button
-                          className="mini-icon-btn flex-align ai-generate-btn"
-                          onClick={() => {
-                            if (isAnyDayFieldEnabled) {
-                              setShowAiGenerateDaysModal(true);
-                            }
-                          }}
-                          disabled={!isAnyDayFieldEnabled}
-                          data-tooltip={!isAnyDayFieldEnabled ? 'Enable at least one day-level AI field in Settings first' : 'Batch Generate Tips'}
-                        >
-                          <Sparkles size={14} /> Batch Generate Tips
-                        </button>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
+            <SectionHeader
+              variant="section"
+              headerClassName="ai-day-assistant-header"
+              glyph={<Sparkles size={16} className="text-accent" />}
+              title="AI Day Assistant"
+              actions={(() => {
+                const isDailyTipsEnabled = !trip.disabledDayFields?.includes('daily_tips');
+                const isSuggestedReservationsEnabled = !trip.disabledDayFields?.includes('suggested_reservations');
+                const isBabyLogisticsEnabled = !trip.disabledDayFields?.includes('baby_logistics');
+                const isAnyDayFieldEnabled = isDailyTipsEnabled || isSuggestedReservationsEnabled || isBabyLogisticsEnabled;
+                const hasExistingContent = !!(activeDay?.aiDetails?.daily_tips || activeDay?.aiDetails?.suggested_reservations || activeDay?.aiDetails?.baby_logistics);
+                return (
+                  <>
+                    {trip.canEdit !== false && (
+                      <button
+                        className="mini-icon-btn flex-align ai-insights-btn"
+                        onClick={() => {
+                          if (isAnyDayFieldEnabled) {
+                            handleGenerateSingleDayTips(activeDayStr);
+                          }
+                        }}
+                        disabled={daysGeneratingDates.has(activeDayStr) || !isAnyDayFieldEnabled}
+                        data-tooltip={!isAnyDayFieldEnabled ? 'Enable at least one day-level AI field in Settings first' : (hasExistingContent ? 'Regenerate Tips' : 'Generate Tips')}
+                      >
+                        {daysGeneratingDates.has(activeDayStr) ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />}
+                        {hasExistingContent ? 'Regenerate Tips' : 'Generate Tips'}
+                      </button>
+                    )}
+                    {trip.canEdit !== false && (
+                      <button
+                        className="mini-icon-btn flex-align ai-generate-btn"
+                        onClick={() => {
+                          if (isAnyDayFieldEnabled) {
+                            setShowAiGenerateDaysModal(true);
+                          }
+                        }}
+                        disabled={!isAnyDayFieldEnabled}
+                        data-tooltip={!isAnyDayFieldEnabled ? 'Enable at least one day-level AI field in Settings first' : 'Batch Generate Tips'}
+                      >
+                        <Sparkles size={14} /> Batch Generate Tips
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+            />
 
             <div className="glass-panel ai-day-assistant-card">
               {(() => {
@@ -2113,12 +2104,13 @@ function ItineraryPanel({
 
           {/* 4. Timeline Schedule Places */}
           <div className="timeline-section">
-            <div className="timeline-section-header day-schedule-header">
-              <div className="timeline-section-title-row">
-                <h4 className="timeline-section-title"><Navigation size={16} /> Day Schedule</h4>
-              </div>
-              {trip.canEdit !== false && (
-                <div className="timeline-section-actions">
+            <SectionHeader
+              variant="section"
+              headerClassName="day-schedule-header"
+              glyph={<Navigation size={16} />}
+              title="Day Schedule"
+              actions={trip.canEdit !== false && (
+                <>
                   <button
                     className="mini-icon-btn flex-align ai-insights-btn"
                     onClick={() => {
@@ -2267,9 +2259,9 @@ function ItineraryPanel({
                       </div>
                     )}
                   </div>
-                </div>
+                </>
               )}
-            </div>
+            />
 
             {/* Smart Place search suggestions input */}
             {activeDayLocation && trip.canEdit !== false ? (

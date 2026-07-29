@@ -240,6 +240,9 @@ File sizes as of the last audit. Read these before adding features — these are
 | Selection combo box | `ComboBox` (`src/components/ComboBox.tsx`) | Portal-based, outside-click dismiss, `options: {value,label,icon?,iconColor?}`. Use for status/type/etc. (Searchable timezone + bespoke catalog-place + linked expense-group combos remain custom.) |
 | Place auto-populate search | `PlaceSearchBox` (`src/components/PlaceSearchBox.tsx`) | Debounced place-near-location search + Google-Maps-link paste + suggestions + outside-click. Pass `catalogLocation` + `onSelect`; `onQueryChange` to mirror the query. (Transport dep/arr panels + Location city search remain custom.) |
 | Reservation status options | `STATUS_OPTIONS` (`src/constants/reservations.ts`) | Shared `{value,label,icon}` list + `ReservationStatus` type. |
+| Group / section header shell | `SectionHeader` (`src/components/SectionHeader.tsx`) | Slotted header for BOTH surfaces via `variant`: `group` (left-panel `.place-group-header`) / `section` (day-view `.timeline-section-header`). Props: `glyph`, `title`, `titleAttr`, `subtitle` (section), `actions`, `headerClassName`, `actionsClassName`. Each caller injects its own buttons into `actions`. |
+| Group action button | `GroupActionButton` (`src/components/GroupActionButton.tsx`) | Standardizes the labeled-vs-icon-only choice via `labeled`: Catalog uses icon-only, Reservations/Expenses use labeled. Props: `icon`, `label`, `labeled`, `tooltip`, `tooltipPosition`, `disabled`, `className`. (Day-view Add buttons keep their own `.timeline-add-btn--*` style — don't route those through this.) |
+| Group options menu | `GroupOptionsMenu` (`src/components/GroupOptionsMenu.tsx`) | Self-contained `⋮` dropdown (owns open state + outside-click). Move Up/Down + Edit + `extraItems(close)`. Replaces the per-section `activeGroupDropdownId` threading — do not reintroduce a parent-owned "which group menu is open" state. |
 | Undo / restore button | `undoButton(current, saved, onRestore)` (`src/components/UndoButton.tsx`) | Import `as undoBtn`; returns null when unchanged. |
 | Manual-mode AI prompt | `useManualPrompt` (`src/utils/useManualPrompt.tsx`) | Returns `{ showManualPrompt, manualPromptModal }`; pass `showManualPrompt` to `runAiCall`, render `{manualPromptModal}`. |
 | Geocoding | `geocodeAddress(address)` (`src/utils/api.ts`) | OSM Nominatim, 5s timeout. |
@@ -307,6 +310,7 @@ So to add/adjust a day-card type, set those three vars on the modifier — never
 
 **Day timeline sections** (hotel stays, transit, AI assistant, schedule):
 - `.timeline-section` → `.timeline-section-header` → `.timeline-section-title-row` / `.timeline-section-actions`
+- Don't hand-write this markup or the left-panel `.place-group-header` — render both through **`<SectionHeader>`** (`variant="section"` / `"group"`); see Shared Controls. The per-group `⋮` menu is **`<GroupOptionsMenu>`** and action buttons are **`<GroupActionButton>`**.
 
 **Place cards** (catalog and itinerary):
 - `.place-card-thumb-container` — fixed `40×40px` photo/placeholder wrapper

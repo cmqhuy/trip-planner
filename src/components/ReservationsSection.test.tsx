@@ -101,8 +101,6 @@ describe('ReservationsSection Component', () => {
       onMoveReservationGroup: vi.fn(),
       onAddGenericReservation: vi.fn(),
       onEditGenericReservation: vi.fn(),
-      activeReservationGroupDropdownId: null,
-      setActiveReservationGroupDropdownId: vi.fn(),
     };
 
     render(
@@ -216,8 +214,6 @@ describe('ReservationsSection Component', () => {
         onMoveReservationGroup={vi.fn()}
         onAddGenericReservation={vi.fn()}
         onEditGenericReservation={vi.fn()}
-        activeReservationGroupDropdownId={null}
-        setActiveReservationGroupDropdownId={vi.fn()}
       />
     );
 

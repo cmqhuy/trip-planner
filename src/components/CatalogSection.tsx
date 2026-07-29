@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import LocationSelect from './LocationSelect';
 import { InlineNotes } from './InlineNotes';
+import SectionHeader from './SectionHeader';
+import GroupActionButton from './GroupActionButton';
+import GroupOptionsMenu from './GroupOptionsMenu';
 import {
   MapPin, Plus, Edit2, ChevronUp, ChevronDown,
   Clock, Sparkles, MoreVertical, RefreshCw, ExternalLink, Eye, EyeOff
@@ -51,8 +54,6 @@ interface CatalogSectionProps {
   setShowCustomPlaceModal: (show: boolean) => void;
   setAutoScheduleOnActiveDay: (auto: boolean) => void;
   savePlaceNotes: (placeId: string, notes: string) => void;
-  activeGroupDropdownId: string | null;
-  setActiveGroupDropdownId: (id: string | null) => void;
   aiSuggestedPlaces: Place[];
   isLoadingAiSuggestions: boolean;
   aiSuggestionsLocId: string | null;
@@ -102,8 +103,6 @@ function CatalogSection({
   setShowCustomPlaceModal,
   setAutoScheduleOnActiveDay,
   savePlaceNotes,
-  activeGroupDropdownId,
-  setActiveGroupDropdownId,
   aiSuggestedPlaces = [],
   isLoadingAiSuggestions = false,
   aiSuggestionsLocId = null,
@@ -252,31 +251,28 @@ function CatalogSection({
                   borderColor: (dragOverGroupId === group.id && draggedPlaceId) ? 'var(--accent-primary)' : 'transparent',
                 }}
               >
-                <div className="place-group-header">
-                  <span className="place-group-title">
-                    <span className="group-badge-dot" style={{ backgroundColor: group.color }} />
-                    <span className="catalog-group-name" title={group.name}>
-                      {group.name}
-                    </span>
-                  </span>
-                  <div className="flex-align flex-align--gap4">
+                <SectionHeader
+                  variant="group"
+                  glyph={<span className="group-badge-dot" style={{ backgroundColor: group.color }} />}
+                  title={group.name}
+                  titleAttr={group.name}
+                  actions={<>
                     {trip.canEdit !== false && (
                       <>
-                        <button
-                          className="mini-icon-btn catalog-group-action-btn catalog-group-ai-btn"
+                        <GroupActionButton
+                          icon={Sparkles}
+                          label={`AI Travel Guide for ${group.name}`}
+                          className="catalog-group-ai-btn"
                           onClick={() => {
                             setAiGeneratePlaces(placesInGroup);
                             setAiGenerateCity(catalogLocation?.city || '');
                             setAiGenerateCountry(catalogLocation?.country || '');
                             setShowAiGenerateModal(true);
                           }}
-                          data-tooltip={`AI Travel Guide for ${group.name}`}
-                        >
-                          <Sparkles size={12} />
-                        </button>
-
-                        <button
-                          className="mini-icon-btn catalog-group-action-btn"
+                        />
+                        <GroupActionButton
+                          icon={Plus}
+                          label={`Add Place to ${group.name}`}
                           onClick={() => {
                             setEditingPlace({
                               id: `new-temp-${Date.now()}`,
@@ -293,83 +289,39 @@ function CatalogSection({
                             setAutoScheduleOnActiveDay(false);
                             setShowCustomPlaceModal(true);
                           }}
-                          data-tooltip={`Add Place to ${group.name}`}
-                        >
-                          <Plus size={12} />
-                        </button>
+                        />
                       </>
                     )}
-                    {group.isReorderable && trip.canEdit !== false && (
-                      <div className="group-dropdown-container">
-                        <button
-                          className="mini-icon-btn catalog-group-action-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveGroupDropdownId(activeGroupDropdownId === group.id ? null : group.id);
-                          }}
-                          data-tooltip="Group Options"
-                        >
-                          <MoreVertical size={12} />
-                        </button>
-                         {activeGroupDropdownId === group.id && (() => {
-                           const totalReorderable = (trip.placeGroups || DEFAULT_PLACE_GROUPS).length;
-                           const showAbove = group.groupIdx >= Math.max(1, totalReorderable - 2);
-                           return (
-                             <div className={`dropdown-menu${showAbove ? ' dropdown-menu-above' : ''}`}>
-                               <button
-                                 className="dropdown-item"
-                                 disabled={group.isFirst}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMoveGroupOrder(group.groupIdx!, 'up');
-                                setActiveGroupDropdownId(null);
-                              }}
-                            >
-                              <ChevronUp size={12} /> Move Up
-                            </button>
+                    {group.isReorderable && trip.canEdit !== false && (() => {
+                      const totalReorderable = (trip.placeGroups || DEFAULT_PLACE_GROUPS).length;
+                      const showAbove = group.groupIdx >= Math.max(1, totalReorderable - 2);
+                      return (
+                        <GroupOptionsMenu
+                          showAbove={showAbove}
+                          disableUp={group.isFirst}
+                          disableDown={group.isLast}
+                          onMoveUp={() => handleMoveGroupOrder(group.groupIdx!, 'up')}
+                          onMoveDown={() => handleMoveGroupOrder(group.groupIdx!, 'down')}
+                          onEdit={() => startEditingGroup(group as PlaceGroup)}
+                          extraItems={(close) => (
                             <button
+                              type="button"
                               className="dropdown-item"
-                              disabled={group.isLast}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMoveGroupOrder(group.groupIdx!, 'down');
-                                setActiveGroupDropdownId(null);
-                              }}
-                            >
-                              <ChevronDown size={12} /> Move Down
-                            </button>
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startEditingGroup(group as PlaceGroup);
-                                setActiveGroupDropdownId(null);
-                              }}
-                            >
-                              <Edit2 size={12} /> Edit Group
-                            </button>
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onToggleGroupMapVisibility(group.id);
-                                setActiveGroupDropdownId(null);
-                              }}
+                              onClick={(e) => { e.stopPropagation(); onToggleGroupMapVisibility(group.id); close(); }}
                             >
                               {hiddenMapGroupIds.includes(group.id)
                                 ? <><Eye size={12} /> Show on map</>
                                 : <><EyeOff size={12} /> Hide on map</>}
                             </button>
-                          </div>
-                        );
-                      })()}
-                      </div>
-                    )}
+                          )}
+                        />
+                      );
+                    })()}
                     <span className="badge badge--count">
                       {filteredPlaces.length}
                     </span>
-                  </div>
-                </div>
+                  </>}
+                />
 
                 <div
                   className="catalog-places-list catalog-places-list--mh"

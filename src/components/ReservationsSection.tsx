@@ -4,9 +4,12 @@ import {
   Edit2, Trash2, Check, Timer, X, Calendar,
   Train, Bus, Car, Anchor, Navigation,
   MoreVertical, ArrowUpRight, ArrowDownLeft, Copy,
-  Plus, Sparkles, ChevronUp, ChevronDown, Landmark, Utensils
+  Plus, Sparkles, Landmark, Utensils
 } from 'lucide-react';
 import { InlineNotes } from './InlineNotes';
+import SectionHeader from './SectionHeader';
+import GroupActionButton from './GroupActionButton';
+import GroupOptionsMenu from './GroupOptionsMenu';
 import type { Trip, Plan, Hotel, TransportationReservation, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
@@ -51,8 +54,6 @@ interface ReservationsSectionProps {
   onAddGenericReservation: (groupId: string) => void;
   onEditGenericReservation: (reservation: GenericReservation) => void;
   onDeleteGenericReservation?: (id: string) => void;
-  activeReservationGroupDropdownId: string | null;
-  setActiveReservationGroupDropdownId: (id: string | null) => void;
 }
 
 const renderStatusIcon = (status?: string) => {
@@ -163,8 +164,6 @@ export default function ReservationsSection({
   onAddGenericReservation,
   onEditGenericReservation,
   onDeleteGenericReservation,
-  activeReservationGroupDropdownId,
-  setActiveReservationGroupDropdownId,
   formatDisplayDate,
 }: ReservationsSectionProps) {
   const [expandedGenericReservationId, setExpandedGenericReservationId] = useState<string | null>(null);
@@ -183,18 +182,6 @@ export default function ReservationsSection({
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [openTransitMapId, openCardOptionsMenuId]);
-
-  // Close group dropdowns on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.reservation-group-dropdown-container')) {
-        setActiveReservationGroupDropdownId(null);
-      }
-    };
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, [setActiveReservationGroupDropdownId]);
 
   const saveHotelNotes = (hotel: Hotel, text: string) =>
     onEditHotel({ ...hotel, notes: text.trim() || undefined });
@@ -811,160 +798,114 @@ export default function ReservationsSection({
             return (
               <div key={group.id} className="place-group-section">
                 {/* Group Header */}
-                <div className="place-group-header">
-                  <span className="place-group-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {getExpenseGroupIcon(group.icon, 14, '', { color: gColor })}
-                    <span className="catalog-group-name" style={{ fontWeight: 600 }} title={group.name}>
-                      {group.name}
-                    </span>
-                  </span>
-                  <div className="flex-align flex-align--gap4">
-                    {trip.canEdit !== false && (
+                <SectionHeader
+                  variant="group"
+                  glyph={getExpenseGroupIcon(group.icon, 14, '', { color: gColor })}
+                  title={group.name}
+                  titleAttr={group.name}
+                  actions={trip.canEdit !== false && <>
+                    {/* Add button */}
+                    <GroupActionButton
+                      icon={Plus}
+                      label="Add"
+                      labeled
+                      tooltip={`Add Reservation to ${group.name}`}
+                      onClick={() => {
+                        if (group.id === 'hotels') onAddHotel();
+                        else if (group.id === 'transports') onAddTransit();
+                        else if (group.id === 'attractions' && onAddPlaceReservation) onAddPlaceReservation('attraction');
+                        else if (group.id === 'dining' && onAddPlaceReservation) onAddPlaceReservation('dining');
+                        else onAddGenericReservation(group.id);
+                      }}
+                    />
+
+                    {/* Import button — for all default groups */}
+                    {isDefaultGroup && (
                       <>
-                        {/* Add button */}
-                        <button
-                          className="mini-icon-btn catalog-group-action-btn--labeled"
+                        <GroupActionButton
+                          icon={Sparkles}
+                          label="Import"
+                          labeled
+                          disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode()}
+                          tooltip={
+                            !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
+                            GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
+                            `Import ${group.name} Booking Confirmation using AI`
+                          }
+                          tooltipPosition="bottom"
                           onClick={() => {
-                            if (group.id === 'hotels') onAddHotel();
-                            else if (group.id === 'transports') onAddTransit();
-                            else if (group.id === 'attractions' && onAddPlaceReservation) onAddPlaceReservation('attraction');
-                            else if (group.id === 'dining' && onAddPlaceReservation) onAddPlaceReservation('dining');
-                            else onAddGenericReservation(group.id);
+                            if (group.id === 'hotels') hotelFileInputRef.current?.click();
+                            else if (group.id === 'transports') transitFileInputRef.current?.click();
+                            else if (group.id === 'attractions') attractionFileInputRef.current?.click();
+                            else if (group.id === 'dining') diningFileInputRef.current?.click();
                           }}
-                          data-tooltip={`Add Reservation to ${group.name}`}
-                        >
-                          <Plus size={12} /> Add
-                        </button>
-
-                        {/* Import button — for all default groups */}
-                        {isDefaultGroup && (
-                          <>
-                            <button
-                              className="mini-icon-btn catalog-group-action-btn--labeled"
-                              onClick={() => {
-                                if (group.id === 'hotels') hotelFileInputRef.current?.click();
-                                else if (group.id === 'transports') transitFileInputRef.current?.click();
-                                else if (group.id === 'attractions') attractionFileInputRef.current?.click();
-                                else if (group.id === 'dining') diningFileInputRef.current?.click();
-                              }}
-                              disabled={!GeminiService.isAiEnabled() || GeminiService.isManualMode()}
-                              data-tooltip={
-                                !GeminiService.isAiEnabled() ? AI_NOT_CONFIGURED_MESSAGE :
-                                GeminiService.isManualMode() ? AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE :
-                                `Import ${group.name} Booking Confirmation using AI`
-                              }
-                              data-tooltip-position="bottom"
-                            >
-                              <Sparkles size={12} /> Import
-                            </button>
-                            {group.id === 'hotels' && (
-                              <input
-                                ref={hotelFileInputRef}
-                                type="file"
-                                style={{ display: 'none' }}
-                                accept="image/*,application/pdf,.eml,.txt"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) onImportReservationFile('hotel', file);
-                                  e.target.value = '';
-                                }}
-                              />
-                            )}
-                            {group.id === 'transports' && (
-                              <input
-                                ref={transitFileInputRef}
-                                type="file"
-                                style={{ display: 'none' }}
-                                accept="image/*,application/pdf,.eml,.txt"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) onImportReservationFile('transit', file);
-                                  e.target.value = '';
-                                }}
-                              />
-                            )}
-                            {group.id === 'attractions' && (
-                              <input
-                                ref={attractionFileInputRef}
-                                type="file"
-                                style={{ display: 'none' }}
-                                accept="image/*,application/pdf,.eml,.txt"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) onImportReservationFile('attraction', file);
-                                  e.target.value = '';
-                                }}
-                              />
-                            )}
-                            {group.id === 'dining' && (
-                              <input
-                                ref={diningFileInputRef}
-                                type="file"
-                                style={{ display: 'none' }}
-                                accept="image/*,application/pdf,.eml,.txt"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) onImportReservationFile('dining', file);
-                                  e.target.value = '';
-                                }}
-                              />
-                            )}
-                          </>
-                        )}
-
-                        {/* Group options menu */}
-                        <div className="reservation-group-dropdown-container" style={{ position: 'relative' }}>
-                          <button
-                            className="mini-icon-btn catalog-group-action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveReservationGroupDropdownId(activeReservationGroupDropdownId === group.id ? null : group.id);
+                        />
+                        {group.id === 'hotels' && (
+                          <input
+                            ref={hotelFileInputRef}
+                            type="file"
+                            style={{ display: 'none' }}
+                            accept="image/*,application/pdf,.eml,.txt"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) onImportReservationFile('hotel', file);
+                              e.target.value = '';
                             }}
-                            data-tooltip="Group Options"
-                          >
-                            <MoreVertical size={12} />
-                          </button>
-                          {activeReservationGroupDropdownId === group.id && (
-                            <div className={`dropdown-menu dropdown-menu--right${showAbove ? ' dropdown-menu-above' : ''}`} style={{ zIndex: 1100 }}>
-                              <button
-                                className="dropdown-item"
-                                disabled={isFirst}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onMoveReservationGroup(groupIdx, 'up');
-                                  setActiveReservationGroupDropdownId(null);
-                                }}
-                              >
-                                <ChevronUp size={12} /> Move Up
-                              </button>
-                              <button
-                                className="dropdown-item"
-                                disabled={isLast}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onMoveReservationGroup(groupIdx, 'down');
-                                  setActiveReservationGroupDropdownId(null);
-                                }}
-                              >
-                                <ChevronDown size={12} /> Move Down
-                              </button>
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onEditReservationGroup(group);
-                                  setActiveReservationGroupDropdownId(null);
-                                }}
-                              >
-                                <Edit2 size={12} /> Edit Group
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                          />
+                        )}
+                        {group.id === 'transports' && (
+                          <input
+                            ref={transitFileInputRef}
+                            type="file"
+                            style={{ display: 'none' }}
+                            accept="image/*,application/pdf,.eml,.txt"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) onImportReservationFile('transit', file);
+                              e.target.value = '';
+                            }}
+                          />
+                        )}
+                        {group.id === 'attractions' && (
+                          <input
+                            ref={attractionFileInputRef}
+                            type="file"
+                            style={{ display: 'none' }}
+                            accept="image/*,application/pdf,.eml,.txt"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) onImportReservationFile('attraction', file);
+                              e.target.value = '';
+                            }}
+                          />
+                        )}
+                        {group.id === 'dining' && (
+                          <input
+                            ref={diningFileInputRef}
+                            type="file"
+                            style={{ display: 'none' }}
+                            accept="image/*,application/pdf,.eml,.txt"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) onImportReservationFile('dining', file);
+                              e.target.value = '';
+                            }}
+                          />
+                        )}
                       </>
                     )}
-                  </div>
-                </div>
+
+                    {/* Group options menu */}
+                    <GroupOptionsMenu
+                      showAbove={showAbove}
+                      disableUp={isFirst}
+                      disableDown={isLast}
+                      onMoveUp={() => onMoveReservationGroup(groupIdx, 'up')}
+                      onMoveDown={() => onMoveReservationGroup(groupIdx, 'down')}
+                      onEdit={() => onEditReservationGroup(group)}
+                    />
+                  </>}
+                />
 
                 {/* Group Items */}
                 <div className="catalog-places-list">

@@ -86,8 +86,6 @@ describe('LeftPanelAccordion Component', () => {
         setShowCustomPlaceModal={vi.fn()}
         setAutoScheduleOnActiveDay={vi.fn()}
         savePlaceNotes={vi.fn()}
-        activeGroupDropdownId={null}
-        setActiveGroupDropdownId={vi.fn()}
         aiSuggestedPlaces={[]}
         isLoadingAiSuggestions={false}
         aiSuggestionsLocId={null}
@@ -126,15 +124,11 @@ describe('LeftPanelAccordion Component', () => {
         onMoveReservationGroup={vi.fn()}
         onAddGenericReservation={vi.fn()}
         onEditGenericReservation={vi.fn()}
-        activeReservationGroupDropdownId={null}
-        setActiveReservationGroupDropdownId={vi.fn()}
         onAddExpense={vi.fn()}
         onEditExpense={vi.fn()}
         onAddExpenseGroup={vi.fn()}
         onEditExpenseGroup={vi.fn()}
         onMoveExpenseGroup={vi.fn()}
-        activeExpenseGroupDropdownId={null}
-        setActiveExpenseGroupDropdownId={vi.fn()}
       />
     );
 

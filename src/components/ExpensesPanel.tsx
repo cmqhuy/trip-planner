@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
-import { Plus, MoreVertical, ChevronUp, ChevronDown, Edit2, Link } from 'lucide-react';
+import { Plus, Link } from 'lucide-react';
+import SectionHeader from './SectionHeader';
+import GroupActionButton from './GroupActionButton';
+import GroupOptionsMenu from './GroupOptionsMenu';
 import type { Trip, Plan, ExpenseGroup, ExpenseItem, Hotel, TransportationReservation, PlaceReservation } from '../types';
 import { getExpenseGroupIcon, getExpenseReservationDates } from '../utils/expenseUtils';
 import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
@@ -29,8 +31,6 @@ interface ExpensesPanelProps {
   onAddExpenseGroup: () => void;
   onEditExpenseGroup: (group: ExpenseGroup) => void;
   onMoveExpenseGroup: (index: number, direction: 'up' | 'down') => void;
-  activeGroupDropdownId: string | null;
-  setActiveGroupDropdownId: (id: string | null) => void;
   activeDayStr?: string;
 }
 
@@ -42,22 +42,8 @@ export default function ExpensesPanel({
   onAddExpenseGroup,
   onEditExpenseGroup,
   onMoveExpenseGroup,
-  activeGroupDropdownId,
-  setActiveGroupDropdownId,
   activeDayStr
 }: ExpensesPanelProps) {
-
-  // Auto-close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.group-dropdown-container')) {
-        setActiveGroupDropdownId(null);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [setActiveGroupDropdownId]);
 
   // Pull virtual reservation expenses
   const hotels: Hotel[] = activePlan.hotels || [];
@@ -318,75 +304,29 @@ export default function ExpensesPanel({
             return (
               <div key={group.id} className="place-group-section">
                 {/* Group Header */}
-                <div className="place-group-header">
-                  <span className="place-group-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {getExpenseGroupIcon(group.icon, 14, '', { color: gColor })}
-                    <span className="catalog-group-name" style={{ fontWeight: 600 }} title={group.name}>
-                      {group.name}
-                    </span>
-                  </span>
-                  <div className="flex-align flex-align--gap4">
-                    {trip.canEdit !== false && (
-                      <button
-                        className="mini-icon-btn catalog-group-action-btn--labeled"
-                        onClick={() => onAddExpense(group.id)}
-                        data-tooltip={`Add Expense to ${group.name}`}
-                      >
-                        <Plus size={12} /> Add
-                      </button>
-                    )}
-                    {trip.canEdit !== false && (
-                      <div className="group-dropdown-container" style={{ position: 'relative' }}>
-                        <button
-                          className="mini-icon-btn catalog-group-action-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveGroupDropdownId(activeGroupDropdownId === group.id ? null : group.id);
-                          }}
-                          data-tooltip="Group Options"
-                        >
-                          <MoreVertical size={12} />
-                        </button>
-                        {activeGroupDropdownId === group.id && (
-                          <div className={`dropdown-menu dropdown-menu--right${showAbove ? ' dropdown-menu-above' : ''}`} style={{ zIndex: 1100 }}>
-                            <button
-                              className="dropdown-item"
-                              disabled={isFirst}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onMoveExpenseGroup(groupIdx, 'up');
-                                setActiveGroupDropdownId(null);
-                              }}
-                            >
-                              <ChevronUp size={12} /> Move Up
-                            </button>
-                            <button
-                              className="dropdown-item"
-                              disabled={isLast}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onMoveExpenseGroup(groupIdx, 'down');
-                                setActiveGroupDropdownId(null);
-                              }}
-                            >
-                              <ChevronDown size={12} /> Move Down
-                            </button>
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditExpenseGroup(group);
-                                setActiveGroupDropdownId(null);
-                              }}
-                            >
-                              <Edit2 size={12} /> Edit Group
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <SectionHeader
+                  variant="group"
+                  glyph={getExpenseGroupIcon(group.icon, 14, '', { color: gColor })}
+                  title={group.name}
+                  titleAttr={group.name}
+                  actions={trip.canEdit !== false && <>
+                    <GroupActionButton
+                      icon={Plus}
+                      label="Add"
+                      labeled
+                      tooltip={`Add Expense to ${group.name}`}
+                      onClick={() => onAddExpense(group.id)}
+                    />
+                    <GroupOptionsMenu
+                      showAbove={showAbove}
+                      disableUp={isFirst}
+                      disableDown={isLast}
+                      onMoveUp={() => onMoveExpenseGroup(groupIdx, 'up')}
+                      onMoveDown={() => onMoveExpenseGroup(groupIdx, 'down')}
+                      onEdit={() => onEditExpenseGroup(group)}
+                    />
+                  </>}
+                />
 
                 {/* Group Items */}
                 <div className="catalog-places-list">
