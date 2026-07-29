@@ -1446,11 +1446,11 @@ function ItineraryPanel({
                 .map(h => {
                   const isExpanded = expandedHotelId === h.id;
                 return (
-                  <div key={h.id} className={`hotel-card${isExpanded ? ' reservation-card--expanded' : ''}${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
+                  <div key={h.id} className={`reservation-day-card reservation-day-card--hotel${isExpanded ? ' reservation-card--expanded' : ''}${openHotelMenuId === h.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
-                    <div className="hotel-card-body" onClick={() => setExpandedHotelId(isExpanded ? null : h.id)}>
+                    <div className="reservation-day-card-body" onClick={() => setExpandedHotelId(isExpanded ? null : h.id)}>
                       <div className="schedule-thumb-col" onClick={e => e.stopPropagation()}>
-                        <div className="hotel-icon-wrapper">
+                        <div className="reservation-day-card-icon">
                           <Building size={16} />
                         </div>
                         <a
@@ -1651,11 +1651,11 @@ function ItineraryPanel({
                 const arrTzLabel = t.arrivalTimezone ? ` (${formatTzOffset(t.arrivalTimezone)})` : '';
 
                 return (
-                  <div key={t.id} className={`transport-card${isExpanded ? ' reservation-card--expanded' : ''}${openTransportMenuId === t.id || openMapMenuId === t.id ? ' dropdown-active' : ''}`}>
+                  <div key={t.id} className={`reservation-day-card reservation-day-card--transit${isExpanded ? ' reservation-card--expanded' : ''}${openTransportMenuId === t.id || openMapMenuId === t.id ? ' dropdown-active' : ''}`}>
                     {/* Clickable header row */}
-                    <div className="transport-card-body" onClick={() => setExpandedTransitId(isExpanded ? null : t.id)}>
+                    <div className="reservation-day-card-body" onClick={() => setExpandedTransitId(isExpanded ? null : t.id)}>
                       <div className="schedule-thumb-col" onClick={e => e.stopPropagation()}>
-                        <div className="transport-icon-wrapper">
+                        <div className="reservation-day-card-icon">
                           {t.type === 'flight' && <Plane size={16} />}
                           {t.type === 'train' && <Train size={16} />}
                           {t.type === 'bus' && <Bus size={16} />}
@@ -1864,10 +1864,10 @@ function ItineraryPanel({
                       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pr.address ? `${pr.title} ${pr.address}` : pr.title)}`;
 
                     return (
-                      <div key={pr.id} className={`transport-card transport-card--${pr.type === 'attraction' ? 'attraction' : 'dining'}${isExpanded ? ' reservation-card--expanded' : ''}${openPlaceReservationMenuId === pr.id ? ' dropdown-active' : ''}`}>
-                        <div className="transport-card-body" onClick={() => setExpandedResId && setExpandedResId(isExpanded ? null : pr.id)}>
+                      <div key={pr.id} className={`reservation-day-card reservation-day-card--${pr.type === 'attraction' ? 'attraction' : 'dining'}${isExpanded ? ' reservation-card--expanded' : ''}${openPlaceReservationMenuId === pr.id ? ' dropdown-active' : ''}`}>
+                        <div className="reservation-day-card-body" onClick={() => setExpandedResId && setExpandedResId(isExpanded ? null : pr.id)}>
                           <div className="schedule-thumb-col" onClick={e => e.stopPropagation()}>
-                            <div className="transport-icon-wrapper" style={{ color: iconColor, background: 'rgba(255,255,255,0.03)' }}>
+                            <div className="reservation-day-card-icon" style={{ color: iconColor, background: 'rgba(255,255,255,0.03)' }}>
                               <IconComp size={16} />
                             </div>
                             <a href={dayMapUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary timeline-place-map-link">Map</a>

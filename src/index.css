@@ -1233,8 +1233,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   cursor: pointer;
 }
 
-/* Day Transports */
-.transport-card {
+/* ===== Day-view reservation cards (hotel / transit / attraction / dining) =====
+   One shared shell for all four types. Each type modifier sets only the accent
+   custom properties; the base rules below consume them, so a type's color lives
+   in exactly one place. This is distinct from the left panel's `.reservation-card`
+   (tighter padding / lower bg) — the two surfaces are intentionally different.
+   Content sub-classes (.transport-flow*, .hotel-*-text) stay type-specific below. */
+.reservation-day-card {
   padding: 14px 18px;
   border-radius: 10px;
   background: rgba(30, 41, 59, 0.45);
@@ -1244,60 +1249,35 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   gap: 4px;
   transition: var(--card-transition);
 }
+.reservation-day-card--hotel      { --card-accent: var(--type-hotel);      --card-accent-rgb: var(--type-hotel-rgb);      --card-icon-color: var(--color-success); }
+.reservation-day-card--transit    { --card-accent: var(--type-transit);    --card-accent-rgb: var(--type-transit-rgb);    --card-icon-color: var(--color-warning); }
+.reservation-day-card--attraction { --card-accent: var(--type-attraction); --card-accent-rgb: var(--type-attraction-rgb); --card-icon-color: var(--type-attraction); }
+.reservation-day-card--dining     { --card-accent: var(--type-dining);     --card-accent-rgb: var(--type-dining-rgb);     --card-icon-color: var(--type-dining); }
 
-.transport-card:hover {
-  border-color: rgba(var(--type-transit-rgb), 0.35) !important;
-  box-shadow: 0 6px 16px rgba(var(--type-transit-rgb), 0.1);
+.reservation-day-card:hover {
+  border-color: rgba(var(--card-accent-rgb), 0.35) !important;
+  box-shadow: 0 6px 16px rgba(var(--card-accent-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
-.transport-card.reservation-card--expanded:hover {
-  border-color: rgba(var(--type-transit-rgb), 0.65) !important;
-  box-shadow: 0 6px 16px rgba(var(--type-transit-rgb), 0.1);
-  background: rgba(30, 41, 59, 0.60);
-}
-
-.transport-card.transport-card--attraction:hover {
-  border-color: rgba(var(--type-attraction-rgb), 0.35) !important;
-  box-shadow: 0 6px 16px rgba(var(--type-attraction-rgb), 0.1);
-  background: rgba(30, 41, 59, 0.60);
-}
-.transport-card.transport-card--dining:hover {
-  border-color: rgba(var(--type-dining-rgb), 0.35) !important;
-  box-shadow: 0 6px 16px rgba(var(--type-dining-rgb), 0.1);
-  background: rgba(30, 41, 59, 0.60);
-}
-.transport-card.transport-card--attraction.reservation-card--expanded:hover {
-  border-color: rgba(var(--type-attraction-rgb), 0.65) !important;
-  box-shadow: 0 6px 16px rgba(var(--type-attraction-rgb), 0.1);
-  background: rgba(30, 41, 59, 0.60);
-}
-.transport-card.transport-card--dining.reservation-card--expanded:hover {
-  border-color: rgba(var(--type-dining-rgb), 0.65) !important;
-  box-shadow: 0 6px 16px rgba(var(--type-dining-rgb), 0.1);
+.reservation-day-card.reservation-card--expanded:hover {
+  border-color: rgba(var(--card-accent-rgb), 0.65) !important;
+  box-shadow: 0 6px 16px rgba(var(--card-accent-rgb), 0.1);
   background: rgba(30, 41, 59, 0.60);
 }
 
-.transport-card-body {
+.reservation-day-card-body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   cursor: pointer;
 }
 
-.transport-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  justify-content: flex-end;
-  margin-top: 2px;
-}
-
-.transport-icon-wrapper {
+.reservation-day-card-icon {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--color-warning);
+  background: rgba(var(--card-accent-rgb), 0.15);
+  color: var(--card-icon-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1305,6 +1285,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   align-self: flex-start;
 }
 
+/* Transit-specific content layout */
 .transport-details-grid {
   flex: 1;
   display: grid;
@@ -1325,52 +1306,6 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .transport-flow-sub {
   font-size: 11px;
   color: var(--text-secondary);
-}
-
-/* Day Hotels */
-.hotel-card {
-  padding: 14px 18px;
-  border-radius: 10px;
-  background: rgba(30, 41, 59, 0.45);
-  border: 1px solid var(--border-glass);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  transition: var(--card-transition);
-}
-
-.hotel-card:hover {
-  border-color: rgba(16, 185, 129, 0.35) !important;
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.1);
-  background: rgba(30, 41, 59, 0.60);
-}
-
-.hotel-card-body {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.hotel-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  justify-content: flex-end;
-  margin-top: 2px;
-}
-
-.hotel-icon-wrapper {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--color-success);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  align-self: flex-start;
 }
 
 /* Right Panel: Map Container */
@@ -2548,8 +2483,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 /* Cards lift above siblings (schedule-add-slot z-index:2, backdrop-filter stacking contexts) when dropdown is open */
 .catalog-place-card.dropdown-active,
 .timeline-card.dropdown-active,
-.hotel-card.dropdown-active,
-.transport-card.dropdown-active,
+.reservation-day-card.dropdown-active,
 .reservation-card.dropdown-active {
   position: relative;
   z-index: 1100;
@@ -3512,8 +3446,7 @@ div.google-auth-avatar-desktop {
   .timeline-card {
     padding: 8px !important;
   }
-  .hotel-card,
-  .transport-card {
+  .reservation-day-card {
     padding: 8px !important;
   }
   /* Pull the reservation card's chevron/options panel flush into the top-right
@@ -3529,7 +3462,7 @@ div.google-auth-avatar-desktop {
   .reservation-card-expanded-content {
     padding: 12px !important;
   }
-  .transport-card .timeline-place-map-link {
+  .reservation-day-card .timeline-place-map-link {
     height: 18px !important;
     min-height: 0 !important;
     padding: 2px 4px !important;
@@ -3643,8 +3576,7 @@ div.google-auth-avatar-desktop {
   }
   .catalog-place-card .mini-icon-btn,
   .timeline-card .mini-icon-btn,
-  .hotel-card .mini-icon-btn,
-  .transport-card .mini-icon-btn {
+  .reservation-day-card .mini-icon-btn {
     min-width: 32px !important;
     min-height: 32px !important;
   }
@@ -4277,15 +4209,11 @@ div.google-auth-avatar-desktop {
 .reservation-card--transit.reservation-card--expanded { border-color: var(--type-transit); box-shadow: none; }
 .reservation-card--attraction.reservation-card--expanded { border-color: var(--type-attraction); box-shadow: none; }
 .reservation-card--dining.reservation-card--expanded { border-color: var(--type-dining); box-shadow: none; }
-.hotel-card.reservation-card--expanded { box-shadow: none; border-color: var(--type-hotel); }
-.transport-card.reservation-card--expanded { box-shadow: none; border-color: var(--type-transit); }
-.transport-card.transport-card--attraction.reservation-card--expanded { box-shadow: none; border-color: var(--type-attraction); }
-.transport-card.transport-card--dining.reservation-card--expanded { box-shadow: none; border-color: var(--type-dining); }
+.reservation-day-card.reservation-card--expanded { box-shadow: none; border-color: var(--card-accent); }
 .reservation-card--hotel.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-hotel-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-hotel-rgb), 0.1); }
 .reservation-card--transit.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-transit-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-transit-rgb), 0.1); }
 .reservation-card--attraction.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-attraction-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-attraction-rgb), 0.1); }
 .reservation-card--dining.reservation-card--expanded:hover { background: rgba(30, 41, 59, 0.60); border-color: rgba(var(--type-dining-rgb), 0.65); box-shadow: 0 6px 16px rgba(var(--type-dining-rgb), 0.1); }
-.hotel-card.reservation-card--expanded:hover { border-color: rgba(var(--type-hotel-rgb), 0.65) !important; background: rgba(30, 41, 59, 0.60); box-shadow: 0 6px 16px rgba(var(--type-hotel-rgb), 0.1); }
 .reservation-card--clickable { cursor: pointer; }
 .reservation-card-title { font-size: 12px; color: var(--text-primary); }
 .reservation-card-meta { font-size: 10px; color: var(--text-secondary); display: block; margin-top: 2px; }
@@ -4677,8 +4605,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
 /* 2. Sizing and Padding for Timeline & Reservation Cards */
 .timeline-card,
-.hotel-card,
-.transport-card {
+.reservation-day-card {
   padding: 14px 16px !important;
   border-radius: 12px !important;
 }

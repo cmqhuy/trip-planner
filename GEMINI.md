@@ -273,6 +273,9 @@ Glassmorphism dark theme. Key CSS variables from `index.css`:
 | `--bg-panel` | `rgba(17, 24, 39, 0.6)` |
 | `--accent-primary` | `#6366f1` (indigo) |
 | `--border-glass` | `rgba(255, 255, 255, 0.08)` |
+| `--card-transition` | shared card `border-color`/`box-shadow`/`background-color` transition — route every card family's `transition` through this token, don't re-type it |
+| `--dropdown-bg` | `rgba(15, 23, 42, 0.9)` — single-source glass dropdown/combo surface |
+| `--dropdown-shadow` | `var(--shadow-lg), 0 0 15px rgba(0, 0, 0, 0.5)` — single-source glass dropdown/combo shadow |
 
 **Glassmorphism rule**: `background: rgba(255,255,255,0.03)`, `border: 1px solid rgba(255,255,255,0.08)`, `backdrop-filter: blur(12px)`.
 
@@ -287,6 +290,16 @@ Glassmorphism dark theme. Key CSS variables from `index.css`:
 
 Tint usage: `rgba(var(--type-hotel-rgb), 0.35)`. Solid border: `border-color: var(--type-hotel)`.
 
+**Day-view reservation cards share one shell** — `.reservation-day-card` backs all four types (hotel / transit / attraction / dining); there is **no** `.hotel-card` / `.transport-card` anymore. The type is a modifier — `.reservation-day-card--{hotel|transit|attraction|dining}` — and each modifier sets **only** three accent custom properties, which the shared base/hover/expanded/icon rules consume:
+
+| Custom property | Fed from | Consumed by |
+|---|---|---|
+| `--card-accent` | `--type-{type}` (solid) | expanded-card border |
+| `--card-accent-rgb` | `--type-{type}-rgb` | hover border/shadow tint + icon-wrapper background |
+| `--card-icon-color` | icon foreground (hotel `--color-success`, transit `--color-warning`, attraction/dining their solid token) | icon-wrapper `color` |
+
+So to add/adjust a day-card type, set those three vars on the modifier — never re-type a color in the base rules. Shared sub-parts: `.reservation-day-card-body`, `.reservation-day-card-icon`. Type-specific **content** classes stay separate (`.transport-flow*`, `.transport-details-grid`, `.hotel-name-text`, etc.). This shell is deliberately distinct from the left panel's `.reservation-card` (tighter 12px padding, lower bg) — the two surfaces share behavior, not this base class.
+
 ### Shared Layout Classes
 
 **Left panel accordion subsections** (checklist, transit, tips):
@@ -300,8 +313,15 @@ Tint usage: `rgba(var(--type-hotel-rgb), 0.35)`. Solid border: `border-color: va
 - For `<select>` dropdowns, use `.catalog-location-select` or `.tips-location-select`; set `backgroundColor` (not `background`) to avoid hiding the browser-rendered chevron.
 
 **Card action button groups** — the little icon-button clusters on cards use two canonical containers (fill either with `.mini-icon-btn` buttons + a `.card-options-menu` for the ⋮ dropdown):
-- `.card-actions-stack` — vertical (move up/down, expand, options stacked). `.place-card-move-buttons` is the legacy alias.
+- `.card-actions-stack` — vertical (move up/down, expand, options stacked). `.place-card-move-buttons` is the legacy alias. Add `.card-actions-stack--pinned` on day-view cards to nudge the cluster into the top corner (desktop `margin-left: 4px`; mobile `margin-top: -8px; margin-right: -16px`).
 - `.card-actions-row` — horizontal (map / options / date tags in a row). `.reservation-card-header-right` is grouped into it.
+
+The expand/collapse chevron inside a cluster is a `<button type="button" className="mini-icon-btn">` wrapping `<ChevronDown className={`expand-chevron${open ? ' is-open' : ''}`} />` — the `.is-open` class drives the 180° rotation animation. Never render a bare chevron `<div>`; it must be a real button for keyboard/tooltip parity.
+
+**Card spacing is standardized — match it, don't invent per-card values:**
+- Left-panel cards (`.catalog-place-card`, `.reservation-card` + its `-expand`/`-expanded-content`, `.expense-item`) use **12px** padding on both desktop and mobile.
+- Day-view card lists (`.section-item-list`) use a **16px** inter-card gap.
+- On mobile the reservation ⋮ cluster is pinned flush to the card corner (negative margins on `.reservation-card-header-right`) to match the catalog place card's flush `⋮`.
 
 **Dialogs / forms**:
 - `.modal-field-title` / `.modal-field-details` — field label and description
@@ -340,14 +360,16 @@ alert(`Failed to parse AI response: ${err.message}`);
 
 **Never use a native `<select>` or unstyled combo box.** All new dropdowns and combo boxes must match the app's glassmorphism theme. There are two established patterns — pick the one that fits:
 
+The glass dropdown/combo surface is single-sourced through the `--dropdown-bg` and `--dropdown-shadow` tokens (see the Design System variable table). Every dropdown/combo panel (`.dropdown-menu`, `.combo-dropdown`, `.combo-dropdown--portal`, `.combo-dropdown--tz-portal`, mobile auth dropdown) consumes those tokens — **do not re-type the raw `rgba(15,23,42,…)` background or the shadow recipe.**
+
 **1. Options menu** (contextual actions triggered by a `MoreVertical` / icon button — e.g. Day Options, Place Options): use `.dropdown-menu` + `.dropdown-item`.
 ```css
 /* .dropdown-menu */
-background: rgba(15, 23, 42, 0.95);
+background: var(--dropdown-bg);
 backdrop-filter: blur(16px);
 border: 1px solid var(--border-glass);
 border-radius: 8px;
-box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5);
+box-shadow: var(--dropdown-shadow);
 ```
 
 **2. Selection combo box** (picking a value from a list — e.g. Plan picker, Location picker): a `button.loc-select-trigger` as the trigger and a `div.loc-select-dropdown` as the panel.
@@ -357,11 +379,11 @@ background: rgba(15, 23, 42, 0.6);
 backdrop-filter: blur(12px);
 
 /* .loc-select-dropdown (panel) */
-background: rgba(15, 23, 42, 0.95);
+background: var(--dropdown-bg);
 backdrop-filter: blur(16px);
 border: 1px solid var(--border-glass);
 border-radius: 6px;
-box-shadow: var(--shadow-lg), 0 0 15px rgba(0,0,0,0.5);
+box-shadow: var(--dropdown-shadow);
 ```
 The trigger chevron must be a Lucide `ChevronDown`, rotated 180° via a CSS class toggle when open — never a static `background-image` arrow. Native `<select>` elements are not permitted for combo boxes.
 
