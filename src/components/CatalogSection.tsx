@@ -179,36 +179,38 @@ function CatalogSection({
         </div>
       </div>
 
+      {/* Catalog Group Management — pinned above the scroll area, never scrolls */}
+      {catalogLocation && (
+        <div className="subsection-header catalog-groups-header catalog-groups-header--pinned">
+          <h4 className="subsection-title catalog-groups-label">Groups</h4>
+          <div className="subsection-actions catalog-groups-right">
+            <label className="flex-align catalog-hide-allocated-label">
+              <input
+                type="checkbox"
+                checked={hideAllocatedPlaces}
+                onChange={(e) => setHideAllocatedPlaces(e.target.checked)}
+                className="catalog-checkbox"
+              />
+              Hide Allocated
+            </label>
+            {trip.canEdit !== false && (
+              <button
+                className="mini-icon-btn catalog-add-group-btn"
+                onClick={() => setShowGroupModal(true)}
+                data-tooltip="Add Group"
+                data-tooltip-position="bottom"
+              >
+                <Plus size={14} /> Add Group
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Scrollable catalog content */}
       <div className="accordion-content">
       {catalogLocation ? (
         <div className="catalog-content">
-          {/* Catalog Group Management */}
-          <div className="subsection-header catalog-groups-header">
-            <h4 className="subsection-title catalog-groups-label">Groups</h4>
-            <div className="subsection-actions catalog-groups-right">
-              <label className="flex-align catalog-hide-allocated-label">
-                <input
-                  type="checkbox"
-                  checked={hideAllocatedPlaces}
-                  onChange={(e) => setHideAllocatedPlaces(e.target.checked)}
-                  className="catalog-checkbox"
-                />
-                Hide Allocated
-              </label>
-              {trip.canEdit !== false && (
-                <button
-                  className="mini-icon-btn catalog-add-group-btn"
-                  onClick={() => setShowGroupModal(true)}
-                  data-tooltip="Add Group"
-                  data-tooltip-position="bottom"
-                >
-                  <Plus size={14} /> Add Group
-                </button>
-              )}
-            </div>
-          </div>
-
           {/* List by Groups */}
           {[
             ...(trip.placeGroups || DEFAULT_PLACE_GROUPS).map((group, groupIdx, allGroups) => ({

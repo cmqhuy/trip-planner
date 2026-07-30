@@ -172,9 +172,9 @@ export default function ExpensesPanel({
   };
 
   return (
-    <div className="accordion-content">
-      {/* Header */}
-      <div className="subsection-header catalog-groups-header" style={{ marginBottom: '12px' }}>
+    <>
+      {/* Header — pinned above the scroll area, never scrolls */}
+      <div className="subsection-header catalog-groups-header catalog-groups-header--pinned">
         <h4 className="subsection-title catalog-groups-label">Trip Expenses</h4>
         <div className="subsection-actions catalog-groups-right">
           {trip.canEdit !== false && (
@@ -190,6 +190,7 @@ export default function ExpensesPanel({
         </div>
       </div>
 
+      <div className="accordion-content">
       {/* Top Summary Card */}
       <div
         className="expenses-summary-card glass-panel"
@@ -548,5 +549,6 @@ export default function ExpensesPanel({
           })}
         </div>
       </div>
+    </>
   );
 }

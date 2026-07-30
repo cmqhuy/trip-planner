@@ -48,6 +48,12 @@
   --dropdown-bg: rgba(15, 23, 42, 0.9);
   --dropdown-shadow: var(--shadow-lg), 0 0 15px rgba(0, 0, 0, 0.5);
 
+  /* Opaque backdrop for the sticky left-panel group headers — cards scroll
+     underneath them, so they cannot be transparent. Matches the composited
+     `.accordion-section.expanded` surface (--bg-darker + .catalog-panel tint
+     + expanded-section tint). */
+  --panel-sticky-bg: #121927;
+
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
@@ -765,13 +771,30 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   transition: all 0.15s ease;
 }
 
+/* Sticky in every left-panel scroll area (Catalog / Reservations / Expenses).
+   `top: 0` is the top of the scrollport — the "GROUPS" / "TRIP RESERVATIONS" /
+   "TRIP EXPENSES" bar sits outside the scroll area, so nothing is behind it.
+   Sticky is bounded by `.place-group-section`, which is what pushes the header
+   out of the way as the next group scrolls up. Needs an explicit z-index: the
+   cards below use backdrop-filter, so they'd otherwise paint over it — and it
+   must beat the `z-index: 10` those cards take on hover, or a hovered card
+   would rise through the header. */
 .place-group-header {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  background: var(--panel-sticky-bg);
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border-glass);
+}
+
+/* Keep an open group "⋮" menu above the next group's sticky header. */
+.place-group-header:has(.dropdown-menu) {
+  z-index: 20;
 }
 
 .place-group-title {
@@ -2885,6 +2908,10 @@ input[type="checkbox"].checklist-checkbox { width: 14px; height: 14px; margin: 2
 .catalog-ai-suggest-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #a78bfa; }
 .catalog-header-icon-btn { padding: 6px; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .catalog-groups-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+/* "GROUPS" / "TRIP RESERVATIONS" / "TRIP EXPENSES" bar. Rendered as a sibling
+   above `.accordion-content` so it is outside the scroll area entirely; the
+   per-group `.place-group-header`s then stick at `top: 0` beneath it. */
+.catalog-groups-header--pinned { flex-shrink: 0; margin-bottom: 0; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .catalog-groups-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
 .catalog-groups-right { display: flex; align-items: center; gap: 12px; }
 .catalog-hide-allocated-label { font-size: 11px; color: var(--text-secondary); cursor: pointer; user-select: none; gap: 4px; }

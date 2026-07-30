@@ -766,25 +766,26 @@ export default function ReservationsSection({
   };
 
   return (
-    <div className="accordion-content">
-      <div className="reservations-inner">
-
-        {/* Top header row with Add Group button */}
-        <div className="subsection-header catalog-groups-header" style={{ marginBottom: '4px' }}>
-          <h4 className="subsection-title catalog-groups-label">Trip Reservations</h4>
-          <div className="subsection-actions catalog-groups-right">
-            {trip.canEdit !== false && (
-              <button
-                className="mini-icon-btn catalog-add-group-btn"
-                onClick={onAddReservationGroup}
-                data-tooltip="Add Reservation Group"
-                data-tooltip-position="bottom"
-              >
-                <Plus size={14} /> Add Group
-              </button>
-            )}
-          </div>
+    <>
+      {/* Top header row with Add Group button — pinned above the scroll area */}
+      <div className="subsection-header catalog-groups-header catalog-groups-header--pinned">
+        <h4 className="subsection-title catalog-groups-label">Trip Reservations</h4>
+        <div className="subsection-actions catalog-groups-right">
+          {trip.canEdit !== false && (
+            <button
+              className="mini-icon-btn catalog-add-group-btn"
+              onClick={onAddReservationGroup}
+              data-tooltip="Add Reservation Group"
+              data-tooltip-position="bottom"
+            >
+              <Plus size={14} /> Add Group
+            </button>
+          )}
         </div>
+      </div>
+
+      <div className="accordion-content">
+      <div className="reservations-inner">
 
         {/* Groups */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -921,6 +922,7 @@ export default function ReservationsSection({
         </div>
 
       </div>
-    </div>
+      </div>
+    </>
   );
 }

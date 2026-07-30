@@ -308,6 +308,11 @@ So to add/adjust a day-card type, set those three vars on the modifier — never
 **Left panel accordion subsections** (checklist, transit, tips):
 - `.left-panel-subsection` → `.subsection-header` / `.subsection-title` / `.subsection-subtitle` / `.subsection-actions` / `.subsection-content`
 
+**Left panel sticky headers** (Catalog / Reservations / Expenses) — two tiers, keep both intact:
+- The section bar (`GROUPS` / `TRIP RESERVATIONS` / `TRIP EXPENSES`) is `.subsection-header.catalog-groups-header.catalog-groups-header--pinned`, rendered as a **sibling above `.accordion-content`, outside the scroll area**. Do not move it back inside — `.place-group-header` sticks at `top: 0` and assumes nothing is pinned over the scrollport.
+- Each `.place-group-header` is `position: sticky; top: 0` with an opaque `var(--panel-sticky-bg)` backdrop (cards use `backdrop-filter`, so it also needs the explicit `z-index: 5` to stay on top). Sticky is bounded by its `.place-group-section`, which is what makes the next group push the previous header out.
+- Anything in the scroll area that is *not* a group header stays non-sticky (e.g. the Expenses `TRIP TOTAL & BREAKDOWN` summary card scrolls away).
+
 **Day timeline sections** (hotel stays, transit, AI assistant, schedule):
 - `.timeline-section` → `.timeline-section-header` → `.timeline-section-title-row` / `.timeline-section-actions`
 - Don't hand-write this markup or the left-panel `.place-group-header` — render both through **`<SectionHeader>`** (`variant="section"` / `"group"`); see Shared Controls. In the **left panel** the injected actions use **`<GroupActionButton>`** + a **`<GroupOptionsMenu>`** `⋮`; in the **day view** inject the raw `.timeline-add-btn--*` buttons instead (those two helpers are left-panel only).
