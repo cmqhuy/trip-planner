@@ -3995,7 +3995,7 @@ div.google-auth-avatar-desktop {
   .modal-content.scrollable .modal-header {
     margin-bottom: 20px !important;
   }
-  .accordion-content .mini-icon-btn:not(.ai-markdown-edit-btn):not(.ai-md-save-btn):not(.ai-md-cancel-btn):not(.checklist-edit-btn):not(.checklist-save-btn):not(.checklist-cancel-btn):not(.checklist-delete-btn),
+  .accordion-content .mini-icon-btn:not(.ai-markdown-edit-btn):not(.ai-md-save-btn):not(.ai-md-cancel-btn):not(.checklist-edit-btn):not(.checklist-save-btn):not(.checklist-cancel-btn):not(.checklist-delete-btn):not(.catalog-add-group-btn):not(.catalog-group-action-btn--labeled),
   .accordion-content .add-location-btn {
     min-height: 36px !important;
     min-width: 36px !important;
@@ -4011,9 +4011,13 @@ div.google-auth-avatar-desktop {
   .accordion-content .mini-icon-btn.catalog-group-action-btn--labeled:not(.ai-markdown-edit-btn):not(.ai-md-save-btn):not(.ai-md-cancel-btn) {
     width: auto !important;
     min-width: auto !important;
+    min-height: 36px !important;
+    height: 36px !important;
     padding: 0 10px !important;
     gap: 4px !important;
     border-radius: 6px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
 }
 
