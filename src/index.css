@@ -852,6 +852,38 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
 }
 
+/* ---- Shared drag-to-reorder (dnd-kit) ----
+   Backs <SortableList> and the bespoke dnd-kit surfaces. Replaces the old HTML5
+   `draggable` lists, which never fired on touch. dnd-kit shifts siblings out of
+   the way during a drag, so no drop-indicator line is needed — the gap IS the
+   indicator. Keep `touch-action: manipulation` here: the TouchSensor uses a
+   200ms long-press so page scrolling still works, and setting `none` would kill it. */
+.sortable-item {
+  position: relative;
+  touch-action: manipulation;
+}
+.sortable-item--dragging {
+  z-index: 1150; /* above .dropdown-active cards (1100), below modals (1000+ overlay stack) */
+  opacity: 0.5;
+}
+.sortable-item--dragging .checklist-item-row,
+.sortable-item--dragging .expense-item,
+.sortable-item--dragging .catalog-place-card,
+.sortable-item--dragging .timeline-card {
+  border-color: var(--accent-primary);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+/* Grab affordance for rows that are draggable as a whole. */
+.sortable-item [role="button"][aria-roledescription] {
+  cursor: grab;
+}
+.sortable-item--dragging [role="button"][aria-roledescription] {
+  cursor: grabbing;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sortable-item { transition: none !important; }
+}
+
 /* Expand/collapse animation wrapper — use grid-template-rows trick to avoid max-height bounce */
 .card-expandable-wrapper {
   display: grid;

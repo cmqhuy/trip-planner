@@ -676,60 +676,34 @@ describe('TripPlanner Component', () => {
     expect(screen.getByText('Get passport')).toBeInTheDocument();
     expect(screen.getByText('Buy tickets')).toBeInTheDocument();
 
-    // Find the draggable items
-    const todo1 = screen.getByText('Pack bags').closest('[draggable="true"]');
-    const todo2 = screen.getByText('Get passport').closest('[draggable="true"]');
-    const todo3 = screen.getByText('Buy tickets').closest('[draggable="true"]');
-
-    expect(todo1).toBeDefined();
-    expect(todo2).toBeDefined();
-    expect(todo3).toBeDefined();
-
-    // 1. Drag todo-1 (index 0) over todo-2 (index 1) - dragging DOWN
-    fireEvent.dragStart(todo1!);
-    
-    // Re-query elements to ensure we get the updated DOM nodes
-    const todo2Active = screen.getByText('Get passport').closest('[draggable="true"]');
-    fireEvent.dragOver(todo2Active!);
-
-    // Find the line indicator using waitFor to allow React state updates to commit
-    await waitFor(() => {
-      const todo2WrapperCurrent = screen.getByText('Get passport').closest('[draggable="true"]')!.parentElement;
-      const indicatorsDown = Array.from(todo2WrapperCurrent!.children).filter(
-        child => (child as HTMLElement).style.background === 'var(--accent-primary)'
-      );
-      expect(indicatorsDown.length).toBe(1);
-      const lineIndicatorDown = indicatorsDown[0] as HTMLElement;
-      expect(lineIndicatorDown.style.bottom).toBe('-5px');
-      expect(lineIndicatorDown.style.top).toBe('auto');
+    // Checklist rows are dnd-kit sortables, not HTML5 `draggable` nodes — the old
+    // markup never fired on touch. Each row is a real keyboard-operable control.
+    const rows = ['Pack bags', 'Get passport', 'Buy tickets'].map(
+      label => screen.getByText(label).closest('.checklist-item-row') as HTMLElement
+    );
+    rows.forEach(row => {
+      expect(row).toBeTruthy();
+      expect(row).toHaveAttribute('role', 'button');
+      expect(row).toHaveAttribute('aria-roledescription', 'sortable');
+      // Focusable => reachable by keyboard and by assistive tech.
+      expect(row.tabIndex).toBe(0);
     });
 
-    // End drag
-    const todo1Active = screen.getByText('Pack bags').closest('[draggable="true"]');
-    fireEvent.dragEnd(todo1Active!);
+    // No `draggable` attributes should survive anywhere in the checklist.
+    const checklistRoot = rows[0].closest('.subsection-content')!;
+    expect(checklistRoot.querySelectorAll('[draggable="true"]').length).toBe(0);
 
-    // 2. Drag todo-3 (index 2) over todo-2 (index 1) - dragging UP
-    const todo3Active = screen.getByText('Buy tickets').closest('[draggable="true"]');
-    fireEvent.dragStart(todo3Active!);
-
-    const todo2Active2 = screen.getByText('Get passport').closest('[draggable="true"]');
-    fireEvent.dragOver(todo2Active2!);
-
+    // Space lifts the item — proves the keyboard sensor is actually wired up, which
+    // is the capability HTML5 drag-and-drop never had.
+    rows[0].focus();
+    fireEvent.keyDown(rows[0], { key: ' ', code: 'Space' });
     await waitFor(() => {
-      const todo2WrapperCurrent = screen.getByText('Get passport').closest('[draggable="true"]')!.parentElement;
-      const indicatorsUp = Array.from(todo2WrapperCurrent!.children).filter(
-        child => (child as HTMLElement).style.background === 'var(--accent-primary)'
-      );
-      expect(indicatorsUp.length).toBe(1);
-      const lineIndicatorUp = indicatorsUp[0] as HTMLElement;
-      expect(lineIndicatorUp.style.top).toBe('-5px');
-      expect(lineIndicatorUp.style.bottom).toBe('auto');
+      expect(rows[0]).toHaveAttribute('aria-pressed', 'true');
     });
 
-    // End drag and drop
-    const todo2Active3 = screen.getByText('Get passport').closest('[draggable="true"]');
-    fireEvent.drop(todo2Active3!);
-    expect(handleUpdateTrip).toHaveBeenCalled();
+    // The drop itself needs real layout for dnd-kit's collision detection, which
+    // jsdom does not provide. The resulting index math is covered by
+    // resolveReorder in SortableList.test.tsx; the gesture is verified on device.
   });
 
   it('closes dropdowns when clicking outside', () => {

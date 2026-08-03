@@ -6,8 +6,10 @@ import {
 import type { Trip, Plan } from '../types';
 import FunGeneratingLoader from './FunGeneratingLoader';
 import AiMarkdownSection from './AiMarkdownSection';
+import SortableList from './SortableList';
 import { getReservationWarnings } from '../utils/reservationWarnings';
 import { generateDatesRange } from '../utils/dateUtils';
+import { moveItem } from '../utils/sortable';
 
 interface ChecklistSectionProps {
   trip: Trip;
@@ -31,8 +33,6 @@ function ChecklistSection({
   formatDisplayDate
 }: ChecklistSectionProps) {
   const [manualChecklistInput, setManualChecklistInput] = useState('');
-  const [draggedChecklistIndex, setDraggedChecklistIndex] = useState<number | null>(null);
-  const [dragOverChecklistIndex, setDragOverChecklistIndex] = useState<number | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingItemText, setEditingItemText] = useState('');
 
@@ -105,6 +105,17 @@ function ChecklistSection({
     setEditingItemId(null);
   };
 
+  const handleReorderChecklist = (from: number, to: number) => {
+    onUpdateTrip(prevTrip => ({
+      ...prevTrip,
+      plans: prevTrip.plans.map(p =>
+        p.id === activePlan.id
+          ? { ...p, manualChecklist: moveItem(p.manualChecklist || [], from, to) }
+          : p
+      )
+    }));
+  };
+
   const handleDeleteManualChecklistItem = (id: string) => {
     onUpdateTrip(prevTrip => {
       const updatedPlans = prevTrip.plans.map(p => {
@@ -157,82 +168,19 @@ function ChecklistSection({
           )}
 
           <div className="subsection-content">
-            {(activePlan.manualChecklist || []).map((item, idx) => {
-              const isDragOver = idx === dragOverChecklistIndex && draggedChecklistIndex !== null && draggedChecklistIndex !== idx;
-              const showLineAtBottom = draggedChecklistIndex !== null && draggedChecklistIndex < idx;
+            <SortableList
+              items={activePlan.manualChecklist || []}
+              getId={item => item.id}
+              onReorder={handleReorderChecklist}
+              disabled={trip.canEdit === false || editingItemId !== null}
+              renderItem={(item, idx, { handleProps }) => {
               const isEditing = editingItemId === item.id;
               return (
-                <div key={item.id} className="checklist-item-wrapper" style={{ position: 'relative' }}>
-                  {isDragOver && (
-                    <div style={{
-                      position: 'absolute',
-                      top: showLineAtBottom ? 'auto' : '-5px',
-                      bottom: showLineAtBottom ? '-5px' : 'auto',
-                      left: 0,
-                      right: 0,
-                      height: '4px',
-                      background: 'var(--accent-primary)',
-                      borderRadius: '2px',
-                      boxShadow: '0 0 8px var(--accent-primary)',
-                      zIndex: 10,
-                      pointerEvents: 'none'
-                    }} />
-                  )}
+                <div key={item.id} className="checklist-item-wrapper">
                   <div
-                    className={`checklist-item-row ${dragOverChecklistIndex === idx ? 'drag-over' : ''}`}
+                    className="checklist-item-row"
                     data-checklist-idx={idx}
-                    draggable={trip.canEdit !== false && !isEditing}
-                    onDragStart={(e) => {
-                      if (isEditing) return;
-                      if (e.dataTransfer) {
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', String(idx));
-                      }
-                      setTimeout(() => {
-                        setDraggedChecklistIndex(idx);
-                      }, 0);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      if (dragOverChecklistIndex !== idx) {
-                        setDragOverChecklistIndex(idx);
-                      }
-                    }}
-                    onDragLeave={() => {
-                      setDragOverChecklistIndex(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverChecklistIndex(null);
-                      if (draggedChecklistIndex === null || draggedChecklistIndex === idx) return;
-                      onUpdateTrip(prevTrip => {
-                        const updatedPlans = prevTrip.plans.map(p => {
-                          if (p.id === activePlan.id) {
-                            const list = [...(p.manualChecklist || [])];
-                            const [removed] = list.splice(draggedChecklistIndex, 1);
-                            list.splice(idx, 0, removed);
-                            return {
-                              ...p,
-                              manualChecklist: list
-                            };
-                          }
-                          return p;
-                        });
-                        return {
-                          ...prevTrip,
-                          plans: updatedPlans
-                        };
-                      });
-                      setDraggedChecklistIndex(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedChecklistIndex(null);
-                      setDragOverChecklistIndex(null);
-                    }}
-                    style={{
-                      opacity: draggedChecklistIndex === idx ? 0.4 : 1,
-                      cursor: trip.canEdit !== false && !isEditing ? 'grab' : 'default',
-                    }}
+                    {...(trip.canEdit !== false && !isEditing ? handleProps : {})}
                   >
                     <div className="checklist-item-content">
                       {trip.canEdit !== false && !isEditing && (
@@ -338,7 +286,8 @@ function ChecklistSection({
                   </div>
                 </div>
               );
-            })}
+              }}
+            />
 
             {(activePlan.manualChecklist || []).length === 0 && (
               <span className="subsection-subtitle">
