@@ -54,12 +54,44 @@ export default function TermsOfServicePage() {
         </Section>
 
         <Section title="Permitted Use">
-          <p>You may use the App for personal, non-commercial travel planning purposes. You agree not to:</p>
+          <p>
+            You may use the App to plan your own travel, whether personal or work-related, and to
+            plan travel on behalf of others. You agree not to:
+          </p>
           <ul>
             <li>Attempt to reverse engineer, decompile, or exploit the App's source code for malicious purposes</li>
             <li>Use the App to store or transmit unlawful, harmful, or abusive content</li>
             <li>Circumvent any limitations or access controls of connected third-party services
               (Google Drive, Gemini API) in violation of their respective terms</li>
+            <li>Share a trip with someone in order to expose another person's personal information
+              without a lawful basis for doing so</li>
+          </ul>
+        </Section>
+
+        <Section title="Eligibility">
+          <p>
+            You must be at least 16 years old to use the App, or at least 13 where local law
+            permits and you have permission from a parent or guardian. The App is not directed at
+            children and does not knowingly collect information from them.
+          </p>
+          <p>
+            Using Google Drive sync or the Gemini API also requires a Google account, which carries
+            its own age requirements.
+          </p>
+        </Section>
+
+        <Section title="Sharing and Collaboration">
+          <p>
+            The App lets you share a trip with other people using Google Drive permissions. If you
+            share a trip:
+          </p>
+          <ul>
+            <li>You are responsible for who you grant access to, and for the personal information
+              contained in what you share — reservation details frequently include booking
+              references, addresses, and travel dates.</li>
+            <li>People granted edit access can modify or delete content in that trip. The developer
+              cannot recover content changed or removed by a collaborator.</li>
+            <li>Access is managed through Google Drive and can be revoked by you at any time.</li>
           </ul>
         </Section>
 
@@ -145,6 +177,12 @@ export default function TermsOfServicePage() {
           </p>
         </Section>
 
+        {/*
+          TODO(legal): "applicable law" names no jurisdiction and is effectively
+          unenforceable. Replace with the operator's actual jurisdiction, e.g.
+          "the laws of <country/state>, without regard to its conflict of law
+          provisions". This becomes materially important before taking payments.
+        */}
         <Section title="Governing Law">
           <p>
             These Terms shall be governed by and construed in accordance with applicable law,

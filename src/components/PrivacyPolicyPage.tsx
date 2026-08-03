@@ -48,7 +48,7 @@ export default function PrivacyPolicyPage() {
           Privacy Policy
         </h1>
         <p style={{ color: 'rgba(148,163,184,0.8)', fontSize: '13px', marginBottom: '40px' }}>
-          Effective date: June 22, 2026
+          Effective date: August 3, 2026
         </p>
 
         <Section title="Overview">
@@ -65,19 +65,51 @@ export default function PrivacyPolicyPage() {
         </Section>
 
         <Section title="Data Stored in Your Browser">
-          <p>The following data is stored in <code>localStorage</code> in your browser only:</p>
+          <p>The following data is stored in <code>localStorage</code> on your device:</p>
           <ul>
             <li>Your trip itineraries (destinations, places, schedules, checklists, notes)</li>
-            <li>Reservation attachment metadata (file names and base64-encoded file contents stored as part of your trip data)</li>
-            <li>Gemini AI API keys you enter (stored only on your device)</li>
-            <li>Google OAuth access tokens (session-only, expire automatically)</li>
+            <li>
+              Reservation attachment <strong>references</strong> — the file name and the Google
+              Drive file ID. The file contents themselves are <strong>not</strong> stored in your
+              browser; see "Reservation Attachments" below.
+            </li>
+            <li>
+              Gemini AI API keys you enter. These stay on your device unless you explicitly enable
+              "Sync AI settings to Drive" — see "Gemini AI Integration" below.
+            </li>
+            <li>
+              Google OAuth access tokens, together with their expiry time. These persist across
+              browser sessions and are renewed automatically while you remain signed in. They are
+              removed when you sign out or clear site data.
+            </li>
             <li>App preferences and settings</li>
           </ul>
           <p>
-            This data never leaves your browser unless you explicitly use a feature that
-            connects to an external service (Google Drive sync or AI generation). File
-            attachments are stored entirely in your browser and are only transmitted to the
-            Gemini API if you choose to use the AI extraction feature on that file.
+            This data stays on your device unless you use a feature that connects to an external
+            service — Google Drive sync, AI generation, place search, or the map.
+          </p>
+          <p>
+            <strong>Please note:</strong> if you do not sign in to Google Drive, your trips exist
+            only in this browser. Clearing your browser's site data, using private browsing, or
+            switching devices will lose them permanently. There is no other copy.
+          </p>
+        </Section>
+
+        <Section title="Reservation Attachments">
+          <p>
+            When you attach a document (PDF, image, or other file) to a hotel stay, transport
+            segment, or reservation, the file is <strong>uploaded to your own Google Drive</strong>,
+            into a per-trip folder alongside your trip files. Your browser stores only a reference
+            to it (the file name and the Drive file ID), not the file contents.
+          </p>
+          <p>
+            This means attachments require Google Drive sign-in, and deleting the folder from your
+            Drive removes them. If you share a trip with someone, be aware that the attachment
+            folder is <strong>not</strong> shared automatically — see "Sharing Trips" below.
+          </p>
+          <p>
+            File contents are sent to Google's Gemini API only at the moment you explicitly use the
+            AI extraction feature on that file.
           </p>
         </Section>
 
@@ -118,8 +150,20 @@ export default function PrivacyPolicyPage() {
         <Section title="Gemini AI Integration">
           <p>
             The AI features use Google's Gemini API directly from your browser. To use them
-            you must supply your own Gemini API key, which is stored only in your
+            you must supply your own Gemini API key. The key is stored in your
             browser's <code>localStorage</code> and is never sent to any server operated by this app.
+          </p>
+          <p>
+            <strong>Optional key sync:</strong> if you turn on "Sync AI settings to Drive", your
+            Gemini API keys and model preferences are written to a settings file in your own Google
+            Drive so other devices can pick them up. That file is <strong>not encrypted</strong> —
+            the keys are stored in readable form. Anyone with access to that Drive file can read
+            them. This setting is off by default; leave it off if you would rather the keys never
+            leave this device.
+          </p>
+          <p>
+            Your key is sent to Google as part of each API request URL. Treat it as you would any
+            credential: restrict it in Google AI Studio and rotate it if you suspect exposure.
           </p>
           <p>
             When you trigger an AI generation (place details, day tips, etc.), the relevant
@@ -149,28 +193,73 @@ export default function PrivacyPolicyPage() {
           <p>AI features are optional and only active if you provide an API key.</p>
         </Section>
 
-        <Section title="Third-Party APIs">
+        <Section title="Sharing Trips">
           <p>
-            The following external services are called automatically as part of core app
-            features (no sign-in required, no personal data sent):
+            You can share a trip with other people by email address. Sharing is implemented using
+            Google Drive's own file permissions, which means:
           </p>
           <ul>
             <li>
-              <strong>OpenStreetMap Nominatim</strong> — used for geocoding (converting place
-              names to coordinates). Only the search query is sent; your IP address may be
-              visible per standard HTTP requests.
+              The email address you enter is sent to Google and stored by Google as a permission on
+              your trip file. This app does not keep its own copy or contact list.
             </li>
             <li>
-              <strong>Photon by Komoot</strong> — used for place/address search suggestions.
-              Same privacy characteristics as Nominatim.
+              People you share with can see the entire contents of that trip, and — if you grant
+              edit access — can change it. Their name and email may become visible to you and to
+              other collaborators through Google Drive.
             </li>
             <li>
-              <strong>Wikipedia / Wikimedia Commons</strong> — used to fetch place descriptions
-              and photos. Only the place name is sent as a query.
+              Reservation attachments live in a separate Drive folder that is{' '}
+              <strong>not shared automatically</strong>. Collaborators will not see attachments
+              unless you share that folder yourself in Google Drive.
+            </li>
+            <li>
+              You can review or revoke access at any time from the share dialog, or from Google
+              Drive directly.
             </li>
           </ul>
           <p>
-            None of these services receive your personal information or trip itinerary data.
+            Only share trips with people you trust, and be mindful that reservation details often
+            contain personal information such as booking references and travel dates.
+          </p>
+        </Section>
+
+        <Section title="Third-Party APIs">
+          <p>
+            The following external services are called automatically as part of core app
+            features. None require sign-in. All of them necessarily receive your IP address, as
+            with any web request.
+          </p>
+          <ul>
+            <li>
+              <strong>OpenStreetMap Nominatim</strong> — geocoding (converting place names to
+              coordinates). Receives the search query.
+            </li>
+            <li>
+              <strong>Photon by Komoot</strong> — place and address search suggestions. Receives
+              the search query.
+            </li>
+            <li>
+              <strong>Wikipedia / Wikimedia Commons</strong> — place descriptions and photos.
+              Receives the place name.
+            </li>
+            <li>
+              <strong>Open-Meteo</strong> — time zone lookup for transport segments. Receives the
+              coordinates of the location concerned.
+            </li>
+            <li>
+              <strong>Map tile providers</strong> (OpenStreetMap and CARTO) — used to render the
+              map. These receive the coordinates and zoom level you are viewing, which reveals
+              where you are planning to travel.
+            </li>
+            <li>
+              <strong>Unsplash</strong> — fallback imagery for some places.
+            </li>
+          </ul>
+          <p>
+            These services do not receive your name, email address, notes, reservation details, or
+            your itinerary as a whole. They do receive individual place names and coordinates as
+            described above, and each operates under its own privacy policy.
           </p>
         </Section>
 
@@ -180,19 +269,57 @@ export default function PrivacyPolicyPage() {
             No cookies are set by this app (Google may set cookies as part of its OAuth flow).
             No usage data is collected or sold.
           </p>
+          <p>
+            If this ever changes, this policy will be updated before the change ships, and the
+            effective date above will reflect it.
+          </p>
         </Section>
 
         <Section title="Data Retention and Deletion">
           <p>
-            Since all data is stored in your browser, you are in full control:
+            Because your data lives on your device and in your own Google Drive, you are in full
+            control. There is no server-side copy for the developer to delete on your behalf.
           </p>
           <ul>
             <li>Clear your browser's site data or <code>localStorage</code> at any time to
               remove all app data from your device.</li>
-            <li>Delete the "Trip Planner" folder from your Google Drive to remove synced data
-              from Google's servers.</li>
-            <li>Sign out to revoke the app's Google Drive access token.</li>
+            <li>Delete the app's folder from your Google Drive to remove synced trips, attachments,
+              and (if you enabled key sync) the AI settings file.</li>
+            <li>Sign out to discard the app's Google Drive access token on this device.</li>
+            <li>Revoke the app's access entirely from your{' '}
+              <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ color: '#818cf8' }}>
+                Google Account permissions page
+              </a>.</li>
+            <li>Deleting a trip renames its Drive file rather than removing it immediately, so
+              deletions can be detected across your devices. Delete the file from Drive directly if
+              you want it gone straight away.</li>
           </ul>
+        </Section>
+
+        <Section title="Your Rights">
+          <p>
+            Depending on where you live, you may have rights under laws such as the GDPR (Europe
+            and the UK) or the CCPA (California) to access, correct, export, or delete personal
+            data held about you.
+          </p>
+          <p>
+            This app is designed so that those rights are exercised directly: it operates no
+            server and holds no database of users. Your data resides on your device and in your own
+            Google account, so you can access, export, and delete it yourself at any time using the
+            steps above. The developer has no ability to retrieve your trip data.
+          </p>
+          <p>
+            For the personal data that Google processes on your behalf — your account details,
+            Drive files, and Gemini API requests — Google acts as the data controller, and you can
+            exercise your rights through your Google account. Where any personal data is processed
+            through this app, the legal basis is your consent, given by choosing to sign in or to
+            enable a feature; you may withdraw it at any time by signing out or disabling that
+            feature.
+          </p>
+          <p>
+            If you have a question about your data in relation to this app, contact the address at
+            the bottom of this page.
+          </p>
         </Section>
 
         <Section title="Children's Privacy">
