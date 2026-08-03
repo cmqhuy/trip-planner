@@ -177,16 +177,19 @@ export default function TermsOfServicePage() {
           </p>
         </Section>
 
-        {/*
-          TODO(legal): "applicable law" names no jurisdiction and is effectively
-          unenforceable. Replace with the operator's actual jurisdiction, e.g.
-          "the laws of <country/state>, without regard to its conflict of law
-          provisions". This becomes materially important before taking payments.
-        */}
         <Section title="Governing Law">
           <p>
-            These Terms shall be governed by and construed in accordance with applicable law,
-            without regard to conflict of law provisions.
+            These Terms are governed by and construed in accordance with the laws of the State of
+            Washington and the federal laws of the United States, without regard to conflict of law
+            provisions. You agree that the state and federal courts located in Washington shall
+            have exclusive jurisdiction over any dispute arising out of or relating to these Terms
+            or your use of the App.
+          </p>
+          <p>
+            If you use the App from outside the United States, you do so on your own initiative and
+            are responsible for compliance with local law. Nothing in this section removes any
+            mandatory consumer-protection rights you may have under the law of your country of
+            residence — where such rights apply, they take precedence over this clause.
           </p>
         </Section>
 
