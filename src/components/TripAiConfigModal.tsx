@@ -7,7 +7,9 @@ import {
 } from 'lucide-react';
 import type { Trip } from '../types';
 import Modal from './Modal';
+import SortableList from './SortableList';
 import { AI_DETAIL_FIELDS, DEFAULT_AI_ICONS } from '../utils/ai';
+import { moveItem } from '../utils/sortable';
 
 // Mapping string to Lucide component
 export const FIELD_ICONS_MAP: { [key: string]: React.ComponentType<any> } = {
@@ -133,9 +135,6 @@ export default function TripAiConfigModal({
   // Popover state
   const [activeIconPickerKey, setActiveIconPickerKey] = useState<string | null>(null);
 
-  // Drag and Drop state
-  const [draggedFieldIndex, setDraggedFieldIndex] = useState<number | null>(null);
-  const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -457,67 +456,24 @@ export default function TripAiConfigModal({
               </span>
 
               <div className="ai-config-fields-list">
-                {allPlaceFields.map((field, idx) => {
+                <SortableList
+                  items={allPlaceFields}
+                  getId={field => field.key}
+                  onReorder={(from, to) => setAllPlaceFields(moveItem(allPlaceFields, from, to))}
+                  disabled={trip.canEdit === false || editingKey !== null}
+                  renderItem={(field, idx, { handleProps }) => {
                   const isEditing = editingKey === field.key;
-                  const isDragOver = idx === dragOverFieldIndex && draggedFieldIndex !== null && draggedFieldIndex !== idx;
-                  const showLineAtBottom = draggedFieldIndex !== null && draggedFieldIndex < idx;
+                  const iconPickerOpen =
+                    activeIconPickerKey === field.key ||
+                    (editingKey === field.key && activeIconPickerKey === 'edit-field');
 
                   return (
                     <div
                       key={field.key}
                       className="glass-panel ai-config-place-field-card"
-                      draggable={trip.canEdit !== false && !isEditing}
-                      onDragStart={(e) => {
-                        setDraggedFieldIndex(idx);
-                        if (e.dataTransfer) {
-                          e.dataTransfer.effectAllowed = 'move';
-                        }
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        if (dragOverFieldIndex !== idx) {
-                          setDragOverFieldIndex(idx);
-                        }
-                      }}
-                      onDragLeave={() => {
-                        setDragOverFieldIndex(null);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setDragOverFieldIndex(null);
-                        if (draggedFieldIndex === null || draggedFieldIndex === idx) return;
-                        const list = [...allPlaceFields];
-                        const [removed] = list.splice(draggedFieldIndex, 1);
-                        list.splice(idx, 0, removed);
-                        setAllPlaceFields(list);
-                        setDraggedFieldIndex(null);
-                      }}
-                      onDragEnd={() => {
-                        setDraggedFieldIndex(null);
-                        setDragOverFieldIndex(null);
-                      }}
-                      style={{
-                        opacity: draggedFieldIndex === idx ? 0.4 : 1,
-                        cursor: trip.canEdit !== false && !isEditing ? 'grab' : 'default',
-                        zIndex: (activeIconPickerKey === field.key || (editingKey === field.key && activeIconPickerKey === 'edit-field')) ? 100 : (draggedFieldIndex === idx ? 0.4 : 1)
-                      }}
+                      {...(trip.canEdit !== false && !isEditing ? handleProps : {})}
+                      style={{ zIndex: iconPickerOpen ? 100 : undefined }}
                     >
-                      {isDragOver && (
-                        <div style={{
-                          position: 'absolute',
-                          top: showLineAtBottom ? 'auto' : '-4px',
-                          bottom: showLineAtBottom ? '-4px' : 'auto',
-                          left: 0,
-                          right: 0,
-                          height: '4px',
-                          background: 'var(--accent-primary)',
-                          borderRadius: '2px',
-                          boxShadow: '0 0 8px var(--accent-primary)',
-                          zIndex: 10,
-                          pointerEvents: 'none'
-                        }} />
-                      )}
-
                       {isEditing ? (
                         <div className="ai-config-edit-form">
                           <div className="ai-config-edit-header">
@@ -681,7 +637,8 @@ export default function TripAiConfigModal({
                       )}
                     </div>
                   );
-                })}
+                  }}
+                />
 
                 {allPlaceFields.length === 0 && (
                   <div className="ai-config-empty">

@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { Plus, Pencil, Trash2, ChevronDown, CheckSquare, Square, GripVertical } from 'lucide-react';
 import type { ExpenseLine } from '../types';
 import { CURRENCY_LIST, compareCurrencies } from '../utils/currencies';
+import { moveItem } from '../utils/sortable';
+import SortableList from './SortableList';
 
 interface ExpensesSectionProps {
   expenses: ExpenseLine[];
@@ -17,8 +19,6 @@ export default function ExpensesSection({
 }: ExpensesSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Form fields
   const [description, setDescription] = useState('');
@@ -255,57 +255,14 @@ export default function ExpensesSection({
       {/* Expense list */}
       {expenses.length > 0 ? (
         <div className="expense-list">
-          {expenses.map((item, idx) => {
-            const isDragOver = idx === dragOverIndex && draggedIndex !== null && draggedIndex !== idx;
-            const showLineAtBottom = draggedIndex !== null && draggedIndex < idx;
+          <SortableList
+            items={expenses}
+            getId={item => item.id}
+            onReorder={(from, to) => onChange(moveItem(expenses, from, to))}
+            renderItem={(item, _idx, { handleProps }) => {
             return (
-              <div key={item.id} className="expense-item-wrapper" style={{ position: 'relative' }}>
-                {isDragOver && (
-                  <div
-                    className="drag-indicator-line"
-                    style={{
-                      top: showLineAtBottom ? 'auto' : '-5px',
-                      bottom: showLineAtBottom ? '-5px' : 'auto'
-                    }}
-                  />
-                )}
-                <div
-                  className={`expense-item ${dragOverIndex === idx && draggedIndex !== idx ? 'drag-over' : ''}`}
-                  draggable
-                  onDragStart={(e) => {
-                    setDraggedIndex(idx);
-                    if (e.dataTransfer) {
-                      e.dataTransfer.effectAllowed = 'move';
-                    }
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (dragOverIndex !== idx) {
-                      setDragOverIndex(idx);
-                    }
-                  }}
-                  onDragLeave={() => {
-                    setDragOverIndex(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggedIndex(null);
-                    setDragOverIndex(null);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragOverIndex(null);
-                    if (draggedIndex === null || draggedIndex === idx) return;
-
-                    const newList = [...expenses];
-                    const [removed] = newList.splice(draggedIndex, 1);
-                    newList.splice(idx, 0, removed);
-                    onChange(newList);
-                    setDraggedIndex(null);
-                  }}
-                  style={{
-                    '--opacity': draggedIndex === idx ? 0.4 : 1
-                  } as React.CSSProperties}
-                >
+              <div key={item.id} className="expense-item-wrapper">
+                <div className="expense-item" {...handleProps}>
                   <div className="expense-item-grip">
                     <GripVertical size={12} />
                   </div>
@@ -315,7 +272,6 @@ export default function ExpensesSection({
                     className="mini-icon-btn flex-align"
                     style={{ color: item.paid ? 'var(--accent-primary)' : 'var(--text-muted)' }}
                     data-tooltip={item.paid ? 'Mark unpaid' : 'Mark paid'}
-                    onDragStart={e => e.stopPropagation()}
                   >
                     {item.paid ? <CheckSquare size={14} /> : <Square size={14} />}
                   </button>
@@ -326,7 +282,7 @@ export default function ExpensesSection({
                     {formatPrice(item.price)}
                   </span>
                   <span className="expense-item-currency">{item.currency}</span>
-                  <div className="expense-item-actions" onDragStart={e => e.stopPropagation()}>
+                  <div className="expense-item-actions">
                     <button
                       type="button"
                       className="mini-icon-btn"
@@ -347,7 +303,8 @@ export default function ExpensesSection({
                 </div>
               </div>
             );
-          })}
+            }}
+          />
 
           {/* Multiple Currencies Total */}
           <div className="expense-totals">
