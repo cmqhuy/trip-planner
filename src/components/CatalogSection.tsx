@@ -4,7 +4,7 @@ import { InlineNotes } from './InlineNotes';
 import SectionHeader from './SectionHeader';
 import GroupActionButton from './GroupActionButton';
 import GroupOptionsMenu from './GroupOptionsMenu';
-import { PlannerDragCard, PlannerDropZone } from './PlannerDnd';
+import { PlannerDragCard, PlannerDropZone, PlannerSortableGroup } from './PlannerDnd';
 import { catalogGroupDndId, catalogPlaceDndId } from '../utils/plannerDnd';
 import {
   MapPin, Plus, Edit2, ChevronUp, ChevronDown,
@@ -222,6 +222,11 @@ function CatalogSection({
             });
             if (placesInGroup.length === 0 && group.id === 'new') return null;
 
+            // A place moving within its own group is handled by the sorting
+            // strategy (cards slide aside); one arriving from another group is not
+            // part of this list, so it gets the indicator line.
+            const isCrossGroupDrag = !!draggedPlaceId && !placesInGroup.some(p => p.id === draggedPlaceId);
+
             return (
               <PlannerDropZone
                 key={group.id}
@@ -305,6 +310,7 @@ function CatalogSection({
                   </>}
                 />
 
+                <PlannerSortableGroup items={filteredPlaces.map(p => catalogPlaceDndId(p.id))}>
                 <div className="catalog-places-list catalog-places-list--mh">
                   {filteredPlaces.map((place, placeIndexInGroup) => (
                     <PlannerDragCard
@@ -314,21 +320,20 @@ function CatalogSection({
                       dropData={{ target: 'catalog-place', placeId: place.id, groupId: group.id }}
                       disabled={trip.canEdit === false}
                     >
-                      {({ setNodeRef: setCardRef, handleProps, isDragging }) => {
-                      const isDropTarget = dragOverPlaceId === place.id && draggedPlaceId !== place.id;
+                      {({ setNodeRef: setCardRef, handleProps, style, isDragging }) => {
+                      // Sorting only shifts cards within their own group, so a place
+                      // arriving from a different group gets the indicator line instead.
+                      const isDropTarget = isCrossGroupDrag && dragOverPlaceId === place.id;
                       return (
-                    <div
-                      className={`catalog-place-wrapper${
-                        isDropTarget ? (dragOverPlacePosition === 'top' ? ' dnd-shift-before' : ' dnd-shift-after') : ''
-                      }`}
-                    >
+                    <div className="catalog-place-wrapper">
                       {isDropTarget && (
                         <div className={`drag-indicator-line drag-indicator-line--${dragOverPlacePosition}`} />
                       )}
                       <div
                         ref={setCardRef}
                         {...handleProps}
-                        className={`catalog-place-card ${isDragging ? 'dnd-drag-source' : ''} ${activePlaceId === place.id ? 'catalog-place-card--active' : ''} ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
+                        style={style}
+                        className={`catalog-place-card ${isDragging ? 'dnd-drag-origin' : ''} ${activePlaceId === place.id ? 'catalog-place-card--active' : ''} ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                         onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
                       >
                         <div className="place-card-header">
@@ -535,6 +540,7 @@ function CatalogSection({
                     </PlannerDragCard>
                   ))}
                 </div>
+                </PlannerSortableGroup>
               </div>
                 )}
               </PlannerDropZone>

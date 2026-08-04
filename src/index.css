@@ -855,9 +855,11 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .catalog-place-card {
   touch-action: manipulation;
 }
-/* The card stays in place and dims while the overlay chip follows the pointer. */
-.dnd-drag-source {
-  opacity: 0.4;
+/* The card being dragged stays in its slot and dims, exactly as
+   `.sortable-item--dragging` does for <SortableList>; its neighbours slide around
+   it, so the list keeps its height and no extra space is ever created. */
+.dnd-drag-origin {
+  opacity: 0.5;
 }
 /* dnd-kit's overlay defaults to z-index 999, which puts the preview *behind* the
    fixed mobile tab bar (1000) — exactly where a thumb ends up mid-drag.
@@ -891,24 +893,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   background: linear-gradient(to bottom, transparent, rgba(11, 15, 25, 0.85));
   pointer-events: none;
 }
-/* The list makes room at the drop position: a gap the height of the card being
-   dragged, so the drop reads as an insertion rather than just a line. The height
-   is published on .planner-view by TripPlanner at drag start. */
-.dnd-shift-before {
-  margin-top: calc(var(--dnd-drag-height, 0px) + var(--dnd-shift-gap, 16px));
-}
-.dnd-shift-after {
-  margin-bottom: calc(var(--dnd-drag-height, 0px) + var(--dnd-shift-gap, 16px));
-}
-.schedule-item-wrapper,
-.schedule-merged-cell,
-.catalog-place-wrapper {
-  transition: margin 0.18s cubic-bezier(0.2, 0, 0, 1);
-}
-/* Matches .catalog-places-list's 10px gap; the timeline's 16px is the default. */
-.catalog-place-wrapper {
-  --dnd-shift-gap: 10px;
-}
+/* Wrappers the schedule cards sit in. Positioned so the drop indicator, which is
+   absolute, anchors to the card it marks. */
 .schedule-item-wrapper {
   display: flex;
   flex-direction: column;
@@ -916,19 +902,6 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 }
 .schedule-merged-half {
   position: relative;
-}
-/* Centre the indicator inside the gap it just opened, instead of leaving it
-   pinned to the card's own edge. */
-.dnd-shift-before > .drag-indicator-line--top,
-.dnd-shift-after > .drag-indicator-line--bottom {
-  --drag-indicator-offset: calc((var(--dnd-drag-height, 0px) + var(--dnd-shift-gap, 16px)) / -2);
-}
-@media (prefers-reduced-motion: reduce) {
-  .schedule-item-wrapper,
-  .schedule-merged-cell,
-  .catalog-place-wrapper {
-    transition: none;
-  }
 }
 /* Fallback for when the card node couldn't be cloned — a label is better than
    nothing following the pointer. */
@@ -1352,6 +1325,8 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .schedule-merged-cell {
   display: flex;
   flex-direction: column;
+  /* Anchors the drop indicator, which marks the whole pair's outer edge. */
+  position: relative;
 }
 /* !important overrides the `.timeline-card { border-radius: 12px !important }` reset below;
    without it the seam corners stay rounded. */

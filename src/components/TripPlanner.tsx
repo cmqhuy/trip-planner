@@ -1,13 +1,11 @@
-import { useState, useEffect, useRef, useMemo, useCallback, type CSSProperties } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { DndContext, DragOverlay, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { mergedUnitRange } from '../utils/scheduleMerge';
 import { useSortableSensors } from '../utils/sortable';
 import {
-  clampToMergeUnit,
   findDragNode,
-  isOwnMergeUnit,
   plannerCollisionDetection,
   resolveDropPosition,
   type PlannerDragData,
@@ -1037,13 +1035,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     if (drop.target === 'day-item') {
       setDragOverPlaceId(null);
       setDragOverGroupId(null);
-      // Dropping a day item onto its own merged unit is a no-op — no indicator.
-      if (drag.source === 'day' && isOwnMergeUnit(drop, drag.index)) {
+      // Hovering your own slot is the resting state of a sort — no indicator.
+      if (drag.source === 'day' && drop.index === drag.index) {
         setDragOverDayPlaceIndex(null);
         return;
       }
       setDragOverDayPlaceIndex(drop.index);
-      setDragOverDayPlacePosition(clampToMergeUnit(drop, position));
+      setDragOverDayPlacePosition(position);
       return;
     }
 
@@ -1087,11 +1085,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       const scheduleLength = activeDay?.scheduleItems?.length ?? 0;
 
       if (drop.target === 'day-item') {
-        const position = clampToMergeUnit(drop, rawPosition);
         if (drag.source === 'catalog') {
-          handleCatalogPlaceDropOnTimeline(drag.placeId, drop.index, position);
-        } else if (!isOwnMergeUnit(drop, drag.index)) {
-          handleDayPlaceDrop(drop.index, position);
+          handleCatalogPlaceDropOnTimeline(drag.placeId, drop.index, rawPosition);
+        } else if (drop.index !== drag.index) {
+          handleDayPlaceDrop(drop.index, rawPosition);
         }
       } else if (drop.target === 'day-timeline') {
         // Blank space below the cards: append to the end of the day.
@@ -3445,10 +3442,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     >
     <div
       className={`planner-view${leftCollapsed ? ' left-collapsed' : ''}${rightCollapsed ? ' right-collapsed' : ''}`}
-      /* Published once here rather than threaded as a prop: the cards that open a
-         gap at the drop position live two and three levels down, in components
-         that are already prop-saturated. They read it straight from CSS. */
-      style={dragPreview ? ({ '--dnd-drag-height': `${dragPreview.height}px` } as CSSProperties) : undefined}
       onTouchStart={handleSwipeTouchStart}
       onTouchEnd={handleSwipeTouchEnd}
     >
@@ -3581,6 +3574,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setPlaceQuery={setPlaceQuery}
         placeSuggestions={placeSuggestions}
         isSearchingPlace={isSearchingPlace}
+        draggedPlaceId={draggedPlaceId}
         dragOverDayPlaceIndex={dragOverDayPlaceIndex}
         dragOverDayPlacePosition={dragOverDayPlacePosition}
         setShowEditTripModal={setShowEditTripModal}

@@ -115,6 +115,7 @@ describe('ItineraryPanel Component', () => {
         setPlaceQuery={vi.fn()}
         placeSuggestions={[]}
         isSearchingPlace={false}
+        draggedPlaceId={null}
         dragOverDayPlaceIndex={null}
         dragOverDayPlacePosition="top"
         setShowEditTripModal={vi.fn()}
@@ -202,12 +203,12 @@ describe('ItineraryPanel Component', () => {
     // Scheduled places
     expect(screen.getByText('Eiffel Tower')).toBeInTheDocument();
 
-    // Schedule cards are dnd-kit draggables, not HTML5 `draggable` nodes — the old
+    // Schedule cards are dnd-kit sortables, not HTML5 `draggable` nodes — the old
     // implementation never fired on touch, so reordering a day was desktop-only.
     const placeCard = document.querySelector('[data-place-id="place-eiffel"]') as HTMLElement;
     expect(placeCard).toBeTruthy();
     expect(placeCard.getAttribute('draggable')).toBeNull();
-    expect(placeCard).toHaveAttribute('aria-roledescription', 'draggable');
+    expect(placeCard).toHaveAttribute('aria-roledescription', 'sortable');
     expect(placeCard).toHaveAttribute('tabindex', '0');
     expect(document.querySelectorAll('[draggable="true"]').length).toBe(0);
   });
@@ -257,6 +258,7 @@ describe('ItineraryPanel Component', () => {
         setPlaceQuery={vi.fn()}
         placeSuggestions={[]}
         isSearchingPlace={false}
+        draggedPlaceId={null}
         dragOverDayPlaceIndex={null}
         dragOverDayPlacePosition="top"
         setShowEditTripModal={vi.fn()}

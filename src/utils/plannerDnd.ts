@@ -23,27 +23,34 @@ export type PlannerDragData =
   | { source: 'day'; index: number; label: string };
 
 /**
- * The card element for a drag id. `<PlannerDragCard>` stamps `data-dnd-id` onto
- * every draggable, because dnd-kit's `active` carries no node reference and the
- * drag overlay needs the real node to clone (and its height, to size the gap
- * that opens at the drop position).
+ * The element a drag is really moving. `<PlannerDragCard>` stamps `data-dnd-id`
+ * onto every draggable, because dnd-kit's `active` carries no node reference and
+ * the drag overlay needs the real node to clone — and its height, to size the
+ * gap that opens at the drop position.
+ *
+ * Resolves up to the merged cell when the grabbed card is half of a pair: the
+ * pair moves as one block, so both the preview and the gap have to be the whole
+ * unit, not the half that happened to be under the finger.
  */
 export function findDragNode(id: string | number): HTMLElement | null {
-  return document.querySelector<HTMLElement>(`[data-dnd-id="${id}"]`);
+  const node = document.querySelector<HTMLElement>(`[data-dnd-id="${id}"]`);
+  if (!node) return null;
+  return node.closest<HTMLElement>(MERGED_CELL_SELECTOR) ?? node;
 }
 
 /**
  * What sits under the pointer. `catalog-group` and `day-timeline` are
  * *containers* — they only win when no card inside them is hit.
  *
- * `unitStart`/`unitEnd` describe the merged unit a schedule item belongs to
- * (`[idx, idx]` when it isn't merged), so the drop position can snap to the
- * unit's outer edge without the context needing ItineraryPanel's internals.
+ * A merged place-reservation + place pair registers **once**, at its unit's
+ * start index, because the whole cell is one droppable. That is what keeps a
+ * drop on the unit's outer edge rather than between the two halves, with no
+ * clamping needed: the cell's own midpoint is the top/bottom split.
  */
 export type PlannerDropData =
   | { target: 'catalog-place'; placeId: string; groupId: string }
   | { target: 'catalog-group'; groupId: string }
-  | { target: 'day-item'; index: number; unitStart: number; unitEnd: number }
+  | { target: 'day-item'; index: number }
   | { target: 'day-timeline' };
 
 export const catalogPlaceDndId = (placeId: string) => `catalog-place:${placeId}`;
@@ -108,7 +115,9 @@ export function plannerCollisionDetection(
   if (!container) return resolved;
 
   const siblings = args.droppableContainers.filter(
-    droppable => containerOfCard(droppable.data.current as PlannerDropData | undefined) === container.id
+    droppable =>
+      droppable.id !== args.active.id &&
+      containerOfCard(droppable.data.current as PlannerDropData | undefined) === container.id
   );
   if (siblings.length === 0) return resolved;
 
@@ -154,23 +163,5 @@ export function resolveDropPosition(
   return y - overRect.top < overRect.height / 2 ? 'top' : 'bottom';
 }
 
-/**
- * Snaps a drop onto a merged pair to the whole unit's outer edge — hovering the
- * top half drops above the unit, the bottom half drops below it, never between
- * the two. A non-merged item passes the position through unchanged.
- */
-export function clampToMergeUnit(
-  drop: { index: number; unitStart: number; unitEnd: number },
-  position: DropPosition
-): DropPosition {
-  if (drop.unitStart === drop.unitEnd) return position;
-  return drop.index === drop.unitStart ? 'top' : 'bottom';
-}
-
-/** True when a day-sourced drag is hovering its own merged unit — a no-op drop. */
-export function isOwnMergeUnit(
-  drop: { unitStart: number; unitEnd: number },
-  draggedIndex: number
-): boolean {
-  return draggedIndex >= drop.unitStart && draggedIndex <= drop.unitEnd;
-}
+/** The container a merged place-reservation + place pair renders inside. */
+export const MERGED_CELL_SELECTOR = '.schedule-merged-cell';

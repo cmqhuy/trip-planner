@@ -1,12 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import type { ClientRect, CollisionDetection } from '@dnd-kit/core';
 import {
   DAY_TIMELINE_DND_ID,
   catalogGroupDndId,
   catalogPlaceDndId,
-  clampToMergeUnit,
   dayItemDndId,
-  isOwnMergeUnit,
+  findDragNode,
   plannerCollisionDetection,
   resolveDropPosition,
   type PlannerDropData,
@@ -66,21 +65,6 @@ describe('resolveDropPosition', () => {
   });
 });
 
-describe('clampToMergeUnit', () => {
-  it('passes the position through for a standalone item', () => {
-    expect(clampToMergeUnit({ index: 2, unitStart: 2, unitEnd: 2 }, 'top')).toBe('top');
-    expect(clampToMergeUnit({ index: 2, unitStart: 2, unitEnd: 2 }, 'bottom')).toBe('bottom');
-  });
-
-  it('snaps the top half of a merged pair to above the whole unit', () => {
-    expect(clampToMergeUnit({ index: 4, unitStart: 4, unitEnd: 5 }, 'bottom')).toBe('top');
-  });
-
-  it('snaps the bottom half of a merged pair to below the whole unit', () => {
-    expect(clampToMergeUnit({ index: 5, unitStart: 4, unitEnd: 5 }, 'top')).toBe('bottom');
-  });
-});
-
 describe('plannerCollisionDetection', () => {
   /**
    * Three day cards 60px tall with the timeline's 16px gap between them, inside a
@@ -90,9 +74,9 @@ describe('plannerCollisionDetection', () => {
    *   card 2: 252..312
    */
   const CARDS: Array<{ id: string; top: number; data: PlannerDropData }> = [
-    { id: dayItemDndId(0), top: 100, data: { target: 'day-item', index: 0, unitStart: 0, unitEnd: 0 } },
-    { id: dayItemDndId(1), top: 176, data: { target: 'day-item', index: 1, unitStart: 1, unitEnd: 1 } },
-    { id: dayItemDndId(2), top: 252, data: { target: 'day-item', index: 2, unitStart: 2, unitEnd: 2 } },
+    { id: dayItemDndId(0), top: 100, data: { target: 'day-item', index: 0 } },
+    { id: dayItemDndId(1), top: 176, data: { target: 'day-item', index: 1 } },
+    { id: dayItemDndId(2), top: 252, data: { target: 'day-item', index: 2 } },
   ];
 
   function detect(pointerY: number, cards = CARDS) {
@@ -150,18 +134,23 @@ describe('plannerCollisionDetection', () => {
   });
 });
 
-describe('isOwnMergeUnit', () => {
-  it('is true when a dragged item hovers itself', () => {
-    expect(isOwnMergeUnit({ unitStart: 3, unitEnd: 3 }, 3)).toBe(true);
+describe('findDragNode', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  it('finds the card the drag overlay should clone', () => {
+    document.body.innerHTML = `<div data-dnd-id="day-item:2" id="card"></div>`;
+    expect(findDragNode('day-item:2')).toBe(document.getElementById('card'));
   });
 
-  it('is true when a dragged item hovers the other half of its own pair', () => {
-    expect(isOwnMergeUnit({ unitStart: 4, unitEnd: 5 }, 4)).toBe(true);
-    expect(isOwnMergeUnit({ unitStart: 4, unitEnd: 5 }, 5)).toBe(true);
+  it('resolves a merged pair half up to the whole cell', () => {
+    // The pair moves as one block, so the preview must be the pair, not the half
+    // that happened to be under the finger.
+    document.body.innerHTML =
+      `<div class="schedule-merged-cell" id="cell"><div data-dnd-id="day-item:4"></div></div>`;
+    expect(findDragNode('day-item:4')).toBe(document.getElementById('cell'));
   });
 
-  it('is false for any other unit', () => {
-    expect(isOwnMergeUnit({ unitStart: 4, unitEnd: 5 }, 6)).toBe(false);
-    expect(isOwnMergeUnit({ unitStart: 4, unitEnd: 5 }, 3)).toBe(false);
+  it('returns null for an id that is not on the page', () => {
+    expect(findDragNode('day-item:99')).toBeNull();
   });
 });

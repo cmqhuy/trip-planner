@@ -1,22 +1,49 @@
-import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { PlannerDragData, PlannerDropData } from '../utils/plannerDnd';
 
 /**
  * Render-prop wrappers around dnd-kit's hooks, for the catalog and day-schedule
  * cards. They render no DOM of their own — the caller keeps its existing
- * element and just attaches `setNodeRef` plus `handleProps`, so the markup and
- * CSS of every card family stay exactly as they were.
+ * element and just attaches `setNodeRef`, `handleProps` and `style`, so the
+ * markup and CSS of every card family stay exactly as they were.
  *
  * They exist because hooks can't be called from the `render*Card` helpers and
  * `.map()` callbacks these cards are built in. See `src/utils/plannerDnd.ts`
  * for the id/data scheme and `TripPlanner` for the single `DndContext`.
+ *
+ * Built on `useSortable`, the same primitive as `<SortableList>`, so a reorder
+ * inside one list looks and feels identical everywhere in the app: the siblings
+ * slide out of the way and the list keeps its height. What `<SortableList>`
+ * can't express is the cross-container half of this surface — a place dragged
+ * from the catalog into a day, or between two catalog groups. Those land in a
+ * list they were never part of, so no sorting strategy has an opinion about
+ * them, and they keep the drop-indicator line instead.
  */
+
+interface PlannerSortableGroupProps {
+  /** Card ids in render order. Merged pairs contribute their unit's id once. */
+  items: string[];
+  children: ReactNode;
+}
+
+/** One reorderable list: a catalog group's places, or a day's schedule. */
+export function PlannerSortableGroup({ items, children }: PlannerSortableGroupProps) {
+  return (
+    <SortableContext items={items} strategy={verticalListSortingStrategy}>
+      {children}
+    </SortableContext>
+  );
+}
 
 interface DragCardArgs {
   setNodeRef: (node: HTMLElement | null) => void;
   /** Spread onto the element that should be grabbable. Empty when disabled. */
   handleProps: Record<string, unknown>;
+  /** The sibling-shifting transform. Spread onto the same element as `setNodeRef`. */
+  style: CSSProperties;
   isDragging: boolean;
 }
 
@@ -29,28 +56,30 @@ interface PlannerDragCardProps {
 }
 
 /**
- * A card that is both a drag source and a drop target — the same node, the same
- * id in both registries (this is what `useSortable` does internally).
+ * A card that is both a drag source and a drop target, and shifts aside when a
+ * sibling in the same list is being dragged past it.
  *
- * It stays a drop target even while disabled: a read-only trip can't drag, but
- * `disabled` here also covers "this card is mid-edit" (notes open), and such a
- * card must still accept drops from elsewhere.
+ * Drag and drop data are merged because `useSortable` registers one node in both
+ * registries under a single `data` object — the keys don't overlap (`source` vs
+ * `target`), so `active.data` and `over.data` each still read cleanly.
+ *
+ * `disabled` covers "read-only trip" and "this card is mid-edit" (notes open).
+ * Either way it only disables *dragging*: such a card must still accept drops.
  */
 export function PlannerDragCard({ id, dragData, dropData, disabled, children }: PlannerDragCardProps) {
-  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } = useSortable({
     id,
-    data: dragData,
-    disabled,
+    data: { ...dragData, ...dropData },
+    disabled: { draggable: !!disabled, droppable: false },
   });
-  const { setNodeRef: setDropRef } = useDroppable({ id, data: dropData });
 
-  const setNodeRef = useCallback(
-    (node: HTMLElement | null) => {
-      setDragRef(node);
-      setDropRef(node);
-    },
-    [setDragRef, setDropRef]
-  );
+  // Only styled while a drag is in flight. `useSortable` hands back a `transition`
+  // string unconditionally, and these cards style their own `transition` in CSS
+  // (`--card-transition`, for hover border/shadow) — an inline one would win
+  // permanently and kill that. The card being dragged gets nothing at all: it
+  // stays put and dims, and the overlay is what follows the pointer.
+  const style: CSSProperties =
+    !isSorting || isDragging ? {} : { transform: CSS.Transform.toString(transform), transition };
 
   return (
     <>
@@ -61,10 +90,23 @@ export function PlannerDragCard({ id, dragData, dropData, disabled, children }: 
         // `data-dnd-id` is how the drag overlay finds the node to clone —
         // dnd-kit's `active` carries no node reference of its own.
         handleProps: disabled ? {} : { ...attributes, ...listeners, 'data-dnd-id': id },
+        style,
         isDragging,
       })}
     </>
   );
+}
+
+/**
+ * Same props as `<PlannerDragCard>`, but registers nothing.
+ *
+ * Used for the two halves of a merged reservation + place pair. The pair is a
+ * single drag unit, so the *cell* around them is the sortable; if the halves
+ * also registered they would shift independently and the pair would visibly
+ * tear apart mid-drag.
+ */
+export function PlannerInertCard({ children }: PlannerDragCardProps) {
+  return <>{children({ setNodeRef: () => {}, handleProps: {}, style: {}, isDragging: false })}</>;
 }
 
 interface PlannerDropZoneProps {
@@ -104,8 +146,9 @@ export function PlannerDragPreview({ node, width, clipped }: PlannerDragPreviewP
     if (!host) return;
 
     const clone = node.cloneNode(true) as HTMLElement;
-    // The source card is dimmed while dragging; the preview must not be.
-    clone.classList.remove('dnd-drag-source');
+    // The source vacates the list while dragging (display: none) — the preview,
+    // which is a clone of it, must not inherit that.
+    clone.classList.remove('dnd-drag-origin');
     // Ids and dnd-kit's aria wiring would otherwise be duplicated in the document.
     clone.removeAttribute('id');
     clone.removeAttribute('aria-describedby');

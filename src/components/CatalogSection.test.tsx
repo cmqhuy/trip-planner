@@ -102,12 +102,12 @@ describe('CatalogSection Component', () => {
     // Should display the category group name
     expect(screen.getByText('Attractions')).toBeInTheDocument();
 
-    // Catalog cards are dnd-kit draggables, not HTML5 `draggable` nodes — the old
+    // Catalog cards are dnd-kit sortables, not HTML5 `draggable` nodes — the old
     // implementation never fired on touch, so regrouping was desktop-only.
     const card = document.querySelector('.catalog-place-card') as HTMLElement;
     expect(card).toBeTruthy();
     expect(card.getAttribute('draggable')).toBeNull();
-    expect(card).toHaveAttribute('aria-roledescription', 'draggable');
+    expect(card).toHaveAttribute('aria-roledescription', 'sortable');
     expect(card).toHaveAttribute('tabindex', '0');
     expect(document.querySelectorAll('[draggable="true"]').length).toBe(0);
 
