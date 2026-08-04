@@ -11,7 +11,10 @@ import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, Tra
 import { flattenReservations } from '../types';
 import { InlineNotes } from './InlineNotes';
 import SectionHeader from './SectionHeader';
-import { computeMergePartners } from '../utils/scheduleMerge';
+import { computeMergePartners, mergedUnitRange } from '../utils/scheduleMerge';
+import { useDroppable } from '@dnd-kit/core';
+import { PlannerDragCard } from './PlannerDnd';
+import { DAY_TIMELINE_DND_ID, dayItemDndId, type PlannerDropData } from '../utils/plannerDnd';
 import { DEFAULT_PLACE_GROUPS, getFormattedLocationName, getLocIcon, buildMapsLink, buildHotelMapsLink, buildTransitMapsLink } from '../utils/api';
 import { isPlaceReservationUnlinkedOrDeleted } from '../utils/reservationWarnings';
 import { getOptimizedImageUrl } from '../utils/image';
@@ -66,13 +69,10 @@ interface ItineraryPanelProps {
   setPlaceQuery: (query: string) => void;
   placeSuggestions: Omit<Place, 'placeGroupId'>[];
   isSearchingPlace: boolean;
-  draggedPlaceId: string | null;
-  draggedDayPlaceIndex: number | null;
-  setDraggedDayPlaceIndex: (idx: number | null) => void;
+  // Drag state is owned by TripPlanner's DndContext; read here only to position
+  // the drop indicator.
   dragOverDayPlaceIndex: number | null;
-  setDragOverDayPlaceIndex: (idx: number | null) => void;
   dragOverDayPlacePosition: 'top' | 'bottom';
-  setDragOverDayPlacePosition: (pos: 'top' | 'bottom') => void;
   setShowEditTripModal: (show: boolean) => void;
   setShowTripAiConfigModal: (show: boolean) => void;
   setShowHotelModal: (show: boolean) => void;
@@ -116,9 +116,6 @@ interface ItineraryPanelProps {
   handleClearDay: () => void;
   handleAddPlaceFromDayTimeline: (place: Omit<Place, 'placeGroupId'>) => void;
   handleOpenAddPlaceAtIndex: (insertAtIndex: number) => void;
-  handleDayPlaceDragStart: (index: number) => void;
-  handleDayPlaceDrop: (targetIndex: number, position: 'top' | 'bottom') => void;
-  handleCatalogPlaceDropOnTimeline: (placeId: string, targetIndex: number, position: 'top' | 'bottom') => void;
   scheduleItems: ScheduleItem[];
   handleMoveScheduleItem: (index: number, direction: 'up' | 'down') => void;
   handleRemovePlaceFromDay: (scheduleIndex: number) => void;
@@ -186,13 +183,8 @@ function ItineraryPanel({
   setPlaceQuery,
   placeSuggestions,
   isSearchingPlace,
-  draggedPlaceId,
-  draggedDayPlaceIndex,
-  setDraggedDayPlaceIndex,
   dragOverDayPlaceIndex,
-  setDragOverDayPlaceIndex,
   dragOverDayPlacePosition,
-  setDragOverDayPlacePosition,
   setShowEditTripModal,
   setShowTripAiConfigModal,
   setShowHotelModal,
@@ -236,9 +228,6 @@ function ItineraryPanel({
   handleClearDay,
   handleAddPlaceFromDayTimeline,
   handleOpenAddPlaceAtIndex,
-  handleDayPlaceDragStart,
-  handleDayPlaceDrop,
-  handleCatalogPlaceDropOnTimeline,
   scheduleItems,
   handleMoveScheduleItem,
   handleRemovePlaceFromDay,
@@ -389,15 +378,26 @@ function ItineraryPanel({
   // `mergePartners[i]` is the paired index, or -1. Reordering/dragging treats the pair as a unit.
   const mergePartners = computeMergePartners(scheduleItems, activePlan.placeReservations);
   const sameMergeUnit = (a: number, b: number) => a === b || mergePartners[a] === b;
-  // Drops onto a merged card snap to the whole unit's edge — hovering the top half of a
-  // merged pair drops above the unit, the bottom half drops below it (never between the two).
-  const clampMergePosition = (idx: number, pos: 'top' | 'bottom'): 'top' | 'bottom' => {
-    const p = mergePartners[idx];
-    if (p === -1) return pos;
-    if (p === idx + 1) return 'top';
-    if (p === idx - 1) return 'bottom';
-    return pos;
+
+  // Every schedule card is both a drag source and a drop target in TripPlanner's
+  // DndContext. The unit range travels with the drop data so the context can snap
+  // a drop to a merged pair's outer edge without knowing anything about merging.
+  const dayDropData = (idx: number): PlannerDropData => {
+    const [unitStart, unitEnd] = mergedUnitRange(scheduleItems, idx, activePlan.placeReservations, mergePartners);
+    return { target: 'day-item', index: idx, unitStart, unitEnd };
   };
+  const dayCardDnd = (idx: number, label: string, disabled: boolean) => ({
+    id: dayItemDndId(idx),
+    dragData: { source: 'day' as const, index: idx, label },
+    dropData: dayDropData(idx),
+    disabled,
+  });
+
+  // The whole-timeline drop zone: blank space below the cards appends to the day.
+  const { setNodeRef: setTimelineDropRef } = useDroppable({
+    id: DAY_TIMELINE_DND_ID,
+    data: { target: 'day-timeline' } satisfies PlannerDropData,
+  });
 
   const renderAddSlot = (insertAtIndex: number, canEdit: boolean) => {
     if (!canEdit) return null;
@@ -543,37 +543,13 @@ function ItineraryPanel({
     const isEditingThis = editingNoteItemIndex === idx;
 
     return (
+      <PlannerDragCard {...dayCardDnd(idx, note.text || 'Note', !canEdit || isEditingThis)}>
+        {({ setNodeRef, handleProps, isDragging }) => (
       <div
-        className={`timeline-card glass-panel schedule-note-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        ref={setNodeRef}
+        {...handleProps}
+        className={`timeline-card glass-panel schedule-note-card ${isDragging ? 'dnd-drag-source' : ''} ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         onClick={e => e.stopPropagation()}
-        draggable={canEdit && !isEditingThis}
-        onDragStart={(e) => {
-          if (e.dataTransfer) {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', String(idx));
-          }
-          setTimeout(() => {
-            handleDayPlaceDragStart(idx);
-          }, 0);
-        }}
-        onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
-        onDragOver={(e) => {
-          if (draggedDayPlaceIndex === idx) return;
-          if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
-          e.preventDefault();
-          const rect = e.currentTarget.getBoundingClientRect();
-          const position = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
-          if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
-            setDragOverDayPlaceIndex(idx);
-            setDragOverDayPlacePosition(position);
-          }
-        }}
-        onDrop={(e) => {
-          e.stopPropagation();
-          if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
-          else if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
-          setDragOverDayPlaceIndex(null);
-        }}
       >
         <div className="timeline-dot" style={{ backgroundColor: 'var(--accent-primary)' }}>
           <FileText size={12} className="text-white" />
@@ -674,38 +650,10 @@ function ItineraryPanel({
           </div>
         )}
       </div>
+        )}
+      </PlannerDragCard>
     );
   };
-
-  const renderReservationEventDragHandlers = (idx: number) => ({
-    draggable: true,
-    onDragStart: (e: React.DragEvent) => {
-      handleDayPlaceDragStart(idx);
-      if (e.currentTarget) {
-        const card = e.currentTarget as HTMLElement;
-        card.classList.add('is-dragging-ghost');
-        setTimeout(() => card.classList.remove('is-dragging-ghost'), 0);
-      }
-    },
-    onDragEnd: () => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); },
-    onDragOver: (e: React.DragEvent) => {
-      if (draggedDayPlaceIndex !== null && sameMergeUnit(draggedDayPlaceIndex, idx)) return;
-      if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
-      e.preventDefault();
-      const rect = e.currentTarget.getBoundingClientRect();
-      const position = clampMergePosition(idx, (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom');
-      if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
-        setDragOverDayPlaceIndex(idx);
-        setDragOverDayPlacePosition(position);
-      }
-    },
-    onDrop: (e: React.DragEvent) => {
-      e.stopPropagation();
-      if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
-      else if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
-      setDragOverDayPlaceIndex(null);
-    },
-  });
 
   const renderEventTimeTag = (item: ScheduleHotelEventItem | ScheduleTransitEventItem | SchedulePlaceReservationEventItem, idx: number, canEdit: boolean) => (
     <div
@@ -748,10 +696,13 @@ function ItineraryPanel({
     const mobileDropdownKey = `${dropdownKey}-mobile`;
 
     return (
+      <PlannerDragCard {...dayCardDnd(idx, `${hotel?.name || 'Hotel'} · ${item.event === 'check-in' ? 'Check-in' : 'Check-out'}`, !canEdit)}>
+        {({ setNodeRef, handleProps, isDragging }) => (
       <div
-        className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        ref={setNodeRef}
+        {...handleProps}
+        className={`timeline-card glass-panel timeline-place-card ${isDragging ? 'dnd-drag-source' : ''} ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         onClick={e => e.stopPropagation()}
-        {...(canEdit ? renderReservationEventDragHandlers(idx) : {})}
       >
         <div className="timeline-dot" style={{ backgroundColor: '#10b981' }}>
           <Building size={12} style={{ color: '#ffffff' }} />
@@ -792,6 +743,8 @@ function ItineraryPanel({
           </div>
         )}
       </div>
+        )}
+      </PlannerDragCard>
     );
   };
 
@@ -810,10 +763,13 @@ function ItineraryPanel({
     const mapUrl = segment ? buildTransitMapsLink(item.event === 'departure' ? segment.departureLocationName : segment.arrivalLocationName, item.event === 'departure' ? segment.departureAddress : segment.arrivalAddress) : undefined;
 
     return (
+      <PlannerDragCard {...dayCardDnd(idx, [title, eventLabel].filter(Boolean).join(' · ') || eventLabel, !canEdit)}>
+        {({ setNodeRef, handleProps, isDragging }) => (
       <div
-        className={`timeline-card glass-panel timeline-place-card ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        ref={setNodeRef}
+        {...handleProps}
+        className={`timeline-card glass-panel timeline-place-card ${isDragging ? 'dnd-drag-source' : ''} ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         onClick={e => e.stopPropagation()}
-        {...(canEdit ? renderReservationEventDragHandlers(idx) : {})}
       >
         <div className="timeline-dot" style={{ backgroundColor: '#f59e0b', color: '#ffffff' }}>
           {reservation ? getTransitIcon(reservation.type, 12) : <Navigation size={12} />}
@@ -860,6 +816,8 @@ function ItineraryPanel({
           </div>
         )}
       </div>
+        )}
+      </PlannerDragCard>
     );
   };
 
@@ -875,14 +833,17 @@ function ItineraryPanel({
     const mapUrl = reservation ? (reservation.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${reservation.title} ${reservation.address}`)}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(reservation.title)}`) : undefined;
 
     return (
+      <PlannerDragCard {...dayCardDnd(idx, title, !canEdit)}>
+        {({ setNodeRef, handleProps, isDragging }) => (
       <div
-        className={`timeline-card glass-panel timeline-place-card${mergeClass}${linkedPlaceId ? ' timeline-card--merge-clickable' : ''} ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        ref={setNodeRef}
+        {...handleProps}
+        className={`timeline-card glass-panel timeline-place-card${mergeClass}${linkedPlaceId ? ' timeline-card--merge-clickable' : ''} ${isDragging ? 'dnd-drag-source' : ''} ${activeTimelinePlaceDropdownKey === dropdownKey || activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         onClick={e => {
           e.stopPropagation();
           // When merged, clicking either half toggles the linked place's expanded state.
           if (linkedPlaceId) setActivePlaceId(activePlaceId === linkedPlaceId ? undefined : linkedPlaceId);
         }}
-        {...(canEdit ? renderReservationEventDragHandlers(idx) : {})}
       >
         <div className="timeline-dot" style={{ backgroundColor: typeColor, color: '#ffffff' }}>
           <IconComp size={12} />
@@ -925,6 +886,8 @@ function ItineraryPanel({
           </div>
         )}
       </div>
+        )}
+      </PlannerDragCard>
     );
   };
 
@@ -934,37 +897,13 @@ function ItineraryPanel({
     const dropdownKey = `${place.id}-${idx}`;
     const mobileDropdownKey = `${place.id}-${idx}-mobile`;
     return (
+      <PlannerDragCard {...dayCardDnd(idx, place.title, !canEdit || editingPlaceNotesId === place.id)}>
+        {({ setNodeRef, handleProps, isDragging }) => (
       <div
-        className={`timeline-card glass-panel timeline-place-card${mergeClass} ${activePlaceId === place.id ? 'timeline-place-card--active' : ''} ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
+        ref={setNodeRef}
+        {...handleProps}
+        className={`timeline-card glass-panel timeline-place-card${mergeClass} ${isDragging ? 'dnd-drag-source' : ''} ${activePlaceId === place.id ? 'timeline-place-card--active' : ''} ${activeTimelinePlaceDropdownKey === mobileDropdownKey ? 'dropdown-active' : ''}`}
         data-place-id={place.id}
-        draggable={canEdit && editingPlaceNotesId !== place.id}
-        onDragStart={(e) => {
-          if (e.dataTransfer) {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', String(idx));
-          }
-          setTimeout(() => {
-            handleDayPlaceDragStart(idx);
-          }, 0);
-        }}
-        onDragEnd={() => { setDraggedDayPlaceIndex(null); setDragOverDayPlaceIndex(null); }}
-        onDragOver={(e) => {
-          if (draggedDayPlaceIndex !== null && sameMergeUnit(draggedDayPlaceIndex, idx)) return;
-          if (draggedDayPlaceIndex === null && !draggedPlaceId) return;
-          e.preventDefault();
-          const rect = e.currentTarget.getBoundingClientRect();
-          const position = clampMergePosition(idx, (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom');
-          if (dragOverDayPlaceIndex !== idx || dragOverDayPlacePosition !== position) {
-            setDragOverDayPlaceIndex(idx);
-            setDragOverDayPlacePosition(position);
-          }
-        }}
-        onDrop={(e) => {
-          e.stopPropagation();
-          if (draggedDayPlaceIndex !== null) handleDayPlaceDrop(idx, dragOverDayPlacePosition);
-          else if (draggedPlaceId) handleCatalogPlaceDropOnTimeline(draggedPlaceId, idx, dragOverDayPlacePosition);
-          setDragOverDayPlaceIndex(null);
-        }}
         onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
       >
         <div className="timeline-dot" style={{ backgroundColor: (trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === place.placeGroupId)?.color || '#6b7280' }}>
@@ -1070,6 +1009,8 @@ function ItineraryPanel({
           </div>
         </div>
       </div>
+        )}
+      </PlannerDragCard>
     );
   };
 
@@ -2312,22 +2253,7 @@ function ItineraryPanel({
               </div>
             )}
 
-            <div
-              className="day-timeline day-timeline-wrap"
-              onDragOver={(e) => {
-                if (draggedPlaceId || draggedDayPlaceIndex !== null) {
-                  e.preventDefault();
-                }
-              }}
-              onDragLeave={() => setDragOverDayPlaceIndex(null)}
-              onDrop={() => {
-                if (draggedPlaceId) {
-                  handleCatalogPlaceDropOnTimeline(draggedPlaceId, scheduleItems.length, 'top');
-                } else if (draggedDayPlaceIndex !== null) {
-                  handleDayPlaceDrop(scheduleItems.length - 1, 'bottom');
-                }
-              }}
-            >
+            <div ref={setTimelineDropRef} className="day-timeline day-timeline-wrap">
               {/* Preview place (not yet scheduled, shown as expanded preview card at top) */}
               {(() => {
                 const previewPlace = (displayScheduledPlaces[0] as any)?.isTemporary ? displayScheduledPlaces[0] : null;
@@ -2459,7 +2385,7 @@ function ItineraryPanel({
                           return renderScheduledPlaceCard(pl, num, halfIdx, unitFirst, unitLast, canEdit, edgeClass + stateClass);
                         };
                         const dragIndicator = (di: number) => dragOverDayPlaceIndex === di && (
-                          <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                          <div className={`drag-indicator-line drag-indicator-line--${dragOverDayPlacePosition}`} />
                         );
                         return (
                           <React.Fragment key={`merge-${idx}`}>
@@ -2493,7 +2419,7 @@ function ItineraryPanel({
                               onMouseLeave={scheduleHideItem}
                             >
                               {dragOverDayPlaceIndex === idx && (
-                                <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                                <div className={`drag-indicator-line drag-indicator-line--${dragOverDayPlacePosition}`} />
                               )}
                               {renderNoteCard(note, idx, isFirst, isLast, canEdit)}
                             </div>
@@ -2512,7 +2438,7 @@ function ItineraryPanel({
                               onMouseLeave={scheduleHideItem}
                             >
                               {dragOverDayPlaceIndex === idx && (
-                                <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                                <div className={`drag-indicator-line drag-indicator-line--${dragOverDayPlacePosition}`} />
                               )}
                               {renderHotelEventCard(hotelItem, idx, isFirst, isLast, canEdit)}
                             </div>
@@ -2531,7 +2457,7 @@ function ItineraryPanel({
                               onMouseLeave={scheduleHideItem}
                             >
                               {dragOverDayPlaceIndex === idx && (
-                                <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                                <div className={`drag-indicator-line drag-indicator-line--${dragOverDayPlacePosition}`} />
                               )}
                               {renderTransitEventCard(transitItem, idx, isFirst, isLast, canEdit)}
                             </div>
@@ -2550,7 +2476,7 @@ function ItineraryPanel({
                               onMouseLeave={scheduleHideItem}
                             >
                               {dragOverDayPlaceIndex === idx && (
-                                <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                                <div className={`drag-indicator-line drag-indicator-line--${dragOverDayPlacePosition}`} />
                               )}
                               {renderPlaceReservationEventCard(placeResItem, idx, isFirst, isLast, canEdit)}
                             </div>
@@ -2577,7 +2503,7 @@ function ItineraryPanel({
                             onMouseLeave={scheduleHideItem}
                           >
                             {dragOverDayPlaceIndex === idx && (
-                              <div style={{ position: 'absolute', top: dragOverDayPlacePosition === 'top' ? '-10px' : 'auto', bottom: dragOverDayPlacePosition === 'bottom' ? '-10px' : 'auto', left: 0, right: 0, height: '4px', background: 'var(--accent-primary)', borderRadius: '2px', boxShadow: '0 0 8px var(--accent-primary)', zIndex: 10, pointerEvents: 'none' }} />
+                              <div className={`drag-indicator-line drag-indicator-line--${dragOverDayPlacePosition}`} />
                             )}
                             {renderScheduledPlaceCard(place, placeNumber, idx, isFirst, isLast, canEdit)}
                           </div>

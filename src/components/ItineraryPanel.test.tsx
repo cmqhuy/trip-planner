@@ -115,13 +115,8 @@ describe('ItineraryPanel Component', () => {
         setPlaceQuery={vi.fn()}
         placeSuggestions={[]}
         isSearchingPlace={false}
-        draggedPlaceId={null}
-        draggedDayPlaceIndex={null}
-        setDraggedDayPlaceIndex={vi.fn()}
         dragOverDayPlaceIndex={null}
-        setDragOverDayPlaceIndex={vi.fn()}
         dragOverDayPlacePosition="top"
-        setDragOverDayPlacePosition={vi.fn()}
         setShowEditTripModal={vi.fn()}
         setShowTripAiConfigModal={vi.fn()}
         setShowHotelModal={vi.fn()}
@@ -165,9 +160,6 @@ describe('ItineraryPanel Component', () => {
         handleClearDay={vi.fn()}
         handleAddPlaceFromDayTimeline={vi.fn()}
         handleOpenAddPlaceAtIndex={vi.fn()}
-        handleDayPlaceDragStart={vi.fn()}
-        handleDayPlaceDrop={vi.fn()}
-        handleCatalogPlaceDropOnTimeline={vi.fn()}
         scheduleItems={[{ type: 'place', placeId: 'place-eiffel' }]}
         handleMoveScheduleItem={vi.fn()}
         handleAddReservationEventToSchedule={vi.fn()}
@@ -209,6 +201,15 @@ describe('ItineraryPanel Component', () => {
 
     // Scheduled places
     expect(screen.getByText('Eiffel Tower')).toBeInTheDocument();
+
+    // Schedule cards are dnd-kit draggables, not HTML5 `draggable` nodes — the old
+    // implementation never fired on touch, so reordering a day was desktop-only.
+    const placeCard = document.querySelector('[data-place-id="place-eiffel"]') as HTMLElement;
+    expect(placeCard).toBeTruthy();
+    expect(placeCard.getAttribute('draggable')).toBeNull();
+    expect(placeCard).toHaveAttribute('aria-roledescription', 'draggable');
+    expect(placeCard).toHaveAttribute('tabindex', '0');
+    expect(document.querySelectorAll('[draggable="true"]').length).toBe(0);
   });
 
   it('renders a reservation + linked place as one merged cell with a squared, borderless seam', () => {
@@ -256,13 +257,8 @@ describe('ItineraryPanel Component', () => {
         setPlaceQuery={vi.fn()}
         placeSuggestions={[]}
         isSearchingPlace={false}
-        draggedPlaceId={null}
-        draggedDayPlaceIndex={null}
-        setDraggedDayPlaceIndex={vi.fn()}
         dragOverDayPlaceIndex={null}
-        setDragOverDayPlaceIndex={vi.fn()}
         dragOverDayPlacePosition="top"
-        setDragOverDayPlacePosition={vi.fn()}
         setShowEditTripModal={vi.fn()}
         setShowTripAiConfigModal={vi.fn()}
         setShowHotelModal={vi.fn()}
@@ -306,9 +302,6 @@ describe('ItineraryPanel Component', () => {
         handleClearDay={vi.fn()}
         handleAddPlaceFromDayTimeline={vi.fn()}
         handleOpenAddPlaceAtIndex={vi.fn()}
-        handleDayPlaceDragStart={vi.fn()}
-        handleDayPlaceDrop={vi.fn()}
-        handleCatalogPlaceDropOnTimeline={vi.fn()}
         scheduleItems={scheduleItems}
         handleMoveScheduleItem={vi.fn()}
         handleAddReservationEventToSchedule={vi.fn()}

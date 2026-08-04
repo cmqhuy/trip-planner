@@ -1,7 +1,17 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { DndContext, DragOverlay, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { mergedUnitRange } from '../utils/scheduleMerge';
+import { useSortableSensors } from '../utils/sortable';
+import {
+  clampToMergeUnit,
+  isOwnMergeUnit,
+  plannerCollisionDetection,
+  resolveDropPosition,
+  type PlannerDragData,
+  type PlannerDropData,
+} from '../utils/plannerDnd';
 import PlaceReservationModal from './PlaceReservationModal';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
@@ -435,7 +445,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   // Edit Location Modal state
   const [showEditLocationModal, setShowEditLocationModal] = useState(false);
 
-  // Drag and Drop place state
+  // Drag and Drop place state. Written only by the DndContext handlers below;
+  // CatalogSection and ItineraryPanel read it to place their drop indicators.
   const [draggedPlaceId, setDraggedPlaceId] = useState<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [dragOverPlaceId, setDragOverPlaceId] = useState<string | null>(null);
@@ -443,6 +454,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [draggedDayPlaceIndex, setDraggedDayPlaceIndex] = useState<number | null>(null);
   const [dragOverDayPlaceIndex, setDragOverDayPlaceIndex] = useState<number | null>(null);
   const [dragOverDayPlacePosition, setDragOverDayPlacePosition] = useState<'top' | 'bottom'>('top');
+  const [dragOverlayLabel, setDragOverlayLabel] = useState<string | null>(null);
 
   // Edit Place Modal state
   const [showEditPlaceModal, setShowEditPlaceModal] = useState(false);
@@ -826,11 +838,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     // No-op. Modals now use their own self-contained MapPicker components.
   };
 
-  // Drag and Drop place handlers
-  const handlePlaceDragStart = useCallback((placeId: string) => {
-    setDraggedPlaceId(placeId);
-  }, []);
-
+  // Drag and Drop place handlers. These own the drop *semantics* (which array
+  // moves, and how) and are called by the DndContext handlers further below.
   const handlePlaceDropOnGroup = useCallback((targetGroupId: string) => {
     if (!draggedPlaceId || !catalogLocation) return;
 
@@ -898,10 +907,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setDraggedPlaceId(null);
   }, [draggedPlaceId, catalogLocation, trip, onUpdateTrip]);
 
-  const handleDayPlaceDragStart = useCallback((index: number) => {
-    setDraggedDayPlaceIndex(index);
-  }, []);
-
   const handleDayPlaceDrop = useCallback((targetIndex: number, position: 'top' | 'bottom') => {
     if (draggedDayPlaceIndex === null) return;
 
@@ -961,7 +966,150 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setDragOverDayPlaceIndex(null);
   }, [trip, activePlan, activeDayStr, catalogLocation, onUpdateTrip]);
 
+  // ---- dnd-kit wiring ------------------------------------------------------
+  // One DndContext spans the left panel and the timeline, which is what makes a
+  // catalog place draggable straight into a day. It replaces the HTML5
+  // `draggable`/`dataTransfer` handlers these two panels used to carry — those
+  // never fired on touch, so reordering a day was silently desktop-only.
+  // The drop handlers above are unchanged; only the event plumbing moved here.
+  const dndSensors = useSortableSensors();
+  const dndPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const dndCollisionDetection = useCallback<CollisionDetection>(
+    args => plannerCollisionDetection(args, dndPointerRef),
+    []
+  );
 
+  const clearDragState = useCallback(() => {
+    setDraggedPlaceId(null);
+    setDraggedDayPlaceIndex(null);
+    setDragOverDayPlaceIndex(null);
+    setDragOverPlaceId(null);
+    setDragOverGroupId(null);
+    setDragOverlayLabel(null);
+  }, []);
+
+  const handleDndDragStart = useCallback((event: DragStartEvent) => {
+    const drag = event.active.data.current as PlannerDragData | undefined;
+    if (!drag) return;
+    setDragOverlayLabel(drag.label);
+    if (drag.source === 'catalog') {
+      setDraggedPlaceId(drag.placeId);
+      setDraggedDayPlaceIndex(null);
+    } else {
+      setDraggedDayPlaceIndex(drag.index);
+      setDraggedPlaceId(null);
+    }
+  }, []);
+
+  // Keeps the drop indicators in sync with the pointer. Every branch clears the
+  // indicators it doesn't own, so moving between panels can't leave a stale line.
+  //
+  // Wired to BOTH onDragMove and onDragOver deliberately. onDragOver only fires
+  // when the hovered target *changes*, so on its own the top/bottom half would
+  // freeze at whichever edge you entered from and the line would disagree with
+  // where the drop actually lands. onDragMove gives per-pointer-move updates;
+  // onDragOver still catches target changes that come from auto-scroll rather
+  // than pointer movement. Repeat calls are free — identical setState bails out.
+  const handleDndDragOver = useCallback((event: DragMoveEvent | DragOverEvent) => {
+    const drag = event.active.data.current as PlannerDragData | undefined;
+    const drop = event.over?.data.current as PlannerDropData | undefined;
+    if (!drag || !drop || !event.over) {
+      setDragOverDayPlaceIndex(null);
+      setDragOverPlaceId(null);
+      setDragOverGroupId(null);
+      return;
+    }
+
+    const position = resolveDropPosition(
+      event.over.rect,
+      dndPointerRef.current,
+      event.active.rect.current.translated
+    );
+
+    if (drop.target === 'day-item') {
+      setDragOverPlaceId(null);
+      setDragOverGroupId(null);
+      // Dropping a day item onto its own merged unit is a no-op — no indicator.
+      if (drag.source === 'day' && isOwnMergeUnit(drop, drag.index)) {
+        setDragOverDayPlaceIndex(null);
+        return;
+      }
+      setDragOverDayPlaceIndex(drop.index);
+      setDragOverDayPlacePosition(clampToMergeUnit(drop, position));
+      return;
+    }
+
+    if (drop.target === 'day-timeline') {
+      setDragOverDayPlaceIndex(null);
+      setDragOverPlaceId(null);
+      setDragOverGroupId(null);
+      return;
+    }
+
+    // Catalog targets only accept catalog places — a scheduled item dragged over
+    // the left panel has nothing meaningful to do there.
+    setDragOverDayPlaceIndex(null);
+    if (drag.source !== 'catalog') {
+      setDragOverPlaceId(null);
+      setDragOverGroupId(null);
+      return;
+    }
+
+    if (drop.target === 'catalog-place') {
+      setDragOverGroupId(drop.groupId);
+      setDragOverPlaceId(drop.placeId === drag.placeId ? null : drop.placeId);
+      setDragOverPlacePosition(position);
+      return;
+    }
+
+    setDragOverGroupId(drop.groupId);
+    setDragOverPlaceId(null);
+  }, []);
+
+  const handleDndDragEnd = useCallback((event: DragEndEvent) => {
+    const drag = event.active.data.current as PlannerDragData | undefined;
+    const drop = event.over?.data.current as PlannerDropData | undefined;
+
+    if (drag && drop && event.over) {
+      const rawPosition = resolveDropPosition(
+        event.over.rect,
+        dndPointerRef.current,
+        event.active.rect.current.translated
+      );
+      const scheduleLength = activeDay?.scheduleItems?.length ?? 0;
+
+      if (drop.target === 'day-item') {
+        const position = clampToMergeUnit(drop, rawPosition);
+        if (drag.source === 'catalog') {
+          handleCatalogPlaceDropOnTimeline(drag.placeId, drop.index, position);
+        } else if (!isOwnMergeUnit(drop, drag.index)) {
+          handleDayPlaceDrop(drop.index, position);
+        }
+      } else if (drop.target === 'day-timeline') {
+        // Blank space below the cards: append to the end of the day.
+        if (drag.source === 'catalog') {
+          handleCatalogPlaceDropOnTimeline(drag.placeId, scheduleLength, 'top');
+        } else if (scheduleLength > 0) {
+          handleDayPlaceDrop(scheduleLength - 1, 'bottom');
+        }
+      } else if (drag.source === 'catalog') {
+        if (drop.target === 'catalog-place') {
+          handlePlaceDropOnPlace(drop.placeId, drop.groupId, rawPosition);
+        } else {
+          handlePlaceDropOnGroup(drop.groupId);
+        }
+      }
+    }
+
+    clearDragState();
+  }, [
+    activeDay,
+    clearDragState,
+    handleCatalogPlaceDropOnTimeline,
+    handleDayPlaceDrop,
+    handlePlaceDropOnGroup,
+    handlePlaceDropOnPlace,
+  ]);
 
   const handleSetDayLocation = useCallback((locId: string) => {
     const updatedPlans = trip.plans.map(p => {
@@ -3278,6 +3426,15 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   }, [activePlan]);
 
   return (
+    <DndContext
+      sensors={dndSensors}
+      collisionDetection={dndCollisionDetection}
+      onDragStart={handleDndDragStart}
+      onDragMove={handleDndDragOver}
+      onDragOver={handleDndDragOver}
+      onDragEnd={handleDndDragEnd}
+      onDragCancel={clearDragState}
+    >
     <div
       className={`planner-view${leftCollapsed ? ' left-collapsed' : ''}${rightCollapsed ? ' right-collapsed' : ''}`}
       onTouchStart={handleSwipeTouchStart}
@@ -3315,13 +3472,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         dragOverGroupId={dragOverGroupId}
         dragOverPlaceId={dragOverPlaceId}
         dragOverPlacePosition={dragOverPlacePosition}
-        setDraggedPlaceId={setDraggedPlaceId}
-        setDragOverGroupId={setDragOverGroupId}
-        setDragOverPlaceId={setDragOverPlaceId}
-        setDragOverPlacePosition={setDragOverPlacePosition}
-        handlePlaceDragStart={handlePlaceDragStart}
-        handlePlaceDropOnGroup={handlePlaceDropOnGroup}
-        handlePlaceDropOnPlace={handlePlaceDropOnPlace}
         handleMoveCatalogPlace={handleMoveCatalogPlace}
         handleMoveGroupOrder={handleMoveGroupOrder}
         hiddenMapGroupIds={trip.hiddenMapGroupIds ?? []}
@@ -3419,13 +3569,8 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setPlaceQuery={setPlaceQuery}
         placeSuggestions={placeSuggestions}
         isSearchingPlace={isSearchingPlace}
-        draggedPlaceId={draggedPlaceId}
-        draggedDayPlaceIndex={draggedDayPlaceIndex}
-        setDraggedDayPlaceIndex={setDraggedDayPlaceIndex}
         dragOverDayPlaceIndex={dragOverDayPlaceIndex}
-        setDragOverDayPlaceIndex={setDragOverDayPlaceIndex}
         dragOverDayPlacePosition={dragOverDayPlacePosition}
-        setDragOverDayPlacePosition={setDragOverDayPlacePosition}
         setShowEditTripModal={setShowEditTripModal}
         setShowTripAiConfigModal={setShowTripAiConfigModal}
         setShowHotelModal={setShowHotelModal}
@@ -3469,9 +3614,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         handleClearDay={handleClearDay}
         handleAddPlaceFromDayTimeline={handleAddPlaceFromDayTimeline}
         handleOpenAddPlaceAtIndex={handleOpenAddPlaceAtIndex}
-        handleDayPlaceDragStart={handleDayPlaceDragStart}
-        handleDayPlaceDrop={handleDayPlaceDrop}
-        handleCatalogPlaceDropOnTimeline={handleCatalogPlaceDropOnTimeline}
         scheduleItems={activeDay?.scheduleItems || []}
         handleMoveScheduleItem={handleMoveScheduleItem}
         handleRemovePlaceFromDay={handleRemovePlaceFromDay}
@@ -3929,5 +4071,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         />
       )}
     </div>
+    {/* Follows the pointer while dragging. A light chip rather than a clone of the
+        card — the real card is a heavy tree, and the drop indicator already shows
+        where it will land. */}
+    <DragOverlay className="dnd-drag-overlay" dropAnimation={null}>
+      {dragOverlayLabel ? <div className="dnd-drag-chip">{dragOverlayLabel}</div> : null}
+    </DragOverlay>
+    </DndContext>
   );
 }

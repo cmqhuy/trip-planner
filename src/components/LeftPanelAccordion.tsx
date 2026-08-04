@@ -31,13 +31,6 @@ interface LeftPanelAccordionProps {
   dragOverGroupId: string | null;
   dragOverPlaceId: string | null;
   dragOverPlacePosition: 'top' | 'bottom';
-  setDraggedPlaceId: (id: string | null) => void;
-  setDragOverGroupId: (id: string | null) => void;
-  setDragOverPlaceId: (id: string | null) => void;
-  setDragOverPlacePosition: (pos: 'top' | 'bottom') => void;
-  handlePlaceDragStart: (id: string) => void;
-  handlePlaceDropOnGroup: (groupId: string) => void;
-  handlePlaceDropOnPlace: (targetPlaceId: string, groupId: string, position: 'top' | 'bottom') => void;
   handleMoveCatalogPlace: (placeId: string, direction: 'up' | 'down') => void;
   handleMoveGroupOrder: (index: number, direction: 'up' | 'down') => void;
   hiddenMapGroupIds: string[];
@@ -128,13 +121,6 @@ export default function LeftPanelAccordion({
   dragOverGroupId,
   dragOverPlaceId,
   dragOverPlacePosition,
-  setDraggedPlaceId,
-  setDragOverGroupId,
-  setDragOverPlaceId,
-  setDragOverPlacePosition,
-  handlePlaceDragStart,
-  handlePlaceDropOnGroup,
-  handlePlaceDropOnPlace,
   handleMoveCatalogPlace,
   handleMoveGroupOrder,
   hiddenMapGroupIds,
@@ -236,13 +222,6 @@ export default function LeftPanelAccordion({
             dragOverGroupId={dragOverGroupId}
             dragOverPlaceId={dragOverPlaceId}
             dragOverPlacePosition={dragOverPlacePosition}
-            setDraggedPlaceId={setDraggedPlaceId}
-            setDragOverGroupId={setDragOverGroupId}
-            setDragOverPlaceId={setDragOverPlaceId}
-            setDragOverPlacePosition={setDragOverPlacePosition}
-            handlePlaceDragStart={handlePlaceDragStart}
-            handlePlaceDropOnGroup={handlePlaceDropOnGroup}
-            handlePlaceDropOnPlace={handlePlaceDropOnPlace}
             handleMoveCatalogPlace={handleMoveCatalogPlace}
             handleMoveGroupOrder={handleMoveGroupOrder}
             hiddenMapGroupIds={hiddenMapGroupIds}

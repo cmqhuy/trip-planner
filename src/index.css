@@ -843,13 +843,49 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   border-color: rgba(99, 102, 241, 0.65);
 }
 
-/* Dragging preview/ghost isolation styles to prevent sibling/overflow content bleed */
-.is-dragging-ghost {
-  contain: paint !important;
-  overflow: hidden !important;
-  background: #111827 !important; /* Fully opaque background to prevent transparency bleed */
-  border-color: var(--accent-primary) !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+/* ---- Planner drag surfaces (dnd-kit): catalog + day schedule ----
+   These two aren't plain reorder lists — a catalog place can land in another
+   group or in a specific timeline slot — so they keep a drop-indicator line
+   instead of the gap-shifting `<SortableList>` uses. See src/utils/plannerDnd.ts.
+
+   `touch-action: manipulation` is required for the TouchSensor's 200ms
+   long-press: `none` would kill page scrolling over a card, and the browser
+   default swallows the gesture before dnd-kit sees it. */
+.timeline-card,
+.catalog-place-card {
+  touch-action: manipulation;
+}
+/* The card stays in place and dims while the overlay chip follows the pointer. */
+.dnd-drag-source {
+  opacity: 0.4;
+}
+/* dnd-kit's overlay defaults to z-index 999, which puts the chip *behind* the
+   fixed mobile tab bar (1000) — exactly where a thumb ends up mid-drag.
+   1150 matches .sortable-item--dragging. */
+.dnd-drag-overlay {
+  z-index: 1150;
+}
+/* Overlay chip under the pointer — a label, not a clone of the (heavy) card. */
+.dnd-drag-chip {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--dropdown-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--accent-primary);
+  box-shadow: var(--dropdown-shadow);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grabbing;
+  pointer-events: none;
+}
+/* A catalog group section highlights when a place is about to be regrouped into it. */
+.place-group-section--drop-target {
+  border-color: var(--accent-primary);
 }
 
 /* ---- Shared drag-to-reorder (dnd-kit) ----
@@ -5009,11 +5045,6 @@ input[type="number"] { -moz-appearance: textfield; }
   cursor: grabbing;
 }
 
-.expense-item.drag-over {
-  border-color: var(--accent-primary);
-  background: rgba(99, 102, 241, 0.08);
-}
-
 /* Left-panel cards (catalog place, reservation, expense) lift above their
    siblings on hover so the hover shadow/border isn't clipped by the next card.
    Single source for this behavior across all three. */
@@ -5186,8 +5217,10 @@ input[type="number"] { -moz-appearance: textfield; }
   width: 100%;
 }
 
-/* Drag & Drop reorder separator indicator */
+/* Drop indicator for the catalog and day schedule — the line marking which edge
+   of the hovered card the dragged item will land on. */
 .drag-indicator-line {
+  --drag-indicator-offset: -10px;
   position: absolute;
   left: 0;
   right: 0;
@@ -5197,6 +5230,18 @@ input[type="number"] { -moz-appearance: textfield; }
   box-shadow: 0 0 8px var(--accent-primary);
   z-index: 10;
   pointer-events: none;
+}
+.drag-indicator-line--top {
+  top: var(--drag-indicator-offset);
+  bottom: auto;
+}
+.drag-indicator-line--bottom {
+  bottom: var(--drag-indicator-offset);
+  top: auto;
+}
+/* Catalog cards sit closer together than timeline cards. */
+.catalog-place-wrapper .drag-indicator-line {
+  --drag-indicator-offset: -6px;
 }
 
 

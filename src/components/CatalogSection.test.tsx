@@ -73,13 +73,6 @@ describe('CatalogSection Component', () => {
         dragOverGroupId={null}
         dragOverPlaceId={null}
         dragOverPlacePosition="top"
-        setDraggedPlaceId={vi.fn()}
-        setDragOverGroupId={vi.fn()}
-        setDragOverPlaceId={vi.fn()}
-        setDragOverPlacePosition={vi.fn()}
-        handlePlaceDragStart={vi.fn()}
-        handlePlaceDropOnGroup={vi.fn()}
-        handlePlaceDropOnPlace={vi.fn()}
         handleMoveCatalogPlace={vi.fn()}
         handleMoveGroupOrder={vi.fn()}
         hiddenMapGroupIds={[]}
@@ -104,9 +97,18 @@ describe('CatalogSection Component', () => {
 
     // Should display the place title
     expect(screen.getByText('Senso-ji Temple')).toBeInTheDocument();
-    
+
     // Should display the category group name
     expect(screen.getByText('Attractions')).toBeInTheDocument();
+
+    // Catalog cards are dnd-kit draggables, not HTML5 `draggable` nodes — the old
+    // implementation never fired on touch, so regrouping was desktop-only.
+    const card = document.querySelector('.catalog-place-card') as HTMLElement;
+    expect(card).toBeTruthy();
+    expect(card.getAttribute('draggable')).toBeNull();
+    expect(card).toHaveAttribute('aria-roledescription', 'draggable');
+    expect(card).toHaveAttribute('tabindex', '0');
+    expect(document.querySelectorAll('[draggable="true"]').length).toBe(0);
   });
 
   it('triggers callbacks when interacting with details', () => {
@@ -134,13 +136,6 @@ describe('CatalogSection Component', () => {
         dragOverGroupId={null}
         dragOverPlaceId={null}
         dragOverPlacePosition="top"
-        setDraggedPlaceId={vi.fn()}
-        setDragOverGroupId={vi.fn()}
-        setDragOverPlaceId={vi.fn()}
-        setDragOverPlacePosition={vi.fn()}
-        handlePlaceDragStart={vi.fn()}
-        handlePlaceDropOnGroup={vi.fn()}
-        handlePlaceDropOnPlace={vi.fn()}
         handleMoveCatalogPlace={vi.fn()}
         handleMoveGroupOrder={vi.fn()}
         hiddenMapGroupIds={[]}

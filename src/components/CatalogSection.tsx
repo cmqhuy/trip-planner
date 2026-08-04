@@ -4,6 +4,8 @@ import { InlineNotes } from './InlineNotes';
 import SectionHeader from './SectionHeader';
 import GroupActionButton from './GroupActionButton';
 import GroupOptionsMenu from './GroupOptionsMenu';
+import { PlannerDragCard, PlannerDropZone } from './PlannerDnd';
+import { catalogGroupDndId, catalogPlaceDndId } from '../utils/plannerDnd';
 import {
   MapPin, Plus, Edit2, ChevronUp, ChevronDown,
   Clock, Sparkles, MoreVertical, RefreshCw, ExternalLink, Eye, EyeOff
@@ -33,13 +35,6 @@ interface CatalogSectionProps {
   dragOverGroupId: string | null;
   dragOverPlaceId: string | null;
   dragOverPlacePosition: 'top' | 'bottom';
-  setDraggedPlaceId: (id: string | null) => void;
-  setDragOverGroupId: (id: string | null) => void;
-  setDragOverPlaceId: (id: string | null) => void;
-  setDragOverPlacePosition: (pos: 'top' | 'bottom') => void;
-  handlePlaceDragStart: (id: string) => void;
-  handlePlaceDropOnGroup: (groupId: string) => void;
-  handlePlaceDropOnPlace: (targetPlaceId: string, groupId: string, position: 'top' | 'bottom') => void;
   handleMoveCatalogPlace: (placeId: string, direction: 'up' | 'down') => void;
   handleMoveGroupOrder: (index: number, direction: 'up' | 'down') => void;
   hiddenMapGroupIds: string[];
@@ -82,13 +77,6 @@ function CatalogSection({
   dragOverGroupId,
   dragOverPlaceId,
   dragOverPlacePosition,
-  setDraggedPlaceId,
-  setDragOverGroupId,
-  setDragOverPlaceId,
-  setDragOverPlacePosition,
-  handlePlaceDragStart,
-  handlePlaceDropOnGroup,
-  handlePlaceDropOnPlace,
   handleMoveCatalogPlace,
   handleMoveGroupOrder,
   hiddenMapGroupIds,
@@ -235,23 +223,15 @@ function CatalogSection({
             if (placesInGroup.length === 0 && group.id === 'new') return null;
 
             return (
-              <div
+              <PlannerDropZone
                 key={group.id}
-                className="place-group-section"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (draggedPlaceId && dragOverGroupId !== group.id) {
-                    setDragOverGroupId(group.id);
-                  }
-                }}
-                onDragLeave={() => setDragOverGroupId(null)}
-                onDrop={() => {
-                  handlePlaceDropOnGroup(group.id);
-                  setDragOverGroupId(null);
-                }}
-                style={{
-                  borderColor: (dragOverGroupId === group.id && draggedPlaceId) ? 'var(--accent-primary)' : 'transparent',
-                }}
+                id={catalogGroupDndId(group.id)}
+                data={{ target: 'catalog-group', groupId: group.id }}
+              >
+                {({ setNodeRef: setGroupDropRef }) => (
+              <div
+                ref={setGroupDropRef}
+                className={`place-group-section${dragOverGroupId === group.id && draggedPlaceId ? ' place-group-section--drop-target' : ''}`}
               >
                 <SectionHeader
                   variant="group"
@@ -325,61 +305,24 @@ function CatalogSection({
                   </>}
                 />
 
-                <div
-                  className="catalog-places-list catalog-places-list--mh"
-                  onDragLeave={() => setDragOverPlaceId(null)}
-                >
+                <div className="catalog-places-list catalog-places-list--mh">
                   {filteredPlaces.map((place, placeIndexInGroup) => (
-                    <div key={place.id} className="catalog-place-wrapper">
+                    <PlannerDragCard
+                      key={place.id}
+                      id={catalogPlaceDndId(place.id)}
+                      dragData={{ source: 'catalog', placeId: place.id, label: place.title }}
+                      dropData={{ target: 'catalog-place', placeId: place.id, groupId: group.id }}
+                      disabled={trip.canEdit === false}
+                    >
+                      {({ setNodeRef: setCardRef, handleProps, isDragging }) => (
+                    <div className="catalog-place-wrapper">
                       {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
-                        <div style={{
-                          position: 'absolute',
-                          top: dragOverPlacePosition === 'top' ? '-6px' : 'auto',
-                          bottom: dragOverPlacePosition === 'bottom' ? '-6px' : 'auto',
-                          left: 0,
-                          right: 0,
-                          height: '4px',
-                          background: 'var(--accent-primary)',
-                          borderRadius: '2px',
-                          boxShadow: '0 0 8px var(--accent-primary)',
-                          zIndex: 10,
-                          pointerEvents: 'none'
-                        }} />
+                        <div className={`drag-indicator-line drag-indicator-line--${dragOverPlacePosition}`} />
                       )}
                       <div
-                        className={`catalog-place-card ${activePlaceId === place.id ? 'catalog-place-card--active' : ''} ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
-                        draggable={trip.canEdit !== false}
-                        onDragStart={(e) => {
-                          if (e.dataTransfer) {
-                            e.dataTransfer.effectAllowed = 'move';
-                            e.dataTransfer.setData('text/plain', place.id);
-                          }
-                          setTimeout(() => {
-                            handlePlaceDragStart(place.id);
-                          }, 0);
-                        }}
-                        onDragEnd={() => {
-                          setDraggedPlaceId(null);
-                          setDragOverPlaceId(null);
-                          setDragOverGroupId(null);
-                        }}
-                        onDragOver={(e) => {
-                          if (!draggedPlaceId || draggedPlaceId === place.id) return;
-                          e.preventDefault();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const relativeY = e.clientY - rect.top;
-                          const position = relativeY < rect.height / 2 ? 'top' : 'bottom';
-
-                          if (dragOverPlaceId !== place.id || dragOverPlacePosition !== position) {
-                            setDragOverPlaceId(place.id);
-                            setDragOverPlacePosition(position);
-                          }
-                        }}
-                        onDrop={(e) => {
-                          e.stopPropagation();
-                          handlePlaceDropOnPlace(place.id, group.id, dragOverPlacePosition);
-                          setDragOverPlaceId(null);
-                        }}
+                        ref={setCardRef}
+                        {...handleProps}
+                        className={`catalog-place-card ${isDragging ? 'dnd-drag-source' : ''} ${activePlaceId === place.id ? 'catalog-place-card--active' : ''} ${activePlaceDropdownId === place.id ? 'dropdown-active' : ''} ${activePlaceId === place.id ? 'details-expanded' : ''}`}
                         onClick={() => setActivePlaceId(activePlaceId === place.id ? undefined : place.id)}
                       >
                         <div className="place-card-header">
@@ -448,8 +391,6 @@ function CatalogSection({
                                 onClick={() => handleMoveCatalogPlace(place.id, 'up')}
                                 style={{ opacity: placeIndexInGroup === 0 ? 0.3 : 1 }}
                                 data-tooltip="Move Up"
-                                draggable={false}
-                                onDragStart={e => e.stopPropagation()}
                               >
                                 <ChevronUp size={12} />
                               </button>
@@ -459,8 +400,6 @@ function CatalogSection({
                                 onClick={() => handleMoveCatalogPlace(place.id, 'down')}
                                 style={{ opacity: placeIndexInGroup === filteredPlaces.length - 1 ? 0.3 : 1 }}
                                 data-tooltip="Move Down"
-                                draggable={false}
-                                onDragStart={e => e.stopPropagation()}
                               >
                                 <ChevronDown size={12} />
                               </button>
@@ -585,9 +524,13 @@ function CatalogSection({
                         </div>
                       </div>
                     </div>
+                      )}
+                    </PlannerDragCard>
                   ))}
                 </div>
               </div>
+                )}
+              </PlannerDropZone>
             );
           })}
           {/* AI Suggestions Group */}
