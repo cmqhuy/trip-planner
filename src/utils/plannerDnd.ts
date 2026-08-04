@@ -23,6 +23,25 @@ export type PlannerDragData =
   | { source: 'day'; index: number; label: string };
 
 /**
+ * Which side of the target a same-list reorder inserts on, so the drop lands
+ * exactly where the sorting preview showed it.
+ *
+ * Inside a `SortableContext` the preview is `arrayMove(from, to)` — the dragged
+ * card *takes the target's slot* — and that has nothing to do with which half of
+ * the target the pointer is over. Deriving the side from the pointer instead
+ * (which is right for a cross-container drop, where nothing is previewed) makes
+ * the two disagree the moment you grab near a card's edge: the cards shift to
+ * show one result and the drop commits another.
+ *
+ * Dragging down lands after the target, dragging up lands before it. Feeding
+ * that to the insert-before/after drop handlers reproduces `arrayMove` exactly,
+ * merged-pair blocks included.
+ */
+export function sortableDropPosition(fromIndex: number, toIndex: number): DropPosition {
+  return fromIndex < toIndex ? 'bottom' : 'top';
+}
+
+/**
  * The element a drag is really moving. `<PlannerDragCard>` stamps `data-dnd-id`
  * onto every draggable, because dnd-kit's `active` carries no node reference and
  * the drag overlay needs the real node to clone — and its height, to size the

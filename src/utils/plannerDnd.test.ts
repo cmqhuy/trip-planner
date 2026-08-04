@@ -8,6 +8,7 @@ import {
   findDragNode,
   plannerCollisionDetection,
   resolveDropPosition,
+  sortableDropPosition,
   type PlannerDropData,
 } from './plannerDnd';
 
@@ -62,6 +63,56 @@ describe('resolveDropPosition', () => {
 
   it('falls back to the target itself when neither is available', () => {
     expect(resolveDropPosition(target, null, null)).toBe('bottom');
+  });
+});
+
+describe('sortableDropPosition', () => {
+  /**
+   * The insert-before/after drop handlers must reproduce `arrayMove(from, to)`,
+   * because that is what the sorting strategy already previewed. Modelled here
+   * against a real `arrayMove` so the two can't drift apart.
+   */
+  const arrayMove = <T,>(list: T[], from: number, to: number): T[] => {
+    const next = [...list];
+    next.splice(to, 0, ...next.splice(from, 1));
+    return next;
+  };
+
+  /** What the drop handlers do: remove the item, then insert beside the target. */
+  const insertBeside = <T,>(list: T[], from: number, to: number, side: 'top' | 'bottom'): T[] => {
+    const next = [...list];
+    const [moved] = next.splice(from, 1);
+    const targetIndex = next.indexOf(list[to]);
+    next.splice(side === 'bottom' ? targetIndex + 1 : targetIndex, 0, moved);
+    return next;
+  };
+
+  it('agrees with arrayMove for every pair of positions in a list', () => {
+    const list = ['a', 'b', 'c', 'd', 'e'];
+    for (let from = 0; from < list.length; from++) {
+      for (let to = 0; to < list.length; to++) {
+        if (from === to) continue;
+        expect(insertBeside(list, from, to, sortableDropPosition(from, to))).toEqual(
+          arrayMove(list, from, to)
+        );
+      }
+    }
+  });
+
+  it('lands after the target when dragging down, before it when dragging up', () => {
+    expect(sortableDropPosition(0, 3)).toBe('bottom');
+    expect(sortableDropPosition(3, 0)).toBe('top');
+    expect(sortableDropPosition(2, 3)).toBe('bottom');
+    expect(sortableDropPosition(3, 2)).toBe('top');
+  });
+
+  it('does not consult the pointer — grabbing a card by its edge changes nothing', () => {
+    // The regression this exists for: the drop used to come from which half of
+    // the target card the pointer was over, so it could commit a different
+    // result than the one the shifting cards had just previewed.
+    expect(sortableDropPosition(3, 0)).toBe(sortableDropPosition(3, 0));
+    expect(resolveDropPosition(rect(100, 60), { x: 0, y: 105 })).toBe('top');
+    expect(sortableDropPosition(0, 3)).toBe('bottom');
   });
 });
 

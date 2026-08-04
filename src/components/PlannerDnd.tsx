@@ -76,10 +76,17 @@ export function PlannerDragCard({ id, dragData, dropData, disabled, children }: 
   // Only styled while a drag is in flight. `useSortable` hands back a `transition`
   // string unconditionally, and these cards style their own `transition` in CSS
   // (`--card-transition`, for hover border/shadow) — an inline one would win
-  // permanently and kill that. The card being dragged gets nothing at all: it
-  // stays put and dims, and the overlay is what follows the pointer.
+  // permanently and kill that.
+  //
+  // The transform applies to the dragged card too. With a `<DragOverlay>` mounted
+  // this is never the follow-the-pointer transform — dnd-kit hands back the
+  // *sorting* one, which slides the dimmed source to the slot it will land in.
+  // Suppressing it leaves the source sitting in its old slot while its neighbours
+  // shift into that same space, and the two overlap. On a cross-container drag
+  // the sorting strategy declines to displace anything, so the source correctly
+  // stays where it started.
   const style: CSSProperties =
-    !isSorting || isDragging ? {} : { transform: CSS.Transform.toString(transform), transition };
+    isSorting ? { transform: CSS.Transform.toString(transform), transition } : {};
 
   return (
     <>

@@ -8,6 +8,7 @@ import {
   findDragNode,
   plannerCollisionDetection,
   resolveDropPosition,
+  sortableDropPosition,
   type PlannerDragData,
   type PlannerDropData,
 } from '../utils/plannerDnd';
@@ -1086,9 +1087,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
       if (drop.target === 'day-item') {
         if (drag.source === 'catalog') {
+          // Arriving from the catalog: nothing was previewed, so the pointer's
+          // half of the target card decides which side it lands on.
           handleCatalogPlaceDropOnTimeline(drag.placeId, drop.index, rawPosition);
         } else if (drop.index !== drag.index) {
-          handleDayPlaceDrop(drop.index, rawPosition);
+          // Reorder within the day: match the sorting preview, not the pointer.
+          handleDayPlaceDrop(drop.index, sortableDropPosition(drag.index, drop.index));
         }
       } else if (drop.target === 'day-timeline') {
         // Blank space below the cards: append to the end of the day.
@@ -1099,7 +1103,19 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         }
       } else if (drag.source === 'catalog') {
         if (drop.target === 'catalog-place') {
-          handlePlaceDropOnPlace(drop.placeId, drop.groupId, rawPosition);
+          // Same group is a sortable reorder and must match its preview; a place
+          // arriving from another group isn't previewed, so the pointer decides.
+          const places = catalogLocation?.places ?? [];
+          const fromIndex = places.findIndex(p => p.id === drag.placeId);
+          const toIndex = places.findIndex(p => p.id === drop.placeId);
+          const sameGroup = (places[fromIndex]?.placeGroupId || 'new') === drop.groupId;
+          handlePlaceDropOnPlace(
+            drop.placeId,
+            drop.groupId,
+            sameGroup && fromIndex !== -1 && toIndex !== -1
+              ? sortableDropPosition(fromIndex, toIndex)
+              : rawPosition
+          );
         } else {
           handlePlaceDropOnGroup(drop.groupId);
         }
@@ -1109,6 +1125,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     clearDragState();
   }, [
     activeDay,
+    catalogLocation,
     clearDragState,
     handleCatalogPlaceDropOnTimeline,
     handleDayPlaceDrop,
