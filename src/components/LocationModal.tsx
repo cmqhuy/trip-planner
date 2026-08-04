@@ -3,6 +3,7 @@ import { Search, Trash2 } from 'lucide-react';
 import Modal from './Modal';
 import type { Location } from '../types';
 import { searchLocation, getLocIcon, getFormattedLocationName } from '../utils/api';
+import { moveItem } from '../utils/sortable';
 import LocationFormFields from './LocationFormFields';
 
 interface LocationModalProps {
@@ -39,10 +40,6 @@ export default function LocationModal({
   const [isSearching, setIsSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const searchTimeoutRef = useRef<any>(null);
-
-  // Drag and drop states (for reordering the location list)
-  const [draggedLocationIndex, setDraggedLocationIndex] = useState<number | null>(null);
-  const [dragOverLocationIndex, setDragOverLocationIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen && location) {
@@ -107,22 +104,8 @@ export default function LocationModal({
     onClose();
   };
 
-  // Drag and drop location list reordering handlers
-  const handleDragStart = (index: number) => {
-    setDraggedLocationIndex(index);
-  };
-
-  const handleDrop = (index: number) => {
-    if (draggedLocationIndex === null || draggedLocationIndex === index) return;
-
-    const updatedLocations = [...allLocations];
-    const draggedItem = updatedLocations[draggedLocationIndex];
-
-    updatedLocations.splice(draggedLocationIndex, 1);
-    updatedLocations.splice(index, 0, draggedItem);
-
-    onReorderLocations(updatedLocations);
-    setDraggedLocationIndex(null);
+  const handleReorderLocations = (from: number, to: number) => {
+    onReorderLocations(moveItem(allLocations, from, to));
   };
 
   return (
@@ -193,12 +176,7 @@ export default function LocationModal({
               setHeroPhoto={setHeroPhoto}
               locations={allLocations}
               currentLocationId={location.id}
-              draggedLocationIndex={draggedLocationIndex}
-              setDraggedLocationIndex={setDraggedLocationIndex}
-              dragOverLocationIndex={dragOverLocationIndex}
-              setDragOverLocationIndex={setDragOverLocationIndex}
-              handleDragStart={handleDragStart}
-              handleDrop={handleDrop}
+              onReorderLocations={handleReorderLocations}
               getLocIcon={getLocIcon}
               getFormattedLocationName={(loc) => getFormattedLocationName(loc, allLocations)}
             />

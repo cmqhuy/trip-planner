@@ -4237,8 +4237,34 @@ div.google-auth-avatar-desktop {
 .form-group label.loc-reorder-label { display: block; margin-bottom: 6px; font-size: 12px; color: var(--text-secondary); }
 .loc-reorder-container { display: flex; flex-direction: column; gap: 6px; background: var(--bg-dark); padding: 8px; border-radius: 8px; border: 1px solid var(--border-glass); }
 .loc-reorder-item-wrapper { display: flex; flex-direction: column; position: relative; }
+/* Row shell — was inline styles on a `draggable` div before the dnd-kit conversion. */
+.loc-reorder-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  cursor: grab;
+  transition: var(--card-transition);
+  user-select: none;
+  text-transform: none;
+}
+.loc-reorder-item:hover { border-color: var(--accent-primary); }
+.loc-reorder-item--active {
+  background: var(--accent-primary-glow);
+  border-color: var(--accent-primary);
+}
+.loc-reorder-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.loc-reorder-item--active .loc-reorder-name { font-weight: 600; }
 .loc-reorder-row { display: flex; align-items: center; gap: 8px; width: 100%; }
-.loc-reorder-grip { cursor: grab; color: var(--text-muted); font-size: 14px; display: flex; align-items: center; }
+.loc-reorder-grip { cursor: grab; color: var(--text-muted); display: flex; align-items: center; }
 .loc-reorder-emoji { font-size: 16px; }
 .loc-active-badge { font-size: 10px; background: var(--accent-primary); color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: auto; font-weight: 600; }
 

@@ -595,50 +595,37 @@ describe('TripPlanner Component', () => {
     // Verify modal is open
     expect(screen.getByText('Edit Location')).toBeInTheDocument();
 
-    // Find the draggable location elements by text
-    const ParisRow = screen.getAllByText('Paris, France').find(
-      el => el.tagName.toLowerCase() === 'span' && el.closest('[draggable="true"]')
-    )?.closest('[draggable="true"]');
-    
-    const LondonRow = screen.getAllByText('London, UK').find(
-      el => el.tagName.toLowerCase() === 'span' && el.closest('[draggable="true"]')
-    )?.closest('[draggable="true"]');
-
-    expect(ParisRow).toBeDefined();
-    expect(LondonRow).toBeDefined();
-
-    // 1. Drag Paris (index 0) over London (index 1) - dragging DOWN
-    fireEvent.dragStart(ParisRow!);
-    fireEvent.dragOver(LondonRow!);
-
-    const londonWrapper = LondonRow!.parentElement;
-    expect(londonWrapper).toBeDefined();
-    
-    // Find the line indicator element (the div with background var(--accent-primary))
-    const indicatorsDown = Array.from(londonWrapper!.children).filter(
-      child => (child as HTMLElement).style.background === 'var(--accent-primary)'
+    // The location reorder list is a dnd-kit sortable, not an HTML5 draggable —
+    // the old markup never fired on touch, so this list could not be reordered
+    // on a phone at all.
+    const rows = ['Paris, France', 'London, UK'].map(
+      label =>
+        screen
+          .getAllByText(label)
+          .find(el => el.closest('.loc-reorder-item'))!
+          .closest('.loc-reorder-item') as HTMLElement
     );
-    expect(indicatorsDown.length).toBe(1);
-    const lineIndicatorDown = indicatorsDown[0] as HTMLElement;
-    expect(lineIndicatorDown.style.bottom).toBe('-5px');
-    expect(lineIndicatorDown.style.top).toBe('auto');
 
-    // First end previous drag
-    fireEvent.dragEnd(ParisRow!);
+    rows.forEach(row => {
+      expect(row).toBeTruthy();
+      expect(row).toHaveAttribute('role', 'button');
+      expect(row).toHaveAttribute('aria-roledescription', 'sortable');
+      expect(row.tabIndex).toBe(0);
+    });
 
-    // Start dragging London and hover over Paris
-    fireEvent.dragStart(LondonRow!);
-    fireEvent.dragOver(ParisRow!);
+    // The active location keeps its highlight through the conversion.
+    expect(rows[0].className).toContain('loc-reorder-item--active');
 
-    const parisWrapper = ParisRow!.parentElement;
-    expect(parisWrapper).toBeDefined();
-    const indicatorsUp = Array.from(parisWrapper!.children).filter(
-      child => (child as HTMLElement).style.background === 'var(--accent-primary)'
-    );
-    expect(indicatorsUp.length).toBe(1);
-    const lineIndicatorUp = indicatorsUp[0] as HTMLElement;
-    expect(lineIndicatorUp.style.top).toBe('-5px');
-    expect(lineIndicatorUp.style.bottom).toBe('auto');
+    // No HTML5 draggable attributes should remain in the reorder list.
+    const list = rows[0].closest('.loc-reorder-container')!;
+    expect(list.querySelectorAll('[draggable="true"]').length).toBe(0);
+
+    // Space lifts the row, proving the keyboard sensor is wired. The drop itself
+    // needs real layout for collision detection, which jsdom lacks — the index
+    // math is covered by resolveReorder/moveItem in SortableList.test.tsx.
+    rows[0].focus();
+    fireEvent.keyDown(rows[0], { key: ' ', code: 'Space' });
+    expect(rows[0]).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('renders manual checklist and supports drag-and-drop with line indicator positioning', async () => {

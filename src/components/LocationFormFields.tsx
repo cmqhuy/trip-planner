@@ -1,6 +1,8 @@
+import { GripVertical } from 'lucide-react';
 import ColorPalette from './ColorPalette';
 import ImagePreview from './ImagePreview';
 import MapPicker from './MapPicker';
+import SortableList from './SortableList';
 import type { Location } from '../types';
 
 interface LocationFormFieldsProps {
@@ -24,12 +26,7 @@ interface LocationFormFieldsProps {
   // Drag & drop sorting parameters
   locations: Location[];
   currentLocationId: string;
-  draggedLocationIndex: number | null;
-  setDraggedLocationIndex: (val: number | null) => void;
-  dragOverLocationIndex: number | null;
-  setDragOverLocationIndex: (val: number | null) => void;
-  handleDragStart: (idx: number) => void;
-  handleDrop: (idx: number) => void;
+  onReorderLocations: (from: number, to: number) => void;
   getLocIcon: (loc: Location) => string;
   getFormattedLocationName: (loc: Location) => string;
 }
@@ -53,12 +50,7 @@ export default function LocationFormFields({
   setHeroPhoto,
   locations,
   currentLocationId,
-  draggedLocationIndex,
-  setDraggedLocationIndex,
-  dragOverLocationIndex,
-  setDragOverLocationIndex,
-  handleDragStart,
-  handleDrop,
+  onReorderLocations,
   getLocIcon,
   getFormattedLocationName
 }: LocationFormFieldsProps) {
@@ -161,90 +153,38 @@ export default function LocationFormFields({
         <label className="loc-reorder-label">
           Drag & Drop to Reorder Locations
         </label>
-        <div
-          onDragLeave={() => setDragOverLocationIndex(null)}
-          className="loc-reorder-container"
-        >
-          {locations.map((loc, idx) => {
-            const isCurrent = loc.id === currentLocationId;
-            const isDragging = idx === draggedLocationIndex;
-            const isDragOver = idx === dragOverLocationIndex && draggedLocationIndex !== idx;
-            const showLineAtBottom = draggedLocationIndex !== null && draggedLocationIndex < idx;
-            return (
-              <div key={loc.id} className="loc-reorder-item-wrapper">
-                {isDragOver && (
-                  <div style={{
-                    position: 'absolute',
-                    top: showLineAtBottom ? 'auto' : '-5px',
-                    bottom: showLineAtBottom ? '-5px' : 'auto',
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: 'var(--accent-primary)',
-                    borderRadius: '2px',
-                    boxShadow: '0 0 8px var(--accent-primary)',
-                    zIndex: 10,
-                    pointerEvents: 'none'
-                  }} />
-                )}
-                <div
-                  draggable
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragEnd={() => {
-                    setDraggedLocationIndex(null);
-                    setDragOverLocationIndex(null);
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (dragOverLocationIndex !== idx) {
-                      setDragOverLocationIndex(idx);
-                    }
-                  }}
-                  onDrop={() => {
-                    handleDrop(idx);
-                    setDragOverLocationIndex(null);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    background: isCurrent ? 'var(--accent-primary-glow)' : 'rgba(255,255,255,0.03)',
-                    border: isCurrent ? '1px solid var(--accent-primary)' : '1px solid var(--border-glass)',
-                    borderRadius: '6px',
-                    cursor: 'grab',
-                    opacity: isDragging ? 0.4 : 1,
-                    transition: 'all 0.15s ease',
-                    userSelect: 'none',
-                    textTransform: 'none'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = isCurrent ? 'var(--accent-primary)' : 'var(--border-glass)'}
-                >
-                  <div className="loc-reorder-row">
-                    <span className="loc-reorder-grip">
-                      ☰
-                    </span>
-                    <span className="loc-reorder-emoji">{getLocIcon(loc)}</span>
-                    <span style={{
-                      fontSize: '13px',
-                      fontWeight: isCurrent ? 600 : 400,
-                      color: 'var(--text-primary)',
-                      textOverflow: 'ellipsis',
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {getFormattedLocationName(loc)}
-                    </span>
-                    {isCurrent && (
-                      <span className="loc-active-badge">
-                        Active
+        <div className="loc-reorder-container">
+          <SortableList
+            items={locations}
+            getId={loc => loc.id}
+            onReorder={onReorderLocations}
+            renderItem={(loc, _idx, { handleProps }) => {
+              const isCurrent = loc.id === currentLocationId;
+              return (
+                <div className="loc-reorder-item-wrapper">
+                  <div
+                    className={`loc-reorder-item${isCurrent ? ' loc-reorder-item--active' : ''}`}
+                    {...handleProps}
+                  >
+                    <div className="loc-reorder-row">
+                      <span className="loc-reorder-grip">
+                        <GripVertical size={12} />
                       </span>
-                    )}
+                      <span className="loc-reorder-emoji">{getLocIcon(loc)}</span>
+                      <span className="loc-reorder-name">
+                        {getFormattedLocationName(loc)}
+                      </span>
+                      {isCurrent && (
+                        <span className="loc-active-badge">
+                          Active
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            }}
+          />
         </div>
       </div>
     </>
