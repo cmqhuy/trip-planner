@@ -2397,14 +2397,20 @@ function ItineraryPanel({
                           }
                           return undefined;
                         };
+                        // Claim the unit's place number HERE, in the map body, not inside
+                        // renderHalf. renderHalf runs inside the cell's render-prop
+                        // callback, which re-runs on every re-render of that card — and
+                        // useSortable re-renders on every pointer move. Incrementing
+                        // there walked the number up into the hundreds mid-drag, in
+                        // proportion to how far the card had been dragged.
+                        const unitPlaceNumber = unitPlaceId ? ++placeCount : 0;
                         const renderHalf = (halfItem: ScheduleItem, halfIdx: number, edgeClass: string) => {
                           if (halfItem.type === 'place-reservation-event') {
                             return renderPlaceReservationEventCard(halfItem as SchedulePlaceReservationEventItem, halfIdx, unitFirst, unitLast, canEdit, edgeClass + stateClass, unitPlaceId, true);
                           }
                           const pl = findPlace((halfItem as SchedulePlaceItem).placeId);
                           if (!pl) return null;
-                          const num = ++placeCount;
-                          return renderScheduledPlaceCard(pl, num, halfIdx, unitFirst, unitLast, canEdit, edgeClass + stateClass, true);
+                          return renderScheduledPlaceCard(pl, unitPlaceNumber, halfIdx, unitFirst, unitLast, canEdit, edgeClass + stateClass, true);
                         };
                         const unitLabel = unitPlaceId ? findPlace(unitPlaceId)?.title ?? 'Reservation' : 'Reservation';
                         return (
