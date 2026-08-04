@@ -859,13 +859,79 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .dnd-drag-source {
   opacity: 0.4;
 }
-/* dnd-kit's overlay defaults to z-index 999, which puts the chip *behind* the
+/* dnd-kit's overlay defaults to z-index 999, which puts the preview *behind* the
    fixed mobile tab bar (1000) — exactly where a thumb ends up mid-drag.
    1150 matches .sortable-item--dragging. */
 .dnd-drag-overlay {
   z-index: 1150;
 }
-/* Overlay chip under the pointer — a label, not a clone of the (heavy) card. */
+/* Holds the cloned card that follows the pointer. Width is pinned to the source
+   card's so the preview doesn't reflow to the overlay's own width. */
+.dnd-drag-preview {
+  position: relative;
+  width: var(--dnd-preview-width, auto);
+  max-height: 40vh;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.75);
+  opacity: 0.95;
+  cursor: grabbing;
+  pointer-events: none;
+}
+/* An expanded card can be taller than the cap above — a full-height preview
+   would cover the drop target it is aiming at. Fade the clipped edge instead of
+   ending on a hard cut. Only applied when the card actually overflows. */
+.dnd-drag-preview--clipped::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, rgba(11, 15, 25, 0.85));
+  pointer-events: none;
+}
+/* The list makes room at the drop position: a gap the height of the card being
+   dragged, so the drop reads as an insertion rather than just a line. The height
+   is published on .planner-view by TripPlanner at drag start. */
+.dnd-shift-before {
+  margin-top: calc(var(--dnd-drag-height, 0px) + var(--dnd-shift-gap, 16px));
+}
+.dnd-shift-after {
+  margin-bottom: calc(var(--dnd-drag-height, 0px) + var(--dnd-shift-gap, 16px));
+}
+.schedule-item-wrapper,
+.schedule-merged-cell,
+.catalog-place-wrapper {
+  transition: margin 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+/* Matches .catalog-places-list's 10px gap; the timeline's 16px is the default. */
+.catalog-place-wrapper {
+  --dnd-shift-gap: 10px;
+}
+.schedule-item-wrapper {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.schedule-merged-half {
+  position: relative;
+}
+/* Centre the indicator inside the gap it just opened, instead of leaving it
+   pinned to the card's own edge. */
+.dnd-shift-before > .drag-indicator-line--top,
+.dnd-shift-after > .drag-indicator-line--bottom {
+  --drag-indicator-offset: calc((var(--dnd-drag-height, 0px) + var(--dnd-shift-gap, 16px)) / -2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .schedule-item-wrapper,
+  .schedule-merged-cell,
+  .catalog-place-wrapper {
+    transition: none;
+  }
+}
+/* Fallback for when the card node couldn't be cloned — a label is better than
+   nothing following the pointer. */
 .dnd-drag-chip {
   padding: 8px 12px;
   border-radius: 8px;

@@ -1,4 +1,4 @@
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import type { PlannerDragData, PlannerDropData } from '../utils/plannerDnd';
 
@@ -58,7 +58,9 @@ export function PlannerDragCard({ id, dragData, dropData, disabled, children }: 
         setNodeRef,
         // Nothing is spread when disabled, so a read-only card keeps its plain
         // markup rather than picking up a stray role="button" / tabIndex.
-        handleProps: disabled ? {} : { ...attributes, ...listeners },
+        // `data-dnd-id` is how the drag overlay finds the node to clone —
+        // dnd-kit's `active` carries no node reference of its own.
+        handleProps: disabled ? {} : { ...attributes, ...listeners, 'data-dnd-id': id },
         isDragging,
       })}
     </>
@@ -75,4 +77,50 @@ interface PlannerDropZoneProps {
 export function PlannerDropZone({ id, data, children }: PlannerDropZoneProps) {
   const { setNodeRef, isOver } = useDroppable({ id, data });
   return <>{children({ setNodeRef, isOver })}</>;
+}
+
+interface PlannerDragPreviewProps {
+  node: HTMLElement;
+  width: number;
+  /** True when the card is taller than the overlay's cap, so the cut edge is faded. */
+  clipped?: boolean;
+}
+
+/**
+ * What follows the pointer during a drag: a deep clone of the card being
+ * dragged, so the preview is the real thing rather than a label.
+ *
+ * Cloned via `cloneNode` rather than re-rendered — the card trees here are
+ * heavy (a scheduled place card carries notes, AI details and three dropdowns)
+ * and rendering a second live copy on every pointer move would be wasteful.
+ * `cloneNode` also avoids `dangerouslySetInnerHTML`: nothing is re-parsed from
+ * a string, so no markup can be reinterpreted on the way through.
+ */
+export function PlannerDragPreview({ node, width, clipped }: PlannerDragPreviewProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const clone = node.cloneNode(true) as HTMLElement;
+    // The source card is dimmed while dragging; the preview must not be.
+    clone.classList.remove('dnd-drag-source');
+    // Ids and dnd-kit's aria wiring would otherwise be duplicated in the document.
+    clone.removeAttribute('id');
+    clone.removeAttribute('aria-describedby');
+    clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    host.replaceChildren(clone);
+
+    return () => host.replaceChildren();
+  }, [node]);
+
+  return (
+    <div
+      ref={hostRef}
+      className={`dnd-drag-preview${clipped ? ' dnd-drag-preview--clipped' : ''}`}
+      style={{ '--dnd-preview-width': `${width}px` } as CSSProperties}
+      aria-hidden="true"
+    />
+  );
 }

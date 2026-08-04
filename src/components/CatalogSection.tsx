@@ -314,9 +314,15 @@ function CatalogSection({
                       dropData={{ target: 'catalog-place', placeId: place.id, groupId: group.id }}
                       disabled={trip.canEdit === false}
                     >
-                      {({ setNodeRef: setCardRef, handleProps, isDragging }) => (
-                    <div className="catalog-place-wrapper">
-                      {dragOverPlaceId === place.id && draggedPlaceId !== place.id && (
+                      {({ setNodeRef: setCardRef, handleProps, isDragging }) => {
+                      const isDropTarget = dragOverPlaceId === place.id && draggedPlaceId !== place.id;
+                      return (
+                    <div
+                      className={`catalog-place-wrapper${
+                        isDropTarget ? (dragOverPlacePosition === 'top' ? ' dnd-shift-before' : ' dnd-shift-after') : ''
+                      }`}
+                    >
+                      {isDropTarget && (
                         <div className={`drag-indicator-line drag-indicator-line--${dragOverPlacePosition}`} />
                       )}
                       <div
@@ -524,7 +530,8 @@ function CatalogSection({
                         </div>
                       </div>
                     </div>
-                      )}
+                      );
+                      }}
                     </PlannerDragCard>
                   ))}
                 </div>

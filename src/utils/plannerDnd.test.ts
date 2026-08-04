@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ClientRect } from '@dnd-kit/core';
+import type { ClientRect, CollisionDetection } from '@dnd-kit/core';
 import {
   DAY_TIMELINE_DND_ID,
   catalogGroupDndId,
@@ -7,7 +7,9 @@ import {
   clampToMergeUnit,
   dayItemDndId,
   isOwnMergeUnit,
+  plannerCollisionDetection,
   resolveDropPosition,
+  type PlannerDropData,
 } from './plannerDnd';
 
 /**
@@ -76,6 +78,75 @@ describe('clampToMergeUnit', () => {
 
   it('snaps the bottom half of a merged pair to below the whole unit', () => {
     expect(clampToMergeUnit({ index: 5, unitStart: 4, unitEnd: 5 }, 'top')).toBe('bottom');
+  });
+});
+
+describe('plannerCollisionDetection', () => {
+  /**
+   * Three day cards 60px tall with the timeline's 16px gap between them, inside a
+   * `day-timeline` container that spans the lot:
+   *   card 0: 100..160   gap: 160..176
+   *   card 1: 176..236   gap: 236..252
+   *   card 2: 252..312
+   */
+  const CARDS: Array<{ id: string; top: number; data: PlannerDropData }> = [
+    { id: dayItemDndId(0), top: 100, data: { target: 'day-item', index: 0, unitStart: 0, unitEnd: 0 } },
+    { id: dayItemDndId(1), top: 176, data: { target: 'day-item', index: 1, unitStart: 1, unitEnd: 1 } },
+    { id: dayItemDndId(2), top: 252, data: { target: 'day-item', index: 2, unitStart: 2, unitEnd: 2 } },
+  ];
+
+  function detect(pointerY: number, cards = CARDS) {
+    const entries: Array<[string, ClientRect]> = [
+      ...cards.map(c => [c.id, rect(c.top, 60)] as [string, ClientRect]),
+      [DAY_TIMELINE_DND_ID, rect(90, 240)],
+    ];
+    const containers = [
+      ...cards.map(c => ({ id: c.id, data: { current: c.data } })),
+      { id: DAY_TIMELINE_DND_ID, data: { current: { target: 'day-timeline' } as PlannerDropData } },
+    ];
+    const args = {
+      droppableRects: new Map(entries),
+      droppableContainers: containers,
+      pointerCoordinates: { x: 50, y: pointerY },
+      collisionRect: rect(pointerY - 30, 60),
+      active: { id: 'x', data: { current: undefined }, rect: { current: { initial: null, translated: null } } },
+    } as unknown as Parameters<CollisionDetection>[0];
+
+    const pointerRef = { current: null as { x: number; y: number } | null };
+    return { result: plannerCollisionDetection(args, pointerRef), pointerRef };
+  }
+
+  it('resolves to the card under the pointer', () => {
+    expect(detect(130).result[0]?.id).toBe(dayItemDndId(0));
+    expect(detect(210).result[0]?.id).toBe(dayItemDndId(1));
+  });
+
+  it('never resolves to the container while cards are present', () => {
+    for (const y of [100, 130, 168, 200, 244, 300]) {
+      expect(detect(y).result[0]?.id).not.toBe(DAY_TIMELINE_DND_ID);
+    }
+  });
+
+  it('resolves a pointer in the gap between two cards to the nearer of them', () => {
+    // Gap 160..176. Just under card 0 stays card 0; just over card 1 becomes card 1.
+    expect(detect(163).result[0]?.id).toBe(dayItemDndId(0));
+    expect(detect(173).result[0]?.id).toBe(dayItemDndId(1));
+  });
+
+  it('resolves blank space below the last card to that card, so the drop appends', () => {
+    // This is the bug: falling through to the container here made *every* gap drop
+    // land at the end of the list instead of under the pointer.
+    const { result } = detect(325);
+    expect(result[0]?.id).toBe(dayItemDndId(2));
+    expect(resolveDropPosition(rect(252, 60), { x: 50, y: 325 })).toBe('bottom');
+  });
+
+  it('falls back to the container when it holds no cards (empty day)', () => {
+    expect(detect(150, []).result[0]?.id).toBe(DAY_TIMELINE_DND_ID);
+  });
+
+  it('records the live pointer for the top/bottom split', () => {
+    expect(detect(210).pointerRef.current).toEqual({ x: 50, y: 210 });
   });
 });
 

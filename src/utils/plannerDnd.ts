@@ -1,4 +1,4 @@
-import { pointerWithin, rectIntersection, type ClientRect, type CollisionDetection } from '@dnd-kit/core';
+import { closestCenter, pointerWithin, rectIntersection, type ClientRect, type CollisionDetection } from '@dnd-kit/core';
 
 /**
  * dnd-kit wiring for the planner's two cross-container drag surfaces: the
@@ -17,10 +17,20 @@ import { pointerWithin, rectIntersection, type ClientRect, type CollisionDetecti
 
 export type DropPosition = 'top' | 'bottom';
 
-/** Where a drag started. `label` is what the drag overlay chip shows. */
+/** Where a drag started. `label` is the overlay's fallback if the card can't be cloned. */
 export type PlannerDragData =
   | { source: 'catalog'; placeId: string; label: string }
   | { source: 'day'; index: number; label: string };
+
+/**
+ * The card element for a drag id. `<PlannerDragCard>` stamps `data-dnd-id` onto
+ * every draggable, because dnd-kit's `active` carries no node reference and the
+ * drag overlay needs the real node to clone (and its height, to size the gap
+ * that opens at the drop position).
+ */
+export function findDragNode(id: string | number): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`[data-dnd-id="${id}"]`);
+}
 
 /**
  * What sits under the pointer. `catalog-group` and `day-timeline` are
@@ -45,6 +55,14 @@ export const DAY_TIMELINE_DND_ID = 'day-timeline';
 const isContainerDndId = (id: string | number): boolean =>
   String(id).startsWith('catalog-group:') || String(id) === DAY_TIMELINE_DND_ID;
 
+/** Which container a card droppable belongs to, derived rather than stored. */
+function containerOfCard(data: PlannerDropData | undefined): string | null {
+  if (!data) return null;
+  if (data.target === 'catalog-place') return catalogGroupDndId(data.groupId);
+  if (data.target === 'day-item') return DAY_TIMELINE_DND_ID;
+  return null;
+}
+
 /**
  * Collision detection that prefers cards over their containers.
  *
@@ -59,7 +77,16 @@ const isContainerDndId = (id: string | number): boolean =>
  * `pointerWithin` needs pointer coordinates, which the keyboard sensor has
  * none of — fall back to rect intersection there.
  *
- * Also records the live pointer position, because `onDragOver`/`onDragEnd`
+ * When the pointer sits in a *gap* between cards (the timeline has a 16px gap,
+ * the catalog 8px) no card is hit at all. Resolving to the container there was
+ * a bug: the indicator vanished and the drop appended to the end of the list
+ * instead of landing under the pointer. So an unmatched pointer resolves to the
+ * nearest card **within the container it is over** — near enough that the
+ * top/bottom split then puts it on the correct side. A container only wins when
+ * it holds no cards (an empty day, an empty group), which is the one case where
+ * "append" is the right answer.
+ *
+ * Also records the live pointer position, because `onDragMove`/`onDragEnd`
  * don't carry it and the top/bottom split is measured against the pointer (see
  * `resolveDropPosition`). Collision detection runs immediately before those
  * callbacks with the same event, so the value is always current.
@@ -68,12 +95,43 @@ export function plannerCollisionDetection(
   args: Parameters<CollisionDetection>[0],
   pointerRef: { current: { x: number; y: number } | null }
 ): ReturnType<CollisionDetection> {
-  pointerRef.current = args.pointerCoordinates ?? null;
+  const pointer = args.pointerCoordinates ?? null;
+  pointerRef.current = pointer;
 
-  const hits = args.pointerCoordinates ? pointerWithin(args) : [];
+  const hits = pointer ? pointerWithin(args) : [];
   const resolved = hits.length > 0 ? hits : rectIntersection(args);
+
   const cards = resolved.filter(collision => !isContainerDndId(collision.id));
-  return cards.length > 0 ? cards : resolved;
+  if (cards.length > 0) return cards;
+
+  const container = resolved.find(collision => isContainerDndId(collision.id));
+  if (!container) return resolved;
+
+  const siblings = args.droppableContainers.filter(
+    droppable => containerOfCard(droppable.data.current as PlannerDropData | undefined) === container.id
+  );
+  if (siblings.length === 0) return resolved;
+
+  if (!pointer) {
+    const byRect = closestCenter({ ...args, droppableContainers: siblings });
+    return byRect.length > 0 ? byRect : resolved;
+  }
+
+  // Nearest by pointer, not by the dragged card's centre — a tall card being
+  // dragged would otherwise pick a target well away from the finger.
+  let nearest: (typeof siblings)[number] | null = null;
+  let nearestDistance = Infinity;
+  for (const droppable of siblings) {
+    const rect = args.droppableRects.get(droppable.id);
+    if (!rect) continue;
+    const distance = Math.abs(pointer.y - (rect.top + rect.height / 2));
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = droppable;
+    }
+  }
+
+  return nearest ? [{ id: nearest.id, data: { droppableContainer: nearest, value: nearestDistance } }] : resolved;
 }
 
 /**

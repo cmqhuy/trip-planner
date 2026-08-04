@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type CSSProperties } from 'react';
 import { DndContext, DragOverlay, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
@@ -6,12 +6,14 @@ import { mergedUnitRange } from '../utils/scheduleMerge';
 import { useSortableSensors } from '../utils/sortable';
 import {
   clampToMergeUnit,
+  findDragNode,
   isOwnMergeUnit,
   plannerCollisionDetection,
   resolveDropPosition,
   type PlannerDragData,
   type PlannerDropData,
 } from '../utils/plannerDnd';
+import { PlannerDragPreview } from './PlannerDnd';
 import PlaceReservationModal from './PlaceReservationModal';
 
 const updateDayItems = (day: PlanDay, items: ScheduleItem[]): PlanDay => ({
@@ -455,6 +457,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [dragOverDayPlaceIndex, setDragOverDayPlaceIndex] = useState<number | null>(null);
   const [dragOverDayPlacePosition, setDragOverDayPlacePosition] = useState<'top' | 'bottom'>('top');
   const [dragOverlayLabel, setDragOverlayLabel] = useState<string | null>(null);
+  // The card being dragged, cloned into the overlay; its height opens the gap at
+  // the drop position. Null until a drag starts.
+  const [dragPreview, setDragPreview] = useState<{ node: HTMLElement; width: number; height: number } | null>(null);
 
   // Edit Place Modal state
   const [showEditPlaceModal, setShowEditPlaceModal] = useState(false);
@@ -986,12 +991,15 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setDragOverPlaceId(null);
     setDragOverGroupId(null);
     setDragOverlayLabel(null);
+    setDragPreview(null);
   }, []);
 
   const handleDndDragStart = useCallback((event: DragStartEvent) => {
     const drag = event.active.data.current as PlannerDragData | undefined;
     if (!drag) return;
     setDragOverlayLabel(drag.label);
+    const node = findDragNode(event.active.id);
+    setDragPreview(node ? { node, width: node.offsetWidth, height: node.offsetHeight } : null);
     if (drag.source === 'catalog') {
       setDraggedPlaceId(drag.placeId);
       setDraggedDayPlaceIndex(null);
@@ -3437,6 +3445,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     >
     <div
       className={`planner-view${leftCollapsed ? ' left-collapsed' : ''}${rightCollapsed ? ' right-collapsed' : ''}`}
+      /* Published once here rather than threaded as a prop: the cards that open a
+         gap at the drop position live two and three levels down, in components
+         that are already prop-saturated. They read it straight from CSS. */
+      style={dragPreview ? ({ '--dnd-drag-height': `${dragPreview.height}px` } as CSSProperties) : undefined}
       onTouchStart={handleSwipeTouchStart}
       onTouchEnd={handleSwipeTouchEnd}
     >
@@ -4071,11 +4083,18 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         />
       )}
     </div>
-    {/* Follows the pointer while dragging. A light chip rather than a clone of the
-        card — the real card is a heavy tree, and the drop indicator already shows
-        where it will land. */}
+    {/* Follows the pointer while dragging: a clone of the actual card. The label
+        chip is the fallback for the case where the node ref never resolved. */}
     <DragOverlay className="dnd-drag-overlay" dropAnimation={null}>
-      {dragOverlayLabel ? <div className="dnd-drag-chip">{dragOverlayLabel}</div> : null}
+      {dragPreview
+        ? (
+          <PlannerDragPreview
+            node={dragPreview.node}
+            width={dragPreview.width}
+            clipped={dragPreview.height > window.innerHeight * 0.4}
+          />
+        )
+        : dragOverlayLabel ? <div className="dnd-drag-chip">{dragOverlayLabel}</div> : null}
     </DragOverlay>
     </DndContext>
   );

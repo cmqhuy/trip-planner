@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import CatalogSection from './CatalogSection';
+import { findDragNode } from '../utils/plannerDnd';
 import type { Trip } from '../types';
 
 const mockTrip: Trip = {
@@ -109,6 +110,12 @@ describe('CatalogSection Component', () => {
     expect(card).toHaveAttribute('aria-roledescription', 'draggable');
     expect(card).toHaveAttribute('tabindex', '0');
     expect(document.querySelectorAll('[draggable="true"]').length).toBe(0);
+
+    // The drag overlay clones the card it finds through this attribute — dnd-kit's
+    // `active` carries no node reference, so without it the preview falls back to
+    // a bare label.
+    expect(card).toHaveAttribute('data-dnd-id', 'catalog-place:place-sensoji');
+    expect(findDragNode('catalog-place:place-sensoji')).toBe(card);
   });
 
   it('triggers callbacks when interacting with details', () => {

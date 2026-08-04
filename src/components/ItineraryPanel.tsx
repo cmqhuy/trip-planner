@@ -399,6 +399,15 @@ function ItineraryPanel({
     data: { target: 'day-timeline' } satisfies PlannerDropData,
   });
 
+  // Opens a gap the height of the dragged card at the drop position, so the list
+  // physically makes room instead of only drawing a line. The height comes from
+  // `--dnd-drag-height`, published once on `.planner-view` by TripPlanner.
+  const scheduleItemClass = (idx: number) =>
+    'schedule-item-wrapper' +
+    (dragOverDayPlaceIndex === idx
+      ? dragOverDayPlacePosition === 'top' ? ' dnd-shift-before' : ' dnd-shift-after'
+      : '');
+
   const renderAddSlot = (insertAtIndex: number, canEdit: boolean) => {
     if (!canEdit) return null;
     const isVisible = hoveredScheduleItemIndex === insertAtIndex || hoveredScheduleItemIndex === insertAtIndex - 1;
@@ -2390,16 +2399,22 @@ function ItineraryPanel({
                         return (
                           <React.Fragment key={`merge-${idx}`}>
                             {addSlot}
+                            {/* The gap opens around the pair as a whole — a drop can
+                                only land on the unit's outer edge, never between the
+                                two halves, so the two halves never separate. */}
                             <div
-                              className="schedule-merged-cell"
+                              className={`schedule-merged-cell${
+                                dragOverDayPlaceIndex === idx && dragOverDayPlacePosition === 'top' ? ' dnd-shift-before' :
+                                dragOverDayPlaceIndex === bottomIdx && dragOverDayPlacePosition === 'bottom' ? ' dnd-shift-after' : ''
+                              }`}
                               onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
                               onMouseLeave={scheduleHideItem}
                             >
-                              <div style={{ position: 'relative' }}>
+                              <div className="schedule-merged-half">
                                 {dragIndicator(idx)}
                                 {renderHalf(item, idx, ' timeline-card--merged-top')}
                               </div>
-                              <div style={{ position: 'relative' }}>
+                              <div className="schedule-merged-half">
                                 {dragIndicator(bottomIdx)}
                                 {renderHalf(bottomItem, bottomIdx, ' timeline-card--merged-bottom')}
                               </div>
@@ -2414,7 +2429,7 @@ function ItineraryPanel({
                           <React.Fragment key={`note-${note.id}`}>
                             {renderAddSlot(idx, canEdit)}
                             <div
-                              style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                              className={scheduleItemClass(idx)}
                               onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
                               onMouseLeave={scheduleHideItem}
                             >
@@ -2433,7 +2448,7 @@ function ItineraryPanel({
                           <React.Fragment key={`hotel-event-${hotelItem.hotelId}-${hotelItem.event}-${idx}`}>
                             {renderAddSlot(idx, canEdit)}
                             <div
-                              style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                              className={scheduleItemClass(idx)}
                               onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
                               onMouseLeave={scheduleHideItem}
                             >
@@ -2452,7 +2467,7 @@ function ItineraryPanel({
                           <React.Fragment key={`transit-event-${transitItem.reservationId}-${transitItem.segmentIndex}-${transitItem.event}-${idx}`}>
                             {renderAddSlot(idx, canEdit)}
                             <div
-                              style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                              className={scheduleItemClass(idx)}
                               onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
                               onMouseLeave={scheduleHideItem}
                             >
@@ -2471,7 +2486,7 @@ function ItineraryPanel({
                           <React.Fragment key={`place-reservation-event-${placeResItem.reservationId}-${idx}`}>
                             {addSlot}
                             <div
-                              style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                              className={scheduleItemClass(idx)}
                               onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
                               onMouseLeave={scheduleHideItem}
                             >
@@ -2498,7 +2513,7 @@ function ItineraryPanel({
                         <React.Fragment key={`place-${place.id}-${idx}`}>
                           {addSlot}
                           <div
-                            style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
+                            className={scheduleItemClass(idx)}
                             onMouseEnter={() => { cancelHideItem(); setHoveredScheduleItemIndex(idx); }}
                             onMouseLeave={scheduleHideItem}
                           >
