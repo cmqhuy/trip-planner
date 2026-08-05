@@ -84,6 +84,9 @@ import ExpenseGroupModal from './ExpenseGroupModal';
 import ExpenseModal from './ExpenseModal';
 import ReservationGroupModal from './ReservationGroupModal';
 import GenericReservationModal from './GenericReservationModal';
+import ExportItineraryModal from './ExportItineraryModal';
+import ItineraryPrintView from './ItineraryPrintView';
+import { buildItineraryDocument, type ItineraryDocument, type ItineraryExportOptions } from '../utils/itineraryDocument';
 
 const LOCATION_COLORS = [
   '#6366f1', // Indigo
@@ -533,7 +536,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   
   // Trip AI settings modal state
   const [showTripAiConfigModal, setShowTripAiConfigModal] = useState(false);
-  
+
+  // Itinerary export. `printDocument` is non-null only while the print dialog is
+  // open — the built document is what `ItineraryPrintView` renders, and it
+  // unmounts itself once the dialog closes.
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [printDocument, setPrintDocument] = useState<ItineraryDocument | null>(null);
+
   // AI Generate Days Modal state
   const [showAiGenerateDaysModal, setShowAiGenerateDaysModal] = useState(false);
   
@@ -3445,6 +3454,16 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     return new Date(cleanDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   }, []);
 
+  // Mounting the print view is the whole export: it opens the browser's print
+  // dialog on mount and clears itself on `afterprint`.
+  const handleExportItinerary = useCallback((planId: string, options: ItineraryExportOptions) => {
+    const plan = trip.plans.find(p => p.id === planId);
+    if (!plan) return;
+    setPrintDocument(buildItineraryDocument(trip, plan, options));
+  }, [trip]);
+
+  const handlePrintDone = useCallback(() => setPrintDocument(null), []);
+
   const placeAllocatedDaysMap = useMemo(() => {
     const map = new Map<string, string[]>();
     if (!activePlan) return map;
@@ -3591,6 +3610,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         activeMobileTab={activeMobileTab}
         isGoogleSignedIn={isGoogleSignedIn}
         onShareTrip={onShareTrip}
+        onExportItinerary={() => setShowExportModal(true)}
         formatDisplayDate={formatDisplayDate}
         getHotelsForDay={getHotelsForDay}
         getTransportsForDay={getTransportsForDay}
@@ -4112,6 +4132,18 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
           tripDriveFileId={trip.driveFileId}
           trip={trip}
         />
+      )}
+
+      <ExportItineraryModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        plans={trip.plans}
+        activePlanId={activePlan.id}
+        onExport={handleExportItinerary}
+      />
+
+      {printDocument && (
+        <ItineraryPrintView doc={printDocument} onDone={handlePrintDone} />
       )}
     </div>
     {/* Follows the pointer while dragging: a clone of the actual card. The label

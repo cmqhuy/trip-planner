@@ -1112,4 +1112,32 @@ describe('Day operations with hotel/transit events', () => {
     expect(updated.plans[0].days['2026-07-01'].placeIds).toEqual([]);
     expect(updated.plans[0].days['2026-07-01'].scheduleItems ?? []).toHaveLength(0);
   });
+
+  it('exports the itinerary: header button → dialog → print view → print dialog', async () => {
+    const print = vi.fn();
+    vi.stubGlobal('print', print);
+
+    const { container } = render(
+      <TripPlanner trip={mockTrip} onBack={vi.fn()} onUpdateTrip={vi.fn()} />
+    );
+
+    fireEvent.click(container.querySelector('[data-tooltip="Export Itinerary as PDF"]')!);
+    expect(screen.getByRole('heading', { name: /Export Itinerary/i, level: 3 })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Save as PDF/i }));
+
+    // The dialog closes and the printable document takes its place.
+    expect(screen.queryByRole('heading', { name: /Export Itinerary/i, level: 3 })).not.toBeInTheDocument();
+    const printRoot = document.body.querySelector('.itinerary-print-root')!;
+    expect(printRoot).toBeTruthy();
+    expect(printRoot).toHaveTextContent('Summer in Europe');
+    expect(printRoot).toHaveTextContent('Eiffel Tower');
+    expect(printRoot).toHaveTextContent('Louvre Museum');
+
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+
+    // Closing the print dialog tears the document back down.
+    window.dispatchEvent(new Event('afterprint'));
+    await waitFor(() => expect(document.body.querySelector('.itinerary-print-root')).toBeNull());
+  });
 });

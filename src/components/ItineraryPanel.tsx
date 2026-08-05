@@ -5,7 +5,8 @@ import {
   Calendar, Layers, Check, Timer, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Plane, Train, Bus, Car, Anchor, Navigation, Building, Hash,
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
-  ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy, ArrowUpDown, Landmark, Utensils, Clock
+  ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy, ArrowUpDown, Landmark, Utensils, Clock,
+  FileDown
 } from 'lucide-react';
 import type { Trip, Plan, PlanDay, PreviewPlace, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
@@ -126,6 +127,8 @@ interface ItineraryPanelProps {
   activeMobileTab?: string;
   isGoogleSignedIn?: boolean;
   onShareTrip?: (trip: Trip) => void;
+  /** Opens the export dialog; TripPlanner owns the dialog and the print view. */
+  onExportItinerary?: () => void;
   handleAddReservationEventToSchedule: (item: ScheduleHotelEventItem | ScheduleTransitEventItem | SchedulePlaceReservationEventItem, insertAtIndex?: number) => void;
   handleUpdateScheduleItemTime: (itemIndex: number, time: string) => void;
   handleAddPlaceToDay: (place: Place) => void;
@@ -165,6 +168,7 @@ function ItineraryPanel({
   activeMobileTab,
   isGoogleSignedIn,
   onShareTrip,
+  onExportItinerary,
   formatDisplayDate,
   getHotelsForDay,
   getTransportsForDay,
@@ -1092,6 +1096,16 @@ function ItineraryPanel({
                   style={{ opacity: 0.6 }}
                 >
                   <Sparkles size={14} className="text-accent" />
+                </button>
+              )}
+              {onExportItinerary && (
+                <button
+                  type="button"
+                  className="mini-icon-btn trip-action-btn--muted"
+                  onClick={onExportItinerary}
+                  data-tooltip="Export Itinerary as PDF"
+                >
+                  <FileDown size={14} />
                 </button>
               )}
               {isGoogleSignedIn && trip.isOwner !== false && trip.driveFileId && (
