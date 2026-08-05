@@ -7,7 +7,7 @@ function makeV0Day(placeIds: string[] = [], scheduleNotes: Record<string, string
 }
 
 // Minimal v1 transport (flat Transportation, no segments)
-function makeV1Transport(overrides: Record<string, any> = {}) {
+function makeV1Transport(overrides: Record<string, unknown> = {}) {
   return {
     id: 'tr-1',
     type: 'flight',
@@ -31,7 +31,7 @@ describe('migrateTrips', () => {
   describe('no-op for current version', () => {
     it('returns the trip object unchanged when already at CURRENT_SCHEMA_VERSION', () => {
       const trip = { id: 't1', schemaVersion: CURRENT_SCHEMA_VERSION, plans: [] };
-      const result = migrateTrips([trip as any]);
+      const result = migrateTrips([trip]);
       expect(result[0]).toBe(trip); // same reference — no copy made
     });
   });
@@ -46,7 +46,7 @@ describe('migrateTrips', () => {
           transports: [],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       const day = migrated.plans[0].days['2026-01-01'];
       expect(day.scheduleItems).toEqual([
         { type: 'place', placeId: 'p1' },
@@ -68,7 +68,7 @@ describe('migrateTrips', () => {
           transports: [],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       const items = migrated.plans[0].days['2026-01-01'].scheduleItems;
       expect(items).toBeDefined();
       expect(items![0]).toMatchObject({ type: 'note', text: 'Before anything' });
@@ -87,8 +87,8 @@ describe('migrateTrips', () => {
           transports: [],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
-      expect((migrated.plans[0].days['2026-01-01'] as any).scheduleNotes).toBeUndefined();
+      const [migrated] = migrateTrips([trip]);
+      expect((migrated.plans[0].days['2026-01-01'] as unknown as Record<string, unknown>).scheduleNotes).toBeUndefined();
     });
 
     it('leaves a day alone when it already has scheduleItems', () => {
@@ -107,7 +107,7 @@ describe('migrateTrips', () => {
           transports: [],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.plans[0].days['2026-01-01'].scheduleItems).toBe(existingItems);
     });
 
@@ -116,7 +116,7 @@ describe('migrateTrips', () => {
         id: 't1',
         plans: [{ id: 'plan-1', days: { '2026-01-01': makeV0Day() }, transports: [] }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.plans[0].days['2026-01-01'].scheduleItems).toEqual([]);
     });
   });
@@ -128,7 +128,7 @@ describe('migrateTrips', () => {
         schemaVersion: 1,
         plans: [{ id: 'plan-1', days: {}, transports: [makeV1Transport()] }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       const reservation = migrated.plans[0].transports[0];
 
       expect(reservation.id).toBe('tr-1');
@@ -163,7 +163,7 @@ describe('migrateTrips', () => {
         schemaVersion: 1,
         plans: [{ id: 'plan-1', days: {}, transports: [alreadyMigrated] }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.plans[0].transports[0]).toStrictEqual({ ...alreadyMigrated, expenses: [] });
     });
 
@@ -175,7 +175,7 @@ describe('migrateTrips', () => {
           id: 'plan-1', days: {}, transports: [makeV1Transport({ id: undefined, type: undefined })],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       const r = migrated.plans[0].transports[0];
       expect(r.type).toBe('other');
       expect(typeof r.id).toBe('string');
@@ -188,7 +188,7 @@ describe('migrateTrips', () => {
         schemaVersion: 1,
         plans: [{ id: 'plan-1', days: {}, transports: [] }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.plans[0].transports).toEqual([]);
     });
 
@@ -198,7 +198,7 @@ describe('migrateTrips', () => {
         schemaVersion: 1,
         plans: [{ id: 'plan-1', days: {}, transports: [] }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     });
   });
@@ -213,7 +213,7 @@ describe('migrateTrips', () => {
           transports: [makeV1Transport()],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
 
       // v0→v1: scheduleItems built
       expect(migrated.plans[0].days['2026-01-01'].scheduleItems).toEqual([
@@ -241,7 +241,7 @@ describe('migrateTrips', () => {
           transports: [{ id: 'tr-1', name: 'My Train', segments: [] }],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.plans[0].hotels[0].expenses).toEqual([]);
       expect(migrated.plans[0].transports[0].expenses).toEqual([]);
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
@@ -259,7 +259,7 @@ describe('migrateTrips', () => {
           transports: [{ id: 'tr-1', name: 'My Train', segments: [], expenses: existingExpenses }],
         }],
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.plans[0].hotels[0].expenses).toEqual(existingExpenses);
       expect(migrated.plans[0].transports[0].expenses).toEqual(existingExpenses);
     });
@@ -283,17 +283,19 @@ describe('migrateTrips', () => {
           ]
         }]
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
 
       const h1 = migrated.plans[0].hotels[0];
       const h2 = migrated.plans[0].hotels[1];
       const t1 = migrated.plans[0].transports[0];
       const t2 = migrated.plans[0].transports[1];
 
-      expect((h1 as any).price).toBeUndefined();
-      expect((h1 as any).currency).toBeUndefined();
-      expect((t1 as any).price).toBeUndefined();
-      expect((t1 as any).currency).toBeUndefined();
+      // v4→v5 strips price/currency off the reservation itself, so these keys are
+      // gone from the current interfaces — reach past them to prove the removal.
+      expect((h1 as unknown as Record<string, unknown>).price).toBeUndefined();
+      expect((h1 as unknown as Record<string, unknown>).currency).toBeUndefined();
+      expect((t1 as unknown as Record<string, unknown>).price).toBeUndefined();
+      expect((t1 as unknown as Record<string, unknown>).currency).toBeUndefined();
 
       expect(h1.expenses!.length).toBe(1);
       expect(h1.expenses![0].description).toBe('Base Price');
@@ -322,7 +324,7 @@ describe('migrateTrips', () => {
           transports: []
         }]
       };
-      const [migrated] = migrateTrips([trip as any]);
+      const [migrated] = migrateTrips([trip]);
       expect(migrated.plans[0].expenseGroups).toBeDefined();
       expect(migrated.plans[0].expenseGroups!.length).toBe(4);
       expect(migrated.plans[0].expenseGroups![0].id).toBe('hotels');
@@ -337,7 +339,7 @@ describe('migrateTrips', () => {
         { id: 'a', plans: [] },
         { id: 'b', schemaVersion: 1, plans: [] },
       ];
-      const migrated = migrateTrips(trips as any);
+      const migrated = migrateTrips(trips);
       for (const t of migrated) {
         expect(t.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       }

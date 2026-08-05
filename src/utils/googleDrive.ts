@@ -1,11 +1,75 @@
 import type { Trip } from '../types';
 
-// Declare global google and gapi variables
+// The Google Identity Services and gapi SDKs are loaded from a <script> tag and
+// ship no types (`@types/google.accounts` / `@types/gapi` are not installed).
+// Their fluent builders — PickerBuilder in particular — cannot be described
+// structurally without more surface than this module uses, so the two globals
+// stay loose. Everything they hand *back* is typed below.
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     google?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     gapi?: any;
   }
+}
+
+/** The subset of a Drive `files` resource this app ever requests. */
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType?: string;
+  modifiedTime?: string;
+  owners?: DriveUser[];
+  capabilities?: DriveCapabilities;
+  shared?: boolean;
+}
+
+export interface DriveUser {
+  emailAddress?: string;
+  displayName?: string;
+  photoLink?: string;
+  me?: boolean;
+}
+
+export interface DriveCapabilities {
+  canEdit?: boolean;
+  canShare?: boolean;
+  canDelete?: boolean;
+}
+
+/** A Drive `permissions` resource, as requested by `listTripFilePermissions`. */
+export interface DrivePermission {
+  id: string;
+  emailAddress?: string;
+  role?: string;
+  displayName?: string;
+  type?: string;
+}
+
+/** Metadata sent when creating or updating a Drive file. */
+interface DriveFileMetadata {
+  name: string;
+  mimeType?: string;
+  parents?: string[];
+}
+
+/** What the Picker hands to its callback. */
+interface GooglePickerData {
+  action: string;
+  docs?: { id: string; name: string }[];
+}
+
+/** A token response from `google.accounts.oauth2` — one of the two arms is present. */
+interface GoogleTokenResponse {
+  access_token?: string;
+  expires_in?: number;
+  error?: string;
+}
+
+/** The client returned by `initTokenClient`; only `requestAccessToken` is called. */
+interface GoogleTokenClient {
+  requestAccessToken: (overrides?: { prompt?: string }) => void;
 }
 
 // Default Client ID configured for localhost:5173 and localhost:5174
@@ -17,7 +81,7 @@ export const DEFAULT_API_KEY = '';
 // Restrained scope only allowing access to files created or opened by this app
 export const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file email profile openid';
 
-let tokenClient: any = null;
+let tokenClient: GoogleTokenClient | null = null;
 
 /**
  * Dynamically loads the Google Identity Services SDK script.
@@ -100,10 +164,10 @@ export function initPicker(
             .setOAuthToken(accessToken)
             .setDeveloperKey(apiKey)
             .setAppId(appId)
-            .setCallback((data: any) => {
+            .setCallback((data: GooglePickerData) => {
               if (data.action === google.picker.Action.PICKED) {
-                const doc = data.docs[0];
-                onFilePicked(doc.id, doc.name);
+                const doc = data.docs?.[0];
+                if (doc) onFilePicked(doc.id, doc.name);
               } else if (data.action === google.picker.Action.CANCEL) {
                 if (onCancel) onCancel();
               }
@@ -116,7 +180,7 @@ export function initPicker(
           reject(err);
         }
       },
-      onerror: (err: any) => {
+      onerror: (err: unknown) => {
         reject(err);
       }
     });
@@ -129,7 +193,7 @@ export function initPicker(
 export function initTokenClient(
   clientId: string,
   onTokenReceived: (token: string, expiresIn: number) => void,
-  onError?: (error: any) => void
+  onError?: (error: GoogleTokenResponse) => void
 ) {
   if (!window.google?.accounts?.oauth2) {
     throw new Error('Google Identity Services SDK not loaded');
@@ -138,7 +202,7 @@ export function initTokenClient(
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: GOOGLE_SCOPES,
-    callback: (response: any) => {
+    callback: (response: GoogleTokenResponse) => {
       if (response.error) {
         if (onError) onError(response);
       } else if (response.access_token) {
@@ -208,7 +272,7 @@ async function createFolder(accessToken: string, name: string, parentId?: string
     throw new Error(`Security Guardrail: Attempted to create folder '${name}' outside of allowed application folders.`);
   }
 
-  const body: any = {
+  const body: DriveFileMetadata = {
     name,
     mimeType: 'application/vnd.google-apps.folder',
   };
@@ -387,19 +451,19 @@ export async function fetchTripsFromDrive(
   
   // Extract deleted trip IDs
   const deletedTripIds = files
-    .filter((f: any) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
-    .map((f: any) => {
+    .filter((f: DriveFile) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
+    .map((f: DriveFile) => {
       return f.name.replace('[Deleted] trip-', '').replace('.json', '');
     });
 
   // Filter for active trip-*.json files
-  const tripFiles = files.filter((f: any) => f.name.startsWith('trip-') && f.name.endsWith('.json'));
+  const tripFiles = files.filter((f: DriveFile) => f.name.startsWith('trip-') && f.name.endsWith('.json'));
   if (tripFiles.length === 0) {
     return { activeTrips: [], deletedTripIds };
   }
 
   // Fetch each active file in parallel
-  const tripPromises = tripFiles.map(async (file: any) => {
+  const tripPromises = tripFiles.map(async (file: DriveFile) => {
     try {
       const mediaUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`;
       const res = await fetch(mediaUrl, {
@@ -414,8 +478,8 @@ export async function fetchTripsFromDrive(
       const trip = await res.json() as Trip;
       if (trip && typeof trip === 'object' && typeof trip.id === 'string') {
         // If it's a shadow pointer file, fetch the real trip data instead
-        if ((trip as any).isShadow === true && (trip as any).realDriveFileId) {
-          const realDriveFileId = (trip as any).realDriveFileId;
+        if (trip.isShadow === true && trip.realDriveFileId) {
+          const realDriveFileId = trip.realDriveFileId;
           try {
             const realMediaUrl = `https://www.googleapis.com/drive/v3/files/${realDriveFileId}?alt=media&supportsAllDrives=true`;
             const realRes = await fetch(realMediaUrl, {
@@ -437,8 +501,8 @@ export async function fetchTripsFromDrive(
                   Authorization: `Bearer ${accessToken}`,
                 },
               });
-              let owners: any[] = [];
-              let capabilities: any = {};
+              let owners: DriveUser[] = [];
+              let capabilities: DriveCapabilities = {};
               let shared = true;
               if (metaRes.ok) {
                 const meta = await metaRes.json();
@@ -570,21 +634,21 @@ export async function saveTripsToDrive(
 
   // Extract deleted trip IDs from existing files
   const deletedTripIds = existingFiles
-    .filter((f: any) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
-    .map((f: any) => f.name.replace('[Deleted] trip-', '').replace('.json', ''));
+    .filter((f: DriveFile) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
+    .map((f: DriveFile) => f.name.replace('[Deleted] trip-', '').replace('.json', ''));
 
   // Filter out any local trips that have been deleted in the cloud
   const activeTripsToSave = trips.filter(t => !deletedTripIds.includes(t.id));
 
   // Filter for trip-*.json files and map name -> id
   const existingTripFilesMap = new Map<string, string>();
-  existingFiles.forEach((f: any) => {
+  existingFiles.forEach((f: DriveFile) => {
     if (f.name.startsWith('trip-') && f.name.endsWith('.json')) {
       existingTripFilesMap.set(f.name, f.id);
     }
   });
 
-  const existingFileIds = new Set<string>(existingFiles.map((f: any) => f.id));
+  const existingFileIds = new Set<string>(existingFiles.map((f: DriveFile) => f.id));
 
   // Security Guardrail: Enforce that all write targets are inside folderId or valid shadow references
   for (const trip of activeTripsToSave) {
@@ -750,8 +814,8 @@ export async function fetchDeletedTripIdsFromDrive(
   const files = data.files || [];
   
   return files
-    .filter((f: any) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
-    .map((f: any) => f.name.replace('[Deleted] trip-', '').replace('.json', ''));
+    .filter((f: DriveFile) => f.name.startsWith('[Deleted] trip-') && f.name.endsWith('.json'))
+    .map((f: DriveFile) => f.name.replace('[Deleted] trip-', '').replace('.json', ''));
 }
 
 /**
@@ -860,7 +924,7 @@ export async function shareTripFile(
   fileId: string,
   emailAddress: string,
   role: 'reader' | 'writer'
-): Promise<any> {
+): Promise<DrivePermission> {
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?supportsAllDrives=true`;
   const response = await fetch(url, {
     method: 'POST',
@@ -884,7 +948,7 @@ export async function shareTripFile(
 /**
  * List all sharing permissions for a Google Drive trip file.
  */
-export async function listTripFilePermissions(accessToken: string, fileId: string): Promise<any[]> {
+export async function listTripFilePermissions(accessToken: string, fileId: string): Promise<DrivePermission[]> {
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}/permissions?fields=permissions(id,emailAddress,role,displayName)&supportsAllDrives=true`;
   const response = await fetch(url, {
     headers: {
@@ -941,12 +1005,12 @@ export async function updateTripFilePermission(
  * Removes the logged-in user from a shared file (allows a collaborator to leave a trip).
  */
 export async function leaveSharedTripFile(accessToken: string, fileId: string, currentUserEmail: string): Promise<void> {
-  let permissions: any[] = [];
+  let permissions: DrivePermission[];
   try {
     permissions = await listTripFilePermissions(accessToken, fileId);
   } catch (e) {
     console.error('Failed to list permissions for leaving file:', e);
-    throw new Error('Cannot identify your permission ID to leave this trip. You may need to remove it from your Google Drive web UI.');
+    throw new Error('Cannot identify your permission ID to leave this trip. You may need to remove it from your Google Drive web UI.', { cause: e });
   }
 
   const cleanEmail = currentUserEmail.trim().toLowerCase();
@@ -1037,8 +1101,8 @@ export interface ImportSharedTripResult {
   realFileId: string;
   shadowFileId?: string;
   isOwner: boolean;
-  owners: any[];
-  capabilities: any;
+  owners: DriveUser[];
+  capabilities: DriveCapabilities;
   shared: boolean;
 }
 

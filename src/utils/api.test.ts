@@ -1,5 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { fetchWikipediaData, searchLocation, searchPlacesNearLocation, searchPlacesNearLocationPhoton, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl } from './api';
+
+/**
+ * The stubbed global `fetch`.
+ *
+ * Tests hand back only the two `Response` members the code under test reads, so
+ * this is deliberately narrower than the real signature — `vi.mocked` would
+ * demand a complete `Response` for every stub.
+ */
+type StubbedResponse = { ok: boolean; json: () => Promise<unknown> };
+const fetchMock = () =>
+  globalThis.fetch as unknown as Mock<(url: string) => Promise<StubbedResponse>>;
 
 describe('api.ts - fetchWikipediaData', () => {
   beforeEach(() => {
@@ -26,7 +37,7 @@ describe('api.ts - fetchWikipediaData', () => {
       }
     };
 
-    (globalThis.fetch as any).mockResolvedValue({
+    fetchMock().mockResolvedValue({
       ok: true,
       json: async () => mockResponse
     });
@@ -42,7 +53,7 @@ describe('api.ts - fetchWikipediaData', () => {
   });
 
   it('should return empty values when Wikipedia API returns no pages', async () => {
-    (globalThis.fetch as any).mockResolvedValue({
+    fetchMock().mockResolvedValue({
       ok: true,
       json: async () => ({ query: { pages: { '-1': {} } } })
     });
@@ -52,7 +63,7 @@ describe('api.ts - fetchWikipediaData', () => {
   });
 
   it('should handle network failures gracefully', async () => {
-    (globalThis.fetch as any).mockRejectedValue(new Error('Network error'));
+    fetchMock().mockRejectedValue(new Error('Network error'));
     
     const result = await fetchWikipediaData('Eiffel Tower');
     expect(result).toEqual({ description: '', photoUrl: '' });
@@ -78,7 +89,7 @@ describe('api.ts - searchLocation', () => {
   });
 
   it('should check local fallback database first and find matching cities', async () => {
-    (globalThis.fetch as any).mockRejectedValue(new Error('Offline'));
+    fetchMock().mockRejectedValue(new Error('Offline'));
 
     // "Paris" query should match local database
     const results = await searchLocation('Paris');
@@ -127,7 +138,7 @@ describe('api.ts - searchLocation', () => {
 
     // First fetch is Nominatim query, subsequent fetches are Wikipedia queries
     let fetchCount = 0;
-    (globalThis.fetch as any).mockImplementation(() => {
+    fetchMock().mockImplementation(() => {
       fetchCount++;
       if (fetchCount === 1) {
         return Promise.resolve({
@@ -167,7 +178,7 @@ describe('api.ts - searchPlacesNearLocation', () => {
   });
 
   it('should return local matches for places in known fallback cities', async () => {
-    (globalThis.fetch as any).mockRejectedValue(new Error('Offline'));
+    fetchMock().mockRejectedValue(new Error('Offline'));
 
     const location = { city: 'Paris', country: 'France', lat: 48.8566, lng: 2.3522 };
     const results = await searchPlacesNearLocation('Eiffel', location);
@@ -193,7 +204,7 @@ describe('api.ts - searchPlacesNearLocation', () => {
     ];
 
     let fetchCount = 0;
-    (globalThis.fetch as any).mockImplementation(() => {
+    fetchMock().mockImplementation(() => {
       fetchCount++;
       if (fetchCount === 1) {
         return Promise.resolve({
@@ -251,7 +262,7 @@ describe('api.ts - searchPlacesNearLocationPhoton', () => {
     };
 
     let fetchCount = 0;
-    (globalThis.fetch as any).mockImplementation(() => {
+    fetchMock().mockImplementation(() => {
       fetchCount++;
       if (fetchCount === 1) {
         return Promise.resolve({
@@ -339,7 +350,7 @@ describe('api.ts - parallel search places merging', () => {
       ]
     };
 
-    (globalThis.fetch as any).mockImplementation((url: string) => {
+    fetchMock().mockImplementation((url: string) => {
       if (url.includes('nominatim.openstreetmap.org')) {
         return Promise.resolve({
           ok: true,
@@ -421,7 +432,7 @@ describe('api.ts - Google Maps URL Parser and Fetcher', () => {
         type: 'attraction'
       };
 
-      (globalThis.fetch as any).mockImplementation((reqUrl: string) => {
+      fetchMock().mockImplementation((reqUrl: string) => {
         if (reqUrl.includes('nominatim.openstreetmap.org/reverse')) {
           return Promise.resolve({
             ok: true,

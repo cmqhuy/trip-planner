@@ -67,6 +67,10 @@ export default function ExpenseModal({
       setLineItems(expense?.lineItems || []);
       setGroupDropdownOpen(false);
     }
+    // Deliberately keyed on `isOpen` alone: this seeds the form from `expense`
+    // when the dialog opens. Depending on the expense fields too would overwrite
+    // whatever the user has typed every time the parent re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   if (!isOpen) return null;

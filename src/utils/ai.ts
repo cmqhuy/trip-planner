@@ -1,5 +1,78 @@
 
-import type { ExpenseLine } from '../types';
+import type { AiPlaceDetailsResult, ExpenseLine } from '../types';
+
+/**
+ * One entry in a Gemini request's `contents[].parts` array: either prompt text
+ * or an inline base64-encoded file (the reservation-attachment extraction path).
+ */
+type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+
+/**
+ * A `responseSchema` property map. Keys are field names decided at call time
+ * (built-in AI fields plus `Trip.customAiFields`), values are Gemini schema
+ * fragments, which are nested and self-referential — hence `unknown`.
+ */
+type GeminiSchemaProperties = Record<string, unknown>;
+
+/**
+ * What the reservation file-extraction prompts return.
+ *
+ * Every field is optional by design — the model fills in whatever the uploaded
+ * document actually contains, and each form applies only the keys it recognises.
+ *
+ * It extends `ExtractedSegment` because a single-leg transit reservation comes
+ * back with the departure/arrival fields flat on the object rather than inside
+ * `segments[]` — the same shape the v1→v2 migration folds into a segment.
+ */
+export interface ExtractedReservationDetails extends ExtractedSegment {
+  name?: string;
+  type?: string;
+  status?: string;
+  address?: string;
+  checkInDate?: string;
+  checkInTime?: string;
+  checkOutDate?: string;
+  checkOutTime?: string;
+  confirmationNo?: string;
+  bookedThrough?: string;
+  notes?: string;
+  lat?: number | string;
+  lng?: number | string;
+  date?: string;
+  time?: string;
+  price?: number | string;
+  currency?: string;
+  expenses?: ExtractedExpense[];
+  segments?: ExtractedSegment[];
+}
+
+/** One leg of a multi-segment transit reservation, as extracted from a document. */
+export interface ExtractedSegment {
+  carrier?: string;
+  transitCode?: string;
+  departureLocationName?: string;
+  departureAddress?: string;
+  departureDate?: string;
+  departureTime?: string;
+  departureTimezone?: string;
+  departureLat?: number;
+  departureLng?: number;
+  arrivalLocationName?: string;
+  arrivalAddress?: string;
+  arrivalDate?: string;
+  arrivalTime?: string;
+  arrivalTimezone?: string;
+  arrivalLat?: number;
+  arrivalLng?: number;
+}
+
+/** A single expense line as the model returns it, before it is normalised into `ExpenseLine`. */
+type ExtractedExpense = {
+  description?: string;
+  price?: number | string;
+  currency?: string;
+  paid?: boolean;
+};
 
 // Shared prompt fragment for reservation file-extraction: the intro sentence is
 // identical across hotel/transit/place prompts. Each build*FromFilesPrompt keeps
@@ -396,7 +469,7 @@ Please respond with JSON in this exact format:
 ${schemaExample}`;
   }
 
-  static parsePlaceAiDetailsResponse(text: string): { id: string; suggestedMarkers?: any[]; [key: string]: any }[] {
+  static parsePlaceAiDetailsResponse(text: string): AiPlaceDetailsResult[] {
     const parsed = JSON.parse(text);
     if (!parsed.places || !Array.isArray(parsed.places)) {
       throw new Error('Invalid response structure: expected { "places": [...] }');
@@ -416,10 +489,10 @@ ${schemaExample}`;
     customAiFields?: { title: string; key: string; description: string; disabled?: boolean }[],
     disabledPlaceFields?: string[],
     placeFieldsOrder?: string[]
-  ): Promise<{ id: string; suggestedMarkers?: any[]; [key: string]: any }[]> {
+  ): Promise<AiPlaceDetailsResult[]> {
     if (places.length === 0) return [];
 
-    const properties: any = { id: { type: 'STRING' } };
+    const properties: GeminiSchemaProperties = { id: { type: 'STRING' } };
     const required = ['id'];
     const fieldsPrompt: string[] = [];
 
@@ -532,14 +605,14 @@ Ensure the returned JSON lists the exact "id" for each place so it can be matche
     model?: string,
     disabledPlaceFields?: string[],
     placeFieldsOrder?: string[]
-  ): Promise<{ id: string; suggestedMarkers?: any[]; [key: string]: any }[]> {
+  ): Promise<AiPlaceDetailsResult[]> {
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) {
       throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     }
 
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const key of keys) {
       try {
@@ -655,7 +728,7 @@ Please respond with JSON in this exact format:
       throw new Error('Invalid response structure: expected { "days": [...] }');
     }
     
-    parsed.days.forEach((day: any) => {
+    parsed.days.forEach((day: { aiDetails?: Record<string, string> }) => {
       if (day.aiDetails) {
         if (typeof day.aiDetails.daily_tips === 'string') {
           day.aiDetails.daily_tips = fixMarkdownHeaders(day.aiDetails.daily_tips);
@@ -707,7 +780,7 @@ Please respond with JSON in this exact format:
     // Sort days chronologically to ensure consistent sequence and avoid LLM date-mapping confusion
     const sortedDays = [...days].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
-    const aiDetailsProps: any = {};
+    const aiDetailsProps: GeminiSchemaProperties = {};
     const aiDetailsRequired: string[] = [];
 
     const tipsDisabled = disabledDayFields?.includes('daily_tips');
@@ -727,7 +800,7 @@ Please respond with JSON in this exact format:
       aiDetailsRequired.push('baby_logistics');
     }
 
-    const properties: any = {
+    const properties: GeminiSchemaProperties = {
       dateStr: { 
         type: 'STRING',
         enum: sortedDays.map(d => d.dateStr)
@@ -880,7 +953,7 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
     }
 
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const key of keys) {
       try {
@@ -948,7 +1021,7 @@ Ensure the returned JSON lists the exact "dateStr" for each day so it can be mat
     }
 
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const key of keys) {
       try {
@@ -1077,7 +1150,7 @@ Please respond with JSON in this exact format:
     }
 
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const key of keys) {
       try {
@@ -1269,7 +1342,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
 
     // Validate photo URLs in parallel — clear any that don't resolve to a real image
     const validated = await Promise.all(
-      parsed.places.map(async (place: any) => {
+      parsed.places.map(async (place: { photoUrl?: string; [key: string]: unknown }) => {
         if (!place.photoUrl) return place;
         try {
           const res = await fetch(place.photoUrl, { method: 'HEAD' });
@@ -1307,7 +1380,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     }
 
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const key of keys) {
       try {
@@ -1333,7 +1406,7 @@ Ensure coordinates are accurate and the places span a variety of types.`;
     }
 
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const key of keys) {
       try {
@@ -1397,7 +1470,7 @@ IMPORTANT INSTRUCTIONS:
       throw new Error('Total file size exceeds 10MB. Please reduce file size before using AI fill.');
     }
 
-    const parts: any[] = [{ text: GeminiService.buildHotelDetailsFromFilesPrompt() }];
+    const parts: GeminiPart[] = [{ text:GeminiService.buildHotelDetailsFromFilesPrompt() }];
     for (const f of fileContents) {
       parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
     }
@@ -1474,7 +1547,7 @@ IMPORTANT INSTRUCTIONS:
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
     for (const key of keys) {
       try {
         return await this.generateHotelDetailsFromFiles(fileContents, key, selectedModel);
@@ -1527,7 +1600,7 @@ IMPORTANT INSTRUCTIONS:
       throw new Error('Total file size exceeds 10MB. Please reduce file size before using AI fill.');
     }
 
-    const parts: any[] = [{ text: GeminiService.buildTransitDetailsFromFilesPrompt() }];
+    const parts: GeminiPart[] = [{ text:GeminiService.buildTransitDetailsFromFilesPrompt() }];
     for (const f of fileContents) {
       parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
     }
@@ -1660,7 +1733,7 @@ IMPORTANT INSTRUCTIONS:
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
     for (const key of keys) {
       try {
         return await this.generateTransitDetailsFromFiles(fileContents, key, selectedModel);
@@ -1672,11 +1745,11 @@ IMPORTANT INSTRUCTIONS:
   }
 
   static parseExtractedExpenses(
-    result: { expenses?: any[]; price?: number | string; currency?: string },
+    result: { expenses?: ExtractedExpense[]; price?: number | string; currency?: string },
     idPrefix = 'expense-extracted'
   ): ExpenseLine[] {
     if (result.expenses && Array.isArray(result.expenses) && result.expenses.length > 0) {
-      return result.expenses.map((exp: any) => ({
+      return result.expenses.map((exp: ExtractedExpense) => ({
         id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         description: exp.description || 'Expense Item',
         price: typeof exp.price === 'string' ? parseFloat(exp.price) : (Number(exp.price) || 0),
@@ -1721,7 +1794,7 @@ Extract all cost and expense line items associated with this booking under expen
     if (totalBase64Size > 10 * 1024 * 1024) {
       throw new Error('Total file size exceeds 10MB. Please reduce file size before using AI fill.');
     }
-    const parts: any[] = [{ text: GeminiService.buildPlaceReservationDetailsFromFilesPrompt() }];
+    const parts: GeminiPart[] = [{ text:GeminiService.buildPlaceReservationDetailsFromFilesPrompt() }];
     for (const f of fileContents) {
       parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
     }
@@ -1789,7 +1862,7 @@ Extract all cost and expense line items associated with this booking under expen
     const keys = this.getApiKeys().filter(k => k.trim());
     if (keys.length === 0) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
     const selectedModel = model || this.getSelectedModel();
-    let lastError: any = null;
+    let lastError: unknown = null;
     for (const key of keys) {
       try {
         return await this.generatePlaceReservationDetailsFromFiles(fileContents, key, selectedModel);

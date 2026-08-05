@@ -17,7 +17,7 @@ const formatDate = (timestamp?: number) => {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-  } catch (e) {
+  } catch {
     return 'Unknown';
   }
 };

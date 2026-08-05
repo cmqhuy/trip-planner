@@ -5,7 +5,7 @@ import MapPicker from './MapPicker';
 import { undoButton as undoBtn } from './UndoButton';
 import type { PlaceGroup } from '../types';
 import { GeminiService, getOrderedPlaceFields, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
-import { FIELD_ICONS_MAP, getIconColor } from './TripAiConfigModal';
+import { FIELD_ICONS_MAP, getIconColor } from '../constants/aiFieldIcons';
 
 interface PlaceFormFieldsProps {
   title: string;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Trip } from '../types';
 import { Calendar, Layers, Map, Trash2, Plus, X, Cloud, Share2, LogOut, Users, Edit2, Loader2 } from 'lucide-react';
 import { shiftTripDates, getDaysDiff } from '../utils/dateUtils';
+import { errorMessage } from '../utils/errors';
 import ConfirmationModal from './ConfirmationModal';
 import EditTripModal from './EditTripModal';
 
@@ -70,8 +71,8 @@ export default function TripDashboard({
         await onImportSharedTrip(fileId);
         setShowImportModal(false);
       }
-    } catch (err: any) {
-      setImportError(err.message || 'An error occurred during import.');
+    } catch (err: unknown) {
+      setImportError(errorMessage(err, 'An error occurred during import.'));
     } finally {
       setIsImporting(false);
     }
@@ -134,7 +135,7 @@ export default function TripDashboard({
     const performSave = () => {
       const updatedTrip = shiftTripDates(editingTrip, startDate, endDate);
       updatedTrip.name = name.trim();
-      onUpdateTrip && onUpdateTrip(updatedTrip);
+      if (onUpdateTrip) onUpdateTrip(updatedTrip);
       setEditingTrip(null);
     };
 

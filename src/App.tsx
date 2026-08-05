@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Trip, Plan, PlanDay } from './types';
 import { migrateTrips } from './utils/migration';
+import { errorMessage } from './utils/errors';
 import TripDashboard from './components/TripDashboard';
 import TripPlanner from './components/TripPlanner';
 import { DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS } from './utils/api';
@@ -43,8 +44,10 @@ import TermsOfServicePage from './components/TermsOfServicePage';
 const LOCAL_STORAGE_KEY = 'vacation-itineraries';
 
 function tripsAreEqual(a: Trip, b: Trip): boolean {
+  // updatedAt is a sync bookkeeping field, not content — two trips that differ
+  // only by it are equal for the purposes of deciding whether to write.
   const cleanTrip = (t: Trip) => {
-    const { updatedAt, ...rest } = t as any;
+    const { updatedAt: _updatedAt, ...rest } = t;
     return JSON.stringify(rest);
   };
   return cleanTrip(a) === cleanTrip(b);
@@ -173,7 +176,7 @@ export default function App() {
     }
   };
 
-  const syncTimeoutRef = useRef<any>(null);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSilentAuthRef = useRef(false);
 
   const cleanUpDeletedTrips = (deletedIds: string[]) => {
@@ -183,7 +186,7 @@ export default function App() {
     const currentLocal: Trip[] = savedLocal ? JSON.parse(savedLocal) : [];
     const filteredLocal = currentLocal.filter(t => !deletedIds.includes(t.id));
 
-    let changed = filteredLocal.length !== currentLocal.length;
+    const changed = filteredLocal.length !== currentLocal.length;
 
     // Also clean up sync timestamps for deleted trips
     let timestampsChanged = false;
@@ -260,6 +263,18 @@ export default function App() {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [activeTripId]);
+
+  // Declared above the effect that falls back to it when silent re-auth fails,
+  // so the token-error callback never closes over it in its temporal dead zone.
+  const handleSignIn = () => {
+    setSyncStatus('syncing');
+    try {
+      requestAccessToken();
+    } catch (e) {
+      console.error('Failed to request access token:', e);
+      setSyncStatus('error');
+    }
+  };
 
   // Load GIS script and init token client when clientId changes
   useEffect(() => {
@@ -384,6 +399,11 @@ export default function App() {
   // Unified Synchronization function called by manual sync, timer poll, initial sync, and autosave
   const performSync = async (localTripsOverride?: Trip[]) => {
     const expiresAtStr = localStorage.getItem('google-token-expires-at');
+    // Reading the clock is the point — this checks whether the stored OAuth token
+    // has expired. performSync is only ever invoked from effects, timers and event
+    // handlers, never during render, so the impurity the rule guards against
+    // (an unstable render result) cannot occur here.
+    // eslint-disable-next-line react-hooks/purity
     const isExpired = !expiresAtStr || Number(expiresAtStr) <= Date.now();
 
     if (isExpired && localStorage.getItem('google-logged-in') === 'true') {
@@ -548,8 +568,8 @@ export default function App() {
       }
 
       setSyncStatus('synced');
-    } catch (err: any) {
-      if (err.message === 'FOLDER_NOT_FOUND') {
+    } catch (err: unknown) {
+      if (errorMessage(err) === 'FOLDER_NOT_FOUND') {
         console.warn('Trip planner folder not found on Google Drive. Re-creating...');
         try {
           const newFolderId = await getOrCreateTripPlannerFolder(token);
@@ -571,6 +591,10 @@ export default function App() {
   useEffect(() => {
     if (!googleToken || !googleFolderId) return;
     performSync();
+    // performSync is redefined on every render; depending on it would restart the
+    // initial sync continuously. It reads live values through refs, so the copy
+    // this effect closes over is never stale in a way that matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleToken, googleFolderId]);
 
   // Load AI Settings from Google Drive on startup
@@ -663,6 +687,8 @@ export default function App() {
     }, 30000);
 
     return () => clearInterval(pollInterval);
+    // Same as above — performSync is intentionally not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleToken, googleFolderId, pendingConflicts, syncStatus]);
 
   // Save trips locally and automatically sync to Google Drive
@@ -680,16 +706,6 @@ export default function App() {
       syncTimeoutRef.current = setTimeout(() => {
         performSync(updatedTrips);
       }, 30000);
-    }
-  };
-
-  const handleSignIn = () => {
-    setSyncStatus('syncing');
-    try {
-      requestAccessToken();
-    } catch (e) {
-      console.error('Failed to request access token:', e);
-      setSyncStatus('error');
     }
   };
 
@@ -978,12 +994,12 @@ export default function App() {
         message: `You successfully left the shared trip: "${trip.name}".`
       });
       setSyncStatus('synced');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to leave shared trip:', err);
       setSyncStatus('error');
       setAppNotification({
         title: 'Error Leaving Trip',
-        message: err.message || 'An error occurred while trying to leave the shared trip. You may need to remove it from your Google Drive web UI.'
+        message: errorMessage(err, 'An error occurred while trying to leave the shared trip. You may need to remove it from your Google Drive web UI.')
       });
     }
   };

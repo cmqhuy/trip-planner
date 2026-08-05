@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Attachment } from '../types';
+import { errorStatus } from './errors';
 import {
   getOrCreateTripFileFolder,
   uploadFile,
@@ -66,8 +67,9 @@ export function useDriveAttachments({
       try {
         const fileId = await uploadFile(googleToken, folderId, file);
         setAttachments(prev => [...prev, { name: file.name, filename: file.name, fileId }]);
-      } catch (err: any) {
-        if (err?.status === 403 || err?.status === 404) {
+      } catch (err: unknown) {
+        const status = errorStatus(err);
+        if (status === 403 || status === 404) {
           if (onAccessError) {
             onAccessError();
           } else {

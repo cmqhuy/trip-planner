@@ -23,7 +23,7 @@ export function getOptimizedImageUrl(url: string | undefined, width: number): st
       u.searchParams.set('auto', 'format');
       u.searchParams.set('q', '80');
       return u.toString();
-    } catch (e) {
+    } catch {
       return trimmed;
     }
   }
@@ -52,7 +52,7 @@ export function getOptimizedImageUrl(url: string | undefined, width: number): st
           );
           return `${thumbBase}/${stdWidth}px-${filename}`;
         }
-      } catch (e) {
+      } catch {
         return trimmed;
       }
     }

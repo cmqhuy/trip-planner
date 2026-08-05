@@ -11,7 +11,9 @@ import AttachmentsSection from './AttachmentsSection';
 import { undoButton as undoBtn } from './UndoButton';
 import { ComboBox, type ComboOption } from './ComboBox';
 import { STATUS_OPTIONS } from '../constants/reservations';
+import type { ReservationStatus } from '../constants/reservations';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
+import type { ExtractedReservationDetails, ExtractedSegment } from '../utils/ai';
 import { lookupTimezone, parseGoogleMapsUrl, fetchPlaceFromGoogleMapsUrl, searchPlacesNearLocation, geocodeAddress } from '../utils/api';
 import DualMapPicker from './DualMapPicker';
 import { useReservationAttachments } from '../utils/useReservationAttachments';
@@ -154,7 +156,7 @@ export default function TransportModal({
   // applyAiResult depends on updateSegment/segments defined below, so the hook
   // reaches it through a ref updated each render (avoids a temporal-dead-zone
   // reference at the hook call).
-  const applyAiResultRef = useRef<(result: any) => Promise<void>>(async () => {});
+  const applyAiResultRef = useRef<(result: ExtractedReservationDetails) => Promise<void>>(async () => {});
   const attach = useReservationAttachments({
     googleToken, tripPlannerFolderId, tripName, tripFilesFolderId, onFileFolderCreated,
     initialAttachments: editingTransport?.attachments ?? [],
@@ -226,6 +228,10 @@ export default function TransportModal({
     setArrSuggestions([]);
     setArrSuggestionsField(null);
     setArrSearchError(null);
+    // Deliberately keyed on `isOpen` alone: this seeds the form from the reservation
+    // being edited when the dialog opens. Depending on the source values too would
+    // wipe the user's edits on every parent re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const handleSelectSuggestion = (field: 'dep' | 'arr', sug: Omit<Place, 'placeGroupId'> & { address?: string }) => {
@@ -364,6 +370,9 @@ export default function TransportModal({
     return () => {
       if (depSearchTimeoutRef.current) clearTimeout(depSearchTimeoutRef.current);
     };
+    // depSearchError and seg.depTz are written by this effect, not read as inputs —
+    // depending on them would make it retrigger itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seg.depLoc, seg.depAddress, catalogLocation, activeSegmentIndex]);
 
   // Handle arrival autocomplete search / Google Maps link paste as-you-type
@@ -440,6 +449,9 @@ export default function TransportModal({
     return () => {
       if (arrSearchTimeoutRef.current) clearTimeout(arrSearchTimeoutRef.current);
     };
+    // arrSearchError and seg.arrTz are written by this effect, not read as inputs —
+    // depending on them would make it retrigger itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seg.arrLoc, seg.arrAddress, catalogLocation, activeSegmentIndex]);
 
   const addSegment = () => {
@@ -517,9 +529,10 @@ export default function TransportModal({
     onClose();
   };
 
-  const applyAiResult = async (result: any) => {
+  const applyAiResult = async (result: ExtractedReservationDetails) => {
     if (result.name !== undefined) setTransitName(result.name ?? '');
-    if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) setType(result.type);
+    // Narrowed by the membership checks — the model returns a plain string.
+    if (result.type && TRANSPORT_TYPES.find(t => t.value === result.type)) setType(result.type as TransportationReservation['type']);
     if (result.confirmationNo !== undefined) setConfirmationNo(result.confirmationNo ?? '');
     if (result.bookedThrough !== undefined) setBookedThrough(result.bookedThrough ?? '');
     const parsed = GeminiService.parseExtractedExpenses(result, 'expense-autofill');
@@ -530,12 +543,12 @@ export default function TransportModal({
       });
     }
     if (result.notes !== undefined) setNotes(result.notes ?? '');
-    if (result.status && ['Confirmed', 'Planning', 'Canceled'].includes(result.status)) setStatus(result.status);
+    if (result.status && ['Confirmed', 'Planning', 'Canceled'].includes(result.status)) setStatus(result.status as ReservationStatus);
 
-    const aiSegs: any[] | undefined = Array.isArray(result.segments) && result.segments.length > 0 ? result.segments : undefined;
+    const aiSegs: ExtractedSegment[] | undefined = Array.isArray(result.segments) && result.segments.length > 0 ? result.segments : undefined;
 
     if (aiSegs) {
-      const newSegs: SegmentFormState[] = await Promise.all(aiSegs.map(async (aiSeg: any, idx: number) => {
+      const newSegs: SegmentFormState[] = await Promise.all(aiSegs.map(async (aiSeg: ExtractedSegment, idx: number) => {
         let dLat = aiSeg.departureLat ?? null;
         let dLng = aiSeg.departureLng ?? null;
         let aLat = aiSeg.arrivalLat ?? null;

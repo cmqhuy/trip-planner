@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import Modal from './Modal';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
-import { formatFreshness } from './AiMarkdownSection';
+import { errorMessage } from '../utils/errors';
+import { formatFreshness } from '../constants/aiFieldIcons';
 import FunGeneratingLoader from './FunGeneratingLoader';
 
 interface DayOption {
@@ -86,9 +87,9 @@ export default function AiGenerateDaysModal({
     try {
       await onGenerate(Array.from(selectedDates));
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('AI generation for days failed:', err);
-      setError(err?.message || 'An error occurred during AI generation. Please check your API key(s) or model configuration.');
+      setError(errorMessage(err, 'An error occurred during AI generation. Please check your API key(s) or model configuration.'));
     } finally {
       setGenerating(false);
     }

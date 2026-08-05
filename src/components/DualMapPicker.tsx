@@ -105,8 +105,7 @@ export default function DualMapPicker({ segments, activeIndex, onDepPick, onArrP
       allMarkersRef.current = [];
       polylinesRef.current = [];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }, []);
 
   // Sync all segment markers and lines whenever segments or activeIndex changes
   useEffect(() => {

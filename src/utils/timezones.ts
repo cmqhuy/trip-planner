@@ -19,7 +19,12 @@ export function formatTimezoneLabel(tz: string): string {
 
 export const ALL_TIMEZONES: string[] = (() => {
   try {
-    return [...(Intl as any).supportedValuesOf('timeZone') as string[]].sort(
+    // Intl.supportedValuesOf is ES2022 but is not in the ES2023 lib typings.
+    const supportedValuesOf = (Intl as unknown as {
+      supportedValuesOf?: (key: 'timeZone') => string[];
+    }).supportedValuesOf;
+    if (!supportedValuesOf) throw new Error('Intl.supportedValuesOf unavailable');
+    return [...supportedValuesOf('timeZone')].sort(
       (a, b) => getUtcOffsetMinutes(a) - getUtcOffsetMinutes(b)
     );
   } catch {

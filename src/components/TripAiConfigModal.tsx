@@ -1,86 +1,14 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
-  Sparkles, Plus, Trash2, AlertCircle, Edit2, ChevronUp, ChevronDown, GripVertical,
-  Calendar, CalendarCheck, Ticket, Compass, HelpCircle, MapPin, Info, Smile, Camera, Utensils,
-  ShoppingBag, Coffee, DollarSign, BookOpen, Clock, Baby,
-  Sparkle, Wand2, Brain, Bot, Activity, TrendingUp, Flame, Gem, Sun, Heart, Globe, Languages, Map
+  Sparkles, Plus, Trash2, AlertCircle, Edit2, ChevronUp, ChevronDown, GripVertical, HelpCircle
 } from 'lucide-react';
+import { FIELD_ICONS_MAP, getIconColor } from '../constants/aiFieldIcons';
 import type { Trip } from '../types';
 import Modal from './Modal';
 import SortableList from './SortableList';
 import { AI_DETAIL_FIELDS, DEFAULT_AI_ICONS } from '../utils/ai';
 import { moveItem } from '../utils/sortable';
 
-// Mapping string to Lucide component
-export const FIELD_ICONS_MAP: { [key: string]: React.ComponentType<any> } = {
-  Sparkles,
-  Sparkle,
-  Wand2,
-  Brain,
-  Bot,
-  Calendar,
-  CalendarCheck,
-  Ticket,
-  Compass,
-  AlertCircle,
-  HelpCircle,
-  MapPin,
-  Info,
-  Smile,
-  Camera,
-  Utensils,
-  ShoppingBag,
-  Coffee,
-  DollarSign,
-  BookOpen,
-  Clock,
-  Baby,
-  Activity,
-  TrendingUp,
-  Flame,
-  Gem,
-  Sun,
-  Heart,
-  Globe,
-  Languages,
-  Map
-};
-
-export const getIconColor = (iconName: string) => {
-  switch (iconName) {
-    case 'Sparkles': return '#a5b4fc'; // Indigo
-    case 'Sparkle': return '#c084fc'; // Purple
-    case 'Wand2': return '#e9d5ff'; // Light purple
-    case 'Brain': return '#f472b6'; // Pink
-    case 'Bot': return '#60a5fa'; // Blue
-    case 'Calendar': return '#fda4af'; // Rose
-    case 'Ticket': return '#6ee7b7'; // Emerald
-    case 'Compass': return '#93c5fd'; // Sky blue
-    case 'AlertCircle': return '#fde047'; // Yellow
-    case 'HelpCircle': return '#c084fc'; // Purple
-    case 'MapPin': return '#f87171'; // Red
-    case 'Info': return '#38bdf8'; // Light blue
-    case 'Smile': return '#facc15'; // Yellow-green
-    case 'Camera': return '#ec4899'; // Pink
-    case 'Utensils': return '#fb923c'; // Orange
-    case 'ShoppingBag': return '#a7f3d0'; // Light emerald
-    case 'Coffee': return '#b45309'; // Brown/Amber
-    case 'DollarSign': return '#34d399'; // Green
-    case 'BookOpen': return '#818cf8'; // Violet
-    case 'Clock': return '#a3a3a3'; // Gray
-    case 'Baby': return '#fbcfe8'; // Pastel Pink
-    case 'Activity': return '#fb7185'; // Rose
-    case 'TrendingUp': return '#34d399'; // Green
-    case 'Flame': return '#f97316'; // Orange
-    case 'Gem': return '#38bdf8'; // Cyan
-    case 'Sun': return '#f59e0b'; // Amber
-    case 'Heart': return '#ec4899'; // Pink
-    case 'Globe': return '#60a5fa'; // Blue
-    case 'Languages': return '#818cf8'; // Indigo
-    case 'Map': return '#10b981'; // Green
-    default: return '#c084fc';
-  }
-};
 
 const DAY_LEVEL_FIELDS = [
   { key: 'daily_tips', label: 'Daily Tips & Routes', defaultIcon: 'Compass', description: 'Generates daily summaries, optimal routing sequences, timing guidelines, and logistics warnings based on scheduled places.' },
@@ -160,7 +88,7 @@ export default function TripAiConfigModal({
         disabled: !!f.disabled
       }));
 
-      let merged = [...defaultFields, ...customFields];
+      const merged = [...defaultFields, ...customFields];
 
       // Sort by trip.placeFieldsOrder if available
       const order = trip.placeFieldsOrder || [];

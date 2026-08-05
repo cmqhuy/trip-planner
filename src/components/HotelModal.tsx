@@ -9,6 +9,7 @@ import { undoButton as undoBtn } from './UndoButton';
 import { ComboBox } from './ComboBox';
 import { STATUS_OPTIONS } from '../constants/reservations';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
+import type { ExtractedReservationDetails } from '../utils/ai';
 import MapPicker from './MapPicker';
 import { useReservationAttachments } from '../utils/useReservationAttachments';
 import { geocodeAddress } from '../utils/api';
@@ -75,7 +76,7 @@ export default function HotelModal({
 
   const autofillInputRef = useRef<HTMLInputElement>(null);
 
-  const applyAiResult = async (result: any) => {
+  const applyAiResult = async (result: ExtractedReservationDetails) => {
     if (result.name) setName(result.name);
     if (result.address) setAddress(result.address);
     if (result.checkInDate) setCheckInDate(result.checkInDate);

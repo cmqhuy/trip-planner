@@ -2,7 +2,7 @@ import { Sparkles, RefreshCw, HelpCircle } from 'lucide-react';
 import type { Place } from '../types';
 import { getOrderedPlaceFields } from '../utils/ai';
 import FunGeneratingLoader from './FunGeneratingLoader';
-import { FIELD_ICONS_MAP, getIconColor } from './TripAiConfigModal';
+import { FIELD_ICONS_MAP, getIconColor } from '../constants/aiFieldIcons';
 
 interface AiDetailsViewProps {
   place: Place;

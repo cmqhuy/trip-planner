@@ -1,16 +1,28 @@
 import type { Trip, ScheduleItem } from '../types';
 import { DEFAULT_EXPENSE_GROUPS, DEFAULT_RESERVATION_GROUPS } from './api';
 
+/**
+ * Data mid-migration, shaped by whichever schema version wrote it.
+ *
+ * By definition it does not conform to the current interfaces — that is the
+ * whole reason a migration is running. Typing it precisely would mean one
+ * interface per historical version, each obsolete the moment its migration
+ * ships, and every step would still have to cast between them. The looseness is
+ * confined to this file; `migrateTrips` returns `Trip[]` and is the only export.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LegacyTrip = any;
+
 // Bump whenever a new migration step is added.
 // Trips already at this version are returned as-is (cheap no-op).
 export const CURRENT_SCHEMA_VERSION = 8;
 
 // v0 → v1: build scheduleItems from placeIds + scheduleNotes
-function applyV0toV1(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => ({
+function applyV0toV1(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => ({
     ...plan,
     days: Object.fromEntries(
-      Object.entries(plan.days || {}).map(([dateStr, day]: [string, any]) => {
+      Object.entries(plan.days || {}).map(([dateStr, day]: [string, LegacyTrip]) => {
         if (day.scheduleItems?.length) return [dateStr, day];
         const placeIds: string[] = day.placeIds || [];
         const scheduleNotes: Record<string, string> = day.scheduleNotes || {};
@@ -29,10 +41,10 @@ function applyV0toV1(trip: any): any {
 }
 
 // v1 → v2: wrap flat Transportation entries into TransportationReservation with segments[]
-function applyV1toV2(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => ({
+function applyV1toV2(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => ({
     ...plan,
-    transports: (plan.transports || []).map((t: any) => {
+    transports: (plan.transports || []).map((t: LegacyTrip) => {
       if (Array.isArray(t.segments)) return t;
       const {
         id, type, name, confirmationNo, bookedThrough, price, currency, notes, status, attachments,
@@ -72,12 +84,12 @@ function applyV1toV2(trip: any): any {
 
 // v2 → v3: deduplicate segment IDs that collide across reservations in the same plan
 // (caused by AI import generating id: `imported-draft-seg-${idx}` which resets per reservation)
-function applyV2toV3(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => {
+function applyV2toV3(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => {
     const seenIds = new Set<string>();
-    const transports = (plan.transports || []).map((reservation: any) => ({
+    const transports = (plan.transports || []).map((reservation: LegacyTrip) => ({
       ...reservation,
-      segments: (reservation.segments || []).map((seg: any) => {
+      segments: (reservation.segments || []).map((seg: LegacyTrip) => {
         if (!seg.id || seenIds.has(seg.id)) {
           return { ...seg, id: crypto.randomUUID() };
         }
@@ -91,13 +103,13 @@ function applyV2toV3(trip: any): any {
 }
 
 // v3 → v4: initialize expenses to [] on hotels and transports if they don't exist
-function applyV3toV4(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => {
-    const hotels = (plan.hotels || []).map((h: any) => {
+function applyV3toV4(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => {
+    const hotels = (plan.hotels || []).map((h: LegacyTrip) => {
       if (h.expenses) return h;
       return { ...h, expenses: [] };
     });
-    const transports = (plan.transports || []).map((t: any) => {
+    const transports = (plan.transports || []).map((t: LegacyTrip) => {
       if (t.expenses) return t;
       return { ...t, expenses: [] };
     });
@@ -107,9 +119,9 @@ function applyV3toV4(trip: any): any {
 }
 
 // v4 → v5: migrate price and currency fields on hotels/transports into expenses
-function applyV4toV5(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => {
-    const hotels = (plan.hotels || []).map((h: any) => {
+function applyV4toV5(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => {
+    const hotels = (plan.hotels || []).map((h: LegacyTrip) => {
       const expenses = h.expenses ? [...h.expenses] : [];
       if (h.price != null && h.price !== '') {
         const numericPrice = typeof h.price === 'string' ? parseFloat(h.price) : h.price;
@@ -127,7 +139,7 @@ function applyV4toV5(trip: any): any {
       return { ...rest, expenses };
     });
 
-    const transports = (plan.transports || []).map((t: any) => {
+    const transports = (plan.transports || []).map((t: LegacyTrip) => {
       const expenses = t.expenses ? [...t.expenses] : [];
       if (t.price != null && t.price !== '') {
         const numericPrice = typeof t.price === 'string' ? parseFloat(t.price) : t.price;
@@ -151,10 +163,10 @@ function applyV4toV5(trip: any): any {
 }
 
 // v5 → v6: initialize expenseGroups and expenses on every plan if not exists (and assign colors to groups)
-function applyV5toV6(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => {
+function applyV5toV6(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => {
     const rawGroups = plan.expenseGroups || [...DEFAULT_EXPENSE_GROUPS];
-    const expenseGroups = rawGroups.map((g: any) => {
+    const expenseGroups = rawGroups.map((g: LegacyTrip) => {
       if (g.color) return g;
       let color = '#6366f1';
       if (g.id === 'hotels') color = '#10b981';
@@ -170,9 +182,9 @@ function applyV5toV6(trip: any): any {
 }
 
 // v6 → v7: update default 'transports' group icon to 'plane'
-function applyV6toV7(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => {
-    const expenseGroups = (plan.expenseGroups || []).map((g: any) => {
+function applyV6toV7(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => {
+    const expenseGroups = (plan.expenseGroups || []).map((g: LegacyTrip) => {
       if (g.id === 'transports' && (!g.icon || g.icon === 'car')) {
         return { ...g, icon: 'plane' };
       }
@@ -184,8 +196,8 @@ function applyV6toV7(trip: any): any {
 }
 
 // v7 → v8: ensure placeReservations array and attractions/dining groups exist on every plan
-function applyV7toV8(trip: any): any {
-  const plans = (trip.plans || []).map((plan: any) => {
+function applyV7toV8(trip: LegacyTrip): LegacyTrip {
+  const plans = (trip.plans || []).map((plan: LegacyTrip) => {
     const placeReservations = plan.placeReservations || [];
 
     // Ensure default reservation groups exist
@@ -211,8 +223,8 @@ function applyV7toV8(trip: any): any {
   return { ...trip, plans };
 }
 
-export function migrateTrips(rawTrips: any[]): Trip[] {
-  return rawTrips.map((trip: any): Trip => {
+export function migrateTrips(rawTrips: LegacyTrip[]): Trip[] {
+  return rawTrips.map((trip: LegacyTrip): Trip => {
     if (trip.schemaVersion === CURRENT_SCHEMA_VERSION) return trip as Trip;
 
     let t = trip;

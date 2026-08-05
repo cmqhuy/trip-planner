@@ -1,6 +1,52 @@
 import type { Location, Place, PlaceGroup, ExpenseGroup, ReservationGroup } from '../types';
 
 /**
+ * The address block Nominatim returns. Which keys are present depends on the
+ * match's granularity, so callers fall through a list of candidates.
+ */
+interface NominatimAddress {
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  suburb?: string;
+  state?: string;
+  region?: string;
+  country?: string;
+  country_code?: string;
+}
+
+/** One OSM Nominatim search result. `lat`/`lon` arrive as strings. */
+interface NominatimResult {
+  osm_id?: number | string;
+  name?: string;
+  display_name: string;
+  type?: string;
+  lat: string;
+  lon: string;
+  address?: NominatimAddress;
+  extratags?: { opening_hours?: string; website?: string; phone?: string };
+}
+
+/** One Photon/Komoot GeoJSON feature. Coordinates are [lng, lat]. */
+interface PhotonFeature {
+  properties?: {
+    name?: string;
+    osm_id?: number | string;
+    osm_key?: string;
+    osm_value?: string;
+    type?: string;
+    street?: string;
+    house_number?: string;
+    postcode?: string;
+    city?: string;
+    country?: string;
+    state?: string;
+  };
+  geometry?: { coordinates?: number[] };
+}
+
+/**
  * Geocode a free-text address to coordinates via OSM Nominatim.
  * Returns null on no match, network failure, or the 5s timeout.
  * Shared by HotelModal and TransportModal (previously duplicated in both).
@@ -171,24 +217,19 @@ export async function searchLocation(query: string): Promise<Omit<Location, 'pla
     
     const data = await response.json();
     
-    const onlineResults = await Promise.all(data.map(async (item: any) => {
-      const addr = item.address;
-      const city = addr.city || addr.town || addr.village || addr.municipality || addr.suburb || item.name;
+    const onlineResults = await Promise.all(data.map(async (item: NominatimResult) => {
+      const addr = item.address || {};
+      const city = addr.city || addr.town || addr.village || addr.municipality || addr.suburb || item.name || '';
       const state = addr.state || addr.region;
       const country = addr.country;
       const lat = parseFloat(item.lat);
       const lng = parseFloat(item.lon);
       
       // Fetch photo description from Wikipedia
-      let heroPhoto = '';
-      let wikiData = await fetchWikipediaData(city);
-      
-      if (wikiData.photoUrl) {
-        heroPhoto = wikiData.photoUrl;
-      } else {
-        // Build direct Unsplash fallback search url
-        heroPhoto = `https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=80`; // city default
-      }
+      const wikiData = await fetchWikipediaData(city);
+      // Unsplash generic-city shot when Wikipedia has no image for this place.
+      const heroPhoto = wikiData.photoUrl
+        || `https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=80`;
       
       return {
         id: `location-osm-${item.osm_id || Math.random().toString(36).substr(2, 9)}`,
@@ -235,7 +276,7 @@ export async function searchPlacesNearLocationPhoton(
     const data = await response.json();
     const features = data.features || [];
 
-    const onlineResults = await Promise.all(features.map(async (feature: any) => {
+    const onlineResults = await Promise.all(features.map(async (feature: PhotonFeature) => {
       const props = feature.properties || {};
       const title = props.name || 'Unnamed Place';
       
@@ -330,7 +371,7 @@ export async function searchPlacesNearLocation(
       if (!response.ok) throw new Error('OSM place search failed');
       const data = await response.json();
       
-      return await Promise.all(data.map(async (item: any) => {
+      return await Promise.all(data.map(async (item: NominatimResult) => {
         const title = item.name || item.display_name.split(',')[0];
         const address = item.address || {};
         
@@ -501,7 +542,7 @@ export const getCountryFlag = (countryCode?: string): string => {
     .map(char => 127397 + char.charCodeAt(0));
   try {
     return String.fromCodePoint(...codePoints);
-  } catch (e) {
+  } catch {
     return '📍';
   }
 };

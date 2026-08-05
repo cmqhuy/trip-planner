@@ -12,6 +12,25 @@ export interface ExpenseLine {
   paid: boolean;
 }
 
+/**
+ * One place's AI-generated details, exactly as the model returns them.
+ *
+ * `id` correlates the entry back to the place that was requested, and
+ * `suggestedMarkers` is lifted onto `Place` as a sibling of `aiDetails`. Every
+ * remaining key is an AI field key — one of the 7 built-ins or a user-defined
+ * entry in `Trip.customAiFields` — so the set is configuration, not something
+ * this interface can enumerate.
+ */
+export interface AiPlaceDetailsUpdate {
+  suggestedMarkers?: SuggestedMarker[];
+  [fieldKey: string]: string | SuggestedMarker[] | undefined;
+}
+
+/** As above, plus the `id` correlating the entry back to the requested place. */
+export interface AiPlaceDetailsResult extends AiPlaceDetailsUpdate {
+  id: string;
+}
+
 export interface SuggestedMarker {
   title: string;
   lat: number;
@@ -36,6 +55,18 @@ export interface Place {
   };
   aiUpdatedAt?: number; // Timestamp when AI details were populated/updated
   suggestedMarkers?: SuggestedMarker[];
+}
+
+/**
+ * A Place carrying the transient flags the day-schedule preview row reads.
+ *
+ * Never persisted: TripPlanner prepends one synthesized entry to the displayed
+ * place list while a catalog place is selected, so the timeline can show where
+ * it would land before the user commits to adding it.
+ */
+export interface PreviewPlace extends Place {
+  isTemporary?: boolean;
+  isAiSuggestion?: boolean;
 }
 
 export interface PlaceGroup {
@@ -290,6 +321,7 @@ export interface Trip {
   shadowFileId?: string;     // Google Drive file ID of the shadow file (for shared users)
   filesFolderId?: string;    // Google Drive folder ID for this trip's uploaded attachment files
   isShadow?: boolean;        // True if this is a shadow file pointing to another user's shared file
+  realDriveFileId?: string;  // Only on a shadow pointer file: the owner's real trip file to read through to
   ownerEmail?: string;       // Email of the owner
   isOwner?: boolean;         // True if the current user is the owner
   canEdit?: boolean;         // True if the current user has edit permission

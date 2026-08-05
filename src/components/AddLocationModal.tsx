@@ -1,20 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import Modal from './Modal';
+import type { Location } from '../types';
 import { searchLocation } from '../utils/api';
 
 interface AddLocationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (locationData: any) => void;
+  onSelect: (locationData: Omit<Location, 'places'>) => void;
   title: string;
 }
 
 export default function AddLocationModal({ isOpen, onClose, onSelect, title }: AddLocationModalProps) {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const searchTimeoutRef = useRef<any>(null);
+  const [suggestions, setSuggestions] = useState<Omit<Location, 'places'>[]>([]);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isOpen) {

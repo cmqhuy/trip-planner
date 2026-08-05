@@ -1,25 +1,27 @@
-name: Deploy to GitHub Pages
+name: CI
 
+# Runs on every pull request into main, and on pushes to any branch other than
+# main. Pushes to main are covered by deploy.yml, which runs the same gate before
+# it publishes — so nothing reaches production without passing these checks.
 on:
-  push:
+  pull_request:
     branches:
+      - main
+  push:
+    branches-ignore:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: 'pages'
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  verify:
+    name: Typecheck, lint, test, build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,8 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Same gate as ci.yml. A push to main deploys straight to production, so
-      # these run here too rather than trusting that the PR check already passed.
+      - name: Typecheck
+        run: npx tsc -b
+
       - name: Lint
         run: npm run lint
 
@@ -47,12 +50,3 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_GOOGLE_API_KEY: ${{ secrets.VITE_GOOGLE_API_KEY }}
         run: npm run build
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

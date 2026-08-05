@@ -218,6 +218,9 @@ export default function PlaceReservationModal({
     }
     setPlaceSearchQuery('');
     setAiError(null);
+    // setAiError comes from useReservationAttachments and is recreated per render;
+    // depending on it would re-run this whole form reset on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, reservation, defaultType, defaultDate, setAttachments]);
 
   if (!isOpen) return null;
@@ -241,11 +244,14 @@ export default function PlaceReservationModal({
     setPlaceSearchQuery('');
   };
 
+  // Renaming a linked reservation also renames the catalog place, but that is
+  // applied on save by `handleSavePlaceReservation` in TripPlanner, which rebuilds
+  // `trip.locations` immutably. This used to *also* assign `linkedPlace.title`
+  // here — a direct mutation of an object inside trip state, which bypassed
+  // `onUpdateTrip`, never re-rendered (same object reference) and left `updatedAt`
+  // untouched, so a later Drive pull could revert it. Redundant and unsafe; gone.
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    if (linkedPlace) {
-      linkedPlace.title = newTitle;
-    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {

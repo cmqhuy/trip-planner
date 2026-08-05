@@ -7,7 +7,7 @@ import {
   Search, FileText, RefreshCw, ArrowRight, BookmarkPlus,
   ArrowUpRight, ArrowDownLeft, AlertTriangle, Copy, ArrowUpDown, Landmark, Utensils, Clock
 } from 'lucide-react';
-import type { Trip, Plan, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, PlaceReservation } from '../types';
+import type { Trip, Plan, PlanDay, PreviewPlace, Location, Place, Hotel, FlatTransportationSegment, TransportationReservation, ScheduleItem, ScheduleNoteItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { InlineNotes } from './InlineNotes';
 import SectionHeader from './SectionHeader';
@@ -48,7 +48,7 @@ interface ItineraryPanelProps {
   setActiveDayStr: (dayStr: string) => void;
   daysList: string[];
   formatDisplayDate: (dateStr: string) => string;
-  activeDay: any;
+  activeDay: PlanDay | undefined;
   activeDayLocation: Location | undefined;
   catalogLocation?: Location;
   getHotelsForDay: (dateStr: string) => Hotel[];
@@ -61,7 +61,7 @@ interface ItineraryPanelProps {
   expandedDiningReservationId?: string | null;
   setExpandedDiningReservationId?: (id: string | null) => void;
   scheduledPlaces: Place[];
-  displayScheduledPlaces: Place[];
+  displayScheduledPlaces: PreviewPlace[];
   activePlaceId: string | undefined;
   setActivePlaceId: (id: string | undefined) => void;
   placeGeneratingIds: Set<string>;
@@ -125,7 +125,7 @@ interface ItineraryPanelProps {
   handleDeleteScheduleNote: (itemIndex: number) => void;
   activeMobileTab?: string;
   isGoogleSignedIn?: boolean;
-  onShareTrip?: (trip?: any) => void;
+  onShareTrip?: (trip: Trip) => void;
   handleAddReservationEventToSchedule: (item: ScheduleHotelEventItem | ScheduleTransitEventItem | SchedulePlaceReservationEventItem, insertAtIndex?: number) => void;
   handleUpdateScheduleItemTime: (itemIndex: number, time: string) => void;
   handleAddPlaceToDay: (place: Place) => void;
@@ -2278,9 +2278,9 @@ function ItineraryPanel({
             <div ref={setTimelineDropRef} className="day-timeline day-timeline-wrap">
               {/* Preview place (not yet scheduled, shown as expanded preview card at top) */}
               {(() => {
-                const previewPlace = (displayScheduledPlaces[0] as any)?.isTemporary ? displayScheduledPlaces[0] : null;
+                const previewPlace = displayScheduledPlaces[0]?.isTemporary ? displayScheduledPlaces[0] : null;
                 if (!previewPlace) return null;
-                const isAiSuggestion = !!(previewPlace as any).isAiSuggestion;
+                const isAiSuggestion = !!previewPlace.isAiSuggestion;
                 const dotColor = isAiSuggestion ? '#a78bfa' : ((trip.placeGroups || DEFAULT_PLACE_GROUPS).find(g => g.id === previewPlace.placeGroupId)?.color || '#6b7280');
                 return (
                   <div className="timeline-card glass-panel timeline-card-preview" data-place-id={previewPlace.id}>
@@ -2554,7 +2554,7 @@ function ItineraryPanel({
                 );
               })()}
 
-              {scheduleItems.length === 0 && !(displayScheduledPlaces[0] as any)?.isTemporary && (
+              {scheduleItems.length === 0 && !displayScheduledPlaces[0]?.isTemporary && (
                 <p className="empty-timeline-text">
                   Itinerary is empty. Start by searching above or dragging places from the catalog to schedule.
                 </p>

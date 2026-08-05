@@ -38,8 +38,8 @@ export default function LocationModal({
   // Auto-populate states
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const searchTimeoutRef = useRef<any>(null);
+  const [suggestions, setSuggestions] = useState<Omit<Location, 'places'>[]>([]);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isOpen && location) {

@@ -1,5 +1,5 @@
 import { BookOpen, CheckSquare, Building, AlertTriangle, Receipt, Sparkles } from 'lucide-react';
-import type { Trip, Plan, Location, Place, Hotel, TransportationReservation, PlaceGroup, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
+import type { Trip, Plan, Location, Place, Hotel, TransportationReservation, PlaceGroup, ReservationGroup, GenericReservation, PlaceReservation, ExpenseItem, ExpenseGroup } from '../types';
 import CatalogSection from './CatalogSection';
 import ChecklistSection from './ChecklistSection';
 import ReservationsSection from './ReservationsSection';
@@ -90,9 +90,9 @@ interface LeftPanelAccordionProps {
 
   // Expenses actions passed down
   onAddExpense: (groupId: string) => void;
-  onEditExpense: (expense: any) => void;
+  onEditExpense: (expense: ExpenseItem) => void;
   onAddExpenseGroup: () => void;
-  onEditExpenseGroup: (group: any) => void;
+  onEditExpenseGroup: (group: ExpenseGroup) => void;
   onMoveExpenseGroup: (index: number, direction: 'up' | 'down') => void;
 }
 

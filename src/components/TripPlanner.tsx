@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { DndContext, DragOverlay, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
-import type { Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
+import type { AiPlaceDetailsUpdate, Attachment, PreviewPlace, Trip, Plan, PlanDay, Location, Place, PlaceGroup, Hotel, ScheduleItem, SchedulePlaceItem, ScheduleHotelEventItem, ScheduleTransitEventItem, SchedulePlaceReservationEventItem, TransportationReservation, FlatTransportationSegment, ExpenseGroup, ExpenseItem, ExpenseLine, ReservationGroup, GenericReservation, PlaceReservation } from '../types';
 import { flattenReservations } from '../types';
 import { mergedUnitRange } from '../utils/scheduleMerge';
 import { useSortableSensors } from '../utils/sortable';
@@ -54,6 +54,8 @@ import { searchPlacesNearLocation, DEFAULT_PLACE_GROUPS, DEFAULT_EXPENSE_GROUPS,
 import { getDaysDiff, shiftTripDates, getTodayDateString } from '../utils/dateUtils';
 import MapComponent from './MapComponent';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
+import type { ExtractedSegment } from '../utils/ai';
+import { errorMessage } from '../utils/errors';
 import { aiRequestQueue } from '../utils/aiRequestQueue';
 import { runAiCall } from '../utils/runAiCall';
 import { getOrCreateTripFileFolder, uploadFile } from '../utils/googleDrive';
@@ -116,29 +118,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const daysTabsNavRef = useRef<HTMLDivElement>(null);
   const lastScrollLeft = useRef<number>(0);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close search suggestions and dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (searchDropdownRef.current && !searchDropdownRef.current.contains(target)) {
-        setPlaceSuggestions([]);
-      }
-      if (!target.closest('.plan-dropdown-container')) {
-        setShowPlanMenu(false);
-      }
-      if (!target.closest('.day-options-dropdown-container')) {
-        setShowDayOptionsMenu(false);
-      }
-      if (!target.closest('.timeline-place-dropdown-container') && !target.closest('.timeline-place-dropdown-container-mobile') && !target.closest('.day-place-dropdown-container-mobile')) {
-        setActiveTimelinePlaceDropdownKey(null);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, []);
 
   // Restore day switcher scroll position across plan transitions
   useEffect(() => {
@@ -244,7 +223,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     const urlPlanId = params.get('plan');
     const defaultPlanId = trip.plans[0]?.id || '';
     
-    let targetPlanId = urlPlanId && trip.plans.some(p => p.id === urlPlanId) ? urlPlanId : defaultPlanId;
+    const targetPlanId = urlPlanId && trip.plans.some(p => p.id === urlPlanId) ? urlPlanId : defaultPlanId;
     setActivePlanId(targetPlanId);
     
     const plan = trip.plans.find(p => p.id === targetPlanId) || trip.plans[0];
@@ -255,6 +234,10 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       ? urlDay
       : (planDays.includes(todayStr) ? todayStr : (planDays[0] || ''));
     setActiveDayStr(targetDay);
+    // Keyed on trip.id alone on purpose: this resets the selected plan and day when
+    // you switch trips. Depending on trip.plans would snap the day back to today (or
+    // to the first day) every time any plan content is edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.id]);
 
   // Auto-validate plan and day selection when trip prop changes (e.g. due to other tab updates or syncs)
@@ -411,6 +394,31 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeSuggestions, setPlaceSuggestions] = useState<Omit<Place, 'placeGroupId'>[]>([]);
   const [isSearchingPlace, setIsSearchingPlace] = useState(false);
+
+  // Close search suggestions and dropdowns when clicking outside.
+  // Declared after the state it closes over, so the listener never captures a
+  // setter from its temporal dead zone.
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(target)) {
+        setPlaceSuggestions([]);
+      }
+      if (!target.closest('.plan-dropdown-container')) {
+        setShowPlanMenu(false);
+      }
+      if (!target.closest('.day-options-dropdown-container')) {
+        setShowDayOptionsMenu(false);
+      }
+      if (!target.closest('.timeline-place-dropdown-container') && !target.closest('.timeline-place-dropdown-container-mobile') && !target.closest('.day-place-dropdown-container-mobile')) {
+        setActiveTimelinePlaceDropdownKey(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   // PlaceGroup Edit Modal
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -573,10 +581,6 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     return () => clearTimeout(delayDebounce);
   }, [placeQuery, activeDayLocation]);
 
-  if (!activePlan) return null;
-
-
-
   // ----------------------------------------------------
   // Location Operations
   // ----------------------------------------------------
@@ -586,7 +590,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
            l.country.toLowerCase() === loc.country.toLowerCase()
     );
 
-    let updatedLocations = [...trip.locations];
+    const updatedLocations = [...trip.locations];
     let isNew = false;
 
     if (!existingLoc) {
@@ -621,7 +625,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
            l.country.toLowerCase() === loc.country.toLowerCase()
     );
 
-    let updatedLocations = [...trip.locations];
+    const updatedLocations = [...trip.locations];
     let isNew = false;
 
     if (!existingLoc) {
@@ -768,14 +772,17 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     setEditingPlace(null);
   };
 
-  const handleSaveBatchAiDetails = useCallback((updates: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } }) => {
+  const handleSaveBatchAiDetails = useCallback((updates: { [placeId: string]: AiPlaceDetailsUpdate }) => {
     onUpdateTrip(prevTrip => {
       const updatedLocations = prevTrip.locations.map(l => {
         let locationChanged = false;
         const updatedPlaces = l.places.map(p => {
           if (updates[p.id]) {
             locationChanged = true;
-            const { suggestedMarkers, ...aiDetails } = updates[p.id];
+            // Everything left after lifting suggestedMarkers off is an AI field
+            // key → string; the index signature can't express that on its own.
+            const { suggestedMarkers, ...rest } = updates[p.id];
+            const aiDetails = rest as Place['aiDetails'];
             return {
               ...p,
               aiDetails,
@@ -833,9 +840,12 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         }
       },
       onError: (err) => showAlert('AI Error', `Failed to parse AI response: ${err.message}`),
-      onLoadingChange: (loading) => setPlaceGeneratingIds(prev => { const next = new Set(prev); loading ? next.add(placeId) : next.delete(placeId); return next; }),
+      onLoadingChange: (loading) => setPlaceGeneratingIds(prev => { const next = new Set(prev); if (loading) next.add(placeId); else next.delete(placeId); return next; }),
       showManualPrompt: showManualAiPrompt,
     });
+    // showManualAiPrompt is redefined every render and only ever resolves a promise
+    // from the modal; including it would rebuild this callback constantly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.locations, trip.customAiFields, trip.disabledPlaceFields, trip.placeFieldsOrder, handleSaveBatchAiDetails]);
 
   const handleMapClick = (_lat: number, _lng: number) => {
@@ -1520,6 +1530,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       onLoadingChange: (loading) => { if (!loading) setIsLoadingAiSuggestions(false); },
       showManualPrompt: showManualAiPrompt,
     });
+    // showManualAiPrompt is redefined every render and only ever resolves a promise
+    // from the modal; including it would rebuild this callback constantly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogLocation]);
 
   const handleAddAiSuggestionToCatalog = useCallback((place: Place) => {
@@ -2757,7 +2770,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         reader.onerror = () => reject(new Error('Failed to read file locally.'));
       });
 
-      let attachment: any = null;
+      let attachment: Attachment | null = null;
 
       if (googleToken) {
         setImportingReservationMessage('Uploading file to Google Drive...');
@@ -2861,7 +2874,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
 
         let segmentsList = [];
         if (result.segments && result.segments.length > 0) {
-          segmentsList = await Promise.all(result.segments.map(async (seg: any, idx: number) => {
+          segmentsList = await Promise.all(result.segments.map(async (seg: ExtractedSegment, idx: number) => {
             let finalDepLat = seg.departureLat;
             let finalDepLng = seg.departureLng;
             if (seg.departureAddress && finalDepLat === undefined && finalDepLng === undefined) {
@@ -2983,7 +2996,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         const draftTransit: TransportationReservation = {
           id: 'imported-draft',
           name: result.name || `Transit ${file.name.substring(0, file.name.lastIndexOf('.'))}`,
-          type: (result.type as any) || 'flight',
+          type: (result.type as TransportationReservation['type']) || 'flight',
           confirmationNo: result.confirmationNo,
           bookedThrough: result.bookedThrough,
           expenses: GeminiService.parseExtractedExpenses(result, 'expense-import'),
@@ -2995,9 +3008,9 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
         setEditingTransport(draftTransit);
         setShowTransportModal(true);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      showAlert('Import Failed', err.message || 'An error occurred during file import.');
+      showAlert('Import Failed', errorMessage(err, 'An error occurred during file import.'));
     } finally {
       setIsImportingReservationFile(false);
       setImportingReservationMessage('');
@@ -3072,7 +3085,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
       onError: (err) => showAlert('AI Error', `Failed to parse AI response: ${err.message}`),
       onLoadingChange: (loading) => setDaysGeneratingDates(prev => {
         const next = new Set(prev);
-        loading ? next.add(dateStr) : next.delete(dateStr);
+        if (loading) next.add(dateStr); else next.delete(dateStr);
         return next;
       }),
       showManualPrompt: showManualAiPrompt,
@@ -3395,7 +3408,7 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     let list = [...scheduledPlaces];
     if (selectedCatalogPlace && !isSelectedPlaceScheduledOnActiveDay) {
       const isAiSuggestion = aiSuggestedPlaces.some(p => p.id === selectedCatalogPlace.id);
-      list = [{ ...selectedCatalogPlace, isTemporary: true, isAiSuggestion } as Place, ...list];
+      list = [{ ...selectedCatalogPlace, isTemporary: true, isAiSuggestion } as PreviewPlace, ...list];
     }
     return list;
   }, [scheduledPlaces, selectedCatalogPlace, isSelectedPlaceScheduledOnActiveDay, aiSuggestedPlaces]);
@@ -3446,6 +3459,13 @@ export default function TripPlanner({ trip, onUpdateTrip, onShareTrip, isGoogleS
     map.forEach(dates => dates.sort());
     return map;
   }, [activePlan]);
+
+  // Guarded here rather than earlier in the body: every hook above must run on
+  // every render, or the hook order changes the moment a trip has no plans and
+  // React throws "rendered fewer hooks than expected". A trip always ships with
+  // one plan (App.tsx) and handleDeletePlan refuses to remove the last one, so
+  // this only catches malformed imported data.
+  if (!activePlan) return null;
 
   return (
     <DndContext

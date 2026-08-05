@@ -1,17 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2 } from 'lucide-react';
-
-// Format timestamp
-export const formatFreshness = (timestamp?: number) => {
-  if (!timestamp) return '';
-  return new Date(timestamp).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
+import { formatFreshness } from '../constants/aiFieldIcons';
 
 // Parse inline markdown: links, bold, italics, code
 function parseInlineMarkdown(text: string): React.ReactNode[] {
@@ -172,7 +161,7 @@ export default function AiMarkdownSection({
               );
             }
 
-            const numberedMatch = trimmed.match(/^(\d+[\.\)])\s+(.*)/);
+            const numberedMatch = trimmed.match(/^(\d+[.)])\s+(.*)/);
             if (numberedMatch) {
               const isIndented = line.search(/\S/) > 0;
               return (

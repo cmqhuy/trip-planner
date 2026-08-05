@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import Modal from './Modal';
-import type { Place } from '../types';
+import type { AiPlaceDetailsUpdate, Place } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_TITLE, AI_NOT_CONFIGURED_MESSAGE } from '../utils/ai';
 import { runAiCall } from '../utils/runAiCall';
 import FunGeneratingLoader from './FunGeneratingLoader';
@@ -13,7 +13,7 @@ interface AiGenerateModalProps {
   places: Place[];
   city: string;
   country: string;
-  onSave: (updates: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } }) => void;
+  onSave: (updates: { [placeId: string]: AiPlaceDetailsUpdate }) => void;
   customAiFields?: { title: string; key: string; description: string; icon?: string; disabled?: boolean; }[];
   disabledPlaceFields?: string[];
   placeFieldsOrder?: string[];
@@ -97,7 +97,7 @@ export default function AiGenerateModal({
         return GeminiService.generatePlaceAiDetailsWithRotation(placesToGen, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder);
       },
       onSuccess: (results) => {
-        const updatesMap: { [placeId: string]: { suggestedMarkers?: any[]; [key: string]: any } } = {};
+        const updatesMap: { [placeId: string]: AiPlaceDetailsUpdate } = {};
         results.forEach(res => { const { id, ...details } = res; updatesMap[id] = details; });
         onSave(updatesMap);
         onClose();

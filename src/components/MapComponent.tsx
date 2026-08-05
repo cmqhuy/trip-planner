@@ -847,6 +847,11 @@ function MapComponent({
     prevTransportsSerializedRef.current = transportsSerialized;
     prevShadowPlacesSerializedRef.current = shadowPlacesSerialized;
 
+    // `locations` is read only to build a place→city lookup for marker labels, and
+    // it changes exactly when `places`/`shadowPlaces` do. Adding it — an array prop
+    // with a fresh reference each parent render — would tear down and rebuild every
+    // marker and polyline on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, shadowPlaces, activePlaceId, placeGroups, previewMarker, hotels, transports]);
 
   return (

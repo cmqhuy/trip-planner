@@ -171,8 +171,8 @@ export default function PlaceModal({
       liveCall: () => GeminiService.generatePlaceAiDetailsWithRotation(placePayload, city, country, customAiFields, undefined, disabledPlaceFields, placeFieldsOrder),
       onSuccess: (results) => {
         if (results && results.length > 0) {
-          const { id: _id, suggestedMarkers: aiMarkers, ...details } = results[0] as { id?: string; suggestedMarkers?: SuggestedMarker[]; [key: string]: any };
-          setAiDetails(details);
+          const { id: _id, suggestedMarkers: aiMarkers, ...rest } = results[0];
+          setAiDetails(rest as Record<string, string>);
           setSuggestedMarkers(aiMarkers || []);
           setAiUpdatedAt(Date.now());
         } else {
@@ -314,7 +314,7 @@ export default function PlaceModal({
                 type="button"
                 className="btn-secondary flex-align btn-danger-secondary"
                 onClick={() => {
-                  place && onDelete(place.id);
+                  if (place) onDelete(place.id);
                   onClose();
                 }}
               >

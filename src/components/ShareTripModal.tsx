@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Share2, Users, Trash2, X, Plus, AlertCircle, Shield, User, Loader2 } from 'lucide-react';
 import type { Trip } from '../types';
+import { errorMessage } from '../utils/errors';
+import type { DrivePermission } from '../utils/googleDrive';
 import {
   listTripFilePermissions,
   shareTripFile,
@@ -19,7 +21,7 @@ export interface ShareTripModalProps {
 }
 
 export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTrip, folderId, folderDisplayName }: ShareTripModalProps) {
-  const [permissions, setPermissions] = useState<any[]>([]);
+  const [permissions, setPermissions] = useState<DrivePermission[]>([]);
   const [loading, setLoading] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [roleInput, setRoleInput] = useState<'reader' | 'writer'>('reader');
@@ -52,7 +54,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
       if (!isFolder && trip && trip.shared !== hasCollaborators && onUpdateTrip) {
         onUpdateTrip({ ...trip, shared: hasCollaborators });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       setErrorMsg('Failed to load sharing list. You might not have permission to view it.');
     } finally {
@@ -62,6 +64,9 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
 
   useEffect(() => {
     loadPermissions();
+    // loadPermissions is redefined each render; it only ever reads `fileId`, which
+    // is already the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId]);
 
   // Handle sharing with a new user
@@ -78,9 +83,9 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
       setEmailInput('');
       setSuccessData({ email: targetEmail, role: targetRole });
       await loadPermissions();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErrorMsg(e.message || 'Failed to share itinerary. Check if the email address is a valid Google Account.');
+      setErrorMsg(errorMessage(e, 'Failed to share itinerary. Check if the email address is a valid Google Account.'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +100,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
     try {
       await removeTripFilePermission(accessToken, fileId, permId);
       await loadPermissions();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       setErrorMsg('Failed to remove collaborator access.');
     } finally {
@@ -112,7 +117,7 @@ export default function ShareTripModal({ trip, accessToken, onClose, onUpdateTri
     try {
       await updateTripFilePermission(accessToken, fileId, permId, newRole);
       await loadPermissions();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       setErrorMsg('Failed to update collaborator permission.');
     } finally {
