@@ -300,10 +300,19 @@ describe('App Sync and Integration Tests', () => {
       expect(fetchTripsFromDrive).toHaveBeenCalledTimes(1);
     });
 
-    // Find and click the manual sync button (Sync Now)
-    const syncBtn = container.querySelector('[data-tooltip="Sync Now"]');
+    // Find the manual sync button (Sync Now)
+    const syncBtn = container.querySelector<HTMLButtonElement>('[data-tooltip="Sync Now"]');
     expect(syncBtn).not.toBeNull();
-    
+
+    // The button is `disabled={syncStatus === 'syncing'}`, and the waitFor above only
+    // proves the initial sync *started* — fetchTripsFromDrive having been called says
+    // nothing about it having settled. Clicking while it is still in flight hits a
+    // disabled button and the event is swallowed, so wait for it to re-enable.
+    // Without this the test passes on a fast machine and fails on a slow CI runner.
+    await waitFor(() => {
+      expect(syncBtn!.disabled).toBe(false);
+    });
+
     // Clear mock calls to verify the click triggers a new fetch
     vi.mocked(fetchTripsFromDrive).mockClear();
     fireEvent.click(syncBtn!);
