@@ -18,8 +18,13 @@ interface ErrorBoundaryState {
  * losing their data. The fallback keeps a route out of that state.
  *
  * There is no error-reporting backend yet: a crash here leaves no record beyond
- * the user's own console. Phase C introduces the Worker that `componentDidCatch`
- * should forward to.
+ * the user's own console, so nobody finds out. That is a deliberate choice — no
+ * third-party reporter was added, because the planned backend can receive these
+ * itself without involving another vendor.
+ *
+ * `componentDidCatch` below is the seam: it already has everything a report
+ * needs. When the backend exists, POST from there. Send the caught error only —
+ * never trip content.
  */
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null, showDetails: false };
