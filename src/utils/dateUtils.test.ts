@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest';
-import { getDaysDiff, shiftDateString, generateDatesRange, shiftTripDates, getTodayDateString } from './dateUtils';
+import { getDaysDiff, shiftDateString, generateDatesRange, shiftTripDates, getTodayDateString, sortDatedReservations } from './dateUtils';
 import type { Trip } from '../types';
 
 describe('dateUtils tests', () => {
@@ -150,5 +150,18 @@ describe('dateUtils tests', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  test('sortDatedReservations orders by status then date and time, undated last', () => {
+    const items = [
+      { id: 'noDate', status: 'Confirmed' as const },
+      { id: 'late', date: '2026-06-05', time: '09:00', status: 'Confirmed' as const },
+      { id: 'canceledEarly', date: '2026-06-01', status: 'Canceled' as const },
+      { id: 'earlyPm', date: '2026-06-01', time: '18:00', status: 'Confirmed' as const },
+      { id: 'earlyAm', date: '2026-06-01', time: '08:00', status: 'Confirmed' as const },
+    ];
+    expect(sortDatedReservations(items).map(i => i.id)).toEqual([
+      'earlyAm', 'earlyPm', 'late', 'noDate', 'canceledEarly',
+    ]);
   });
 });

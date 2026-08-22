@@ -10,6 +10,24 @@ function reservationStatusPriority(status?: string): number {
   return RESERVATION_STATUS_PRIORITY[status ?? ''] ?? 2;
 }
 
+/**
+ * Sorts reservations that carry an optional `date` (+ optional `time`) the same way
+ * hotels and transports are sorted: status priority first, then chronologically.
+ * Entries without a date sort last, keeping their relative order.
+ */
+export function sortDatedReservations<T extends { date?: string; time?: string; status?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const sp = reservationStatusPriority(a.status) - reservationStatusPriority(b.status);
+    if (sp !== 0) return sp;
+    if (!a.date && !b.date) return 0;
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    const dateA = `${a.date} ${a.time ?? ''}`;
+    const dateB = `${b.date} ${b.time ?? ''}`;
+    return dateA.localeCompare(dateB);
+  });
+}
+
 export function sortHotels(hotels: Hotel[]): Hotel[] {
   return [...hotels].sort((a, b) => {
     const sp = reservationStatusPriority(a.status) - reservationStatusPriority(b.status);

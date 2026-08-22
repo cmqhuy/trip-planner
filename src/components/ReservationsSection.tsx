@@ -14,7 +14,7 @@ import type { Trip, Plan, Hotel, TransportationReservation, ReservationGroup, Ge
 import { flattenReservations } from '../types';
 import { GeminiService, AI_NOT_CONFIGURED_MESSAGE, AI_FILE_CONTENTS_NOT_AVAILABLE_IN_MANUAL_MODE_MESSAGE } from '../utils/ai';
 import { buildHotelMapsLink, buildTransitMapsLink, buildMapsLink } from '../utils/api';
-import { sortHotels, sortTransports } from '../utils/dateUtils';
+import { sortHotels, sortTransports, sortDatedReservations } from '../utils/dateUtils';
 import { getHotelResolvedLocation, getTransitResolvedLocations } from '../utils/locationUtils';
 import { getExpenseGroupIcon } from '../utils/expenseUtils';
 import { getReservationWarnings, isPlaceReservationUnlinkedOrDeleted } from '../utils/reservationWarnings';
@@ -474,7 +474,7 @@ export default function ReservationsSection({
   );
 
   const renderPlaceReservationCards = (targetType: 'attraction' | 'dining') => {
-    const items = (activePlan.placeReservations || []).filter(pr => pr.type === targetType);
+    const items = sortDatedReservations((activePlan.placeReservations || []).filter(pr => pr.type === targetType));
     if (items.length === 0) return <span className="subsection-subtitle">No {targetType === 'attraction' ? 'attractions' : 'dining'} booked.</span>;
 
     const expandedId = targetType === 'dining' ? expandedDiningReservationId : expandedAttractionReservationId;
@@ -658,7 +658,7 @@ export default function ReservationsSection({
   };
 
   const renderGenericCards = (groupId: string) => {
-    const items = (genericReservations || []).filter(r => r.groupId === groupId);
+    const items = sortDatedReservations((genericReservations || []).filter(r => r.groupId === groupId));
     if (items.length === 0) return <span className="subsection-subtitle">No reservations added.</span>;
 
     return items.map(r => {
